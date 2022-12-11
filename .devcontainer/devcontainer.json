@@ -1,0 +1,14 @@
+{
+    "image": "mcr.microsoft.com/devcontainers/universal:2",
+    "features": {
+        "ghcr.io/devcontainers/features/azure-cli:1": {
+            "installBicep": true
+        },
+        "ghcr.io/devcontainers/features/dotnet:1": {
+            "version": "7",
+            "installUsingApt": true
+        },
+        "ghcr.io/devcontainers/features/powershell:1": {}
+    },
+    "postCreateCommand": "cd /home/codespace/ && sudo chown codespace .dotnet"
+}
