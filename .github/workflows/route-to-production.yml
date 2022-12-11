@@ -32,7 +32,7 @@ jobs:
 
   terraform-prereq-prd:
     environment: Production
-    depends-on: ["terraform-prereq-dev"]
+    needs: ["terraform-prereq-dev"]
 
     runs-on: ubuntu-latest
 
