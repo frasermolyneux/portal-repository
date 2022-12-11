@@ -8,7 +8,13 @@
             "version": "7",
             "installUsingApt": true
         },
-        "ghcr.io/devcontainers/features/powershell:1": {}
+        "ghcr.io/devcontainers/features/powershell:1": {},
+        "ghcr.io/devcontainers/features/terraform:1": {
+            "version": "latest",
+            "tflint": {
+                "version": "latest"   
+            }
+        }
     },
     "postCreateCommand": "cd /home/codespace/ && sudo chown codespace .dotnet"
 }
