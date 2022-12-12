@@ -54,7 +54,7 @@ jobs:
 
   terraform-plan-dev:
     runs-on: ubuntu-latest
-    environment: tfplan
+    environment: Development
     needs: ["terraform-prereq-dev"]
     
     steps:
