@@ -92,7 +92,7 @@ jobs:
     - name: Terraform Validate
       run: |
         cd terraform
-        terraform validate -var-file=tfvars/dev.tfvars
+        terraform validate
 
     - name: Init TFLint
       run: tflint --init
