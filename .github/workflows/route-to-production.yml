@@ -151,7 +151,7 @@ jobs:
     - name: Terraform Apply
       run: |
         cd terraform
-        terraform apply -var-file=tfvars/dev.tfvars
+        terraform apply -auto-approve -var-file=tfvars/dev.tfvars
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
