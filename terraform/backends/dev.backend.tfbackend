@@ -1,0 +1,4 @@
+resource_group_name  = "rg-portal-repository-tf-dev-uksouth"
+storage_account_name = "saptlrepotfdev"
+container_name       = "terraform"
+key                  = "terraform.tfstate"
