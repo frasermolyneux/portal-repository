@@ -17,3 +17,9 @@ resource "azurerm_key_vault" "kv" {
     default_action             = "Allow"
   }
 }
+
+resource "azurerm_role_assignment" "kv" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = data.azurerm_api_management.api_management.identity.0.principal_id
+}

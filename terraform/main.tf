@@ -12,6 +12,13 @@ terraform {
 }
 
 provider "azurerm" {
+  subscription_id = var.subscription_id
+  features {}
+}
+
+provider "azurerm" {
+  alias           = "api_management"
+  subscription_id = var.api_management_subscription_id
   features {}
 }
 
