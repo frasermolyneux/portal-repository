@@ -69,9 +69,17 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
+
+    - name: Setup TFLint
+      uses: terraform-linters/setup-tflint@v1
+
+    - name: Terraform fmt
+      run: |
+        cd terraform
+        terraform fmt -check
+      continue-on-error: false
     
     - name: Terraform Init
-      id: init
       run: |
         cd terraform
         terraform init -backend-config=backends/dev.backend.hcl -var-file=tfvars/dev.tfvars
@@ -81,11 +89,69 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-    - name: Terraform Plan
-      id: plan
+    - name: Terraform Validate
       run: |
         cd terraform
-        terraform plan --out=out.tfplan
+        terraform validate -var-file=tfvars/dev.tfvars
+
+    - name: Init TFLint
+      run: tflint --init
+
+    - name: Run TFLint
+      run: tflint -f compact
+
+    - name: Terraform Plan
+      run: |
+        cd terraform
+        terraform plan -var-file=tfvars/dev.tfvars
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
+
+  terraform-apply-dev:
+    runs-on: ubuntu-latest
+    environment: Development
+    needs: ["terraform-plan-dev"]
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: 'Az CLI Login'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+
+    - name: Terraform Init
+      run: |
+        cd terraform
+        terraform init -backend-config=backends/dev.backend.hcl
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
+
+    - name: Terraform Plan
+      run: |
+        cd terraform
+        terraform plan -var-file=tfvars/dev.tfvars
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
+
+    - name: Terraform Plan
+      run: |
+        cd terraform
+        terraform apply -var-file=tfvars/dev.tfvars
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
