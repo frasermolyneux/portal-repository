@@ -1,4 +1,4 @@
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-portal-repository-${var.environment}-${var.region}"
-  location = var.region
+  name     = "rg-portal-repository-${var.environment}-${var.location}"
+  location = var.location
 }
