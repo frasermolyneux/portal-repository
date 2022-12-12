@@ -74,7 +74,7 @@ jobs:
       id: init
       run: |
         cd terraform
-        terraform init -backend-config=backends/dev.backend.tfbackend -var-file=tfvars/dev.tfvars
+        terraform init -backend-config=backends/dev.backend.hcl -var-file=tfvars/dev.tfvars
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
