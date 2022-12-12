@@ -1,0 +1,2 @@
+environment = "prd"
+location = "uksouth"
