@@ -3,7 +3,7 @@ resource "azurerm_application_insights" "ai" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   //workspace_id        = data.azurerm_log_analytics_workspace.platform.id
-  workspace_id = "/${var.log_analytics_subscription_id}/resourceGroups/${var.log_analytics_resource_group_name}/providers/Microsoft.OperationalInsights/workspaces/${var.log_analytics_workspace_name}"
+  workspace_id = "/subscriptions/${var.log_analytics_subscription_id}/resourceGroups/${var.log_analytics_resource_group_name}/providers/Microsoft.OperationalInsights/workspaces/${var.log_analytics_workspace_name}"
 
   application_type    = "web"
 }
