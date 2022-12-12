@@ -22,6 +22,12 @@ provider "azurerm" {
   features {}
 }
 
+provider "azurerm" {
+  alias           = "log_analytics"
+  subscription_id = var.log_analytics_subscription_id
+  features {}
+}
+
 data "azurerm_client_config" "current" {}
 
 resource "random_id" "environment_id" {

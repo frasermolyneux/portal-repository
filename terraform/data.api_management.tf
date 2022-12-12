@@ -1,4 +1,4 @@
-data azurerm_api_management api_management {
+data "azurerm_api_management" "platform" {
   provider            = azurerm.api_management
   
   name                = var.api_management_name
