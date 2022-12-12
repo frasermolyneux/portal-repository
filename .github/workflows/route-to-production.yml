@@ -148,7 +148,7 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-    - name: Terraform Plan
+    - name: Terraform Apply
       run: |
         cd terraform
         terraform apply -var-file=tfvars/dev.tfvars
