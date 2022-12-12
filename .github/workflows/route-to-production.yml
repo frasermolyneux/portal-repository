@@ -219,7 +219,7 @@ jobs:
   terraform-apply-prd:
     runs-on: ubuntu-latest
     environment: Production
-    needs: ["terraform-apply-dev"]
+    needs: ["terraform-plan-prd", "terraform-apply-dev"]
     
     steps:
     - uses: actions/checkout@v3
