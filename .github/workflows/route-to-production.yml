@@ -72,12 +72,6 @@ jobs:
 
     - name: Setup TFLint
       uses: terraform-linters/setup-tflint@v1
-
-    - name: Terraform fmt
-      run: |
-        cd terraform
-        terraform fmt -check
-      continue-on-error: false
     
     - name: Terraform Init
       run: |
@@ -130,12 +124,6 @@ jobs:
 
     - name: Setup TFLint
       uses: terraform-linters/setup-tflint@v1
-
-    - name: Terraform fmt
-      run: |
-        cd terraform
-        terraform fmt -check
-      continue-on-error: false
     
     - name: Terraform Init
       run: |
