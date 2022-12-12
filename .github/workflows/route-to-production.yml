@@ -52,13 +52,10 @@ jobs:
         az storage account create --name "saptlrepotfprd" --resource-group "rg-portal-repository-tf-prd-uksouth" --location "uksouth" --sku "Standard_LRS"
         az storage container create --name "terraform" --account-name "saptlrepotfprd"
 
-jobs:
   terraform-plan-dev:
     runs-on: ubuntu-latest
     environment: tfplan
-    defaults:
-      run:
-        working-directory: terraform
+    needs: ["terraform-prereq-dev"]
     
     steps:
     - uses: actions/checkout@v3
@@ -95,4 +92,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: tf-plan
-        path: ${{ env.tf_actions_working_dir }}/out.tfplan
+        path: terraform/out.tfplan
