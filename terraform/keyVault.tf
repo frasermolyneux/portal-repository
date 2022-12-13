@@ -23,3 +23,9 @@ resource "azurerm_role_assignment" "apim_kv_role_assignment" {
   role_definition_name = "Key Vault Secrets User"
   principal_id         = data.azurerm_api_management.platform.identity.0.principal_id
 }
+
+resource "azurerm_role_assignment" "deploy_principal_kv_role_assignment" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
