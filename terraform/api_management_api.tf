@@ -7,7 +7,7 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend" {
   protocol            = "http"
   title               = local.workload_name
   description         = local.workload_name 
-  url                 = format("https://%s.%s", local.workload_name, local.parent_dns_name)
+  url                 = format("https://%s.%s", local.workload_name, var.parent_dns_name)
 
   tls {
     validate_certificate_chain = true
@@ -53,12 +53,13 @@ resource "azurerm_api_management_api" "repository_api" {
 
   subscription_required = true
 
-  subscription_key_parameter_names {
+  subscription_key_parameter_names = {
     header = "Ocp-Apim-Subscription-Key"
+    query  = "subscription-key"
   }
 
   import {
     content_format = "openapi+json"
-    content_value  = file("../Repository.openapi+json")
+    content_value  = file("../Repository.openapi+json.json")
   }
 }
