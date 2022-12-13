@@ -11,6 +11,8 @@ log_analytics_subscription_id = "7760848c-794d-4a19-8cb2-52f71a21ac2b"
 log_analytics_resource_group_name = "rg-platform-logging-prd-uksouth"
 log_analytics_workspace_name = "log-platform-prd-uksouth"
 
+parent_dns_name = "xtremeidiots.dev"
+
 tags = {
     Environment = "prd",
     Workload = "portal-repository",
