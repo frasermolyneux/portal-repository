@@ -53,7 +53,7 @@ resource "azurerm_api_management_api" "repository_api" {
 
   subscription_required = true
 
-  subscription_key_parameter_names = {
+  subscription_key_parameter_names {
     header = "Ocp-Apim-Subscription-Key"
     query  = "subscription-key"
   }
