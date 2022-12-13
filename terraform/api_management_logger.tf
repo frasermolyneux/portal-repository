@@ -1,9 +1,9 @@
 resource "azurerm_api_management_named_value" "app_insights_apim_instrumentation_key_named_value" {
-  name                = "${azurerm_app_insights.ai.name}-instrumentationkey"
+  name                = "${azurerm_application_insights.ai.name}-instrumentationkey"
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
-  display_name        = "${azurerm_app_insights.ai.name}-instrumentationkey"
+  display_name        = "${azurerm_application_insights.ai.name}-instrumentationkey"
 
   secret = true
 
