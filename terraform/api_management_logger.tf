@@ -21,6 +21,6 @@ resource "azurerm_api_management_logger" "api_management_logger" {
   resource_id         = azurerm_application_insights.ai.id
 
   application_insights {
-    instrumentation_key = azurerm_application_insights.ai.instrumentation_key
+    instrumentation_key = "'{{${azurerm_api_management_named_value.app_insights_apim_instrumentation_key_named_value.display_name}}}'"
   }
 }
