@@ -17,25 +17,25 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend" {
 
 resource "azurerm_api_management_named_value" "webapi_active_backend_named_value" {
   provider            = azurerm.api_management
-  name                = "repository-api-active-backend"
+  name                = "repository-api-active-backend-v2"
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
   secret = false
 
-  display_name        = "repository-api-active-backend"
+  display_name        = "repository-api-active-backend-v2"
   value = azurerm_api_management_backend.webapi_api_management_backend.name
 }
 
 resource "azurerm_api_management_named_value" "webapi_audience_named_value" {
   provider            = azurerm.api_management
-  name                = "repository-api-audience"
+  name                = "repository-api-audience-v2"
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
   secret = false
 
-  display_name        = "repository-api-audience"
+  display_name        = "repository-api-audience-v2"
   value               = format("api://portal-repository-api-%s", var.environment)
 }
 
