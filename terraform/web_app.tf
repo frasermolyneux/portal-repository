@@ -1,7 +1,7 @@
 resource "azurerm_linux_web_app" "app" {
   provider = azurerm.web_apps
   name     = local.web_app_name
-  tags     = local.tags
+  tags     = var.tags
 
   resource_group_name = data.azurerm_service_plan.plan.resource_group_name
   location            = data.azurerm_service_plan.plan.location
