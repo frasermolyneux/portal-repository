@@ -22,6 +22,6 @@ resource "azurerm_linux_web_app" "app" {
   }
 
   headers {
-    x_azure_fdid = data.azurerm_frontdoor.platform.id
+    x_azure_fdid = data.azurerm_cdn_profile.platform.id
   }
 }
