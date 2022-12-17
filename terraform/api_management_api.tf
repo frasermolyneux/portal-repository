@@ -117,7 +117,6 @@ resource "azurerm_api_management_api_diagnostic" "example" {
   api_management_logger_id = azurerm_api_management_logger.api_management_logger.id
 
   sampling_percentage       = 100
-  sampling_type             = "fixed"
 
   always_log_errors         = true
   log_client_ip             = true
