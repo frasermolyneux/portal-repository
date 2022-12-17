@@ -17,9 +17,22 @@ resource "azurerm_linux_web_app" "app" {
     }
 
     scm_ip_restriction {
+        action = "Allow"
+        service_tag = "AzureFrontDoor.Backend"
+
         headers {
             x_azure_fdid = [data.azurerm_cdn_frontdoor_profile.platform.resource_guid]
         }
+
+        name = "RestrictToFrontDoor"
+        priority = 1000
+    }
+
+    scm_ip_restriction {
+        ip_address = "Any"
+        action = "Deny"
+        priority = 2147483647
+        name = "Deny All"
     }
     
     ftps_state          = "Disabled"
