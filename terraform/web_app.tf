@@ -16,12 +16,14 @@ resource "azurerm_linux_web_app" "app" {
       dotnet_version = "7.0"
     }
 
+    scm_ip_restriction {
+        headers {
+            x_azure_fdid = data.azurerm_cdn_profile.platform.id
+        }
+    }
+    
     ftps_state          = "Disabled"
     always_on           = true
     minimum_tls_version = "1.2"
-  }
-
-  headers {
-    x_azure_fdid = data.azurerm_cdn_profile.platform.id
   }
 }
