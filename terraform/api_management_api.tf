@@ -63,3 +63,66 @@ resource "azurerm_api_management_api" "repository_api" {
     content_value  = file("../Repository.openapi+json.json")
   }
 }
+
+resource "azurerm_api_management_api_policy" "example" {
+  provider            = azurerm.api_management
+  api_name            = azurerm_api_management_api.repository_api.name
+  resource_group_name = data.azurerm_api_management.platform.resource_group_name
+  api_management_name = data.azurerm_api_management.platform.name
+
+  xml_content = <<XML
+<policies>
+  <inbound>
+      <base/>
+      <set-backend-service backend-id="{{repository-api-active-backend-v2}}" />
+      <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" />
+      <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
+          <openid-config url="{{tenant-login-url}}{{tenant-id}}/v2.0/.well-known/openid-configuration" />
+          <audiences>
+              <audience>{{repository-api-audience-v2}}</audience>
+          </audiences>
+          <issuers>
+              <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
+          </issuers>
+          <required-claims>
+              <claim name="roles" match="any">
+                <value>ServiceAccount</value>
+              </claim>
+          </required-claims>
+      </validate-jwt>
+  </inbound>
+  <backend>
+      <forward-request />
+  </backend>
+  <outbound>
+      <base/>
+      <cache-store duration="3600" />
+  </outbound>
+  <on-error />
+</policies>
+XML
+
+  depends_on = [
+    azurerm_api_management_named_value.webapi_active_backend_named_value,
+    azurerm_api_management_named_value.webapi_audience_named_value
+  ] 
+}
+
+resource "azurerm_api_management_api_diagnostic" "example" {
+  provider            = azurerm.api_management
+  identifier          = "applicationinsights"
+  api_name            = azurerm_api_management_api.repository_api.name
+  resource_group_name = data.azurerm_api_management.platform.resource_group_name
+  api_management_name = data.azurerm_api_management.platform.name
+  api_management_logger_id = azurerm_api_management_logger.api_management_logger.id
+
+  sampling_percentage       = 100
+  sampling_type             = "fixed"
+
+  always_log_errors         = true
+  log_client_ip             = true
+
+  verbosity                 = "information"
+
+  http_correlation_protocol = "W3C"
+}
