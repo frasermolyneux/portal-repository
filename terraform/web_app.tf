@@ -18,7 +18,7 @@ resource "azurerm_linux_web_app" "app" {
 
     scm_ip_restriction {
         headers {
-            x_azure_fdid = data.azurerm_cdn_profile.platform.id
+            x_azure_fdid = data.azurerm_cdn_frontdoor_profile.platform.resource_guid
         }
     }
     
