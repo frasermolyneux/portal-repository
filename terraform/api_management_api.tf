@@ -7,7 +7,7 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend" {
   protocol            = "http"
   title               = local.workload_name
   description         = local.workload_name 
-  url                 = format("https://%s.%s", local.workload_name, var.parent_dns_name)
+  url                 = format("https://%s.%s", local.workload_name, var.dns_zone_name)
 
   tls {
     validate_certificate_chain = true

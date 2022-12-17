@@ -23,6 +23,24 @@ provider "azurerm" {
 }
 
 provider "azurerm" {
+  alias           = "web_apps"
+  subscription_id = var.web_apps_subscription_id
+  features {}
+}
+
+provider "azurerm" {
+  alias           = "frontdoor"
+  subscription_id = var.frontdoor_subscription_id
+  features {}
+}
+
+provider "azurerm" {
+  alias           = "dns"
+  subscription_id = var.dns_subscription_id
+  features {}
+}
+
+provider "azurerm" {
   alias           = "log_analytics"
   subscription_id = var.log_analytics_subscription_id
   features {}
