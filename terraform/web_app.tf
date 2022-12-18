@@ -53,7 +53,7 @@ resource "azurerm_linux_web_app" "app" {
     "AzureAd__Instance" = "https://login.microsoftonline.com/"
     "AzureAd__ClientId" = azuread_application.repository_api.application_id
     "AzureAd__ClientSecret" = format("@Microsoft.KeyVault(VaultName=%s;SecretName=%s)", azurerm_key_vault.kv.name, azurerm_key_vault_secret.app_registration_client_secret.name)
-    "AzureAd__Audience" = azuread_application.repository_api.identifier_uris[0]
+    "AzureAd__Audience" = format("api://%s", local.app_registration_name)
     "sql_connection_string" = ""
     "appdata_storage_connectionstring" = format("@Microsoft.KeyVault(VaultName=%s;SecretName=%s)", azurerm_key_vault.kv.name, azurerm_key_vault_secret.app_data_storage_connection_string_secret.name)
   }
