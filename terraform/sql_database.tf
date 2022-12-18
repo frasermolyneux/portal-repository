@@ -4,6 +4,5 @@ resource "azurerm_mssql_database" "repo" {
   server_id           = data.azurerm_mssql_server.platform.id
   tags                = var.tags
 
-  sku_name = "Standard"
-  min_capacity = 10
+  sku_name = "S0"
 }
