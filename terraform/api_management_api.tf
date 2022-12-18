@@ -36,7 +36,7 @@ resource "azurerm_api_management_named_value" "webapi_audience_named_value" {
   secret = false
 
   display_name        = "repository-api-audience-v2"
-  value               = format("api://portal-repository-api-%s", var.environment)
+  value               = format("api://%s", local.app_registration_name)
 }
 
 resource "azurerm_api_management_api" "repository_api" {
