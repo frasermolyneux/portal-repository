@@ -29,7 +29,7 @@ resource "azurerm_linux_web_app" "app" {
     }
 
     scm_ip_restriction {
-        ip_address = "Any"
+        ip_address = "*"
         action = "Deny"
         priority = 2147483647
         name = "Deny All"
