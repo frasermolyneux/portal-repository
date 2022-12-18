@@ -31,7 +31,9 @@ provider "azurerm" {
 provider "azurerm" {
   alias           = "frontdoor"
   subscription_id = var.frontdoor_subscription_id
-  features {}
+  features {
+    skip_provider_registration = true
+  }
 }
 
 provider "azurerm" {
