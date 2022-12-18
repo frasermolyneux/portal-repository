@@ -18,7 +18,7 @@ resource "azurerm_linux_web_app" "app" {
       dotnet_version = "7.0"
     }
 
-    scm_ip_restriction {
+    ip_restriction {
         action = "Allow"
         service_tag = "AzureFrontDoor.Backend"
 
@@ -30,7 +30,7 @@ resource "azurerm_linux_web_app" "app" {
         priority = 1000
     }
 
-    scm_ip_restriction {
+    ip_restriction {
         ip_address = "0.0.0.0/0"
         action = "Deny"
         priority = 2147483647
