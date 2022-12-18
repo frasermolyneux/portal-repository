@@ -54,7 +54,7 @@ resource "azurerm_linux_web_app" "app" {
     "AzureAd__ClientId" = azuread_application.repository_api.application_id
     "AzureAd__ClientSecret" = format("@Microsoft.KeyVault(VaultName=%s;SecretName=%s)", azurerm_key_vault.kv.name, azurerm_key_vault_secret.app_registration_client_secret.name)
     "AzureAd__Audience" = format("api://%s", local.app_registration_name)
-    "sql_connection_string" = ""
+    "sql_connection_string" = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;", data.azurerm_sql_server.platform.fqdn, local.sql_database_name)
     "appdata_storage_connectionstring" = format("@Microsoft.KeyVault(VaultName=%s;SecretName=%s)", azurerm_key_vault.kv.name, azurerm_key_vault_secret.app_data_storage_connection_string_secret.name)
   }
 }
