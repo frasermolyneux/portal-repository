@@ -49,7 +49,7 @@ resource "azurerm_dns_cname_record" "app" {
   zone_name           = data.azurerm_dns_zone.platform.name
   resource_group_name = data.azurerm_dns_zone.platform.resource_group_name
   ttl                 = 300
-  record              = data.azurerm_cdn_frontdoor_profile.platform.fully_qualified_domain_name
+  record              = azurerm_cdn_frontdoor_endpoint.ep.host_name
   tags                = var.tags
 }
 
