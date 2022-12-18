@@ -15,6 +15,10 @@ frontdoor_subscription_id = "1b5b28ed-1365-4a48-b285-80f80a6aaa1b"
 frontdoor_resource_group_name = "rg-platform-frontdoor-dev-uksouth"
 frontdoor_name = "fd-mx-platform-dev"
 
+sql_subscription_id = "1b5b28ed-1365-4a48-b285-80f80a6aaa1b"
+sql_resource_group_name = "rg-platform-sql-dev-uksouth"
+sql_server_name = "sql-platform-dev-uksouth"
+
 dns_subscription_id = "db34f572-8b71-40d6-8f99-f29a27612144"
 dns_resource_group_name = "rg-platform-dns-prd-uksouth"
 dns_zone_name = "xtremeidiots.dev"

@@ -20,6 +20,10 @@ variable "frontdoor_subscription_id" {}
 variable "frontdoor_resource_group_name" {}
 variable "frontdoor_name" {}
 
+variable "sql_subscription_id" {}
+variable "sql_resource_group_name" {}
+variable "sql_server_name" {}
+
 variable "dns_subscription_id" {}
 variable "dns_resource_group_name" {}
 variable "dns_zone_name" {}
