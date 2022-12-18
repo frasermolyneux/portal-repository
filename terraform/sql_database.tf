@@ -5,5 +5,5 @@ resource "azurerm_mssql_database" "repo" {
   tags                = var.tags
 
   sku_name = "Standard"
-  min_capavity = 10
+  min_capacity = 10
 }
