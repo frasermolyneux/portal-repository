@@ -7,6 +7,8 @@ resource "azurerm_linux_web_app" "app" {
   location            = data.azurerm_service_plan.plan.location
   service_plan_id     = data.azurerm_service_plan.plan.id
 
+  https_only          = true
+
   identity {
     type = "SystemAssigned"
   }
