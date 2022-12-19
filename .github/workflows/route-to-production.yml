@@ -251,12 +251,15 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-    - name: Call terraform output
+    - name: Terraform Output
       run: |
         cd terraform
 
         web_app_name=$(terraform output -raw web_app_name)
         workload_public_url=$(terraform output -raw workload_public_url)
+
+        echo $web_app_name
+        echo $workload_public_url
 
         echo "web_app_name=$web_app_name" >> $GITHUB_OUTPUT
         echo "workload_public_url=$workload_public_url" >> $GITHUB_OUTPUT
@@ -265,6 +268,10 @@ jobs:
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
+
+    outputs:
+      web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
 
   app-service-deploy-dev: 
     runs-on: ubuntu-latest
