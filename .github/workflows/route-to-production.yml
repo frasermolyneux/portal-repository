@@ -9,7 +9,7 @@ permissions:
   contents: read  # This is required for actions/checkout
 
 jobs:
-  net-build-and-test:
+  dotnet-build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -201,7 +201,7 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-  terraform_apply_dev:
+  terraform-apply-dev:
     runs-on: ubuntu-latest
     environment: Development
     needs: ["terraform-plan-dev"]
@@ -254,19 +254,40 @@ jobs:
     - name: Call terraform output
       run: |
         cd terraform
-        terraform output
-        output=$(terraform output workload_public_url)
-        echo $output
+
+        web_app_name=$(terraform output -raw web_app_name)
+        workload_public_url=$(terraform output -raw workload_public_url)
+
+        echo "web_app_name=$web_app_name" >> $GITHUB_OUTPUT
+        echo "workload_public_url=$workload_public_url" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
+  app-service-deploy-dev: 
+    runs-on: ubuntu-latest
+    environment: Development
+    needs: ["dotnet-build-and-test", "terraform-apply-dev"]
+
+    steps:
+    - name: 'Get Terraform Output'
+      run: |
+        echo ${{needs.terraform-apply-dev.outputs.web_app_name}}
+        echo ${{needs.terraform-apply-dev.outputs.workload_public_url}}
+
+    - name: 'Az CLI Login'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
   terraform-apply-prd:
     runs-on: ubuntu-latest
     environment: Production
-    needs: ["terraform-plan-prd", "terraform_apply_dev"]
+    needs: ["terraform-plan-prd", "terraform-apply-dev", "app-service-deploy-dev"]
     
     steps:
     - uses: actions/checkout@v3
