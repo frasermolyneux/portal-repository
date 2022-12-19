@@ -251,7 +251,7 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-    - name: Terraform Output
+    - name: terraform-output
       run: |
         cd terraform
 
