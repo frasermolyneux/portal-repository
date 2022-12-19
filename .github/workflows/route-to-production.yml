@@ -114,6 +114,8 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_wrapper: false
 
     - name: Setup TFLint
       uses: terraform-linters/setup-tflint@v1
@@ -166,6 +168,8 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_wrapper: false
 
     - name: Setup TFLint
       uses: terraform-linters/setup-tflint@v1
@@ -257,18 +261,12 @@ jobs:
         cd terraform
 
         web_app_name=$(terraform output -raw web_app_name)
-        web_app_resource_group=$(terraform output -raw web_app_resource_group)
-        web_app_subscription_id=$(terraform output -raw web_app_subscription_id)
         workload_public_url=$(terraform output -raw workload_public_url)
 
         echo $web_app_name
-        echo $web_app_resource_group
-        echo $web_app_subscription_id
         echo $workload_public_url
 
         echo "web_app_name=$web_app_name" >> $GITHUB_OUTPUT
-        echo "web_app_resource_group=$web_app_resource_group" >> $GITHUB_OUTPUT
-        echo "web_app_subscription_id=$web_app_subscription_id" >> $GITHUB_OUTPUT
         echo "workload_public_url=$workload_public_url" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -278,8 +276,6 @@ jobs:
 
     outputs:
       web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
-      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
-      web_app_subscription_id: ${{ steps.terraform-output.outputs.web_app_subscription_id }}
       workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
 
   app-service-deploy-dev: 
@@ -291,8 +287,6 @@ jobs:
     - name: 'Get Terraform Output'
       run: |
         echo ${{needs.terraform-apply-dev.outputs.web_app_name}}
-        echo ${{needs.terraform-apply-dev.outputs.web_app_resource_group}}
-        echo ${{needs.terraform-apply-dev.outputs.web_app_subscription_id}}
         echo ${{needs.terraform-apply-dev.outputs.workload_public_url}}
 
     - name: 'Az CLI Login'
@@ -306,10 +300,6 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: repository-webapi
-
-    #- name: Switch subscription
-    #  run: |
-    #    az account set --subscription ${{needs.terraform-apply-dev.outputs.web_app_subscription_id}}
 
     - name: Deploy to Azure Web App
       id: deploy-to-webapp
@@ -335,6 +325,8 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_wrapper: false
 
     - name: Terraform Init
       run: |
@@ -365,3 +357,56 @@ jobs:
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
+
+    - name: Terraform Output
+      id: terraform-output
+      run: |
+        cd terraform
+
+        web_app_name=$(terraform output -raw web_app_name)
+        workload_public_url=$(terraform output -raw workload_public_url)
+
+        echo $web_app_name
+        echo $workload_public_url
+
+        echo "web_app_name=$web_app_name" >> $GITHUB_OUTPUT
+        echo "workload_public_url=$workload_public_url" >> $GITHUB_OUTPUT
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
+
+    outputs:
+      web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
+
+  app-service-deploy-prd: 
+    runs-on: ubuntu-latest
+    environment: Production
+    needs: ["app-service-deploy-dev", "terraform-apply-prd"]
+
+    steps:
+    - name: 'Get Terraform Output'
+      run: |
+        echo ${{needs.terraform-apply-prd.outputs.web_app_name}}
+        echo ${{needs.terraform-apply-prd.outputs.workload_public_url}}
+
+    - name: 'Az CLI Login'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Download artifact from build job
+      uses: actions/download-artifact@v3
+      with:
+        name: repository-webapi
+
+    - name: Deploy to Azure Web App
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{needs.terraform-apply-prd.outputs.web_app_name}}
+        package: '.'
