@@ -35,10 +35,10 @@ resource "azurerm_cdn_frontdoor_origin" "o" {
 
   certificate_name_check_enabled = true 
 
-  host_name          = format("%s.%s", local.workload_name, var.dns_zone_name)
+  host_name          = azurerm_linux_web_app.app.default_hostname
   http_port          = 80
   https_port         = 443
-  origin_host_header = format("%s.%s", local.workload_name, var.dns_zone_name)
+  origin_host_header = azurerm_linux_web_app.app.default_hostname
   priority           = 1
   weight             = 1
 }
