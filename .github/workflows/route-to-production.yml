@@ -300,12 +300,16 @@ jobs:
       with:
         client-id: ${{ secrets.AZURE_CLIENT_ID }}
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{needs.terraform-apply-dev.outputs.web_app_subscription_id}}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     - name: Download artifact from build job
       uses: actions/download-artifact@v3
       with:
         name: repository-webapi
+
+    - name: Switch subscription
+      run: |
+        az account set --subscription ${{needs.terraform-apply-dev.outputs.web_app_subscription_id}}
 
     - name: Deploy to Azure Web App
       id: deploy-to-webapp
