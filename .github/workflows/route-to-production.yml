@@ -249,6 +249,12 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
+    - run: echo workload_public_url=$(terraform output workload_public_url) >> $GITHUB_ENV
+    - run: echo ${{ env.workload_public_url }}
+
+    - run: echo web_app_name=$(terraform output web_app_name) >> $GITHUB_ENV
+    - run: echo ${{ env.web_app_name }}
+
   terraform-apply-prd:
     runs-on: ubuntu-latest
     environment: Production
