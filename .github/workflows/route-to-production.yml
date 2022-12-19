@@ -208,7 +208,7 @@ jobs:
   terraform-apply-dev:
     runs-on: ubuntu-latest
     environment: Development
-    needs: ["terraform-plan-dev"]
+    needs: ["dotnet-build-and-test", "terraform-plan-dev"]
     
     steps:
     - uses: actions/checkout@v3
