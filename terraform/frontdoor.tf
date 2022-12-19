@@ -94,7 +94,7 @@ resource "azurerm_cdn_frontdoor_route" "app" {
   enabled                       = true
 
   forwarding_protocol    = "HttpsOnly"
-  https_redirect_enabled = true
+  https_redirect_enabled = false // Only support https
   patterns_to_match      = ["/*"]
   supported_protocols    = ["Https"]
 
