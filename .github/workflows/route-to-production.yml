@@ -202,6 +202,7 @@ jobs:
         ARM_USE_OIDC: true
 
   terraform-apply-dev:
+    id: terraform_apply_dev
     runs-on: ubuntu-latest
     environment: Development
     needs: ["terraform-plan-dev"]
@@ -218,8 +219,6 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
-      with:
-        terraform_wrapper: false
 
     - name: Terraform Init
       run: |
@@ -251,11 +250,8 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-    - run: echo workload_public_url=$(terraform output workload_public_url) >> $GITHUB_ENV
-    - run: echo ${{ env.workload_public_url }}
-
-    - run: echo web_app_name=$(terraform output web_app_name) >> $GITHUB_ENV
-    - run: echo ${{ env.web_app_name }}
+    - run: echo ${{ steps.terraform_apply_dev.outputs.workload_public_url }}
+    - run: echo ${{ steps.terraform_apply_dev.outputs.web_app_name }}
 
   terraform-apply-prd:
     runs-on: ubuntu-latest
