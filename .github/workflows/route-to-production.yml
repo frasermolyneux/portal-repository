@@ -307,9 +307,9 @@ jobs:
       with:
         name: repository-webapi
 
-    - name: Switch subscription
-      run: |
-        az account set --subscription ${{needs.terraform-apply-dev.outputs.web_app_subscription_id}}
+    #- name: Switch subscription
+    #  run: |
+    #    az account set --subscription ${{needs.terraform-apply-dev.outputs.web_app_subscription_id}}
 
     - name: Deploy to Azure Web App
       id: deploy-to-webapp
