@@ -253,6 +253,7 @@ jobs:
 
     - name: Call terraform output
       run: |
+        terraform output
         output=$(terraform output workload_public_url)
         echo $output
 
