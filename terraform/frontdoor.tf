@@ -85,19 +85,12 @@ resource "azurerm_dns_txt_record" "auth" {
   }
 }
 
-resource "azurerm_cdn_frontdoor_rule_set" "rs" {
-  provider                 = azurerm.frontdoor
-  name                     = format("%s-ruleset", local.workload_name)
-  cdn_frontdoor_profile_id = data.azurerm_cdn_frontdoor_profile.platform.id
-}
-
 resource "azurerm_cdn_frontdoor_route" "app" {
   provider                      = azurerm.frontdoor
   name                          = format("%s-route", local.workload_name)
   cdn_frontdoor_endpoint_id     = azurerm_cdn_frontdoor_endpoint.ep.id
   cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.og.id
   cdn_frontdoor_origin_ids      = [azurerm_cdn_frontdoor_origin.o.id]
-  cdn_frontdoor_rule_set_ids    = [azurerm_cdn_frontdoor_rule_set.rs.id]
   enabled                       = true
 
   forwarding_protocol    = "HttpsOnly"
