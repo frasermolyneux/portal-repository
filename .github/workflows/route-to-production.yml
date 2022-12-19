@@ -257,6 +257,11 @@ jobs:
         terraform output
         output=$(terraform output workload_public_url)
         echo $output
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
 
   terraform-apply-prd:
     runs-on: ubuntu-latest
