@@ -55,7 +55,7 @@ jobs:
         path: ${{env.DOTNET_ROOT}}/repository-webapi
 
   terraform-prereq-dev:
-    environment: Development
+    environment: DevelopmentIaCApply
 
     runs-on: ubuntu-latest
 
@@ -76,7 +76,7 @@ jobs:
         az storage container create --name "terraform" --account-name "saptlrepotfdev"
 
   terraform-prereq-prd:
-    environment: Production
+    environment: ProductionIaCApply
     needs: ["terraform-prereq-dev"]
 
     runs-on: ubuntu-latest
@@ -99,7 +99,7 @@ jobs:
 
   terraform-plan-dev:
     runs-on: ubuntu-latest
-    environment: Development
+    environment: DevelopmentIaCPlan
     needs: ["terraform-prereq-dev"]
     
     steps:
@@ -153,7 +153,7 @@ jobs:
 
   terraform-plan-prd:
     runs-on: ubuntu-latest
-    environment: Production
+    environment: ProductionIaCPlan
     needs: ["terraform-prereq-prd"]
     
     steps:
@@ -207,7 +207,7 @@ jobs:
 
   terraform-apply-dev:
     runs-on: ubuntu-latest
-    environment: Development
+    environment: DevelopmentIaCApply
     needs: ["dotnet-build-and-test", "terraform-plan-dev"]
     
     steps:
@@ -280,7 +280,7 @@ jobs:
 
   app-service-deploy-dev: 
     runs-on: ubuntu-latest
-    environment: Development
+    environment: DevelopmentWebApps
     needs: ["dotnet-build-and-test", "terraform-apply-dev"]
 
     steps:
@@ -310,7 +310,7 @@ jobs:
 
   terraform-apply-prd:
     runs-on: ubuntu-latest
-    environment: Production
+    environment: ProductionIaCApply
     needs: ["terraform-plan-prd", "terraform-apply-dev", "app-service-deploy-dev"]
     
     steps:
@@ -383,7 +383,7 @@ jobs:
 
   app-service-deploy-prd: 
     runs-on: ubuntu-latest
-    environment: Production
+    environment: ProductionWebApps
     needs: ["app-service-deploy-dev", "terraform-apply-prd"]
 
     steps:
