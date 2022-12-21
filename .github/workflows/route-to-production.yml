@@ -261,12 +261,15 @@ jobs:
         cd terraform
 
         web_app_name=$(terraform output -raw web_app_name)
+        web_app_resource_group=$(terraform output -raw web_app_resource_group)
         workload_public_url=$(terraform output -raw workload_public_url)
 
         echo $web_app_name
+        echo $web_app_resource_group
         echo $workload_public_url
 
         echo "web_app_name=$web_app_name" >> $GITHUB_OUTPUT
+        echo "web_app_resource_group=$web_app_resource_group" >> $GITHUB_OUTPUT
         echo "workload_public_url=$workload_public_url" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -276,6 +279,7 @@ jobs:
 
     outputs:
       web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
       workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
 
   app-service-deploy-dev: 
@@ -350,6 +354,29 @@ jobs:
       env:
         web_api_base_url: ${{needs.terraform-apply-dev.outputs.workload_public_url}}
 
+  delete-resources-dev:
+    runs-on: ubuntu-latest
+    environment: DevelopmentWebApps
+    needs: ["terraform-apply-dev", "run-integration-tests"]
+
+    steps:
+    - name: 'Get Terraform Output'
+      run: |
+        echo ${{needs.terraform-apply-dev.outputs.web_app_name}}
+        echo ${{needs.terraform-apply-dev.outputs.web_app_resource_group}}
+
+    - name: 'Az CLI Login'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Delete Resources
+      run: |
+        cd src
+        az webapp delete --name ${{needs.terraform-apply-dev.outputs.web_app_name}} --resource-group ${{needs.terraform-apply-dev.outputs.web_app_resource_group}} --keep-empty-plan
+
   terraform-apply-prd:
     runs-on: ubuntu-latest
     environment: ProductionIaCApply
@@ -406,12 +433,15 @@ jobs:
         cd terraform
 
         web_app_name=$(terraform output -raw web_app_name)
+        web_app_resource_group=$(terraform output -raw web_app_resource_group)
         workload_public_url=$(terraform output -raw workload_public_url)
 
         echo $web_app_name
+        echo $web_app_resource_group
         echo $workload_public_url
 
         echo "web_app_name=$web_app_name" >> $GITHUB_OUTPUT
+        echo "web_app_resource_group=$web_app_resource_group" >> $GITHUB_OUTPUT
         echo "workload_public_url=$workload_public_url" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -421,6 +451,7 @@ jobs:
 
     outputs:
       web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
       workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
 
   app-service-deploy-prd: 
