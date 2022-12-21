@@ -308,10 +308,52 @@ jobs:
         app-name: ${{needs.terraform-apply-dev.outputs.web_app_name}}
         package: '.'
 
+  run-integration-tests:
+    runs-on: ubuntu-latest
+    needs: ["terraform-apply-dev", "app-service-deploy-dev"]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: 'Get Terraform Output'
+      run: |
+        echo ${{needs.terraform-apply-dev.outputs.web_app_name}}
+        echo ${{needs.terraform-apply-dev.outputs.workload_public_url}}
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
+
+    - name: Set up dependency caching for faster builds
+      uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+        
+    - name: Restore dependencies
+      run: |
+        cd src
+        dotnet restore
+      
+    - name: Build
+      run: |
+        cd src
+        dotnet build --no-restore
+      
+    - name: Test
+      run: |
+        cd src
+        dotnet test --no-build --verbosity normal --filter FullyQualifiedName=IntegrationTests
+      env:
+        web_api_base_url: ${{needs.terraform-apply-dev.outputs.workload_public_url}}
+
   terraform-apply-prd:
     runs-on: ubuntu-latest
     environment: ProductionIaCApply
-    needs: ["terraform-plan-prd", "terraform-apply-dev", "app-service-deploy-dev"]
+    needs: ["terraform-plan-prd", "terraform-apply-dev", "run-integration-tests"]
     
     steps:
     - uses: actions/checkout@v3
