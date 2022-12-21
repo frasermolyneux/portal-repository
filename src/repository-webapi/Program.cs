@@ -12,7 +12,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // Used for health-checks
-app.MapGet("/", [AllowAnonymous] () => "OK");
+app.MapMethods("/", new[] { "HEAD", "GET" }, [AllowAnonymous] () => "OK");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
