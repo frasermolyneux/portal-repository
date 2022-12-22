@@ -18,8 +18,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - uses: frasermolyneux/actions/dotnet-ci@main
+    - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
+        dotnet-project: "repository-webapi"
         dotnet-version: 7.0.x
         src-folder: "src"
 
