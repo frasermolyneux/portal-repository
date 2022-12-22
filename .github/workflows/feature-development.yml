@@ -40,7 +40,7 @@ jobs:
       #    AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - id: foo
-        uses: frasermolyneux/actions/hello-world-composite-action@main
+        uses: frasermolyneux/actions/.github/hello-world-composite-action@main
         with:
           who-to-greet: 'Mona the Octocat'
 
