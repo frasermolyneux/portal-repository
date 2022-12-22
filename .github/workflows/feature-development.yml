@@ -53,6 +53,11 @@ jobs:
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_USE_OIDC: true
 
+    outputs:
+      web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
+      workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
+
   app-service-deploy-dev:
     environment: DevelopmentIaCApply
     runs-on: ubuntu-latest
