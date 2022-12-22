@@ -1,16 +1,16 @@
-# This workflow is used during feature development, it will perform lightweight CI and deploy through to the development environment.
+# This workflow is used during the pull request process to main, it will perform a heavyweight CI and deploy to the development environment and run additional pre-flight validation against production.
 
-name: Feature Development
+name: Pull Request Validation
 
 on:
   workflow_dispatch:
-  push:
-    branches-ignore: [ "main" ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: read  # This is required for actions/checkout
-  
+
 jobs:
   dotnet-ci:
     runs-on: ubuntu-latest
