@@ -24,7 +24,7 @@ jobs:
         src-folder: "src"
 
   terraform-plan-dev:
-    environment: DevelopmentIaCPlan
+    environment: DevelopmentIaC
     runs-on: ubuntu-latest
 
     steps:
