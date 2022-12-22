@@ -21,7 +21,7 @@ jobs:
 
   terraform-plan:
     name: Terraform Plan
-    uses: "./.github/templates/terraform-plan"
+    uses: "./.github/templates/terraform-plan/action.yml"
     with: 
       environment: "DevelopmentIaCPlan"
       terraform-folder: "terraform"
