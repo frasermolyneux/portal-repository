@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - id: terraform-plan
-        uses: frasermolyneux/actions/.github/workflows/terraform-plan@main
+        uses: frasermolyneux/actions/terraform-plan@main
         with:
           environment: "DevelopmentIaCPlan"
           terraform-folder: "terraform"
