@@ -33,7 +33,4 @@ jobs:
         terraform-folder: "terraform"
         terraform-var-file: "tfvars/dev.tfvars"
         terraform-backend-file: "backends/dev.backend.hcl"
-      secrets:
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      secrets: "inherit"
