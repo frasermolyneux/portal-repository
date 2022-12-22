@@ -26,8 +26,8 @@ jobs:
 
     - uses: frasermolyneux/actions/dotnet-sql-ci@main
       with:
-        dotnet-version: 7.0.x
-        src-folder: "src/database"
+        project-folder: "src/database"
+        project-file: "database.sqlproj"
 
   terraform-plan-and-apply-dev:
     environment: DevelopmentIaC
