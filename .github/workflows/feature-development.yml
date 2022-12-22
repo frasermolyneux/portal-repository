@@ -24,6 +24,7 @@ jobs:
 
   terraform-plan-1:
     name: Terraform Plan
+    environment: DevelopmentIaCPlan
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +33,6 @@ jobs:
       - id: terraform-plan
         uses: frasermolyneux/actions/terraform-plan@main
         with:
-          environment: "DevelopmentIaCPlan"
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/dev.tfvars"
           terraform-backend-file: "backends/dev.backend.hcl"
