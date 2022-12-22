@@ -20,17 +20,11 @@ jobs:
         src-folder: "src"
 
   terraform-plan:
-    runs-on: ubuntu-latest
-    environment: "DevelopmentIaCPlan"
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Terraform Plan
-      uses: "./.github/templates/terraform-plan" 
-      with:
-        environment: "DevelopmentIaCPlan"
-        terraform-folder: "terraform"
-        terraform-var-file: "tfvars/dev.tfvars"
-        terraform-backend-file: "backends/dev.backend.hcl"
-      secrets: inherit
+    name: Terraform Plan
+    uses: "./.github/templates/terraform-plan"
+    with: 
+      environment: "DevelopmentIaCPlan"
+      terraform-folder: "terraform"
+      terraform-var-file: "tfvars/dev.tfvars"
+      terraform-backend-file: "backends/dev.backend.hcl"
+    secrets: inherit
