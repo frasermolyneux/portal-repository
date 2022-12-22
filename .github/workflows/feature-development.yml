@@ -68,6 +68,8 @@ jobs:
     needs: [terraform-plan-and-apply-dev]
 
     steps:
+    - uses: actions/checkout@v3
+    
     - uses: frasermolyneux/actions/dotnet-sql-ci@main
       with:
         sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
