@@ -27,16 +27,19 @@ runs:
           ${{ runner.os }}-nuget-
         
     - name: Restore Dependencies
+      shell: bash
       run: |
         cd ${{ inputs.src-folder }}
         dotnet restore
       
     - name: Build
+      shell: bash
       run: |
         cd ${{ inputs.src-folder }}
         dotnet build --no-restore
       
     - name: Test
+      shell: bash
       run: |
         cd ${{ inputs.src-folder }}
         dotnet test --no-build --verbosity normal --filter FullyQualifiedName!~IntegrationTests
