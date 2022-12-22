@@ -1,0 +1,34 @@
+name: Feature Development
+
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [ "main" ]
+  
+jobs:
+
+  dotnet-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: dotnet CI
+      uses: "./.github/templates/dotnet-ci" 
+      with:
+        dotnet-version: 7.0.x
+        src-folder: "src"
+
+  terraform-plan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Terraform Plan
+      uses: "./.github/templates/terraform-plan" 
+      with:
+        environment: "DevelopmentIaCPlan"
+        terraform-folder: "terraform"
+        terraform-var-file: "tfvars/dev.tfvars"
+        terraform-backend-file: "backends/dev.backend.hcl"
