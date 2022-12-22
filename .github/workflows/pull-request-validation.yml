@@ -143,7 +143,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: frasermolyneux/actions/terraform-plan-and-apply@main
+      - uses: frasermolyneux/actions/terraform-plan@main
         with:
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/prd.tfvars"
