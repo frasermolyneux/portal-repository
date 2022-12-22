@@ -72,6 +72,7 @@ jobs:
     
     - uses: frasermolyneux/actions/dotnet-sql-ci@main
       with:
+        environment: "dev"
         sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
         sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
         project-folder: "src/database"

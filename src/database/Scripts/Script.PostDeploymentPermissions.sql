@@ -17,22 +17,22 @@ IF (NOT EXISTS(SELECT *
 FROM sys.database_principals
 WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)-readers'))  
 BEGIN
-	PRINT 'Adding user: sg-sql-$(DatabaseName)-$(env)--readers to [db_datareader]'
-	CREATE USER [sg-sql-$(DatabaseName)-$(env)--readers] FROM EXTERNAL PROVIDER
-	ALTER ROLE [db_datareader] ADD MEMBER [sg-sql-$(DatabaseName)-$(env)--readers]
+	PRINT 'Adding user: sg-sql-$(DatabaseName)-$(env)-readers to [db_datareader]'
+	CREATE USER [sg-sql-$(DatabaseName)-$(env)-readers] FROM EXTERNAL PROVIDER
+	ALTER ROLE [db_datareader] ADD MEMBER [sg-sql-$(DatabaseName)-$(env)-readers]
 	SELECT *
 	FROM sys.database_principals
-	WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)--readers'
+	WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)-readers'
 END
 
 IF (NOT EXISTS(SELECT *
 FROM sys.database_principals
-WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)--writers'))  
+WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)-writers'))  
 BEGIN
-	PRINT 'Adding user: sg-sql-$(DatabaseName)-$(env)--writers to [db_datawriter]'
-	CREATE USER [sg-sql-$(DatabaseName)-$(env)--writers] FROM EXTERNAL PROVIDER
-	ALTER ROLE [db_datawriter] ADD MEMBER [sg-sql-$(DatabaseName)-$(env)--writers]
+	PRINT 'Adding user: sg-sql-$(DatabaseName)-$(env)-writers to [db_datawriter]'
+	CREATE USER [sg-sql-$(DatabaseName)-$(env)-writers] FROM EXTERNAL PROVIDER
+	ALTER ROLE [db_datawriter] ADD MEMBER [sg-sql-$(DatabaseName)-$(env)-writers]
 	SELECT *
 	FROM sys.database_principals
-	WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)--writers'
+	WHERE [name] = 'sg-sql-$(DatabaseName)-$(env)-writers'
 END  
