@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "repository-webapi-client.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "repository-webapi.IntegrationTests", "repository-webapi.IntegrationTests\repository-webapi.IntegrationTests.csproj", "{50A791B4-7F40-4E80-8A4C-D4C0DEE8A54D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "data-lib", "data-lib\data-lib.csproj", "{29CE8D10-2DE9-4C9E-813E-C6A5A69C7157}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,5 +50,9 @@ Global
 		{50A791B4-7F40-4E80-8A4C-D4C0DEE8A54D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{50A791B4-7F40-4E80-8A4C-D4C0DEE8A54D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{50A791B4-7F40-4E80-8A4C-D4C0DEE8A54D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29CE8D10-2DE9-4C9E-813E-C6A5A69C7157}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29CE8D10-2DE9-4C9E-813E-C6A5A69C7157}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29CE8D10-2DE9-4C9E-813E-C6A5A69C7157}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29CE8D10-2DE9-4C9E-813E-C6A5A69C7157}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
