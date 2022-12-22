@@ -33,4 +33,4 @@ jobs:
         terraform-folder: "terraform"
         terraform-var-file: "tfvars/dev.tfvars"
         terraform-backend-file: "backends/dev.backend.hcl"
-      secrets: "inherit"
+      secrets: inherit
