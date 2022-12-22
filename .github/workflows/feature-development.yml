@@ -21,7 +21,7 @@ jobs:
 
   terraform-plan:
     name: Terraform Plan
-    uses: "./.github/templates/terraform-plan/action.yml"
+    uses: "frasermolyneux/actions/.github/workflows/terraform-plan.yml@main"
     with: 
       environment: "DevelopmentIaCPlan"
       terraform-folder: "terraform"
