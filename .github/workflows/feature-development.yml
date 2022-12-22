@@ -24,6 +24,11 @@ jobs:
         dotnet-version: 7.0.x
         src-folder: "src"
 
+    - uses: frasermolyneux/actions/dotnet-sql-ci@main
+      with:
+        dotnet-version: 7.0.x
+        src-folder: "src/database"
+
   terraform-plan-and-apply-dev:
     environment: DevelopmentIaC
     runs-on: ubuntu-latest
