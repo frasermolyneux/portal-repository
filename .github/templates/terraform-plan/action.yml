@@ -18,7 +18,7 @@ inputs:
     required: true
     default: "backends/dev.backend.hcl"
 
-environment: ${{ inputs.environment }}
+#environment: ${{ inputs.environment }}
   
 runs:
   using: "composite"
@@ -39,6 +39,7 @@ runs:
     uses: terraform-linters/setup-tflint@v1
   
   - name: Terraform Init
+    shell: bash
     run: |
       cd ${{ inputs.terraform-folder }}
       terraform init -backend-config=${{ inputs.terraform-backend-file }} -var-file=${{ inputs.terraform-var-file }}
@@ -49,21 +50,25 @@ runs:
       ARM_USE_OIDC: true
 
   - name: Terraform Validate
+    shell: bash
     run: |
       cd ${{ inputs.terraform-folder }}
       terraform validate
 
   - name: Init TFLint
+    shell: bash
     run: |
       cd ${{ inputs.terraform-folder }}
       tflint --init
 
   - name: Run TFLint
+    shell: bash
     run: |
       cd ${{ inputs.terraform-folder }}
       tflint -f compact
 
   - name: Terraform Plan
+    shell: bash
     run: |
       cd ${{ inputs.terraform-folder }}
       terraform plan -var-file=${{ inputs.terraform-var-file }}

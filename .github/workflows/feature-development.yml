@@ -21,6 +21,7 @@ jobs:
 
   terraform-plan:
     runs-on: ubuntu-latest
+    environment: "DevelopmentIaCPlan"
 
     steps:
     - uses: actions/checkout@v3
