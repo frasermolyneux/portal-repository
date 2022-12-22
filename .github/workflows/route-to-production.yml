@@ -374,7 +374,6 @@ jobs:
 
     - name: Delete Resources
       run: |
-        cd src
         az webapp delete --name ${{needs.terraform-apply-dev.outputs.web_app_name}} --resource-group ${{needs.terraform-apply-dev.outputs.web_app_resource_group}} --keep-empty-plan
 
   terraform-apply-prd:
