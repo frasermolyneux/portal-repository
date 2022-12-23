@@ -62,7 +62,7 @@ jobs:
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
 
-  sql-database-deploy-dev:
+  deploy-sql-database-dev:
     environment: DevelopmentIaC
     runs-on: ubuntu-latest
     needs: [terraform-plan-and-apply-dev]
@@ -70,7 +70,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - uses: frasermolyneux/actions/dotnet-sql-ci@main
+    - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
         environment: "dev"
         sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
@@ -84,7 +84,7 @@ jobs:
   app-service-deploy-dev:
     environment: DevelopmentWebApps
     runs-on: ubuntu-latest
-    needs: [dotnet-web-ci, sql-database-deploy-dev, terraform-plan-and-apply-dev]
+    needs: [dotnet-web-ci, deploy-sql-database-dev, terraform-plan-and-apply-dev]
 
     steps:
       - uses: actions/checkout@v3
