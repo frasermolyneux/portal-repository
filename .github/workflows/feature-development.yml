@@ -116,11 +116,15 @@ jobs:
 
       - shell: bash 
         run: |
-          echo "int_test_client_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)" >> $GITHUB_ENV
-          echo "int_test_client_secret=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-secret" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)" >> $GITHUB_ENV
-          echo "int_test_api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-api-key" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)" >> $GITHUB_ENV
+          client_id=(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
+          client_secret=(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-secret" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
+          api_key=(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-api-key" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
 
-          echo $int_test_client_id
+          echo "int_test_client_id=$client_id" >> $GITHUB_ENV
+          echo "int_test_client_secret=$client_secret" >> $GITHUB_ENV
+          echo "int_test_api_key=$api_key" >> $GITHUB_ENV
+
+          echo $client_id
 
       - uses: frasermolyneux/actions/run-api-integration-tests@main
         with:
