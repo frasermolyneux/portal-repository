@@ -17,3 +17,11 @@ output "sql_server_fqdn" {
 output "sql_database_name" {
   value = azurerm_mssql_database.repo.name
 }
+
+output "key_vault_name" {
+  value = azurerm_key_vault.kv.name
+}
+
+output "integration_tests_account_name" {
+  value = azuread_application.integration_tests.display_name
+}

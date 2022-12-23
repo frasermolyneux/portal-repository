@@ -49,6 +49,8 @@ jobs:
           echo "workload_public_url=$(terraform output -raw workload_public_url)" >> $GITHUB_OUTPUT
           echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
           echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+          echo "key_vault_name=$(terraform output -raw key_vault_name)" >> $GITHUB_OUTPUT
+          echo "integration_tests_account_name=$(terraform output -raw integration_tests_account_name)" >> $GITHUB_OUTPUT
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -61,6 +63,8 @@ jobs:
       workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
+      key_vault_name: ${{ steps.terraform-output.outputs.key_vault_name }}
+      integration_tests_account_name: ${{ steps.terraform-output.outputs.integration_tests_account_name }}
 
   deploy-sql-database-dev:
     environment: DevelopmentIaC
@@ -103,6 +107,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      - shell: pwsh 
+        run: |
+          $clientSecret = az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name ${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }} --query value -o tsv
 
       - uses: frasermolyneux/actions/run-api-integration-tests@main
         with:
