@@ -13,7 +13,13 @@ terraform {
 
 provider "azurerm" {
   subscription_id = var.subscription_id
-  features {}
+
+  features {
+     resource_group {
+       # Resource group is only used by workload, App Insights creates artifacts that need to be deleted
+       prevent_deletion_if_contains_resources = false
+     }
+  }
 }
 
 provider "azurerm" {
