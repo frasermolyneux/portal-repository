@@ -1,0 +1,23 @@
+# This workflow is run on a nightly schedule and will destroy the development environment to performance / cost saving.
+
+name: Development Destroy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  terraform-destroy-dev:
+    environment: DevelopmentIaC
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: frasermolyneux/actions/terraform-destroy@main
+        with:
+          terraform-folder: "terraform"
+          terraform-var-file: "tfvars/dev.tfvars"
+          terraform-backend-file: "backends/dev.backend.hcl"
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
