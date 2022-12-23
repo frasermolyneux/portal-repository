@@ -5,6 +5,6 @@ locals {
   workload_name = "ptl-repo-${random_id.environment_id.hex}-${var.environment}"
   web_app_name = "webapi-ptl-repo-${random_id.environment_id.hex}-${var.environment}-${var.location}"
   app_data_storage_name = "saptlrepoad${random_id.environment_id.hex}"
-  app_registration_name = "portal-servers-api-${random_id.environment_id.hex}-${var.environment}"
+  app_registration_name = "portal-repo-${random_id.environment_id.hex}-${var.environment}"
   sql_database_name = "portal-repo-${random_id.environment_id.hex}"
 }
