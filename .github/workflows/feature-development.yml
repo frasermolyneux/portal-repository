@@ -116,10 +116,15 @@ jobs:
 
       - shell: pwsh 
         run: |
-          $clientSecret = az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name ${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }} --query value -o tsv
+          echo "int_test_client_id=(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name ${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }} --query value -o tsv)" >> $GITHUB_ENV
+          echo "int_test_client_secret=(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-secret" --vault-name ${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }} --query value -o tsv)" >> $GITHUB_ENV
+          echo "int_test_api_key=(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-api-key" --vault-name ${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }} --query value -o tsv)" >> $GITHUB_ENV
 
       - uses: frasermolyneux/actions/run-api-integration-tests@main
         with:
           dotnet-version: 7.0.x
           src-folder: "src"
-          web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
+          api-base-url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
+          integration-test-client-id: ${{ env.int_test_client_id }}
+          integration-test-client-secret: ${{ env.int_test_client_secret }}
+          integration-test-api-key: ${{ env.int_test_api_key }}
