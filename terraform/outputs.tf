@@ -9,3 +9,11 @@ output "web_app_name" {
 output "web_app_resource_group" {
   value = azurerm_linux_web_app.app.resource_group_name
 }
+
+output "sql_server_fqdn" {
+  value = data.azurerm_mssql_server.platform.fully_qualified_domain_name
+}
+
+output "sql_database_name" {
+  value = azurerm_mssql_database.repo.name
+}
