@@ -114,7 +114,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - shell: pwsh 
+      - shell: bash 
         run: |
           echo "int_test_client_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)" >> $GITHUB_ENV
           echo "int_test_client_secret=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-secret" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)" >> $GITHUB_ENV
