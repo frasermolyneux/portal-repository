@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApiClient;
@@ -44,6 +45,8 @@ public class PlayersApiTests
 
         // Act
         var result = await playersApi.HeadPlayerByGameType(GameType.CallOfDuty2, "non-existing-guid");
+
+        Console.WriteLine(JsonConvert.SerializeObject(result, Formatting.Indented));
 
         // Assert
         result.IsNotFound.Should().BeTrue();
