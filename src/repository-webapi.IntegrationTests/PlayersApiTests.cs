@@ -1,0 +1,48 @@
+using FakeItEasy;
+using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
+using XtremeIdiots.Portal.RepositoryApiClient;
+using XtremeIdiots.Portal.RepositoryApiClient.Api;
+
+namespace repository_webapi.IntegrationTests;
+
+public class PlayersApiTests
+{
+    IPlayersApi? playersApi;
+
+    [SetUp]
+    public void Setup()
+    {
+        var fakeMemoryCache = A.Fake<IMemoryCache>();
+        var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<RepositoryApiTokenProvider>>();
+
+        IConfiguration config = A.Fake<IConfiguration>();
+        A.CallTo(() => config["repository_api_application_audience"]).Returns(Environment.GetEnvironmentVariable("api_audience"));
+
+        var tokenProvider = new RepositoryApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, config);
+
+        var fakePlayersApiLogger = A.Fake<ILogger<PlayersApi>>();
+        var fakePlayersApiOptions = A.Fake<IOptions<RepositoryApiClientOptions>>();
+        A.CallTo(() => fakePlayersApiOptions.Value.BaseUrl).Returns(Environment.GetEnvironmentVariable("api_base_url"));
+        A.CallTo(() => fakePlayersApiOptions.Value.ApiKey).Returns(Environment.GetEnvironmentVariable("api_key"));
+
+        playersApi = new PlayersApi(fakePlayersApiLogger, fakePlayersApiOptions, tokenProvider, fakeMemoryCache);
+    }
+
+    [Test]
+    public async Task Test1()
+    {
+        // Arrange
+
+        // Act
+        var result = await playersApi.HeadPlayerByGameType(GameType.CallOfDuty2, "non-existing-guid");
+
+        // Assert
+        result.IsNotFound.Should().BeTrue();
+    }
+}

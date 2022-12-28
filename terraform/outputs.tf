@@ -25,3 +25,7 @@ output "key_vault_name" {
 output "integration_tests_account_name" {
   value = azuread_application.integration_tests.display_name
 }
+
+output "api_audience" {
+  value = azurerm_api_management_named_value.webapi_audience_named_value.value
+}
