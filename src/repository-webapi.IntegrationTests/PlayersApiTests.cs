@@ -34,7 +34,8 @@ public class PlayersApiTests
         var repositoryApiClientOptions = Options.Create<RepositoryApiClientOptions>(new RepositoryApiClientOptions()
         {
             BaseUrl = Environment.GetEnvironmentVariable("api_base_url"),
-            ApiKey = Environment.GetEnvironmentVariable("api_key")
+            ApiKey = Environment.GetEnvironmentVariable("api_key"),
+            ApiPathPrefix = null
         });
 
         playersApi = new PlayersApi(fakePlayersApiLogger, repositoryApiClientOptions, tokenProvider, fakeMemoryCache);

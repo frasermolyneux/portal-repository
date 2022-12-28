@@ -1,5 +1,5 @@
 output "workload_public_url" {
-  value = format("https://%s", azurerm_cdn_frontdoor_custom_domain.app.host_name)
+  value = format("https://%s/%s", data.azurerm_api_management.platform.default_hostname, azurerm_api_management_api.repository_api.path)
 }
 
 output "web_app_name" {
