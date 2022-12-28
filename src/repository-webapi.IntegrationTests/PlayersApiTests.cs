@@ -19,6 +19,8 @@ public class PlayersApiTests
     [SetUp]
     public void Setup()
     {
+        Console.WriteLine($"Using API Base URL: {Environment.GetEnvironmentVariable("api_base_url")}");
+
         var fakeMemoryCache = A.Fake<IMemoryCache>();
         var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<RepositoryApiTokenProvider>>();
 
