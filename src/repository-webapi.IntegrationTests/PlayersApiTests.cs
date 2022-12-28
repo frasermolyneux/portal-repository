@@ -27,11 +27,14 @@ public class PlayersApiTests
         var tokenProvider = new RepositoryApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, config);
 
         var fakePlayersApiLogger = A.Fake<ILogger<PlayersApi>>();
-        var fakePlayersApiOptions = A.Fake<IOptions<RepositoryApiClientOptions>>();
-        A.CallTo(() => fakePlayersApiOptions.Value.BaseUrl).Returns(Environment.GetEnvironmentVariable("api_base_url"));
-        A.CallTo(() => fakePlayersApiOptions.Value.ApiKey).Returns(Environment.GetEnvironmentVariable("api_key"));
 
-        playersApi = new PlayersApi(fakePlayersApiLogger, fakePlayersApiOptions, tokenProvider, fakeMemoryCache);
+        var repositoryApiClientOptions = Options.Create<RepositoryApiClientOptions>(new RepositoryApiClientOptions()
+        {
+            BaseUrl = Environment.GetEnvironmentVariable("api_base_url"),
+            ApiKey = Environment.GetEnvironmentVariable("api_key")
+        });
+
+        playersApi = new PlayersApi(fakePlayersApiLogger, repositoryApiClientOptions, tokenProvider, fakeMemoryCache);
     }
 
     [Test]
