@@ -18,6 +18,16 @@ resource "azurerm_key_vault_secret" "integration_test_account_client_secret" {
   ]
 }
 
+resource "azurerm_key_vault_secret" "integration_test_account_client_tenant_id" {
+  name         = format("%s-client-tenant-id", azuread_application.integration_tests.display_name)
+  value        = data.azurerm_client_config.current.tenant_id
+  key_vault_id = azurerm_key_vault.kv.id
+
+  depends_on = [
+    azurerm_role_assignment.deploy_principal_kv_role_assignment
+  ]
+}
+
 resource "azurerm_key_vault_secret" "integration_test_api_key" {
   name         = format("%s-api-key", azuread_application.integration_tests.display_name)
   value        = azurerm_api_management_subscription.integration_tests.primary_key
