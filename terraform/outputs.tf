@@ -27,5 +27,5 @@ output "integration_tests_account_name" {
 }
 
 output "api_audience" {
-  value = azurerm_api_management_named_value.webapi_audience_named_value.value
+  value = format("api://%s", local.app_registration_name)
 }
