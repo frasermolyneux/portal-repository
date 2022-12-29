@@ -14,6 +14,9 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Extensions
         {
             ApiResponseDto? apiResponseDto;
 
+            if (response.Request?.Method == Method.Head)
+                return new ApiResponseDto(response.StatusCode);
+
             if (response.Content == null)
             {
                 apiResponseDto = new ApiResponseDto(HttpStatusCode.InternalServerError);

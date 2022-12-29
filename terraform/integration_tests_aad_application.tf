@@ -1,0 +1,28 @@
+resource "azuread_application" "integration_tests" {
+  display_name     = format("%s-integration-tests", local.workload_name)
+  owners           = [data.azuread_client_config.current.object_id]
+  sign_in_audience = "AzureADMyOrg"
+}
+
+resource "azuread_service_principal" "integration_tests_service_principal" {
+  application_id               = azuread_application.integration_tests.application_id
+  app_role_assignment_required = false
+
+  owners = [
+    data.azuread_client_config.current.object_id
+  ]
+}
+
+resource "azuread_application_password" "integration_test_password" {
+  application_object_id = azuread_application.integration_tests.object_id
+  
+  rotate_when_changed = {
+    rotation = time_rotating.thirty_days.id
+  }
+}
+
+resource "azuread_app_role_assignment" "integration_tests_service_account" {
+  app_role_id         = random_uuid.app_role_repository_access.result
+  principal_object_id = azuread_service_principal.integration_tests_service_principal.object_id
+  resource_object_id  = azuread_service_principal.repository_api_service_principal.object_id
+}
