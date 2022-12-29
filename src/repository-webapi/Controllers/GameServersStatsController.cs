@@ -89,9 +89,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddDays(-2))
                 cutoff = DateTime.UtcNow.AddDays(-2);
 
-            var response = await ((IGameServersStatsApi)this).GetGameServerStatusStats(gameServerId, cutoff.Value);
-
-            return response.ToHttpResult();
+            if (cutoff.HasValue)
+            {
+                var response = await ((IGameServersStatsApi)this).GetGameServerStatusStats(gameServerId, cutoff.Value);
+                return response.ToHttpResult();
+            }
+            else
+            {
+                return new ApiResponseDto(HttpStatusCode.BadRequest, "Cutoff date was not provided or was invalid").ToHttpResult();
+            }
         }
 
         async Task<ApiResponseDto<GameServerStatCollectionDto>> IGameServersStatsApi.GetGameServerStatusStats(Guid gameServerId, DateTime cutoff)
