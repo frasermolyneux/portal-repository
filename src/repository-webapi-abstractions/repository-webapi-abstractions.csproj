@@ -5,6 +5,14 @@
     <RootNamespace>XtremeIdiots.Portal.RepositoryApi.Abstractions</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>XtremeIdiots.Portal.RepositoryApi.Abstractions</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Fraser Molyneux</Authors>
+    <Company>XtremeIdiots</Company>
+    <Product>XtremeIdiots Portal</Product>
+    <Title>XtremeIdiots Portal Repository API Abstractions</Title>
+    <Description>Abstractions for the XtremeIdiots Portal Repository API.</Description>   
   </PropertyGroup>
 
   <ItemGroup>
