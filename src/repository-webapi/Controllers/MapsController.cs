@@ -339,7 +339,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
             var file = Request.Form.Files.First();
 
-            var filePath = Path.GetTempFileName();
+            var filePath = Path.GetRandomFileName();
             using (var stream = System.IO.File.Create(filePath))
             {
                 await file.CopyToAsync(stream);

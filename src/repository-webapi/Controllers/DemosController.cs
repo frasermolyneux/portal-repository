@@ -162,7 +162,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
                 return new ApiResponseDto(HttpStatusCode.BadRequest, "Invalid file type extension").ToHttpResult();
 
-            var filePath = Path.GetTempFileName();
+            var filePath = Path.GetRandomFileName();
             using (var stream = System.IO.File.Create(filePath))
                 await file.CopyToAsync(stream);
 
