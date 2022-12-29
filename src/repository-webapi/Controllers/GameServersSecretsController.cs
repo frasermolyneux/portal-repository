@@ -33,12 +33,12 @@ public class GameServersSecretsController : ControllerBase
         var gameServer = await Context.GameServers.SingleOrDefaultAsync(gs => gs.GameServerId.ToString() == gameServerId);
         if (gameServer == null) return new BadRequestResult();
 
-        var client = new SecretClient(new Uri(_configuration["gameservers-keyvault-endpoint"]),
-            new DefaultAzureCredential());
+        var keyVaultEndpoint = _configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
+        var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
 
         try
         {
-            var keyVaultResponse = await client.GetSecretAsync($"{gameServerId}-{secretId}");
+            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}");
             return new OkObjectResult(keyVaultResponse.Value);
         }
         catch (RequestFailedException ex)
@@ -59,17 +59,17 @@ public class GameServersSecretsController : ControllerBase
         var gameServer = await Context.GameServers.SingleOrDefaultAsync(gs => gs.GameServerId.ToString() == gameServerId);
         if (gameServer == null) return new BadRequestResult();
 
-        var client = new SecretClient(new Uri(_configuration["gameservers-keyvault-endpoint"]),
-            new DefaultAzureCredential());
+        var keyVaultEndpoint = _configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
+        var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
 
         var rawSecretValue = await new StreamReader(Request.Body).ReadToEndAsync();
 
         try
         {
-            var keyVaultResponse = await client.GetSecretAsync($"{gameServerId}-{secretId}");
+            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}");
 
             if (keyVaultResponse.Value.Value != rawSecretValue)
-                keyVaultResponse = await client.SetSecretAsync($"{gameServerId}-{secretId}", rawSecretValue);
+                keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", rawSecretValue);
 
             return new OkObjectResult(keyVaultResponse.Value);
         }
@@ -79,7 +79,7 @@ public class GameServersSecretsController : ControllerBase
                 throw;
         }
 
-        var newSecretKeyVaultResponse = await client.SetSecretAsync($"{gameServerId}-{secretId}", rawSecretValue);
+        var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", rawSecretValue);
         return new OkObjectResult(newSecretKeyVaultResponse.Value);
     }
 }

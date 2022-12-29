@@ -154,7 +154,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             {
                 editBanFileMonitorDto = JsonConvert.DeserializeObject<EditBanFileMonitorDto>(requestBody);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
             }
