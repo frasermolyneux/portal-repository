@@ -1,10 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>XtremeIdiots.Portal.RepositoryWebApi</RootNamespace>
+    <UserSecretsId>21c6e9c0-5bf8-4b85-9fff-e2c63efda9f1</UserSecretsId>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.1" />
     <PackageReference Include="AutoMapper" Version="12.0.0" />
@@ -21,9 +24,11 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="System.ComponentModel.TypeConverter" Version="4.3.0" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\data-lib\data-lib.csproj" />
     <ProjectReference Include="..\cod-demos\cod-demos.csproj" />
     <ProjectReference Include="..\repository-webapi-abstractions\repository-webapi-abstractions.csproj" />
   </ItemGroup>
+
 </Project>
