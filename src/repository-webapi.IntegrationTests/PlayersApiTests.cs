@@ -1,55 +1,37 @@
-using FakeItEasy;
 using FluentAssertions;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
-using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
-using XtremeIdiots.Portal.RepositoryApiClient;
-using XtremeIdiots.Portal.RepositoryApiClient.Api;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 
 namespace repository_webapi.IntegrationTests;
 
-public class PlayersApiTests
+public class PlayersApiTests : BaseApiTests
 {
-    IPlayersApi? playersApi;
-
-    [SetUp]
-    public void Setup()
+    [Test]
+    public async Task CreateAndRetrievePlayer()
     {
-        Console.WriteLine($"Using API Base URL: {Environment.GetEnvironmentVariable("api_base_url")}");
+        // Arrange
+        var testGuid = Guid.NewGuid().ToString();
+        var player = new CreatePlayerDto("Test Player", testGuid, GameType.CallOfDuty2);
 
-        var fakeMemoryCache = A.Fake<IMemoryCache>();
-        var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<RepositoryApiTokenProvider>>();
+        // Act
+        var createResult = await playersApi.CreatePlayer(player);
+        var getResult = await playersApi.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.None);
 
-        IConfiguration config = A.Fake<IConfiguration>();
-        A.CallTo(() => config["repository_api_application_audience"]).Returns(Environment.GetEnvironmentVariable("api_audience"));
-
-        var tokenProvider = new RepositoryApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, config);
-
-        var fakePlayersApiLogger = A.Fake<ILogger<PlayersApi>>();
-
-        var repositoryApiClientOptions = Options.Create<RepositoryApiClientOptions>(new RepositoryApiClientOptions()
-        {
-            BaseUrl = Environment.GetEnvironmentVariable("api_base_url"),
-            ApiKey = Environment.GetEnvironmentVariable("api_key"),
-            ApiPathPrefix = null
-        });
-
-        playersApi = new PlayersApi(fakePlayersApiLogger, repositoryApiClientOptions, tokenProvider, fakeMemoryCache);
+        // Assert
+        getResult.IsSuccess.Should().BeTrue();
+        getResult.Result.Should().NotBeNull();
+        getResult.Result?.Username.Should().Be(player.Username);
+        getResult.Result?.GameType.Should().Be(player.GameType);
+        getResult.Result?.Guid.Should().Be(player.Guid);
     }
 
     [Test]
-    public async Task Test1()
+    public async Task CheckNonExistantPlayerExistsReturnsNotFound()
     {
         // Arrange
 
         // Act
         var result = await playersApi.HeadPlayerByGameType(GameType.CallOfDuty2, "non-existing-guid");
-
-        Console.WriteLine(JsonConvert.SerializeObject(result, Formatting.Indented));
 
         // Assert
         result.IsNotFound.Should().BeTrue();
