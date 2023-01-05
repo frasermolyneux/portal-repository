@@ -13,7 +13,7 @@ permissions:
   
 jobs:
   terraform-get-outputs-dev:
-    environment: DevelopmentIaC
+    environment: Development
     runs-on: ubuntu-latest
 
     steps:
@@ -63,7 +63,7 @@ jobs:
       api_audience: ${{ steps.terraform-output.outputs.api_audience }}
 
   run-api-integration-tests-dev:
-    environment: DevelopmentIaC
+    environment: Development
     runs-on: ubuntu-latest
     needs: [terraform-get-outputs-dev]
 
