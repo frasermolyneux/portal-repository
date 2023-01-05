@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   terraform-destroy-dev:
-    environment: DevelopmentIaC
+    environment: Development
     runs-on: ubuntu-latest
 
     steps:
