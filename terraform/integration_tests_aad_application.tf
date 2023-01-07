@@ -15,7 +15,7 @@ resource "azuread_service_principal" "integration_tests_service_principal" {
 
 resource "azuread_application_password" "integration_test_password" {
   application_object_id = azuread_application.integration_tests.object_id
-  
+
   rotate_when_changed = {
     rotation = time_rotating.thirty_days.id
   }

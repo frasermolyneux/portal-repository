@@ -31,9 +31,9 @@ resource "azurerm_cdn_frontdoor_origin" "o" {
   name                          = format("%s-origin", local.workload_name)
   cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.og.id
 
-  enabled                        = true
+  enabled = true
 
-  certificate_name_check_enabled = true 
+  certificate_name_check_enabled = true
 
   host_name          = azurerm_linux_web_app.app.default_hostname
   http_port          = 80
@@ -54,13 +54,13 @@ resource "azurerm_dns_cname_record" "app" {
 }
 
 resource "azurerm_cdn_frontdoor_custom_domain" "app" {
-  provider                 = azurerm.frontdoor
-  name                     = format("%s-origin", local.workload_name)
+  provider = azurerm.frontdoor
+  name     = format("%s-origin", local.workload_name)
 
   cdn_frontdoor_profile_id = data.azurerm_cdn_frontdoor_profile.platform.id
   dns_zone_id              = data.azurerm_dns_zone.platform.id
 
-  host_name                = format("%s.%s", local.workload_name, var.dns_zone_name)
+  host_name = format("%s.%s", local.workload_name, var.dns_zone_name)
 
   tls {
     certificate_type    = "ManagedCertificate"

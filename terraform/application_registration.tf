@@ -44,7 +44,7 @@ resource "azuread_service_principal" "repository_api_service_principal" {
 
 resource "azuread_application_password" "app_password_primary" {
   application_object_id = azuread_application.repository_api.object_id
-  
+
   rotate_when_changed = {
     rotation = time_rotating.thirty_days.id
   }

@@ -4,10 +4,10 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend" {
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
-  protocol            = "http"
-  title               = local.workload_name
-  description         = local.workload_name 
-  url                 = format("https://%s.%s", local.workload_name, var.dns_zone_name)
+  protocol    = "http"
+  title       = local.workload_name
+  description = local.workload_name
+  url         = format("https://%s.%s", local.workload_name, var.dns_zone_name)
 
   tls {
     validate_certificate_chain = true
@@ -23,8 +23,8 @@ resource "azurerm_api_management_named_value" "webapi_active_backend_named_value
 
   secret = false
 
-  display_name        = "repository-api-active-backend-v2"
-  value = azurerm_api_management_backend.webapi_api_management_backend.name
+  display_name = "repository-api-active-backend-v2"
+  value        = azurerm_api_management_backend.webapi_api_management_backend.name
 }
 
 resource "azurerm_api_management_named_value" "webapi_audience_named_value" {
@@ -35,8 +35,8 @@ resource "azurerm_api_management_named_value" "webapi_audience_named_value" {
 
   secret = false
 
-  display_name        = "repository-api-audience-v2"
-  value               = format("api://%s", local.app_registration_name)
+  display_name = "repository-api-audience-v2"
+  value        = format("api://%s", local.app_registration_name)
 }
 
 resource "azurerm_api_management_api" "repository_api" {
@@ -45,11 +45,11 @@ resource "azurerm_api_management_api" "repository_api" {
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
-  revision            = "1"
-  display_name        = "Repository API V2"
-  description         = "API for repository layer"
-  path                = "repository-v2"
-  protocols           = ["https"]
+  revision     = "1"
+  display_name = "Repository API V2"
+  description  = "API for repository layer"
+  path         = "repository-v2"
+  protocols    = ["https"]
 
   subscription_required = true
 
@@ -105,23 +105,23 @@ XML
   depends_on = [
     azurerm_api_management_named_value.webapi_active_backend_named_value,
     azurerm_api_management_named_value.webapi_audience_named_value
-  ] 
+  ]
 }
 
 resource "azurerm_api_management_api_diagnostic" "example" {
-  provider            = azurerm.api_management
-  identifier          = "applicationinsights"
-  api_name            = azurerm_api_management_api.repository_api.name
-  resource_group_name = data.azurerm_api_management.platform.resource_group_name
-  api_management_name = data.azurerm_api_management.platform.name
+  provider                 = azurerm.api_management
+  identifier               = "applicationinsights"
+  api_name                 = azurerm_api_management_api.repository_api.name
+  resource_group_name      = data.azurerm_api_management.platform.resource_group_name
+  api_management_name      = data.azurerm_api_management.platform.name
   api_management_logger_id = azurerm_api_management_logger.api_management_logger.id
 
-  sampling_percentage       = 100
+  sampling_percentage = 100
 
-  always_log_errors         = true
-  log_client_ip             = true
+  always_log_errors = true
+  log_client_ip     = true
 
-  verbosity                 = "information"
+  verbosity = "information"
 
   http_correlation_protocol = "W3C"
 }
