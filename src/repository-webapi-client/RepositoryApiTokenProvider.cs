@@ -38,7 +38,7 @@ public class RepositoryApiTokenProvider : IRepositoryApiTokenProvider
         try
         {
             accessToken = await tokenCredential.GetTokenAsync(new TokenRequestContext(new[] { $"{RepositoryApiApplicationAudience}/.default" }));
-            memoryCache.Set("reository-api-access-token", accessToken);
+            memoryCache.Set("repository-api-access-token", accessToken);
         }
         catch (Exception ex)
         {
