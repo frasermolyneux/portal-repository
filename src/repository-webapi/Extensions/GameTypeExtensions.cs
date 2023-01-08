@@ -1,4 +1,5 @@
-﻿using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
+﻿using XtremeIdiots.CallOfDuty.DemoReader.Models;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Extensions
 {
@@ -7,6 +8,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Extensions
         public static GameType ToGameType(this int gameType)
         {
             return (GameType)gameType;
+        }
+
+        public static GameVersion ToCodDemoReaderGameVersion(this int gameType)
+        {
+            var portalGameType = (GameType)gameType;
+            switch (portalGameType)
+            {
+                case GameType.CallOfDuty2:
+                    return GameVersion.CallOfDuty2;
+                case GameType.CallOfDuty4:
+                    return GameVersion.CallOfDuty4;
+                case GameType.CallOfDuty5:
+                    return GameVersion.CallOfDuty5;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(gameType));
+            }
         }
 
         public static int ToGameTypeInt(this GameType gameType)

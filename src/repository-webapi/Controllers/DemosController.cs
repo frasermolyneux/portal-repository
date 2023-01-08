@@ -1,4 +1,6 @@
-﻿using AutoMapper;
+﻿using System.Net;
+
+using AutoMapper;
 
 using Azure.Storage.Blobs;
 
@@ -8,9 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Newtonsoft.Json;
 
-using System.Net;
-
-using XtremeIdiots.CodDemos.Models;
+using XtremeIdiots.CallOfDuty.DemoReader.Models;
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
@@ -184,7 +184,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             var blobClient = containerClient.GetBlobClient(blobKey);
             await blobClient.UploadAsync(filePath);
 
-            var localDemo = new LocalDemo(filePath, demo.GameType.ToGameType());
+            var localDemo = new LocalDemo(filePath, demo.GameType.ToCodDemoReaderGameVersion());
 
             demo.Title = Path.GetFileNameWithoutExtension(fileName);
             demo.FileName = blobKey;

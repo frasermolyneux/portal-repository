@@ -23,11 +23,11 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="System.ComponentModel.TypeConverter" Version="4.3.0" />
+    <PackageReference Include="XtremeIdiots.CallOfDuty.DemoReader" Version="1.0.21" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\data-lib\data-lib.csproj" />
-    <ProjectReference Include="..\cod-demos\cod-demos.csproj" />
     <ProjectReference Include="..\repository-webapi-abstractions\repository-webapi-abstractions.csproj" />
   </ItemGroup>
 
