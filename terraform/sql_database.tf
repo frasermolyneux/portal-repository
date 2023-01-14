@@ -5,4 +5,6 @@ resource "azurerm_mssql_database" "repo" {
   tags      = var.tags
 
   sku_name = "S0"
+
+  max_size_gb = 2
 }
