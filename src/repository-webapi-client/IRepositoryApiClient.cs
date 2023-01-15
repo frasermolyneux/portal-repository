@@ -18,6 +18,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
         IPlayersApi Players { get; }
         IRecentPlayersApi RecentPlayers { get; }
         IReportsApi Reports { get; }
+        IRootApi Root { get; }
         IUserProfileApi UserProfiles { get; }
     }
 }

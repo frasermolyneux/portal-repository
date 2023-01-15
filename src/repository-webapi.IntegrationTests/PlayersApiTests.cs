@@ -1,4 +1,5 @@
 using FluentAssertions;
+
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 
@@ -14,7 +15,7 @@ public class PlayersApiTests : BaseApiTests
         var player = new CreatePlayerDto("Test Player", testGuid, GameType.CallOfDuty2);
 
         // Act
-        var createResult = await playersApi.CreatePlayer(player);
+        _ = await playersApi.CreatePlayer(player);
         var getResult = await playersApi.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.None);
 
         // Assert

@@ -19,6 +19,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             IPlayersApi playersApiClient,
             IRecentPlayersApi recentPlayersApiClient,
             IReportsApi reportsApiClient,
+            IRootApi rootApiClient,
             IUserProfileApi userProfileApiClient)
         {
             AdminActions = adminActionsApiClient;
@@ -35,6 +36,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             Players = playersApiClient;
             RecentPlayers = recentPlayersApiClient;
             Reports = reportsApiClient;
+            Root = rootApiClient;
             UserProfiles = userProfileApiClient;
         }
 
@@ -52,6 +54,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
         public IPlayersApi Players { get; }
         public IRecentPlayersApi RecentPlayers { get; }
         public IReportsApi Reports { get; }
+        public IRootApi Root { get; }
         public IUserProfileApi UserProfiles { get; }
     }
 }
