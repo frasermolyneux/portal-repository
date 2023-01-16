@@ -5,7 +5,7 @@ name: Destroy Development
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * 1"
+    - cron: "0 6 * * 1"
 
 permissions:
   id-token: write # This is required for requesting the JWT
