@@ -33,7 +33,7 @@ public class RepositoryApiTokenProvider : IRepositoryApiTokenProvider
                 return accessToken.Token;
         }
 
-        var tokenCredential = new DefaultAzureCredential();
+        var tokenCredential = new ChainedTokenCredential(new ManagedIdentityCredential(), new AzureCliCredential(), new EnvironmentCredential());
 
         try
         {
