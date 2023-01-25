@@ -217,7 +217,7 @@ jobs:
         AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
   app-service-deploy-prd:
-    environment: ProductionWebApps
+    environment: Production
     runs-on: ubuntu-latest
     needs: [dotnet-web-ci, deploy-sql-database-prd, terraform-plan-and-apply-prd]
 
