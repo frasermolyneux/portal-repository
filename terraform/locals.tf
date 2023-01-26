@@ -7,6 +7,6 @@ locals {
   app_data_storage_name    = "saad${random_id.environment_id.hex}"
   app_registration_name    = "portal-repository-${var.environment}-${var.instance}"
   sql_database_name        = "portal-repo-${random_id.environment_id.hex}"
-  sql_dbreaders_group_name = "sg-sql-portal-repo-${random_id.environment_id.hex}-${var.environment}-${var.instance}-readers"
-  sql_dbwriters_group_name = "sg-sql-portal-repo-${random_id.environment_id.hex}-${var.environment}-${var.instance}-writers"
+  sql_dbreaders_group_name = "sg-sql-portal-repo-${random_id.environment_id.hex}-readers-${var.environment}-${var.instance}"
+  sql_dbwriters_group_name = "sg-sql-portal-repo-${random_id.environment_id.hex}-writers-${var.environment}-${var.instance}"
 }

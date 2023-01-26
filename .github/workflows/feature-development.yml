@@ -91,7 +91,7 @@ jobs:
     
     - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
-        environment: "dev"
+        sql-args: /Variables:env=dev /Variables:instance=01
         sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
         sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
         project-folder: "src/database"

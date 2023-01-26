@@ -17,38 +17,38 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend" {
 
 resource "azurerm_api_management_named_value" "webapi_active_backend_named_value" {
   provider            = azurerm.api_management
-  name                = "repository-api-active-backend-v2"
+  name                = "repository-api-active-backend"
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
   secret = false
 
-  display_name = "repository-api-active-backend-v2"
+  display_name = "repository-api-active-backend"
   value        = azurerm_api_management_backend.webapi_api_management_backend.name
 }
 
 resource "azurerm_api_management_named_value" "webapi_audience_named_value" {
   provider            = azurerm.api_management
-  name                = "repository-api-audience-v2"
+  name                = "repository-api-audience"
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
   secret = false
 
-  display_name = "repository-api-audience-v2"
+  display_name = "repository-api-audience"
   value        = format("api://%s", local.app_registration_name)
 }
 
 resource "azurerm_api_management_api" "repository_api" {
   provider            = azurerm.api_management
-  name                = "repository-api-v2"
+  name                = "repository-api"
   resource_group_name = data.azurerm_api_management.platform.resource_group_name
   api_management_name = data.azurerm_api_management.platform.name
 
   revision     = "1"
-  display_name = "Repository API V2"
+  display_name = "Repository API"
   description  = "API for repository layer"
-  path         = "repository-v2"
+  path         = "repository"
   protocols    = ["https"]
 
   subscription_required = true
@@ -74,12 +74,12 @@ resource "azurerm_api_management_api_policy" "example" {
 <policies>
   <inbound>
       <base/>
-      <set-backend-service backend-id="{{repository-api-active-backend-v2}}" />
+      <set-backend-service backend-id="{{repository-api-active-backend}}" />
       <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" />
       <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
           <openid-config url="{{tenant-login-url}}{{tenant-id}}/v2.0/.well-known/openid-configuration" />
           <audiences>
-              <audience>{{repository-api-audience-v2}}</audience>
+              <audience>{{repository-api-audience}}</audience>
           </audiences>
           <issuers>
               <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
