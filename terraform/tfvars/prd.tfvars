@@ -1,31 +1,32 @@
 environment = "prd"
 location    = "uksouth"
+instance    = "01"
 
 subscription_id = "32444f38-32f4-409f-889c-8e8aa2b5b4d1"
 
 api_management_subscription_id     = "903b6685-c12a-4703-ac54-7ec1ff15ca43"
-api_management_resource_group_name = "rg-platform-apim-4xhbmv4lmxxbs-prd-uksouth"
-api_management_name                = "apim-mx-platform-4xhbmv4lmxxbs-prd-uksouth"
+api_management_resource_group_name = "rg-platform-apim-prd-uksouth-01"
+api_management_name                = "rg-platform-apim-prd-uksouth-01"
 
 web_apps_subscription_id       = "903b6685-c12a-4703-ac54-7ec1ff15ca43"
-web_apps_resource_group_name   = "rg-platform-webapps-4xhbmv4lmxxbs-prd-uksouth"
-web_apps_app_service_plan_name = "plan-platform-4xhbmv4lmxxbs-prd-uksouth-01"
+web_apps_resource_group_name   = "rg-platform-plans-prd-uksouth-01"
+web_apps_app_service_plan_name = "plan-platform-prd-uksouth-01"
 
 frontdoor_subscription_id     = "db34f572-8b71-40d6-8f99-f29a27612144"
-frontdoor_resource_group_name = "rg-platform-frontdoor-utftcdi77in3c-prd-uksouth"
-frontdoor_name                = "fd-platform-utftcdi77in3c-prd"
+frontdoor_resource_group_name = "rg-platform-frontdoor-prd-uksouth-01"
+frontdoor_name                = "fd-platform-prd-et7nxqc67pqjy"
 
 sql_subscription_id     = "903b6685-c12a-4703-ac54-7ec1ff15ca43"
-sql_resource_group_name = "rg-platform-sql-4xhbmv4lmxxbs-prd-uksouth"
-sql_server_name         = "sql-platform-4xhbmv4lmxxbs-prd-uksouth"
+sql_resource_group_name = "rg-platform-sql-prd-uksouth-01"
+sql_server_name         = "sql-platform-prd-uksouth-01-ty7og2i6qpv3s"
 
 dns_subscription_id     = "db34f572-8b71-40d6-8f99-f29a27612144"
-dns_resource_group_name = "rg-platform-dns-utftcdi77in3c-prd-uksouth"
+dns_resource_group_name = "rg-platform-dns-prd-uksouth-01"
 dns_zone_name           = "xtremeidiots.dev"
 
 log_analytics_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
-log_analytics_resource_group_name = "rg-platform-logging-3s6dbzxizuv4m-prd-uksouth"
-log_analytics_workspace_name      = "log-platform-3s6dbzxizuv4m-prd-uksouth"
+log_analytics_resource_group_name = "rg-platform-logging-prd-uksouth-01"
+log_analytics_workspace_name      = "log-platform-prd-uksouth-01"
 
 tags = {
   Environment = "prd",

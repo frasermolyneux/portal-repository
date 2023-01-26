@@ -1,9 +1,9 @@
 locals {
-  resource_group_name   = "rg-portal-repo-${random_id.environment_id.hex}-${var.environment}-${var.location}"
+  resource_group_name   = "rg-portal-repo-${var.environment}-${var.location}-${var.instance}"
   key_vault_name        = "kv-${random_id.environment_id.hex}-${var.location}"
-  app_insights_name     = "ai-portal-repo-${random_id.environment_id.hex}-${var.environment}-${var.location}"
-  workload_name         = "portal-repo-${random_id.environment_id.hex}-${var.environment}"
-  web_app_name          = "app-ptl-repo-${random_id.environment_id.hex}-${var.environment}-${var.location}"
+  app_insights_name     = "ai-portal-repo-${var.environment}-${var.location}-${var.instance}"
+  workload_name         = "portal-repo-${var.environment}-${var.instance}-${random_id.environment_id.hex}"
+  web_app_name          = "app-portal-repo-${var.environment}-${var.location}-${var.instance}-${random_id.environment_id.hex}"
   app_data_storage_name = "saad${random_id.environment_id.hex}"
   app_registration_name = "portal-repository-${var.environment}"
   sql_database_name     = "portal-repo-${random_id.environment_id.hex}"

@@ -1,9 +1,13 @@
+variable "environment" {
+  default = "dev"
+}
+
 variable "location" {
   default = "uksouth"
 }
 
-variable "environment" {
-  default = "dev"
+variable "instance" {
+  default = "01"
 }
 
 variable "subscription_id" {}
