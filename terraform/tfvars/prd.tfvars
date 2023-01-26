@@ -6,7 +6,7 @@ subscription_id = "32444f38-32f4-409f-889c-8e8aa2b5b4d1"
 
 api_management_subscription_id     = "903b6685-c12a-4703-ac54-7ec1ff15ca43"
 api_management_resource_group_name = "rg-platform-apim-prd-uksouth-01"
-api_management_name                = "rg-platform-apim-prd-uksouth-01"
+api_management_name                = "apim-platform-prd-uksouth-ty7og2i6qpv3s"
 
 web_apps_subscription_id       = "903b6685-c12a-4703-ac54-7ec1ff15ca43"
 web_apps_resource_group_name   = "rg-platform-plans-prd-uksouth-01"

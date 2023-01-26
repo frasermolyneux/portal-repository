@@ -5,8 +5,8 @@ instance    = "01"
 subscription_id = "d68448b0-9947-46d7-8771-baa331a3063a"
 
 api_management_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
-api_management_resource_group_name = "rg-platform-apim-prd-uksouth-01"
-api_management_name                = "apim-platform-prd-uksouth-ty7og2i6qpv3s"
+api_management_resource_group_name = "rg-platform-apim-dev-uksouth-01"
+api_management_name                = "apim-platform-dev-uksouth-amjx44uuirhb6"
 
 web_apps_subscription_id       = "d68448b0-9947-46d7-8771-baa331a3063a"
 web_apps_resource_group_name   = "rg-platform-plans-dev-uksouth-01"
