@@ -30,7 +30,7 @@ log_analytics_workspace_name      = "log-platform-prd-uksouth-01"
 
 tags = {
   Environment = "prd",
-  Workload    = "portal-repository",
+  Workload    = "portal",
   DeployedBy  = "GitHub-Terraform",
   Git         = "https://github.com/frasermolyneux/portal-repository"
 }
