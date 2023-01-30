@@ -11,7 +11,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
     public class RootApi : BaseApi, IRootApi
     {
-        public RootApi(ILogger logger, IOptions<RepositoryApiClientOptions> options, IRepositoryApiTokenProvider repositoryApiTokenProvider) : base(logger, options, repositoryApiTokenProvider)
+        public RootApi(ILogger<RootApi> logger, IOptions<RepositoryApiClientOptions> options, IRepositoryApiTokenProvider repositoryApiTokenProvider) : base(logger, options, repositoryApiTokenProvider)
         {
         }
 
