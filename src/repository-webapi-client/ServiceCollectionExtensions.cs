@@ -28,6 +28,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             serviceCollection.AddSingleton<IPlayersApi, PlayersApi>();
             serviceCollection.AddSingleton<IRecentPlayersApi, RecentPlayersApi>();
             serviceCollection.AddSingleton<IReportsApi, ReportsApi>();
+            serviceCollection.AddSingleton<IRootApi, RootApi>();
             serviceCollection.AddSingleton<IUserProfileApi, UserProfileApi>();
 
             serviceCollection.AddSingleton<IRepositoryApiClient, RepositoryApiClient>();
