@@ -1,4 +1,6 @@
-﻿using AutoMapper;
+﻿using System.Net;
+
+using AutoMapper;
 
 using Azure.Storage.Blobs;
 
@@ -7,8 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using Newtonsoft.Json;
-
-using System.Net;
 
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
@@ -339,7 +339,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
             var file = Request.Form.Files.First();
 
-            var filePath = Path.GetRandomFileName();
+            var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             using (var stream = System.IO.File.Create(filePath))
             {
                 await file.CopyToAsync(stream);
