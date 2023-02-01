@@ -1,18 +1,20 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using MxIO.ApiClient;
+using MxIO.ApiClient.Abstractions;
+using MxIO.ApiClient.Extensions;
+
 using RestSharp;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
-using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
-using XtremeIdiots.Portal.RepositoryApiClient.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryApiClient.Api;
 
 public class GameServersEventsApi : BaseApi, IGameServersEventsApi
 {
-    public GameServersEventsApi(ILogger<GameServersEventsApi> logger, IOptions<RepositoryApiClientOptions> options, IRepositoryApiTokenProvider repositoryApiTokenProvider) : base(logger, options, repositoryApiTokenProvider)
+    public GameServersEventsApi(ILogger<GameServersEventsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
     {
     }
 

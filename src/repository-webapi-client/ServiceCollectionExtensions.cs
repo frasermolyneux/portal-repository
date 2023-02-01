@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
+using MxIO.ApiClient;
+using MxIO.ApiClient.Extensions;
+
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApiClient.Api;
 
@@ -7,12 +10,11 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
 {
     public static class ServiceCollectionExtensions
     {
-        public static void AddRepositoryApiClient(this IServiceCollection serviceCollection,
-            Action<RepositoryApiClientOptions> configure)
+        public static void AddRepositoryApiClient(this IServiceCollection serviceCollection, Action<IApiClientOptions> configure)
         {
-            serviceCollection.Configure(configure);
+            serviceCollection.AddApiClientTokenProvider();
 
-            serviceCollection.AddSingleton<IRepositoryApiTokenProvider, RepositoryApiTokenProvider>();
+            serviceCollection.Configure(configure);
 
             serviceCollection.AddSingleton<IAdminActionsApi, AdminActionsApi>();
             serviceCollection.AddSingleton<IBanFileMonitorsApi, BanFileMonitorsApi>();

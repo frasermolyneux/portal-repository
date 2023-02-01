@@ -2,17 +2,19 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using MxIO.ApiClient;
+using MxIO.ApiClient.Abstractions;
+using MxIO.ApiClient.Extensions;
+
 using RestSharp;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
-using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models;
-using XtremeIdiots.Portal.RepositoryApiClient.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryApiClient.Api;
 
 public class DataMaintenanceApi : BaseApi, IDataMaintenanceApi
 {
-    public DataMaintenanceApi(ILogger<DataMaintenanceApi> logger, IOptions<RepositoryApiClientOptions> options, IRepositoryApiTokenProvider repositoryApiTokenProvider) : base(logger, options, repositoryApiTokenProvider)
+    public DataMaintenanceApi(ILogger<DataMaintenanceApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
     {
 
     }

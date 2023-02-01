@@ -1,12 +1,27 @@
-﻿namespace XtremeIdiots.Portal.RepositoryApiClient
-{
-    public class RepositoryApiClientOptions
-    {
-        public string BaseUrl { get; set; } = string.Empty;
-        public string ApiKey { get; set; } = string.Empty;
-        public string ApiPathPrefix { get; set; } = "repository";
+﻿using MxIO.ApiClient;
 
-        public bool UseMemoryCacheOnGet { get; set; } = true;
-        public int MemoryCacheOnGetExpiration { get; set; } = 30;
+namespace XtremeIdiots.Portal.RepositoryApiClient
+{
+    public class RepositoryApiClientOptions : IApiClientOptions
+    {
+        public string BaseUrl { get; }
+
+        public string ApiKey { get; }
+
+        public string ApiAudience { get; }
+
+        public string? ApiPathPrefix { get; }
+
+        public RepositoryApiClientOptions(string baseUrl, string apiKey, string apiAudience)
+        {
+            BaseUrl = baseUrl;
+            ApiKey = apiKey;
+            ApiAudience = apiAudience;
+        }
+
+        public RepositoryApiClientOptions(string baseUrl, string apiKey, string apiAudience, string apiPathPrefix) : this(baseUrl, apiKey, apiAudience)
+        {
+            ApiPathPrefix = apiPathPrefix;
+        }
     }
 }

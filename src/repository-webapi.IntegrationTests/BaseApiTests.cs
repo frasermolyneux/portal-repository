@@ -1,9 +1,10 @@
 using FakeItEasy;
 
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+using MxIO.ApiClient;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApiClient;
@@ -22,22 +23,13 @@ public class BaseApiTests
         Console.WriteLine($"Using API Base URL: {Environment.GetEnvironmentVariable("api_base_url")}");
 
         var fakeMemoryCache = A.Fake<IMemoryCache>();
-        var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<RepositoryApiTokenProvider>>();
+        var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<ApiTokenProvider>>();
 
-        IConfiguration config = A.Fake<IConfiguration>();
-        A.CallTo(() => config["repository_api_application_audience"]).Returns(Environment.GetEnvironmentVariable("api_audience"));
+        var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions(Environment.GetEnvironmentVariable("api_base_url"), Environment.GetEnvironmentVariable("api_key"), Environment.GetEnvironmentVariable("api_audience")));
+        var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, repositoryApiClientOptions);
 
-        var tokenProvider = new RepositoryApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, config);
-
-        var repositoryApiClientOptions = Options.Create<RepositoryApiClientOptions>(new RepositoryApiClientOptions()
-        {
-            BaseUrl = Environment.GetEnvironmentVariable("api_base_url") ?? throw new Exception("API Base URL is not set"),
-            ApiKey = Environment.GetEnvironmentVariable("api_key") ?? throw new Exception("API Key is not set"),
-            ApiPathPrefix = string.Empty
-        });
-
-        playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), repositoryApiClientOptions, tokenProvider, fakeMemoryCache);
-        rootApi = new RootApi(A.Fake<ILogger<RootApi>>(), repositoryApiClientOptions, tokenProvider);
+        playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, fakeMemoryCache, repositoryApiClientOptions);
+        rootApi = new RootApi(A.Fake<ILogger<RootApi>>(), tokenProvider, repositoryApiClientOptions);
 
         await WarmUp();
     }

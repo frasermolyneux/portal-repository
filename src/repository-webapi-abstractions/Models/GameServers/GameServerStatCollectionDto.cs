@@ -1,4 +1,5 @@
-﻿namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
+﻿using MxIO.ApiClient.Abstractions;
+namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
     public class GameServerStatCollectionDto : CollectionDto<GameServerStatDto>
     {

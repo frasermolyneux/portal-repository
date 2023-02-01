@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models;
+using MxIO.ApiClient.Abstractions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Extensions
 {

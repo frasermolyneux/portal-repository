@@ -1,16 +1,17 @@
 ﻿
+using System.Net;
+
 using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using Newtonsoft.Json;
+using MxIO.ApiClient.Abstractions;
 
-using System.Net;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
-using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
 using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
 
