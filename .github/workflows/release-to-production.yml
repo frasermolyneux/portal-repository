@@ -148,6 +148,7 @@ jobs:
           api-base-url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
           api-key: ${{ env.int_test_api_key }}
           api-audience: ${{ needs.terraform-plan-and-apply-dev.outputs.api_audience }}
+          api-path-prefix: repository
           AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
           AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
           AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}
@@ -264,6 +265,7 @@ jobs:
           api-base-url: ${{ needs.terraform-plan-and-apply-prd.outputs.workload_public_url }}
           api-key: ${{ env.int_test_api_key }}
           api-audience: ${{ needs.terraform-plan-and-apply-prd.outputs.api_audience }}
+          api-path-prefix: repository
           AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
           AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
           AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}

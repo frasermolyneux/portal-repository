@@ -25,7 +25,7 @@ public class BaseApiTests
         var fakeMemoryCache = A.Fake<IMemoryCache>();
         var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<ApiTokenProvider>>();
 
-        var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions(Environment.GetEnvironmentVariable("api_base_url"), Environment.GetEnvironmentVariable("api_key"), Environment.GetEnvironmentVariable("api_audience")));
+        var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions(Environment.GetEnvironmentVariable("api_base_url"), Environment.GetEnvironmentVariable("api_key"), Environment.GetEnvironmentVariable("api_audience"), Environment.GetEnvironmentVariable("api_path_prefix")));
         var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, repositoryApiClientOptions);
 
         playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, fakeMemoryCache, repositoryApiClientOptions);
