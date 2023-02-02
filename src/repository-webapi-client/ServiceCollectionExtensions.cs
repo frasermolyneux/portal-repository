@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-using MxIO.ApiClient;
 using MxIO.ApiClient.Extensions;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
@@ -10,7 +9,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
 {
     public static class ServiceCollectionExtensions
     {
-        public static void AddRepositoryApiClient(this IServiceCollection serviceCollection, Action<IApiClientOptions> configure)
+        public static void AddRepositoryApiClient(this IServiceCollection serviceCollection, Action<RepositoryApiClientOptions> configure)
         {
             serviceCollection.AddApiClient();
 

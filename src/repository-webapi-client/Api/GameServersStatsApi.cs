@@ -14,7 +14,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
     public class GameServersStatsApi : BaseApi, IGameServersStatsApi
     {
-        public GameServersStatsApi(ILogger<GameServersStatsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, options, restClientSingleton)
+        public GameServersStatsApi(ILogger<GameServersStatsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
         {
         }
 
