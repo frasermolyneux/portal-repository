@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
     public class LivePlayersApi : BaseApi, ILivePlayersApi
     {
-        public LivePlayersApi(ILogger<LivePlayersApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
+        public LivePlayersApi(ILogger<LivePlayersApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, options, restClientSingleton)
         {
         }
 

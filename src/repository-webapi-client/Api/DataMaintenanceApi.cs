@@ -14,7 +14,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api;
 
 public class DataMaintenanceApi : BaseApi, IDataMaintenanceApi
 {
-    public DataMaintenanceApi(ILogger<DataMaintenanceApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
+    public DataMaintenanceApi(ILogger<DataMaintenanceApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, options, restClientSingleton)
     {
 
     }

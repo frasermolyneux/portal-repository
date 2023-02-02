@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
     public class UserProfileApi : BaseApi, IUserProfileApi
     {
-        public UserProfileApi(ILogger<UserProfileApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
+        public UserProfileApi(ILogger<UserProfileApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, options, restClientSingleton)
         {
         }
 

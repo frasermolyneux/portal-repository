@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
     public class AdminActionsApi : BaseApi, IAdminActionsApi
     {
-        public AdminActionsApi(ILogger<AdminActionsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
+        public AdminActionsApi(ILogger<AdminActionsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, options, restClientSingleton)
         {
         }
 

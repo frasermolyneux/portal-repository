@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using MxIO.ApiClient.Abstractions;
+using MxIO.ApiClient.WebExtensions;
 
 using Newtonsoft.Json;
 

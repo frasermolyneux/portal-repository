@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using MxIO.ApiClient.Abstractions;
+using MxIO.ApiClient.WebExtensions;
 
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Extensions;

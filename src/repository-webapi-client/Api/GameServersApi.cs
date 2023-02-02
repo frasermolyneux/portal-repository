@@ -16,7 +16,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
     public class GameServersApi : BaseApi, IGameServersApi
     {
-        public GameServersApi(ILogger<GameServersApi> logger, IApiTokenProvider apiTokenProvider, IMemoryCache memoryCache, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, options)
+        public GameServersApi(ILogger<GameServersApi> logger, IApiTokenProvider apiTokenProvider, IMemoryCache memoryCache, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, options, restClientSingleton)
         {
 
         }

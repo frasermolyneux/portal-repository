@@ -32,8 +32,8 @@ public class BaseApiTests
         var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions(baseUrl, apiKey, apiAudience));
         var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, repositoryApiClientOptions);
 
-        playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, fakeMemoryCache, repositoryApiClientOptions);
-        rootApi = new RootApi(A.Fake<ILogger<RootApi>>(), tokenProvider, repositoryApiClientOptions);
+        playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, fakeMemoryCache, repositoryApiClientOptions, new RestClientSingleton());
+        rootApi = new RootApi(A.Fake<ILogger<RootApi>>(), tokenProvider, repositoryApiClientOptions, new RestClientSingleton());
 
         await WarmUp();
     }

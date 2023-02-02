@@ -8,13 +8,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using MxIO.ApiClient.Abstractions;
+using MxIO.ApiClient.WebExtensions;
 
 using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
-using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
