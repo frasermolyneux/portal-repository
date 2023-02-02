@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MxIO.ApiClient.Abstractions" Version="1.0.20232.141" />
+    <PackageReference Include="MxIO.ApiClient.Abstractions" Version="1.0.20232.151" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
   </ItemGroup>
 

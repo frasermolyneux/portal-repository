@@ -22,8 +22,6 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
             var request = await CreateRequest($"/", Method.Post);
             var response = await ExecuteAsync(request);
 
-            Console.WriteLine($"ResponseUri: {response.ResponseUri}");
-
             return response.ToApiResponse();
         }
     }
