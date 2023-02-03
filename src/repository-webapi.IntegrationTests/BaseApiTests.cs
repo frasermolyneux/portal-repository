@@ -29,8 +29,13 @@ public class BaseApiTests
         string apiKey = Environment.GetEnvironmentVariable("api_key") ?? throw new Exception("Environment variable 'api_key' is null - this needs to be set to invoke tests");
         string apiAudience = Environment.GetEnvironmentVariable("api_audience") ?? throw new Exception("Environment variable 'api_audience' is null - this needs to be set to invoke tests");
 
-        var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions(baseUrl, apiKey, apiAudience));
-        var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, repositoryApiClientOptions);
+        var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions()
+        {
+            BaseUrl = baseUrl,
+            ApiKey = apiKey,
+            ApiAudience = apiAudience
+        });
+        var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache);
 
         playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, fakeMemoryCache, repositoryApiClientOptions, new RestClientSingleton());
         rootApi = new RootApi(A.Fake<ILogger<RootApi>>(), tokenProvider, repositoryApiClientOptions, new RestClientSingleton());
