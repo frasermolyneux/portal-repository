@@ -15,6 +15,7 @@
                         "name": "adminActionId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -36,6 +37,7 @@
                         "name": "adminActionId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -57,6 +59,7 @@
                         "name": "adminActionId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -79,6 +82,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -86,6 +90,7 @@
                     {
                         "name": "playerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -94,6 +99,7 @@
                     {
                         "name": "adminId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -101,6 +107,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/AdminActionFilter"
                         }
@@ -108,6 +115,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -116,6 +124,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -124,6 +133,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/AdminActionOrder"
                         }
@@ -156,6 +166,7 @@
                         "name": "banFileMonitorId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -177,6 +188,7 @@
                         "name": "banFileMonitorId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -198,6 +210,7 @@
                         "name": "banFileMonitorId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -220,6 +233,7 @@
                     {
                         "name": "gameTypes",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -227,6 +241,7 @@
                     {
                         "name": "banFileMonitorIds",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -234,6 +249,7 @@
                     {
                         "name": "gameServerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -242,6 +258,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -250,6 +267,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -258,6 +276,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/BanFileMonitorOrder"
                         }
@@ -290,6 +309,7 @@
                         "name": "chatMessageId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -312,6 +332,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -319,6 +340,7 @@
                     {
                         "name": "gameServerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -327,6 +349,7 @@
                     {
                         "name": "playerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -335,6 +358,7 @@
                     {
                         "name": "filterString",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -342,6 +366,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -350,6 +375,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -358,6 +384,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/ChatMessageOrder"
                         }
@@ -438,6 +465,7 @@
                         "name": "demoId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -459,6 +487,7 @@
                         "name": "demoId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -481,6 +510,7 @@
                     {
                         "name": "gameTypes",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -488,6 +518,7 @@
                     {
                         "name": "userId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -495,6 +526,7 @@
                     {
                         "name": "filterString",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -502,6 +534,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -510,6 +543,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -518,6 +552,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/DemoOrder"
                         }
@@ -550,6 +585,7 @@
                         "name": "demoId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -573,6 +609,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -594,6 +631,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -615,6 +653,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -637,6 +676,7 @@
                     {
                         "name": "gameTypes",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -644,6 +684,7 @@
                     {
                         "name": "gameServerIds",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -651,6 +692,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameServerFilter"
                         }
@@ -658,6 +700,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -666,6 +709,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -674,6 +718,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameServerOrder"
                         }
@@ -718,6 +763,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -726,6 +772,7 @@
                         "name": "secretId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -746,6 +793,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -754,6 +802,7 @@
                         "name": "secretId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -788,6 +837,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -796,9 +846,51 @@
                     {
                         "name": "cutoff",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    }
+                }
+            }
+        },
+        "/gametracker/{ipAddress}:{queryPort}/{imageName}.png": {
+            "get": {
+                "tags": [
+                    "GameTrackerBanner"
+                ],
+                "parameters": [
+                    {
+                        "name": "ipAddress",
+                        "in": "path",
+                        "required": true,
+                        "style": "simple",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "queryPort",
+                        "in": "path",
+                        "required": true,
+                        "style": "simple",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "imageName",
+                        "in": "path",
+                        "required": true,
+                        "style": "simple",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -818,6 +910,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -825,6 +918,7 @@
                     {
                         "name": "gameServerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -833,6 +927,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/LivePlayerFilter"
                         }
@@ -840,6 +935,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -848,6 +944,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -856,6 +953,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/LivePlayersOrder"
                         }
@@ -878,6 +976,7 @@
                         "name": "gameServerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -901,6 +1000,7 @@
                         "name": "mapId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -922,6 +1022,7 @@
                         "name": "mapId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -945,6 +1046,7 @@
                         "name": "gameType",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -953,6 +1055,7 @@
                         "name": "mapName",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -974,6 +1077,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -981,6 +1085,7 @@
                     {
                         "name": "mapNames",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -988,6 +1093,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/MapsFilter"
                         }
@@ -995,6 +1101,7 @@
                     {
                         "name": "filterString",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -1002,6 +1109,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1010,6 +1118,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1018,6 +1127,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/MapsOrder"
                         }
@@ -1084,6 +1194,7 @@
                         "name": "mapId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1106,6 +1217,7 @@
                     {
                         "name": "cutoff",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -1128,6 +1240,7 @@
                     {
                         "name": "cutoff",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -1150,6 +1263,7 @@
                     {
                         "name": "cutoff",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -1173,6 +1287,7 @@
                         "name": "playerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1181,6 +1296,7 @@
                     {
                         "name": "playerEntityOptions",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/PlayerEntityOptions"
                         }
@@ -1201,6 +1317,7 @@
                         "name": "playerId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1224,6 +1341,7 @@
                         "name": "gameType",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -1232,6 +1350,7 @@
                         "name": "guid",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -1252,6 +1371,7 @@
                         "name": "gameType",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -1260,6 +1380,7 @@
                         "name": "guid",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -1267,6 +1388,7 @@
                     {
                         "name": "playerEntityOptions",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/PlayerEntityOptions"
                         }
@@ -1288,6 +1410,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -1295,6 +1418,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/PlayersFilter"
                         }
@@ -1302,6 +1426,7 @@
                     {
                         "name": "filterString",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -1309,6 +1434,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1317,6 +1443,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1325,6 +1452,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/PlayersOrder"
                         }
@@ -1332,6 +1460,7 @@
                     {
                         "name": "playerEntityOptions",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/PlayerEntityOptions"
                         }
@@ -1363,6 +1492,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -1370,6 +1500,7 @@
                     {
                         "name": "gameServerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1378,6 +1509,7 @@
                     {
                         "name": "cutoff",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -1386,6 +1518,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/RecentPlayersFilter"
                         }
@@ -1393,6 +1526,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1401,6 +1535,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1409,6 +1544,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/RecentPlayersOrder"
                         }
@@ -1441,6 +1577,7 @@
                         "name": "reportId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1463,6 +1600,7 @@
                     {
                         "name": "gameType",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/GameType"
                         }
@@ -1470,6 +1608,7 @@
                     {
                         "name": "gameServerId",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1478,6 +1617,7 @@
                     {
                         "name": "cutoff",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -1486,6 +1626,7 @@
                     {
                         "name": "filter",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/ReportsFilter"
                         }
@@ -1493,6 +1634,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1501,6 +1643,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1509,6 +1652,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/ReportsOrder"
                         }
@@ -1541,6 +1685,7 @@
                         "name": "reportId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1555,6 +1700,23 @@
             }
         },
         "/": {
+            "head": {
+                "tags": [
+                    "repository-webapi"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "get": {
                 "tags": [
                     "repository-webapi"
@@ -1583,6 +1745,7 @@
                         "name": "userProfileId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1606,6 +1769,7 @@
                         "name": "identityId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -1628,6 +1792,7 @@
                         "name": "xtremeIdiotsId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -1650,6 +1815,7 @@
                         "name": "demoAuthKey",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string"
                         }
@@ -1671,6 +1837,7 @@
                     {
                         "name": "filterString",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "string"
                         }
@@ -1678,6 +1845,7 @@
                     {
                         "name": "skipEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1686,6 +1854,7 @@
                     {
                         "name": "takeEntries",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "type": "integer",
                             "format": "int32"
@@ -1694,6 +1863,7 @@
                     {
                         "name": "order",
                         "in": "query",
+                        "style": "form",
                         "schema": {
                             "$ref": "#/components/schemas/UserProfilesOrder"
                         }
@@ -1736,6 +1906,7 @@
                         "name": "userProfileId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1757,6 +1928,7 @@
                         "name": "userProfileId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1780,6 +1952,7 @@
                         "name": "userProfileId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1789,6 +1962,7 @@
                         "name": "userProfileClaimId",
                         "in": "path",
                         "required": true,
+                        "style": "simple",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
