@@ -1,0 +1,80 @@
+﻿using System.Net;
+
+using Azure.Storage.Blobs;
+
+using Microsoft.AspNetCore.Mvc;
+
+using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
+
+namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
+{
+    [ApiController]
+    public class GameTrackerBannerController : Controller
+    {
+        private readonly IConfiguration configuration;
+
+        public GameTrackerBannerController(IConfiguration configuration)
+        {
+            this.configuration = configuration;
+        }
+
+        [HttpGet]
+        [Route("gametracker/{ipAddress}:{queryPort}/{imageName}.png")]
+        public async Task<IActionResult> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
+        {
+            var blobKey = $"{ipAddress}_{queryPort}_{imageName}.png";
+            var blobServiceClient = new BlobServiceClient(configuration["appdata_storage_connectionstring"]);
+            var containerClient = blobServiceClient.GetBlobContainerClient("gametracker");
+
+            var blobClient = containerClient.GetBlobClient(blobKey);
+            if (await blobClient.ExistsAsync())
+            {
+                var foo = await blobClient.GetPropertiesAsync();
+
+                if (foo.Value.LastModified > DateTime.UtcNow.AddMinutes(-10))
+                {
+                    return Redirect(blobClient.Uri.ToString());
+                }
+                else
+                {
+                    await blobClient.DeleteAsync();
+                    return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, false);
+                }
+            }
+            else
+            {
+                return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, true);
+            }
+        }
+
+        private async Task<IActionResult> UpdateBannerImageAndRedirect(string ipAddress, string queryPort, string imageName, BlobClient blobClient, bool gametrackerFallback)
+        {
+            var gameTrackerImageUrl = $"https://cache.gametracker.com/server_info/{ipAddress}:{queryPort}/{imageName}.png";
+
+            try
+            {
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(5);
+                    client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
+
+                    var filePath = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
+                    await client.DownloadFileTaskAsync(new Uri(gameTrackerImageUrl), filePath);
+
+                    await blobClient.UploadAsync(filePath);
+                }
+
+                return Redirect(blobClient.Uri.ToString());
+            }
+            catch
+            {
+                if (gametrackerFallback)
+                    return Redirect(gameTrackerImageUrl);
+                else
+                    return Redirect(blobClient.Uri.ToString());
+            }
+        }
+    }
+}
