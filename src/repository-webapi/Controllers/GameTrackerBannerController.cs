@@ -2,6 +2,7 @@
 
 using Azure.Storage.Blobs;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using MxIO.ApiClient.Abstractions;
@@ -14,6 +15,7 @@ using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
     [ApiController]
+    [Authorize(Roles = "ServiceAccount")]
     public class GameTrackerBannerController : Controller, IGameTrackerBannerApi
     {
         private readonly IConfiguration configuration;
