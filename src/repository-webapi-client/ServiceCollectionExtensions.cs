@@ -23,6 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             serviceCollection.AddSingleton<IGameServersApi, GameServersApi>();
             serviceCollection.AddSingleton<IGameServersEventsApi, GameServersEventsApi>();
             serviceCollection.AddSingleton<IGameServersStatsApi, GameServersStatsApi>();
+            serviceCollection.AddSingleton<IGameTrackerBannerApi, GameTrackerBannerApi>();
             serviceCollection.AddSingleton<ILivePlayersApi, LivePlayersApi>();
             serviceCollection.AddSingleton<IMapsApi, MapsApi>();
             serviceCollection.AddSingleton<IPlayerAnalyticsApi, PlayerAnalyticsApi>();
