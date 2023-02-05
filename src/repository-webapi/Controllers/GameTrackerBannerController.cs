@@ -26,7 +26,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         }
 
         [HttpGet]
-        [Route("gametracker/{ipAddress}:{queryPort}/{imageName}.png")]
+        [Route("gametracker/{ipAddress}:{queryPort}/{imageName}")]
         public async Task<IActionResult> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
         {
             var response = await ((IGameTrackerBannerApi)this).GetGameTrackerBanner(ipAddress, queryPort, imageName);
@@ -36,7 +36,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         async Task<ApiResponseDto<GameTrackerBannerDto>> IGameTrackerBannerApi.GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
         {
-            var blobKey = $"{ipAddress}_{queryPort}_{imageName}.png";
+            var blobKey = $"{ipAddress}_{queryPort}_{imageName}";
             var blobServiceClient = new BlobServiceClient(configuration["appdata_storage_connectionstring"]);
             var containerClient = blobServiceClient.GetBlobContainerClient("gametracker");
 
@@ -66,7 +66,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         private async Task<ApiResponseDto<GameTrackerBannerDto>> UpdateBannerImageAndRedirect(string ipAddress, string queryPort, string imageName, BlobClient blobClient, bool gametrackerFallback)
         {
-            var gameTrackerImageUrl = $"https://cache.gametracker.com/server_info/{ipAddress}:{queryPort}/{imageName}.png";
+            var gameTrackerImageUrl = $"https://cache.gametracker.com/server_info/{ipAddress}:{queryPort}/{imageName}";
 
             try
             {
