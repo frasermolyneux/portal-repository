@@ -31,7 +31,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             GameServers = gameServersApiClient;
             GameServersEvents = gameServersEventsApiClient;
             GameServersStats = gameServersStatsApiClient;
-            GameTrackerBannerApi = gameTrackerBannerApi;
+            GameTrackerBanner = gameTrackerBannerApi;
             LivePlayers = livePlayersApiClient;
             Maps = mapsApiClient;
             PlayerAnalytics = playerAnalyticsApiClient;
@@ -50,7 +50,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
         public IGameServersApi GameServers { get; }
         public IGameServersEventsApi GameServersEvents { get; }
         public IGameServersStatsApi GameServersStats { get; }
-        public IGameTrackerBannerApi GameTrackerBannerApi { get; }
+        public IGameTrackerBannerApi GameTrackerBanner { get; }
         public ILivePlayersApi LivePlayers { get; }
         public IMapsApi Maps { get; }
         public IPlayerAnalyticsApi PlayerAnalytics { get; }
