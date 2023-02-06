@@ -54,7 +54,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
                 }
                 else
                 {
-                    await blobClient.DeleteAsync();
                     return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, false);
                 }
             }
@@ -74,11 +73,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
                 using (var client = new HttpClient())
                 {
-                    client.Timeout = TimeSpan.FromSeconds(5);
+                    client.Timeout = TimeSpan.FromSeconds(10);
                     client.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
 
                     var filePath = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
                     await client.DownloadFileTaskAsync(new Uri(gameTrackerImageUrl), filePath);
+
+                    if (await blobClient.ExistsAsync())
+                        await blobClient.DeleteAsync();
 
                     await blobClient.UploadAsync(filePath);
                 }
