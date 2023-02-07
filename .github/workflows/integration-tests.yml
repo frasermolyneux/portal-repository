@@ -1,11 +1,10 @@
-# This workflow is used alongside feature development, it will execute the integration tests against the development environment.
-
 name: Integration Tests
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "integration/*" ]
+    branches: 
+      - 'integration/*'
 
 permissions:
   id-token: write # This is required for requesting the JWT
