@@ -306,10 +306,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         async Task<ApiResponseDto> IUserProfileApi.SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto)
         {
-            await context.Database.ExecuteSqlRawAsync($"DELETE FROM [dbo].[{nameof(context.UserProfileClaims)}] WHERE [UserProfileId] = '{userProfileId}'");
-
             var userProfileClaims = createUserProfileClaimDto.Select(upc => mapper.Map<UserProfileClaim>(upc)).ToList();
 
+            await context.UserProfileClaims.Where(upc => upc.UserProfileId == userProfileId).ExecuteDeleteAsync();
             await context.UserProfileClaims.AddRangeAsync(userProfileClaims);
             await context.SaveChangesAsync();
 
@@ -327,7 +326,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         async Task<ApiResponseDto> IUserProfileApi.DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId)
         {
-            await context.Database.ExecuteSqlRawAsync($"DELETE FROM [dbo].[{nameof(context.UserProfileClaims)}] WHERE [UserProfileId] = '{userProfileId}' AND [Id] = '{userProfileClaimId}'");
+            await context.UserProfileClaims.Where(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId).ExecuteDeleteAsync();
+            await context.SaveChangesAsync();
+
             return new ApiResponseDto(HttpStatusCode.OK);
         }
 
