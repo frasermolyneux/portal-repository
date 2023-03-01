@@ -1,4 +1,4 @@
-# XtremeIdiots Portal Repository
+# XtremeIdiots Portal - Repository
 
 [![Release to Production](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-to-production.yml/badge.svg?branch=main)](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-to-production.yml)
 
