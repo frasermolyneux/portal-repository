@@ -19,9 +19,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
     public class GameTrackerBannerController : Controller, IGameTrackerBannerApi
     {
         private readonly IConfiguration configuration;
+        private readonly ILogger<GameTrackerBannerController> logger;
 
-        public GameTrackerBannerController(IConfiguration configuration)
+        public GameTrackerBannerController(ILogger<GameTrackerBannerController> logger, IConfiguration configuration)
         {
+            this.logger = logger;
             this.configuration = configuration;
         }
 
@@ -90,8 +92,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
                     BannerUrl = blobClient.Uri.ToString()
                 });
             }
-            catch
+            catch (Exception ex)
             {
+                logger.LogError(ex, "Failed to update banner image");
+
                 if (gametrackerFallback)
                     return new ApiResponseDto<GameTrackerBannerDto>(HttpStatusCode.OK, new GameTrackerBannerDto()
                     {
