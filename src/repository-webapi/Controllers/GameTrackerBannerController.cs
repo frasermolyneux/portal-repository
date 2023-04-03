@@ -56,7 +56,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
                 }
                 else
                 {
-                    return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, false);
+                    return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, true);
                 }
             }
             else
