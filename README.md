@@ -1,8 +1,11 @@
 # XtremeIdiots Portal - Repository
 
-[![Release to Production](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-to-production.yml/badge.svg?branch=main)](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-to-production.yml)
-
-[![Feature Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml)
+| Stage | Status |
+| --- | --- |
+| Feature Development | [![Feature Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml/badge.svg?branch=main)](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml) |
+| Pull Request Validation | [![Pull Request Validation](https://github.com/frasermolyneux/portal-repository/actions/workflows/pull-request-validation.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/pull-request-validation.yml) |
+| Destroy Development | [![Destroy Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-development.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-development.yml) |
+| Release to Production | [![Release to Production](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-to-production.yml/badge.svg?branch=main)](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-to-production.yml) |
 
 ---
 
