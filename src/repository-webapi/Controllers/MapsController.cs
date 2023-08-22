@@ -45,6 +45,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             return response.ToHttpResult();
         }
 
+        [HttpGet]
+        [Route("maps/{gameType}/{mapName}")]
+        public async Task<IActionResult> GetMap(GameType gameType, string mapName)
+        {
+            var response = await ((IMapsApi)this).GetMap(gameType, mapName);
+
+            return response.ToHttpResult();
+        }
+
         async Task<ApiResponseDto<MapDto>> IMapsApi.GetMap(Guid mapId)
         {
             var map = await context.Maps
@@ -57,15 +66,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             var result = mapper.Map<MapDto>(map);
 
             return new ApiResponseDto<MapDto>(HttpStatusCode.OK, result);
-        }
-
-        [HttpGet]
-        [Route("maps/{gameType}/{mapName}")]
-        public async Task<IActionResult> GetMap(GameType gameType, string mapName)
-        {
-            var response = await ((IMapsApi)this).GetMap(gameType, mapName);
-
-            return response.ToHttpResult();
         }
 
         async Task<ApiResponseDto<MapDto>> IMapsApi.GetMap(GameType gameType, string mapName)

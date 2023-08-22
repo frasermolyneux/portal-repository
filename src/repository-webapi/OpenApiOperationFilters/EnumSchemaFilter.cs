@@ -7,16 +7,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.OpenApiOperationFilters
 {
     public class EnumSchemaFilter : ISchemaFilter
     {
-        public void Apply(OpenApiSchema model, SchemaFilterContext context)
+        public void Apply(OpenApiSchema schema, SchemaFilterContext context)
         {
             if (context.Type.IsEnum)
             {
-                model.Type = "string";
-                model.Enum.Clear();
+                schema.Type = "string";
+                schema.Enum.Clear();
 
                 Enum.GetNames(context.Type)
                     .ToList()
-                    .ForEach(n => model.Enum.Add(new OpenApiString(n)));
+                    .ForEach(n => schema.Enum.Add(new OpenApiString(n)));
             }
         }
     }

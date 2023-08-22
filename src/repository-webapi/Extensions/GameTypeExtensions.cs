@@ -42,7 +42,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Extensions
                 case GameType.CallOfDuty5:
                     return "dm_6";
                 default:
-                    throw new Exception("Game Type not supported for demos");
+                    throw new ApplicationException("Game Type not supported for demos");
             }
         }
     }

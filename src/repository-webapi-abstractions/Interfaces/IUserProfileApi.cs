@@ -13,8 +13,8 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
         Task<ApiResponseDto<UserProfileDto>> GetUserProfileByDemoAuthKey(string demoAuthKey);
         Task<ApiResponseDto<UserProfileCollectionDto>> GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order);
 
-        Task<ApiResponseDto> CreateUserProfile(CreateUserProfileDto createUserProfileClaimDto);
-        Task<ApiResponseDto> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileClaimDtos);
+        Task<ApiResponseDto> CreateUserProfile(CreateUserProfileDto createUserProfileDto);
+        Task<ApiResponseDto> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos);
 
         Task<ApiResponseDto> UpdateUserProfile(EditUserProfileDto editUserProfileDto);
         Task<ApiResponseDto> UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos);

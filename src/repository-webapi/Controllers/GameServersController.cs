@@ -60,7 +60,7 @@ public class GameServersController : Controller, IGameServersApi
 
     [HttpGet]
     [Route("game-servers")]
-    public async Task<IActionResult> GetGameServer(string? gameTypes, string? gameServerIds, GameServerFilter? filter, int? skipEntries, int? takeEntries, GameServerOrder? order)
+    public async Task<IActionResult> GetGameServers(string? gameTypes, string? gameServerIds, GameServerFilter? filter, int? skipEntries, int? takeEntries, GameServerOrder? order)
     {
         if (!skipEntries.HasValue)
             skipEntries = 0;
