@@ -5,7 +5,7 @@ resource "azuread_application" "integration_tests" {
 }
 
 resource "azuread_service_principal" "integration_tests_service_principal" {
-  application_id               = azuread_application.integration_tests.application_id
+  client_id                    = azuread_application.integration_tests.client_id
   app_role_assignment_required = false
 
   owners = [
@@ -14,7 +14,7 @@ resource "azuread_service_principal" "integration_tests_service_principal" {
 }
 
 resource "azuread_application_password" "integration_test_password" {
-  application_object_id = azuread_application.integration_tests.object_id
+  application_id = azuread_application.integration_tests.id
 
   rotate_when_changed = {
     rotation = time_rotating.thirty_days.id

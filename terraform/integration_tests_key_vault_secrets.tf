@@ -1,6 +1,6 @@
 resource "azurerm_key_vault_secret" "integration_test_account_client_id" {
   name         = format("%s-client-id", azuread_application.integration_tests.display_name)
-  value        = azuread_application.integration_tests.application_id
+  value        = azuread_application.integration_tests.client_id
   key_vault_id = azurerm_key_vault.kv.id
 }
 
