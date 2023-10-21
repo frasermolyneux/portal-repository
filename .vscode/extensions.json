@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.vscodeintellicode-csharp",
+        "GitHub.vscode-github-actions",
+        "aliasadidev.nugetpackagemanagergui",
+        "HashiCorp.terraform",
+        "ms-vscode.azurecli"
+    ]
+}
