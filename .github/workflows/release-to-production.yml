@@ -187,6 +187,11 @@ jobs:
           client_tenant_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-tenant-id" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
           api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-api-key" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
 
+          echo "::add-mask::$client_id"
+          echo "::add-mask::$client_secret"
+          echo "::add-mask::$client_tenant_id"
+          echo "::add-mask::$api_key"
+
           echo "int_test_client_id=$client_id" >> $GITHUB_ENV
           echo "int_test_client_secret=$client_secret" >> $GITHUB_ENV
           echo "int_test_client_tenant_id=$client_tenant_id" >> $GITHUB_ENV
@@ -303,6 +308,11 @@ jobs:
           client_secret=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-client-secret" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
           client_tenant_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-client-tenant-id" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
           api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-api-key" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
+
+          echo "::add-mask::$client_id"
+          echo "::add-mask::$client_secret"
+          echo "::add-mask::$client_tenant_id"
+          echo "::add-mask::$api_key"
 
           echo "int_test_client_id=$client_id" >> $GITHUB_ENV
           echo "int_test_client_secret=$client_secret" >> $GITHUB_ENV
