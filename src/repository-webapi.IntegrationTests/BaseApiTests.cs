@@ -32,7 +32,7 @@ public class BaseApiTests
         var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions()
         {
             BaseUrl = baseUrl,
-            ApiKey = apiKey,
+            PrimaryApiKey = apiKey,
             ApiAudience = apiAudience
         });
         var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache);

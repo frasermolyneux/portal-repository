@@ -185,7 +185,7 @@ jobs:
           client_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-id" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
           client_secret=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-secret" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
           client_tenant_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-client-tenant-id" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
-          api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-api-key" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
+          api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-dev.outputs.integration_tests_account_name }}-api-key-primary" --vault-name "${{ needs.terraform-plan-and-apply-dev.outputs.key_vault_name }}" --query value -o tsv)
 
           echo "::add-mask::$client_id"
           echo "::add-mask::$client_secret"
@@ -307,7 +307,7 @@ jobs:
           client_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-client-id" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
           client_secret=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-client-secret" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
           client_tenant_id=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-client-tenant-id" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
-          api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-api-key" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
+          api_key=$(az keyvault secret show --name "${{ needs.terraform-plan-and-apply-prd.outputs.integration_tests_account_name }}-api-key-primary" --vault-name "${{ needs.terraform-plan-and-apply-prd.outputs.key_vault_name }}" --query value -o tsv)
 
           echo "::add-mask::$client_id"
           echo "::add-mask::$client_secret"
