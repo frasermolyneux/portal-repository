@@ -75,15 +75,15 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
 
-  outputs:
-    web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
-    web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
-    workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
-    sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
-    sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
-    key_vault_name: ${{ steps.terraform-output.outputs.key_vault_name }}
-    integration_tests_account_name: ${{ steps.terraform-output.outputs.integration_tests_account_name }}
-    api_audience: ${{ steps.terraform-output.outputs.api_audience }}
+    outputs:
+      web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
+      workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
+      sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
+      sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
+      key_vault_name: ${{ steps.terraform-output.outputs.key_vault_name }}
+      integration_tests_account_name: ${{ steps.terraform-output.outputs.integration_tests_account_name }}
+      api_audience: ${{ steps.terraform-output.outputs.api_audience }}
 
   deploy-sql-database-dev:
     environment: Development
