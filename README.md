@@ -2,6 +2,7 @@
 
 | Stage | Status |
 | --- | --- |
+| Code Quality | [![Code Quality](https://github.com/frasermolyneux/portal-repository/actions/workflows/codequality.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/codequality.yml) |
 | Feature Development | [![Feature Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml/badge.svg?branch=main)](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml) |
 | Pull Request Validation | [![Pull Request Validation](https://github.com/frasermolyneux/portal-repository/actions/workflows/pull-request-validation.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/pull-request-validation.yml) |
 | Destroy Development | [![Destroy Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-development.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-development.yml) |
