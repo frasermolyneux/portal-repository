@@ -41,6 +41,9 @@ jobs:
     environment: Development
     runs-on: ubuntu-latest
 
+    concurrency:
+      group: ${{ github.repository }}-dev
+
     steps:
     - uses: actions/checkout@v3
 
@@ -86,6 +89,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [terraform-plan-and-apply-dev]
 
+    concurrency:
+      group: ${{ github.repository }}-dev
+
     steps:
     - uses: actions/checkout@v3
 
@@ -103,8 +109,10 @@ jobs:
   app-service-deploy-dev:
     environment: Development
     runs-on: ubuntu-latest
-    needs:
-      [dotnet-web-ci, deploy-sql-database-dev, terraform-plan-and-apply-dev]
+    needs: [dotnet-web-ci, deploy-sql-database-dev, terraform-plan-and-apply-dev]
+
+    concurrency:
+      group: ${{ github.repository }}-dev
 
     steps:
     - uses: actions/checkout@v3
@@ -121,6 +129,9 @@ jobs:
     environment: Development
     runs-on: ubuntu-latest
     needs: [app-service-deploy-dev, terraform-plan-and-apply-dev]
+
+    concurrency:
+      group: ${{ github.repository }}-dev
 
     steps:
     - name: "Az CLI Login"
