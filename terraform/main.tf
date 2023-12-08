@@ -33,16 +33,6 @@ provider "azurerm" {
 }
 
 provider "azurerm" {
-  alias           = "web_apps"
-  subscription_id = var.web_apps_subscription_id
-
-  # This is a workload repository so won't have permissions to register providers
-  skip_provider_registration = true
-
-  features {}
-}
-
-provider "azurerm" {
   alias           = "frontdoor"
   subscription_id = var.frontdoor_subscription_id
 
