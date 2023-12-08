@@ -45,8 +45,8 @@ resource "azurerm_linux_web_app" "app" {
   app_settings = {
     "minTlsVersion"                              = "1.2"
     "READ_ONLY_MODE"                             = var.environment == "prd" ? "true" : "false"
-    "APPINSIGHTS_INSTRUMENTATIONKEY"             = azurerm_application_insights.ai.instrumentation_key
-    "APPLICATIONINSIGHTS_CONNECTION_STRING"      = azurerm_application_insights.ai.connection_string
+    "APPINSIGHTS_INSTRUMENTATIONKEY"             = data.azurerm_application_insights.core.instrumentation_key
+    "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.core.connection_string
     "ApplicationInsightsAgent_EXTENSION_VERSION" = "~3"
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"

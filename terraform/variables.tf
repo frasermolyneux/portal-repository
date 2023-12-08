@@ -32,10 +32,6 @@ variable "dns_subscription_id" {}
 variable "dns_resource_group_name" {}
 variable "dns_zone_name" {}
 
-variable "log_analytics_subscription_id" {}
-variable "log_analytics_resource_group_name" {}
-variable "log_analytics_workspace_name" {}
-
 variable "tags" {
   default = {}
 }
