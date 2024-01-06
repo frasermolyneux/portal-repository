@@ -6,23 +6,26 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
-{
-    [Index("GameServerId", Name = "IX_GameServerId")]
-    [Index("GameServerStatId", Name = "IX_GameServerStatId", IsUnique = true)]
-    public partial class GameServerStat
-    {
-        [Key]
-        public Guid GameServerStatId { get; set; }
-        public Guid? GameServerId { get; set; }
-        public int PlayerCount { get; set; }
-        [Required]
-        public string MapName { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime Timestamp { get; set; }
+namespace XtremeIdiots.Portal.DataLib;
 
-        [ForeignKey("GameServerId")]
-        [InverseProperty("GameServerStats")]
-        public virtual GameServer GameServer { get; set; }
-    }
+[Index("GameServerId", Name = "IX_GameServerId")]
+[Index("GameServerStatId", Name = "IX_GameServerStatId", IsUnique = true)]
+public partial class GameServerStat
+{
+    [Key]
+    public Guid GameServerStatId { get; set; }
+
+    public Guid? GameServerId { get; set; }
+
+    public int PlayerCount { get; set; }
+
+    [Required]
+    public string MapName { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime Timestamp { get; set; }
+
+    [ForeignKey("GameServerId")]
+    [InverseProperty("GameServerStats")]
+    public virtual GameServer GameServer { get; set; }
 }

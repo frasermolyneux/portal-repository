@@ -6,24 +6,27 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
-{
-    [Index("UserProfileClaimId", Name = "IX_UserProfileClaimId", IsUnique = true)]
-    [Index("UserProfileId", Name = "IX_UserProfileId")]
-    public partial class UserProfileClaim
-    {
-        [Key]
-        public Guid UserProfileClaimId { get; set; }
-        public Guid UserProfileId { get; set; }
-        public bool SystemGenerated { get; set; }
-        [Required]
-        [StringLength(128)]
-        public string ClaimType { get; set; }
-        [Required]
-        public string ClaimValue { get; set; }
+namespace XtremeIdiots.Portal.DataLib;
 
-        [ForeignKey("UserProfileId")]
-        [InverseProperty("UserProfileClaims")]
-        public virtual UserProfile UserProfile { get; set; }
-    }
+[Index("UserProfileClaimId", Name = "IX_UserProfileClaimId", IsUnique = true)]
+[Index("UserProfileId", Name = "IX_UserProfileId")]
+public partial class UserProfileClaim
+{
+    [Key]
+    public Guid UserProfileClaimId { get; set; }
+
+    public Guid UserProfileId { get; set; }
+
+    public bool SystemGenerated { get; set; }
+
+    [Required]
+    [StringLength(128)]
+    public string ClaimType { get; set; }
+
+    [Required]
+    public string ClaimValue { get; set; }
+
+    [ForeignKey("UserProfileId")]
+    [InverseProperty("UserProfileClaims")]
+    public virtual UserProfile UserProfile { get; set; }
 }

@@ -1,4 +1,5 @@
-﻿CREATE TABLE [dbo].[GameServers] (
+﻿CREATE TABLE [dbo].[GameServers]
+(
     [GameServerId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [Title] NVARCHAR (60) NOT NULL,
     [GameType] INT DEFAULT 0 NOT NULL,
@@ -11,10 +12,11 @@
     [RconPassword] NVARCHAR (MAX) NULL,
     [ServerListPosition] INT DEFAULT 0 NOT NULL,
     [HtmlBanner] NVARCHAR (MAX) NULL,
+    [BotEnabled] BIT DEFAULT 0 NOT NULL,
     [BannerServerListEnabled] BIT DEFAULT 0 NOT NULL,
     [PortalServerListEnabled] BIT DEFAULT 0 NOT NULL,
     [ChatLogEnabled] BIT DEFAULT 0 NOT NULL,
-    [LiveTrackingEnabled] BIT NOT NULL DEFAULT 0, 
+    [LiveTrackingEnabled] BIT NOT NULL DEFAULT 0,
     [LiveTitle] NVARCHAR (MAX) NULL,
     [LiveMap] NVARCHAR (MAX) NULL,
     [LiveMod] NVARCHAR (MAX) NULL,

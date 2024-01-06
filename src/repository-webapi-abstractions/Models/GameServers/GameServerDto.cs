@@ -52,6 +52,9 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
         public string? HtmlBanner { get; internal set; }
 
         [JsonProperty]
+        public bool BotEnabled { get; set; }
+
+        [JsonProperty]
         public bool BannerServerListEnabled { get; internal set; }
 
         [JsonProperty]

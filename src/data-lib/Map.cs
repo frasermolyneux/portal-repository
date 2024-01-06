@@ -6,29 +6,32 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
+namespace XtremeIdiots.Portal.DataLib;
+
+[Index("MapId", Name = "IX_MapId", IsUnique = true)]
+public partial class Map
 {
-    [Index("MapId", Name = "IX_MapId", IsUnique = true)]
-    public partial class Map
-    {
-        public Map()
-        {
-            MapVotes = new HashSet<MapVote>();
-        }
+    [Key]
+    public Guid MapId { get; set; }
 
-        [Key]
-        public Guid MapId { get; set; }
-        public int GameType { get; set; }
-        public string MapName { get; set; }
-        public string MapImageUri { get; set; }
-        public string MapFiles { get; set; }
-        public int TotalLikes { get; set; }
-        public int TotalDislikes { get; set; }
-        public int TotalVotes { get; set; }
-        public double LikePercentage { get; set; }
-        public double DislikePercentage { get; set; }
+    public int GameType { get; set; }
 
-        [InverseProperty("Map")]
-        public virtual ICollection<MapVote> MapVotes { get; set; }
-    }
+    public string MapName { get; set; }
+
+    public string MapImageUri { get; set; }
+
+    public string MapFiles { get; set; }
+
+    public int TotalLikes { get; set; }
+
+    public int TotalDislikes { get; set; }
+
+    public int TotalVotes { get; set; }
+
+    public double LikePercentage { get; set; }
+
+    public double DislikePercentage { get; set; }
+
+    [InverseProperty("Map")]
+    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 }
