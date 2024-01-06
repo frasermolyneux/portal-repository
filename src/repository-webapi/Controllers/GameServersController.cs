@@ -242,6 +242,9 @@ public class GameServersController : Controller, IGameServersApi
             case GameServerFilter.LiveTrackingEnabled:
                 query = query.Where(s => s.LiveTrackingEnabled).AsQueryable();
                 break;
+            case GameServerFilter.BotEnabled:
+                query = query.Where(s => s.BotEnabled).AsQueryable();
+                break;
         }
 
         return query;

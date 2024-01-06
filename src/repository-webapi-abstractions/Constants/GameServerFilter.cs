@@ -4,6 +4,7 @@
     {
         LiveTrackingEnabled,
         PortalServerListEnabled,
-        BannerServerListEnabled
+        BannerServerListEnabled,
+        BotEnabled
     }
 }
