@@ -6,51 +6,51 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
+namespace XtremeIdiots.Portal.DataLib;
+
+[Index("GameType", Name = "IX_GameType")]
+[Index("GameType", "LastSeen", Name = "IX_GameTypeAndLastSeen")]
+[Index("PlayerId", Name = "IX_PlayerId", IsUnique = true)]
+public partial class Player
 {
-    [Index("GameType", Name = "IX_GameType")]
-    [Index("GameType", "LastSeen", Name = "IX_GameTypeAndLastSeen")]
-    [Index("PlayerId", Name = "IX_PlayerId", IsUnique = true)]
-    public partial class Player
-    {
-        public Player()
-        {
-            AdminActions = new HashSet<AdminAction>();
-            ChatMessages = new HashSet<ChatMessage>();
-            LivePlayers = new HashSet<LivePlayer>();
-            MapVotes = new HashSet<MapVote>();
-            PlayerAliases = new HashSet<PlayerAlias>();
-            PlayerIpAddresses = new HashSet<PlayerIpAddress>();
-            RecentPlayers = new HashSet<RecentPlayer>();
-            Reports = new HashSet<Report>();
-        }
+    [Key]
+    public Guid PlayerId { get; set; }
 
-        [Key]
-        public Guid PlayerId { get; set; }
-        public int GameType { get; set; }
-        public string Username { get; set; }
-        public string Guid { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime FirstSeen { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime LastSeen { get; set; }
-        public string IpAddress { get; set; }
+    public int GameType { get; set; }
 
-        [InverseProperty("Player")]
-        public virtual ICollection<AdminAction> AdminActions { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<ChatMessage> ChatMessages { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<LivePlayer> LivePlayers { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<MapVote> MapVotes { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<PlayerAlias> PlayerAliases { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<RecentPlayer> RecentPlayers { get; set; }
-        [InverseProperty("Player")]
-        public virtual ICollection<Report> Reports { get; set; }
-    }
+    public string Username { get; set; }
+
+    public string Guid { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime FirstSeen { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime LastSeen { get; set; }
+
+    public string IpAddress { get; set; }
+
+    [InverseProperty("Player")]
+    public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<PlayerAlias> PlayerAliases { get; set; } = new List<PlayerAlias>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; } = new List<PlayerIpAddress>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 }

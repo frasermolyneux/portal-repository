@@ -6,50 +6,54 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
+namespace XtremeIdiots.Portal.DataLib;
+
+[Index("UserProfileId", Name = "IX_UserProfileId", IsUnique = true)]
+public partial class UserProfile
 {
-    [Index("UserProfileId", Name = "IX_UserProfileId", IsUnique = true)]
-    public partial class UserProfile
-    {
-        public UserProfile()
-        {
-            AdminActions = new HashSet<AdminAction>();
-            Demos = new HashSet<Demo>();
-            ReportAdminUserProfiles = new HashSet<Report>();
-            ReportUserProfiles = new HashSet<Report>();
-            UserProfileClaims = new HashSet<UserProfileClaim>();
-        }
+    [Key]
+    public Guid UserProfileId { get; set; }
 
-        [Key]
-        public Guid UserProfileId { get; set; }
-        [StringLength(50)]
-        public string IdentityOid { get; set; }
-        [StringLength(50)]
-        public string XtremeIdiotsForumId { get; set; }
-        [StringLength(50)]
-        public string DemoAuthKey { get; set; }
-        [StringLength(128)]
-        public string DisplayName { get; set; }
-        [StringLength(128)]
-        public string FormattedName { get; set; }
-        [StringLength(128)]
-        public string PrimaryGroup { get; set; }
-        [StringLength(128)]
-        public string Email { get; set; }
-        public string PhotoUrl { get; set; }
-        public string ProfileUrl { get; set; }
-        [StringLength(50)]
-        public string TimeZone { get; set; }
+    [StringLength(50)]
+    public string IdentityOid { get; set; }
 
-        [InverseProperty("UserProfile")]
-        public virtual ICollection<AdminAction> AdminActions { get; set; }
-        [InverseProperty("UserProfile")]
-        public virtual ICollection<Demo> Demos { get; set; }
-        [InverseProperty("AdminUserProfile")]
-        public virtual ICollection<Report> ReportAdminUserProfiles { get; set; }
-        [InverseProperty("UserProfile")]
-        public virtual ICollection<Report> ReportUserProfiles { get; set; }
-        [InverseProperty("UserProfile")]
-        public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; }
-    }
+    [StringLength(50)]
+    public string XtremeIdiotsForumId { get; set; }
+
+    [StringLength(50)]
+    public string DemoAuthKey { get; set; }
+
+    [StringLength(128)]
+    public string DisplayName { get; set; }
+
+    [StringLength(128)]
+    public string FormattedName { get; set; }
+
+    [StringLength(128)]
+    public string PrimaryGroup { get; set; }
+
+    [StringLength(128)]
+    public string Email { get; set; }
+
+    public string PhotoUrl { get; set; }
+
+    public string ProfileUrl { get; set; }
+
+    [StringLength(50)]
+    public string TimeZone { get; set; }
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
+
+    [InverseProperty("AdminUserProfile")]
+    public virtual ICollection<Report> ReportAdminUserProfiles { get; set; } = new List<Report>();
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<Report> ReportUserProfiles { get; set; } = new List<Report>();
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; } = new List<UserProfileClaim>();
 }

@@ -6,29 +6,39 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
-{
-    [Index("DemoId", Name = "IX_DemoId", IsUnique = true)]
-    [Index("UserProfileId", Name = "IX_UserProfileId")]
-    public partial class Demo
-    {
-        [Key]
-        public Guid DemoId { get; set; }
-        public Guid? UserProfileId { get; set; }
-        public int GameType { get; set; }
-        public string Title { get; set; }
-        public string FileName { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime? Created { get; set; }
-        public string Map { get; set; }
-        public string Mod { get; set; }
-        public string GameMode { get; set; }
-        public string ServerName { get; set; }
-        public long FileSize { get; set; }
-        public string FileUri { get; set; }
+namespace XtremeIdiots.Portal.DataLib;
 
-        [ForeignKey("UserProfileId")]
-        [InverseProperty("Demos")]
-        public virtual UserProfile UserProfile { get; set; }
-    }
+[Index("DemoId", Name = "IX_DemoId", IsUnique = true)]
+[Index("UserProfileId", Name = "IX_UserProfileId")]
+public partial class Demo
+{
+    [Key]
+    public Guid DemoId { get; set; }
+
+    public Guid? UserProfileId { get; set; }
+
+    public int GameType { get; set; }
+
+    public string Title { get; set; }
+
+    public string FileName { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime? Created { get; set; }
+
+    public string Map { get; set; }
+
+    public string Mod { get; set; }
+
+    public string GameMode { get; set; }
+
+    public string ServerName { get; set; }
+
+    public long FileSize { get; set; }
+
+    public string FileUri { get; set; }
+
+    [ForeignKey("UserProfileId")]
+    [InverseProperty("Demos")]
+    public virtual UserProfile UserProfile { get; set; }
 }

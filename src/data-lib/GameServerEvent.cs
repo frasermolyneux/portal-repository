@@ -6,26 +6,29 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
-{
-    [Index("GameServerEventId", Name = "IX_GameServerEventId", IsUnique = true)]
-    [Index("GameServerId", Name = "IX_GameServerId")]
-    public partial class GameServerEvent
-    {
-        [Key]
-        public Guid GameServerEventId { get; set; }
-        public Guid GameServerId { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime Timestamp { get; set; }
-        [Required]
-        [StringLength(50)]
-        [Unicode(false)]
-        public string EventType { get; set; }
-        [Unicode(false)]
-        public string EventData { get; set; }
+namespace XtremeIdiots.Portal.DataLib;
 
-        [ForeignKey("GameServerId")]
-        [InverseProperty("GameServerEvents")]
-        public virtual GameServer GameServer { get; set; }
-    }
+[Index("GameServerEventId", Name = "IX_GameServerEventId", IsUnique = true)]
+[Index("GameServerId", Name = "IX_GameServerId")]
+public partial class GameServerEvent
+{
+    [Key]
+    public Guid GameServerEventId { get; set; }
+
+    public Guid GameServerId { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime Timestamp { get; set; }
+
+    [Required]
+    [StringLength(50)]
+    [Unicode(false)]
+    public string EventType { get; set; }
+
+    [Unicode(false)]
+    public string EventData { get; set; }
+
+    [ForeignKey("GameServerId")]
+    [InverseProperty("GameServerEvents")]
+    public virtual GameServer GameServer { get; set; }
 }

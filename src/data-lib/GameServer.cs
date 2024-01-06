@@ -6,66 +6,83 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
+namespace XtremeIdiots.Portal.DataLib;
+
+[Index("GameServerId", Name = "IX_GameServerId", IsUnique = true)]
+public partial class GameServer
 {
-    [Index("GameServerId", Name = "IX_GameServerId", IsUnique = true)]
-    public partial class GameServer
-    {
-        public GameServer()
-        {
-            BanFileMonitors = new HashSet<BanFileMonitor>();
-            ChatMessages = new HashSet<ChatMessage>();
-            GameServerEvents = new HashSet<GameServerEvent>();
-            GameServerStats = new HashSet<GameServerStat>();
-            LivePlayers = new HashSet<LivePlayer>();
-            MapVotes = new HashSet<MapVote>();
-            RecentPlayers = new HashSet<RecentPlayer>();
-            Reports = new HashSet<Report>();
-        }
+    [Key]
+    public Guid GameServerId { get; set; }
 
-        [Key]
-        public Guid GameServerId { get; set; }
-        [Required]
-        [StringLength(60)]
-        public string Title { get; set; }
-        public int GameType { get; set; }
-        [Required]
-        public string Hostname { get; set; }
-        public int QueryPort { get; set; }
-        public string FtpHostname { get; set; }
-        public int? FtpPort { get; set; }
-        public string FtpUsername { get; set; }
-        public string FtpPassword { get; set; }
-        public string RconPassword { get; set; }
-        public int ServerListPosition { get; set; }
-        public string HtmlBanner { get; set; }
-        public bool BannerServerListEnabled { get; set; }
-        public bool PortalServerListEnabled { get; set; }
-        public bool ChatLogEnabled { get; set; }
-        public bool LiveTrackingEnabled { get; set; }
-        public string LiveTitle { get; set; }
-        public string LiveMap { get; set; }
-        public string LiveMod { get; set; }
-        public int? LiveMaxPlayers { get; set; }
-        public int? LiveCurrentPlayers { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime? LiveLastUpdated { get; set; }
+    [Required]
+    [StringLength(60)]
+    public string Title { get; set; }
 
-        [InverseProperty("GameServer")]
-        public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<ChatMessage> ChatMessages { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<GameServerEvent> GameServerEvents { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<GameServerStat> GameServerStats { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<LivePlayer> LivePlayers { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<MapVote> MapVotes { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<RecentPlayer> RecentPlayers { get; set; }
-        [InverseProperty("GameServer")]
-        public virtual ICollection<Report> Reports { get; set; }
-    }
+    public int GameType { get; set; }
+
+    [Required]
+    public string Hostname { get; set; }
+
+    public int QueryPort { get; set; }
+
+    public string FtpHostname { get; set; }
+
+    public int? FtpPort { get; set; }
+
+    public string FtpUsername { get; set; }
+
+    public string FtpPassword { get; set; }
+
+    public string RconPassword { get; set; }
+
+    public int ServerListPosition { get; set; }
+
+    public string HtmlBanner { get; set; }
+
+    public bool BotEnabled { get; set; }
+
+    public bool BannerServerListEnabled { get; set; }
+
+    public bool PortalServerListEnabled { get; set; }
+
+    public bool ChatLogEnabled { get; set; }
+
+    public bool LiveTrackingEnabled { get; set; }
+
+    public string LiveTitle { get; set; }
+
+    public string LiveMap { get; set; }
+
+    public string LiveMod { get; set; }
+
+    public int? LiveMaxPlayers { get; set; }
+
+    public int? LiveCurrentPlayers { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime? LiveLastUpdated { get; set; }
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; } = new List<BanFileMonitor>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<GameServerEvent> GameServerEvents { get; set; } = new List<GameServerEvent>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<GameServerStat> GameServerStats { get; set; } = new List<GameServerStat>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 }

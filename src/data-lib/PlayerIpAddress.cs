@@ -6,25 +6,29 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace XtremeIdiots.Portal.DataLib
-{
-    [Index("Address", Name = "IX_Address")]
-    [Index("PlayerId", Name = "IX_Players_PlayerId")]
-    public partial class PlayerIpAddress
-    {
-        [Key]
-        public Guid PlayerIpAddressId { get; set; }
-        public Guid? PlayerId { get; set; }
-        [StringLength(60)]
-        public string Address { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime Added { get; set; }
-        [Column(TypeName = "datetime")]
-        public DateTime LastUsed { get; set; }
-        public int ConfidenceScore { get; set; }
+namespace XtremeIdiots.Portal.DataLib;
 
-        [ForeignKey("PlayerId")]
-        [InverseProperty("PlayerIpAddresses")]
-        public virtual Player Player { get; set; }
-    }
+[Index("Address", Name = "IX_Address")]
+[Index("PlayerId", Name = "IX_Players_PlayerId")]
+public partial class PlayerIpAddress
+{
+    [Key]
+    public Guid PlayerIpAddressId { get; set; }
+
+    public Guid? PlayerId { get; set; }
+
+    [StringLength(60)]
+    public string Address { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime Added { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime LastUsed { get; set; }
+
+    public int ConfidenceScore { get; set; }
+
+    [ForeignKey("PlayerId")]
+    [InverseProperty("PlayerIpAddresses")]
+    public virtual Player Player { get; set; }
 }
