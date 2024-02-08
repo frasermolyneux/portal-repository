@@ -10,6 +10,8 @@ resource "azurerm_mssql_database" "repo" {
 }
 
 resource "azurerm_management_lock" "repo_lock" {
+  count = var.environment == "prd" ? 1 : 0
+
   name       = "Terraform (CanNotDelete) - ${random_id.lock.hex}"
   scope      = azurerm_mssql_database.repo.id
   lock_level = "CanNotDelete"
