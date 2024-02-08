@@ -5,7 +5,7 @@ resource "azurerm_linux_web_app" "app" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 
-  service_plan_id     = data.azurerm_service_plan.core.id
+  service_plan_id = data.azurerm_service_plan.core.id
 
   https_only = true
 
@@ -16,25 +16,6 @@ resource "azurerm_linux_web_app" "app" {
   site_config {
     application_stack {
       dotnet_version = "8.0"
-    }
-
-    ip_restriction {
-      action      = "Allow"
-      service_tag = "AzureFrontDoor.Backend"
-
-      headers {
-        x_azure_fdid = [data.azurerm_cdn_frontdoor_profile.platform.resource_guid]
-      }
-
-      name     = "RestrictToFrontDoor"
-      priority = 1000
-    }
-
-    ip_restriction {
-      ip_address = "0.0.0.0/0"
-      action     = "Deny"
-      priority   = 2147483647
-      name       = "Deny All"
     }
 
     ftps_state          = "Disabled"
