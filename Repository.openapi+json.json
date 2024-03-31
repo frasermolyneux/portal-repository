@@ -1782,7 +1782,7 @@
                 }
             }
         },
-        "/user-profile/by-xtremeidiots-id/{xtremeidiotsId}": {
+        "/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
             "get": {
                 "tags": [
                     "UserProfile"

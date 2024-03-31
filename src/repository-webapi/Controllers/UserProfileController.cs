@@ -80,7 +80,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         }
 
         [HttpGet]
-        [Route("user-profile/by-xtremeidiots-id/{xtremeidiotsId}")]
+        [Route("user-profile/by-xtremeidiots-id/{xtremeIdiotsId}")]
         public async Task<IActionResult> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId)
         {
             var response = await ((IUserProfileApi)this).GetUserProfileByXtremeIdiotsId(xtremeIdiotsId);
