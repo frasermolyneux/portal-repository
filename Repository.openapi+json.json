@@ -860,7 +860,7 @@
                 }
             }
         },
-        "/gametracker/{ipAddress}:{queryPort}/{imageName}.png": {
+        "/gametracker/{ipAddress}:{queryPort}/{imageName}": {
             "get": {
                 "tags": [
                     "GameTrackerBanner"
@@ -2029,7 +2029,8 @@
                 "enum": [
                     "LiveTrackingEnabled",
                     "PortalServerListEnabled",
-                    "BannerServerListEnabled"
+                    "BannerServerListEnabled",
+                    "BotEnabled"
                 ],
                 "type": "string",
                 "format": "int32"
