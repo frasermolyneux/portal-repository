@@ -55,6 +55,9 @@ public class BaseApiTests
             {
                 Console.WriteLine("Error performing warmup request");
                 Console.WriteLine(ex);
+
+                // Sleep for five seconds before trying again.
+                Thread.Sleep(5000);
             }
         }
     }
