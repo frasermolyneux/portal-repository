@@ -99,7 +99,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         async Task<ApiResponseDto> ILivePlayersApi.SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos)
         {
-            await context.Database.ExecuteSqlRawAsync($"DELETE FROM [dbo].[{nameof(context.LivePlayers)}] WHERE [GameServerId] = '{gameServerId}'");
+            await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[{nameof(context.LivePlayers)}] WHERE [GameServerId] = '{gameServerId}'");
 
             var livePlayers = createLivePlayerDtos.Select(lp => mapper.Map<LivePlayer>(lp)).ToList();
 
