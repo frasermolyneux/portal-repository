@@ -34,7 +34,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneChatMessages()
     {
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < CAST('{DateTime.UtcNow.AddMonths(-6):yyyy-MM-dd} 12:00:00' AS date)");
+        string date = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd HH:mm:ss");
+        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < CAST('{date}' AS date)");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
@@ -49,7 +50,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerEvents()
     {
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < CAST('{DateTime.UtcNow.AddMonths(-6):yyyy-MM-dd} 12:00:00' AS date)");
+        string date = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd HH:mm:ss");
+        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < CAST('{date}' AS date)");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
@@ -64,7 +66,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerStats()
     {
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < CAST('{DateTime.UtcNow.AddMonths(-6):yyyy-MM-dd} 12:00:00' AS date)");
+        string date = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd HH:mm:ss");
+        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < CAST('{date}' AS date)");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
@@ -79,7 +82,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneRecentPlayers()
     {
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < CAST('{DateTime.UtcNow.AddDays(-7):yyyy-MM-dd} 12:00:00' AS date)");
+        string date = DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd HH:mm:ss");
+        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < CAST('{date}' AS date)");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 }
