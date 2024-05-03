@@ -207,11 +207,11 @@ public class GameServersController : Controller, IGameServersApi
         if (gameServer == null)
             return new ApiResponseDto(HttpStatusCode.NotFound);
 
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[BanFileMonitors] WHERE [GameServerId] = '{gameServer.GameServerId}'");
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [GameServerId] = '{gameServer.GameServerId}'");
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = '{gameServer.GameServerId}'");
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = '{gameServer.GameServerId}'");
-        await context.Database.ExecuteSqlAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = '{gameServer.GameServerId}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[BanFileMonitors] WHERE [GameServerId] = '{gameServer.GameServerId}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [GameServerId] = '{gameServer.GameServerId}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = '{gameServer.GameServerId}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = '{gameServer.GameServerId}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = '{gameServer.GameServerId}'");
 
         context.GameServers.Remove(gameServer);
 
