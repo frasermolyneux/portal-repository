@@ -8,10 +8,6 @@ api_management_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
 api_management_resource_group_name = "rg-platform-apim-dev-uksouth-01"
 api_management_name                = "apim-platform-dev-uksouth-amjx44uuirhb6"
 
-frontdoor_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
-frontdoor_resource_group_name = "rg-platform-frontdoor-dev-uksouth-01"
-frontdoor_name                = "fd-platform-dev-pa2u36baumsfc"
-
 sql_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
 sql_resource_group_name = "rg-platform-sql-dev-uksouth-01"
 sql_server_name         = "sql-platform-dev-uksouth-01-amjx44uuirhb6"
