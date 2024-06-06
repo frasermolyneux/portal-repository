@@ -34,7 +34,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneChatMessages()
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < '{DateTime.UtcNow.AddMonths(-6)}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
@@ -49,7 +49,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerEvents()
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < '{DateTime.UtcNow.AddMonths(-6)}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
@@ -64,7 +64,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerStats()
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < '{DateTime.UtcNow.AddMonths(-6)}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
@@ -79,7 +79,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     async Task<ApiResponseDto> IDataMaintenanceApi.PruneRecentPlayers()
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < '{DateTime.UtcNow.AddDays(-7)}'");
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {DateTime.UtcNow.AddDays(-7)}");
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 }
