@@ -74,5 +74,8 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 
         [JsonProperty]
         public DateTime? LiveLastUpdated { get; set; }
+
+        [JsonProperty]
+        public bool? Deleted { get; set; }
     }
 }

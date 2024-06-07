@@ -1,6 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors;
@@ -83,6 +83,9 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 
         [JsonProperty]
         public DateTime? LiveLastUpdated { get; internal set; }
+
+        [JsonProperty]
+        public bool Deleted { get; internal set; }
 
         [JsonProperty]
         public List<BanFileMonitorDto> BanFileMonitors { get; internal set; } = new List<BanFileMonitorDto>();
