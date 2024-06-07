@@ -48,7 +48,7 @@ public class GameServersController : Controller, IGameServersApi
         var gameServer = await context.GameServers
             .Include(gs => gs.BanFileMonitors)
             .Include(gs => gs.LivePlayers)
-            .SingleOrDefaultAsync(gs => gs.GameServerId == gameServerId);
+            .SingleOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted);
 
         if (gameServer == null)
             return new ApiResponseDto<GameServerDto>(HttpStatusCode.NotFound);
@@ -89,7 +89,7 @@ public class GameServersController : Controller, IGameServersApi
 
     async Task<ApiResponseDto<GameServersCollectionDto>> IGameServersApi.GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order)
     {
-        var query = context.GameServers.Include(gs => gs.BanFileMonitors).Include(gs => gs.LivePlayers).AsQueryable();
+        var query = context.GameServers.Include(gs => gs.BanFileMonitors).Include(gs => gs.LivePlayers).Where(gs => !gs.Deleted).AsQueryable();
         query = ApplyFilter(query, gameTypes, null, null);
         var totalCount = await query.CountAsync();
 
@@ -207,13 +207,11 @@ public class GameServersController : Controller, IGameServersApi
         if (gameServer == null)
             return new ApiResponseDto(HttpStatusCode.NotFound);
 
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[BanFileMonitors] WHERE [GameServerId] = {gameServer.GameServerId}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [GameServerId] = {gameServer.GameServerId}");
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = {gameServer.GameServerId}");
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = {gameServer.GameServerId}");
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServer.GameServerId}");
 
-        context.GameServers.Remove(gameServer);
+        gameServer.Deleted = true;
 
         await context.SaveChangesAsync();
 

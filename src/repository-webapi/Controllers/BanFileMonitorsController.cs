@@ -47,6 +47,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         {
             var banFileMonitor = await context.BanFileMonitors
                 .Include(bfm => bfm.GameServer)
+                .Where(bfm => !bfm.GameServer.Deleted)
                 .SingleOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId);
 
             if (banFileMonitor == null)
@@ -88,7 +89,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         async Task<ApiResponseDto<BanFileMonitorCollectionDto>> IBanFileMonitorsApi.GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
         {
-            var query = context.BanFileMonitors.Include(bfm => bfm.GameServer).AsQueryable();
+            var query = context.BanFileMonitors.Include(bfm => bfm.GameServer).Where(bfm => !bfm.GameServer.Deleted).AsQueryable();
             query = ApplyFilter(query, gameTypes, null, null);
             var totalCount = await query.CountAsync();
 
