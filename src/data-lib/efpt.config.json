@@ -84,7 +84,7 @@
          "ObjectType": 0
       }
    ],
-   "UiHint": null,
+   "UiHint": "..\\database\\database.sqlproj",
    "UncountableWords": null,
    "UseBoolPropertiesWithoutDefaultSql": false,
    "UseDatabaseNames": false,

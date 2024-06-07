@@ -62,6 +62,8 @@ public partial class GameServer
     [Column(TypeName = "datetime")]
     public DateTime? LiveLastUpdated { get; set; }
 
+    public bool Deleted { get; set; }
+
     [InverseProperty("GameServer")]
     public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; } = new List<BanFileMonitor>();
 

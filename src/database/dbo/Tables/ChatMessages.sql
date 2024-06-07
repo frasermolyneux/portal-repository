@@ -28,4 +28,3 @@ GO
 CREATE NONCLUSTERED INDEX [IX_ChatMessages]
     ON [dbo].[ChatMessages] ([PlayerId], [GameServerId]) 
     INCLUDE ([ChatType], [Message], [Timestamp], [Username]) 
-    WITH (ONLINE = ON)
