@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 {
-    public class EditUserProfileDto
+    public class EditUserProfileDto : IDto
     {
         public EditUserProfileDto(Guid userProfileId)
         {
@@ -44,5 +44,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 
         [JsonProperty]
         public string? TimeZone { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(UserProfileId), UserProfileId.ToString() },
+                    { nameof(IdentityOid), IdentityOid is not null ? IdentityOid.ToString() : string.Empty }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

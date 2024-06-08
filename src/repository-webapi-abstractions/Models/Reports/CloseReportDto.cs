@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 {
-    public class CloseReportDto
+    public class CloseReportDto : IDto
     {
         public CloseReportDto(Guid userProfileId, string closingComments)
         {
@@ -15,5 +15,19 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 
         [JsonProperty]
         public string AdminClosingComments { get; private set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(AdminUserProfileId), AdminUserProfileId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

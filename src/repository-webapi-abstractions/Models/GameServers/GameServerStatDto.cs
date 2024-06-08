@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class GameServerStatDto
+    public class GameServerStatDto : IDto
     {
         [JsonProperty]
         public Guid GameServerStatId { get; internal set; }
@@ -18,5 +18,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 
         [JsonProperty]
         public DateTime Timestamp { get; internal set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerStatId), GameServerStatId.ToString() },
+                    { nameof(GameServerId), GameServerId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

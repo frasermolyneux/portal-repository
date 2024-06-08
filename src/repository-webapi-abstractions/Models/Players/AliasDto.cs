@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class AliasDto
+    public class AliasDto : IDto
     {
         [JsonProperty]
         public string Name { get; internal set; } = string.Empty;
@@ -15,5 +15,15 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 
         [JsonProperty]
         public int ConfidenceScore { get; internal set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>();
+                return telemetryProperties;
+            }
+        }
     }
 }

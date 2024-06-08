@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 {
-    public class CreateUserProfileClaimDto
+    public class CreateUserProfileClaimDto : IDto
     {
         public CreateUserProfileClaimDto(Guid userProfileId, string claimType, string claimValue, bool systemGenerated)
         {
@@ -23,5 +23,19 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 
         [JsonProperty]
         public string ClaimValue { get; private set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(UserProfileId), UserProfileId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

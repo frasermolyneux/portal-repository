@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 {
-    public class CreateReportDto
+    public class CreateReportDto : IDto
     {
         public CreateReportDto(Guid playerId, Guid userProfileId, string comments)
         {
@@ -22,5 +22,21 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 
         [JsonProperty]
         public string Comments { get; private set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(PlayerId), PlayerId.ToString() },
+                    { nameof(UserProfileId), UserProfileId.ToString() },
+                    { nameof(GameServerId), GameServerId is not null ? ((Guid)GameServerId).ToString() : string.Empty }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

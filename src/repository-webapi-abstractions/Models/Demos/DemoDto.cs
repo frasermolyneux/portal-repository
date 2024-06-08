@@ -1,13 +1,16 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Extensions;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles;
+
+using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Demos
 {
-    public class DemoDto
+    public class DemoDto : IDto
     {
         [JsonProperty]
         public Guid DemoId { get; internal set; }
@@ -49,5 +52,24 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Demos
 
         [JsonProperty]
         public UserProfileDto? UserProfile { get; internal set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(DemoId), DemoId.ToString() },
+                    { nameof(GameType), GameType.ToString() },
+                    { nameof(UserProfileId), UserProfileId.ToString() }
+                };
+
+                if (UserProfile is not null)
+                    telemetryProperties.AddAdditionalProperties(UserProfile.TelemetryProperties);
+
+                return telemetryProperties;
+            }
+        }
     }
 }

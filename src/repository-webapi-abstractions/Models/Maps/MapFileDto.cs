@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class MapFileDto
+    public class MapFileDto : IDto
     {
         public MapFileDto(string fileName, string url)
         {
@@ -15,5 +15,15 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 
         [JsonProperty]
         public string Url { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>();
+                return telemetryProperties;
+            }
+        }
     }
 }

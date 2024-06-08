@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors
 {
-    public class EditBanFileMonitorDto
+    public class EditBanFileMonitorDto : IDto
     {
         [JsonConstructor]
         public EditBanFileMonitorDto(Guid banFileMonitorId)
@@ -34,5 +34,19 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors
 
         [JsonProperty]
         public DateTime? LastSync { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(BanFileMonitorId), BanFileMonitorId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

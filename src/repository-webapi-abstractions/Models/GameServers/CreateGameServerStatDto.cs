@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class CreateGameServerStatDto
+    public class CreateGameServerStatDto : IDto
     {
         public CreateGameServerStatDto(Guid gameServerId, int playerCount, string mapName)
         {
@@ -20,5 +20,18 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
         [JsonProperty]
         public string MapName { get; private set; }
 
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerId), GameServerId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

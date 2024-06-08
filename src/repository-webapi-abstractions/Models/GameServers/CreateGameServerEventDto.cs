@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class CreateGameServerEventDto
+    public class CreateGameServerEventDto : IDto
     {
         public CreateGameServerEventDto(Guid gameServerId, string eventType, string eventData)
         {
@@ -19,5 +19,19 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 
         [JsonProperty]
         public string EventData { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerId), GameServerId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

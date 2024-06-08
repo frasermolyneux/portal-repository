@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
+using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
+
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.ChatMessages
 {
-    public class CreateChatMessageDto
+    public class CreateChatMessageDto : IDto
     {
         public CreateChatMessageDto(Guid gameServerId, Guid playerId, ChatType chatType, string username, string message, DateTime timestamp)
         {
@@ -35,5 +37,21 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.ChatMessages
 
         [JsonProperty]
         public DateTime Timestamp { get; private set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerId), GameServerId.ToString() },
+                    { nameof(PlayerId), PlayerId.ToString() },
+                    { nameof(ChatType), ChatType.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class EditPlayerDto
+    public class EditPlayerDto : IDto
     {
         public EditPlayerDto(Guid playerId)
         {
@@ -17,5 +17,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 
         [JsonProperty]
         public string? IpAddress { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(PlayerId), PlayerId.ToString() },
+                    { nameof(Username), Username is not null ? Username.ToString() : string.Empty }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

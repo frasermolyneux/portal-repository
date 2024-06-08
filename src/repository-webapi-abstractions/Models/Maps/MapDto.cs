@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
+using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
+
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class MapDto
+    public class MapDto : IDto
     {
         [JsonProperty]
         public Guid MapId { get; internal set; }
@@ -38,5 +40,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 
         [JsonProperty]
         public List<MapFileDto> MapFiles { get; internal set; } = new List<MapFileDto>();
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(MapId), MapId.ToString() },
+                    { nameof(GameType), GameType.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
+using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
+
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 {
-    public class CreateAdminActionDto
+    public class CreateAdminActionDto : IDto
     {
         public CreateAdminActionDto(Guid playerId, AdminActionType type, string text)
         {
@@ -33,5 +35,21 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 
         [JsonProperty]
         public string? AdminId { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(PlayerId), PlayerId.ToString() },
+                    { nameof(Type), Type.ToString() },
+                    { nameof(AdminId), AdminId is not null ? AdminId.ToString() : string.Empty }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

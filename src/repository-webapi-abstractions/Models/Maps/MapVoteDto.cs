@@ -1,11 +1,12 @@
 ﻿using Newtonsoft.Json;
 
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Extensions;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class MapVoteDto
+    public class MapVoteDto : IDto
     {
         [JsonProperty]
         public Guid MapVoteId { get; internal set; }
@@ -33,5 +34,30 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 
         [JsonProperty]
         public PlayerDto? Player { get; internal set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(MapVoteId), MapVoteId.ToString() },
+                    { nameof(MapId), MapId.ToString() },
+                    { nameof(PlayerId), PlayerId.ToString() }
+                };
+
+                if (GameServer is not null)
+                    telemetryProperties.AddAdditionalProperties(GameServer.TelemetryProperties);
+
+                if (Map is not null)
+                    telemetryProperties.AddAdditionalProperties(Map.TelemetryProperties);
+
+                if (Player is not null)
+                    telemetryProperties.AddAdditionalProperties(Player.TelemetryProperties);
+
+                return telemetryProperties;
+            }
+        }
     }
 }

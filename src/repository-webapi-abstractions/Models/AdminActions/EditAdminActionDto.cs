@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 {
-    public class EditAdminActionDto
+    public class EditAdminActionDto : IDto
     {
         public EditAdminActionDto(Guid adminActionId)
         {
@@ -23,5 +23,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 
         [JsonProperty]
         public string? AdminId { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(AdminActionId), AdminActionId.ToString() },
+                    { nameof(AdminId), AdminId is not null ? AdminId.ToString() : string.Empty }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

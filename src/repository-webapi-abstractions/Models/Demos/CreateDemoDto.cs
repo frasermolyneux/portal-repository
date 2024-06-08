@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
+using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
+
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Demos
 {
-    public class CreateDemoDto
+    public class CreateDemoDto : IDto
     {
         public CreateDemoDto(GameType gameType, Guid userProfileId)
         {
@@ -20,5 +22,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Demos
 
         [JsonProperty]
         public Guid UserProfileId { get; private set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameType), GameType.ToString() },
+                    { nameof(UserProfileId), UserProfileId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

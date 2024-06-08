@@ -6,9 +6,11 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 
+using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
+
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class GameServerDto
+    public class GameServerDto : IDto
     {
         [JsonProperty]
         public Guid GameServerId { get; internal set; }
@@ -108,6 +110,22 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
         public void ClearNoPermissionBanFileMonitors(GameType[] gameTypes, Guid[] banFileMonitorIds)
         {
             BanFileMonitors = BanFileMonitors.Where(bfm => bfm.GameServer != null && gameTypes.Contains(bfm.GameServer.GameType) || banFileMonitorIds.Contains(bfm.BanFileMonitorId)).ToList();
+        }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerId), GameServerId.ToString() },
+                    { nameof(GameType), GameType.ToString() },
+                    { nameof(Title), Title }
+                };
+
+                return telemetryProperties;
+            }
         }
     }
 }

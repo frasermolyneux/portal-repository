@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class EditMapDto
+    public class EditMapDto : IDto
     {
         public EditMapDto(Guid mapId)
         {
@@ -14,5 +14,19 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 
         [JsonProperty]
         public List<MapFileDto> MapFiles { get; set; } = new List<MapFileDto>();
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(MapId), MapId.ToString() }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }

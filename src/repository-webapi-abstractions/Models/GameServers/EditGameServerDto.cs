@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class EditGameServerDto
+    public class EditGameServerDto : IDto
     {
         public EditGameServerDto(Guid gameServerId)
         {
@@ -77,5 +77,20 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 
         [JsonProperty]
         public bool? Deleted { get; set; }
+
+        [JsonIgnore]
+        public Dictionary<string, string> TelemetryProperties
+        {
+            get
+            {
+                var telemetryProperties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerId), GameServerId.ToString() },
+                    { nameof(Title), Title is not null ? Title : string.Empty }
+                };
+
+                return telemetryProperties;
+            }
+        }
     }
 }
