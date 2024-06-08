@@ -30,6 +30,7 @@ builder.Services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceO
 {
     EnableAdaptiveSampling = false,
 });
+builder.Services.AddServiceProfiler();
 
 builder.Services.AddDbContext<PortalDbContext>(options =>
 {
