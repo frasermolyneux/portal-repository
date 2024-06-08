@@ -86,6 +86,8 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 app.MapMethods("/", new[] { "HEAD", "GET" }, [AllowAnonymous] () => "OK");
@@ -103,5 +105,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/api/health").AllowAnonymous();
 
 app.Run();
