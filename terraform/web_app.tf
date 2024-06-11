@@ -42,7 +42,27 @@ resource "azurerm_linux_web_app" "app" {
     "sql_connection_string"                      = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;", data.azurerm_mssql_server.platform.fully_qualified_domain_name, local.sql_database_name)
     "appdata_storage_connectionstring"           = format("@Microsoft.KeyVault(VaultName=%s;SecretName=%s)", azurerm_key_vault.kv.name, azurerm_key_vault_secret.app_data_storage_connection_string_secret.name)
 
+    // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler
     "APPINSIGHTS_PROFILERFEATURE_VERSION"  = "1.0.0"
     "DiagnosticServices_EXTENSION_VERSION" = "~3"
+  }
+}
+
+resource "azurerm_application_insights_standard_web_test" "app" {
+  name = "${azurerm_linux_function_app.app.name}-availability-test"
+
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+
+  application_insights_id = data.azurerm_application_insights.core.id
+
+  geo_locations = [
+    "emea-ru-msa-edge", // UK South
+    "emea-nl-ams-azr",  // West Europe
+    "us-va-ash-azr"     // East US
+  ]
+
+  request {
+    url = "${azurerm_linux_function_app.app.default_hostname}/api/health"
   }
 }
