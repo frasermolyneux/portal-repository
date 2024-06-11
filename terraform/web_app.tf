@@ -49,7 +49,7 @@ resource "azurerm_linux_web_app" "app" {
 }
 
 resource "azurerm_application_insights_standard_web_test" "app" {
-  name = "${azurerm_linux_function_app.app.name}-availability-test"
+  name = "${azurerm_linux_web_app.app.name}-availability-test"
   tags = var.tags
 
   resource_group_name = data.azurerm_application_insights.core.resource_group_name
@@ -66,6 +66,6 @@ resource "azurerm_application_insights_standard_web_test" "app" {
   ]
 
   request {
-    url = "https://${azurerm_linux_function_app.app.default_hostname}/api/health"
+    url = "https://${azurerm_linux_web_app.app.default_hostname}/api/health"
   }
 }
