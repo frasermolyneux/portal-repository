@@ -18,9 +18,12 @@ resource "azurerm_linux_web_app" "app" {
       dotnet_version = "8.0"
     }
 
-    ftps_state          = "Disabled"
-    always_on           = true
+    ftps_state = "Disabled"
+    always_on  = true
+
     minimum_tls_version = "1.2"
+
+    health_check_path = "/api/health"
   }
 
   app_settings = {
