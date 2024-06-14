@@ -27,12 +27,6 @@ resource "azurerm_management_lock" "kv_lock" {
   notes      = "CanNotDelete Lock managed by Terraform to prevent manual or accidental deletion of resource group and resources"
 }
 
-resource "azurerm_role_assignment" "apim_kv_role_assignment" {
-  scope                = azurerm_key_vault.kv.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = data.azurerm_api_management.platform.identity.0.principal_id
-}
-
 resource "azurerm_role_assignment" "web_app_kv_role_assignment" {
   scope                = azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Secrets User"
