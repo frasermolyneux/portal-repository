@@ -85,7 +85,7 @@ resource "azurerm_api_management_api" "legacy_repository_api" {
 }
 
 moved {
-  from = azurerm_api_management_api_policy.legacy_repository_api_policy
+  from = azurerm_api_management_api_policy.repository_api_policy
   to   = azurerm_api_management_api_policy.legacy_repository_api_policy
 }
 

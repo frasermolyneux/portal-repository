@@ -1,5 +1,5 @@
 moved {
-  from = data.azurerm_api_management.legacy_platform
+  from = data.azurerm_api_management.platform
   to   = data.azurerm_api_management.legacy_platform
 }
 
