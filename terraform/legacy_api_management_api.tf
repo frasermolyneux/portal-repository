@@ -144,7 +144,7 @@ resource "azurerm_api_management_api_diagnostic" "legacy_repository_api_diagnost
   api_name                 = azurerm_api_management_api.legacy_repository_api.name
   resource_group_name      = data.azurerm_api_management.legacy_platform.resource_group_name
   api_management_name      = data.azurerm_api_management.legacy_platform.name
-  api_management_logger_id = azurerm_api_management_logger.api_management_logger.id
+  api_management_logger_id = azurerm_api_management_logger.legacy_api_management_logger.id
 
   sampling_percentage = 100
 

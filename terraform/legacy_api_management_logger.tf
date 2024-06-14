@@ -14,7 +14,7 @@ resource "azurerm_api_management_named_value" "legacy_app_insights_apim_instrume
   value = data.azurerm_application_insights.core.instrumentation_key
 
   depends_on = [
-    azurerm_role_assignment.apim_kv_role_assignment
+    azurerm_role_assignment.legacy_apim_kv_role_assignment
   ]
 }
 
