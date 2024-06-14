@@ -1,8 +1,3 @@
-moved {
-  from = azurerm_api_management_backend.webapi_api_management_backend
-  to   = azurerm_api_management_backend.legacy_webapi_api_management_backend
-}
-
 resource "azurerm_api_management_backend" "legacy_webapi_api_management_backend" {
   provider            = azurerm.api_management
   name                = local.workload_name
@@ -20,11 +15,6 @@ resource "azurerm_api_management_backend" "legacy_webapi_api_management_backend"
   }
 }
 
-moved {
-  from = azurerm_api_management_named_value.webapi_active_backend_named_value
-  to   = azurerm_api_management_named_value.legacy_webapi_active_backend_named_value
-}
-
 resource "azurerm_api_management_named_value" "legacy_webapi_active_backend_named_value" {
   provider            = azurerm.api_management
   name                = "repository-api-active-backend"
@@ -37,11 +27,6 @@ resource "azurerm_api_management_named_value" "legacy_webapi_active_backend_name
   value        = azurerm_api_management_backend.legacy_webapi_api_management_backend.name
 }
 
-moved {
-  from = azurerm_api_management_named_value.webapi_audience_named_value
-  to   = azurerm_api_management_named_value.legacy_webapi_audience_named_value
-}
-
 resource "azurerm_api_management_named_value" "legacy_webapi_audience_named_value" {
   provider            = azurerm.api_management
   name                = "repository-api-audience"
@@ -52,11 +37,6 @@ resource "azurerm_api_management_named_value" "legacy_webapi_audience_named_valu
 
   display_name = "repository-api-audience"
   value        = format("api://%s", local.app_registration_name)
-}
-
-moved {
-  from = azurerm_api_management_api.repository_api
-  to   = azurerm_api_management_api.legacy_repository_api
 }
 
 resource "azurerm_api_management_api" "legacy_repository_api" {
@@ -82,11 +62,6 @@ resource "azurerm_api_management_api" "legacy_repository_api" {
     content_format = "openapi+json"
     content_value  = file("../Repository.openapi+json.json")
   }
-}
-
-moved {
-  from = azurerm_api_management_api_policy.repository_api_policy
-  to   = azurerm_api_management_api_policy.legacy_repository_api_policy
 }
 
 resource "azurerm_api_management_api_policy" "legacy_repository_api_policy" {
@@ -131,11 +106,6 @@ XML
     azurerm_api_management_named_value.legacy_webapi_active_backend_named_value,
     azurerm_api_management_named_value.legacy_webapi_audience_named_value
   ]
-}
-
-moved {
-  from = azurerm_api_management_api_diagnostic.example
-  to   = azurerm_api_management_api_diagnostic.legacy_repository_api_diagnostic
 }
 
 resource "azurerm_api_management_api_diagnostic" "legacy_repository_api_diagnostic" {

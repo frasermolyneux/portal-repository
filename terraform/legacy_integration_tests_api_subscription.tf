@@ -1,9 +1,3 @@
-moved {
-  from = azurerm_api_management_subscription.integration_tests
-  to   = azurerm_api_management_subscription.legacy_integration_tests
-
-}
-
 resource "azurerm_api_management_subscription" "legacy_integration_tests" {
   provider            = azurerm.api_management
   api_management_name = data.azurerm_api_management.legacy_platform.name

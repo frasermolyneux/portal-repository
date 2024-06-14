@@ -1,8 +1,3 @@
-moved {
-  from = data.azurerm_api_management.platform
-  to   = data.azurerm_api_management.legacy_platform
-}
-
 data "azurerm_api_management" "legacy_platform" {
   provider = azurerm.api_management
 
