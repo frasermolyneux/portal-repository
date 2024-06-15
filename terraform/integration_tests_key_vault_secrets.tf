@@ -15,3 +15,15 @@ resource "azurerm_key_vault_secret" "integration_test_account_client_tenant_id" 
   value        = data.azurerm_client_config.current.tenant_id
   key_vault_id = azurerm_key_vault.kv.id
 }
+
+resource "azurerm_key_vault_secret" "integration_test_api_key_primary" {
+  name         = format("%s-api-key-primary", azuread_application.integration_tests.display_name)
+  value        = azurerm_api_management_subscription.integration_tests.primary_key
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+resource "azurerm_key_vault_secret" "integration_test_api_key_secondary" {
+  name         = format("%s-api-key-secondary", azuread_application.integration_tests.display_name)
+  value        = azurerm_api_management_subscription.integration_tests.secondary_key
+  key_vault_id = azurerm_key_vault.kv.id
+}
