@@ -77,12 +77,12 @@ resource "azurerm_api_management_api_policy" "legacy_repository_api_policy" {
       <set-backend-service backend-id="{{repository-api-active-backend}}" />
       <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" />
       <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
-          <openid-config url="https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration" />
+          <openid-config url="{{tenant-login-url}}{{tenant-id}}/v2.0/.well-known/openid-configuration" />
           <audiences>
               <audience>{{repository-api-audience}}</audience>
           </audiences>
           <issuers>
-              <issuer>https://sts.windows.net/${data.azuread_client_config.current.tenant_id}/</issuer>
+              <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
           </issuers>
           <required-claims>
               <claim name="roles" match="any">
