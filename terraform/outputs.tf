@@ -15,11 +15,11 @@ output "web_app_resource_group" {
 }
 
 output "sql_server_fqdn" {
-  value = data.azurerm_mssql_server.platform.fully_qualified_domain_name
+  value = data.azurerm_mssql_server.legacy_platform.fully_qualified_domain_name
 }
 
 output "sql_database_name" {
-  value = azurerm_mssql_database.repo.name
+  value = azurerm_mssql_database.legacy_repo.name
 }
 
 output "key_vault_name" {
