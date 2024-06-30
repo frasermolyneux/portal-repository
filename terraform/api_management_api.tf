@@ -108,7 +108,7 @@ resource "azurerm_api_management_api_diagnostic" "repository_api_diagnostic" {
   api_name                 = azurerm_api_management_api.repository_api.name
   resource_group_name      = data.azurerm_api_management.core.resource_group_name
   api_management_name      = data.azurerm_api_management.core.name
-  api_management_logger_id = azurerm_api_management_logger.api_management_logger.id
+  api_management_logger_id = format("%s/providers/Microsoft.Insights/components/%s", data.azurerm_resource_group.core.id, data.azurerm_application_insights.core.name)
 
   sampling_percentage = 100
 
