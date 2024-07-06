@@ -15,7 +15,7 @@ output "sql_server_fqdn" {
 }
 
 output "sql_database_name" {
-  value = azurerm_mssql_database.legacy_repo.name
+  value = azurerm_mssql_database.repo.name
 }
 
 output "key_vault_name" {
