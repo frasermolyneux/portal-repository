@@ -6,10 +6,6 @@ subscription_id = "d68448b0-9947-46d7-8771-baa331a3063a"
 
 api_management_name = "apim-portal-core-dev-uksouth-01-3138575b4c87"
 
-legacy_api_management_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
-legacy_api_management_resource_group_name = "rg-platform-apim-dev-uksouth-01"
-legacy_api_management_name                = "apim-platform-dev-uksouth-amjx44uuirhb6"
-
 legacy_sql_subscription_id     = "d68448b0-9947-46d7-8771-baa331a3063a"
 legacy_sql_resource_group_name = "rg-platform-sql-dev-uksouth-01"
 legacy_sql_server_name         = "sql-platform-dev-uksouth-01-amjx44uuirhb6"
