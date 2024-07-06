@@ -11,7 +11,7 @@ output "web_app_resource_group" {
 }
 
 output "sql_server_fqdn" {
-  value = data.azurerm_mssql_server.legacy_platform.fully_qualified_domain_name
+  value = data.azurerm_mssql_server.core.fully_qualified_domain_name
 }
 
 output "sql_database_name" {
