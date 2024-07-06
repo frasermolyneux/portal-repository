@@ -2,10 +2,6 @@ output "workload_public_url" {
   value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api.path)
 }
 
-output "legacy_workload_public_url" {
-  value = format("%s/%s", data.azurerm_api_management.legacy_platform.gateway_url, azurerm_api_management_api.legacy_repository_api.path)
-}
-
 output "web_app_name" {
   value = azurerm_linux_web_app.app.name
 }
