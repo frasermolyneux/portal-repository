@@ -13,6 +13,7 @@ variable "instance" {
 variable "subscription_id" {}
 
 variable "api_management_name" {}
+variable "sql_server_name" {}
 
 variable "legacy_sql_subscription_id" {}
 variable "legacy_sql_resource_group_name" {}

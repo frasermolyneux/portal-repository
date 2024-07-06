@@ -1,6 +1,6 @@
 resource "azurerm_mssql_database" "repo" {
   name      = local.sql_database_name
-  server_id = data.azurerm_mssql_server.legacy_platform.id
+  server_id = data.azurerm_mssql_server.core.id
   tags      = var.tags
 
   sku_name = "S0"
