@@ -1,8 +1,3 @@
-moved {
-  from = azurerm_mssql_database.repo
-  to   = azurerm_mssql_database.legacy_repo
-}
-
 resource "azurerm_mssql_database" "legacy_repo" {
   provider  = azurerm.sql
   name      = local.sql_database_name
