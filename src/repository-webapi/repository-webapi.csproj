@@ -23,7 +23,7 @@
     <PackageReference Include="Microsoft.Identity.Web" Version="3.0.1" />
     <PackageReference Include="MxIO.ApiClient.WebExtensions" Version="1.1.89.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.0" />
     <PackageReference Include="System.ComponentModel.TypeConverter" Version="4.3.0" />
     <PackageReference Include="XtremeIdiots.CallOfDuty.DemoReader" Version="1.1.33.1" />
   </ItemGroup>
