@@ -67,6 +67,9 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
         public string? LiveMod { get; set; }
 
         [JsonProperty]
+        public string? LiveLogFile { get; set; }
+
+        [JsonProperty]
         public int? LiveMaxPlayers { get; set; }
 
         [JsonProperty]
