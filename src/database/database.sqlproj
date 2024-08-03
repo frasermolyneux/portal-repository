@@ -7,7 +7,7 @@
     <ModelCollation>1033, CI</ModelCollation>
     <ProjectGuid>{f76b1171-080c-44a4-acff-4711cb9b7518}</ProjectGuid>
     <TargetDatabaseSet>True</TargetDatabaseSet>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <ItemGroup>

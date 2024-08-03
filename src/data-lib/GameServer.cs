@@ -55,6 +55,8 @@ public partial class GameServer
 
     public string LiveMod { get; set; }
 
+    public string LiveLogFile { get; set; }
+
     public int? LiveMaxPlayers { get; set; }
 
     public int? LiveCurrentPlayers { get; set; }
