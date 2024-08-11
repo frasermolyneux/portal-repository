@@ -1,0 +1,88 @@
+name: Update Dashboard from Staging Dashboard
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # This is required for Az CLI Login
+  contents: write # This is required for actions/checkout and to update the repository
+  pull-requests: write # This is required to create a pull request
+
+jobs:
+  update-dashboard:
+    environment: Development
+    runs-on: ubuntu-latest
+
+    concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
+      group: ${{ github.repository }}-dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: 'Az CLI Login'
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - uses: frasermolyneux/actions/terraform-plan@main
+      with:
+        terraform-folder: "terraform"
+        terraform-var-file: "tfvars/dev.tfvars"
+        terraform-backend-file: "backends/dev.backend.hcl"
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - id: terraform-output
+      shell: bash
+      run: |
+        cd terraform
+        echo "resource_group_name=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+        echo "staging_dashboard_name=$(terraform output -raw staging_dashboard_name)" >> $GITHUB_OUTPUT
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
+
+    - shell: pwsh
+      run: |
+        $dashboardJson = az portal dashboard show --name ${{ steps.terraform-output.outputs.staging_dashboard_name }} --resource-group ${{ steps.terraform-output.outputs.resource_group_name }}
+
+        $tokens = @{
+            "/subscriptions/([a-z0-9]{8})-([a-z0-9]{4})-([a-z0-9]{4})-([a-z0-9]{4})-([a-z0-9]{12})" = "/subscriptions/{subscription_id}"
+            "rg-portal-repository-([a-z]+)-([a-z]+)-([0-9]+)"                                       = "{resource_group_name}"
+            "kv-([a-z0-9]+)-([a-z]+)"                                                               = "{key_vault_name}"
+            "app-portal-repo-([a-z]+)-([a-z]+)-([0-9]+)-([a-z0-9]+)"                                = "{web_app_name}"
+            "rg-portal-core-([a-z]+)-([a-z]+)-([0-9]+)"                                             = "{core_resource_group_name}"
+            "ai-portal-core-([a-z]+)-([a-z]+)-([0-9]+)"                                             = "{app_insights_name}"
+            "sb-portal-repository-([a-z]+)-([a-z]+)-([0-9]+)-([a-z0-9]+)"                           = "{service_bus_name}"
+            "apim-portal-core-([a-z]+)-([a-z]+)-([0-9]+)-([a-z0-9]+)"                               = "{api_management_name}" 
+            "portal-repo--([a-z0-9]+)"                                                              = "{sql_database_name}"
+            }
+
+        $tokens.Keys | ForEach-Object {
+            $dashboardJson = $dashboardJson -replace $_, $tokens[$_]
+        }
+
+        $dashboard = $dashboardJson | ConvertFrom-Json
+
+        $extract = @{}
+        $extract["lenses"] = $dashboard.lenses
+        $extract["metadata"] = $dashboard.metadata
+
+        $extract | ConvertTo-Json -Depth 50 | Set-Content -Path "terraform/dashboards/dashboard.json"
+
+        git config --global user.email "github@mx-mail.io"
+        git config --global user.name "GitHub Actions"
+        git checkout -b ${{github.run_id}}-${{github.run_number}}
+
+        git add .
+        git commit -m "Updating template from staging dashboard"
+        git push origin ${{github.run_id}}-${{github.run_number}}
+        
+        gh pr create -B main -H ${{github.run_id}}-${{github.run_number}} --title 'Updating template from staging dashboard' --body 'Created by GitHub Actions'
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    

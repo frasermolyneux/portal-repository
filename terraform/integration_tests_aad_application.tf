@@ -1,5 +1,5 @@
 resource "azuread_application" "integration_tests" {
-  display_name     = format("%s-integration-tests", local.workload_name)
+  display_name     = local.tests_app_registration_name
   owners           = [data.azuread_client_config.current.object_id]
   sign_in_audience = "AzureADMyOrg"
 }
