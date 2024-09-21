@@ -9,14 +9,21 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.DataLib;
 
 [Index("MapId", Name = "IX_MapId")]
+[Index("MapPackId", Name = "IX_MapPackId")]
 public partial class MapPackMap
 {
     [Key]
     public Guid MapPackMapId { get; set; }
+
+    public Guid? MapPackId { get; set; }
 
     public Guid MapId { get; set; }
 
     [ForeignKey("MapId")]
     [InverseProperty("MapPackMaps")]
     public virtual Map Map { get; set; }
+
+    [ForeignKey("MapPackId")]
+    [InverseProperty("MapPackMaps")]
+    public virtual MapPack MapPack { get; set; }
 }

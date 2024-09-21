@@ -34,4 +34,7 @@ public partial class MapPack
     [ForeignKey("GameServerId")]
     [InverseProperty("MapPacks")]
     public virtual GameServer GameServer { get; set; }
+
+    [InverseProperty("MapPack")]
+    public virtual ICollection<MapPackMap> MapPackMaps { get; set; } = new List<MapPackMap>();
 }

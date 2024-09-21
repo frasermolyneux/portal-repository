@@ -164,6 +164,8 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Map).WithMany(p => p.MapPackMaps)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.MapPackMap_dbo.Maps_MapId");
+
+            entity.HasOne(d => d.MapPack).WithMany(p => p.MapPackMaps).HasConstraintName("FK_dbo.MapPackMap_dbo.MapPacks_MapPackId");
         });
 
         modelBuilder.Entity<MapVote>(entity =>

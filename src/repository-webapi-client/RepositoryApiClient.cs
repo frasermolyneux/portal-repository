@@ -16,6 +16,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             IGameTrackerBannerApi gameTrackerBannerApi,
             ILivePlayersApi livePlayersApiClient,
             IMapsApi mapsApiClient,
+            IMapPacksApi mapPacksApiClient,
             IPlayerAnalyticsApi playerAnalyticsApiClient,
             IPlayersApi playersApiClient,
             IRecentPlayersApi recentPlayersApiClient,
@@ -34,6 +35,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             GameTrackerBanner = gameTrackerBannerApi;
             LivePlayers = livePlayersApiClient;
             Maps = mapsApiClient;
+            MapPacks = mapPacksApiClient;
             PlayerAnalytics = playerAnalyticsApiClient;
             Players = playersApiClient;
             RecentPlayers = recentPlayersApiClient;
@@ -53,6 +55,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
         public IGameTrackerBannerApi GameTrackerBanner { get; }
         public ILivePlayersApi LivePlayers { get; }
         public IMapsApi Maps { get; }
+        public IMapPacksApi MapPacks { get; }
         public IPlayerAnalyticsApi PlayerAnalytics { get; }
         public IPlayersApi Players { get; }
         public IRecentPlayersApi RecentPlayers { get; }
