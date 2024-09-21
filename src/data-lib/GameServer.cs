@@ -82,6 +82,9 @@ public partial class GameServer
     public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
 
     [InverseProperty("GameServer")]
+    public virtual ICollection<MapPack> MapPacks { get; set; } = new List<MapPack>();
+
+    [InverseProperty("GameServer")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
     [InverseProperty("GameServer")]

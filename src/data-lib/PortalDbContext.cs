@@ -31,6 +31,10 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<Map> Maps { get; set; }
 
+    public virtual DbSet<MapPack> MapPacks { get; set; }
+
+    public virtual DbSet<MapPackMap> MapPackMaps { get; set; }
+
     public virtual DbSet<MapVote> MapVotes { get; set; }
 
     public virtual DbSet<Player> Players { get; set; }
@@ -140,6 +144,26 @@ public partial class PortalDbContext : DbContext
             entity.HasKey(e => e.MapId).HasName("PK_dbo.Maps");
 
             entity.Property(e => e.MapId).HasDefaultValueSql("newsequentialid()");
+        });
+
+        modelBuilder.Entity<MapPack>(entity =>
+        {
+            entity.HasKey(e => e.MapPackId).HasName("PK_dbo.MapPacks");
+
+            entity.Property(e => e.MapPackId).HasDefaultValueSql("newsequentialid()");
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.MapPacks).HasConstraintName("FK_MapPacks_GameServer");
+        });
+
+        modelBuilder.Entity<MapPackMap>(entity =>
+        {
+            entity.HasKey(e => e.MapPackMapId).HasName("PK_dbo.MapPackMap");
+
+            entity.Property(e => e.MapPackMapId).HasDefaultValueSql("newsequentialid()");
+
+            entity.HasOne(d => d.Map).WithMany(p => p.MapPackMaps)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.MapPackMap_dbo.Maps_MapId");
         });
 
         modelBuilder.Entity<MapVote>(entity =>

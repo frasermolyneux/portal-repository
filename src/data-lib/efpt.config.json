@@ -48,6 +48,14 @@
          "ObjectType": 0
       },
       {
+         "Name": "[dbo].[MapPackMaps]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[MapPacks]",
+         "ObjectType": 0
+      },
+      {
          "Name": "[dbo].[Maps]",
          "ObjectType": 0
       },
@@ -90,7 +98,6 @@
    "UseDatabaseNames": false,
    "UseDateOnlyTimeOnly": false,
    "UseDbContextSplitting": false,
-   "UseDecimalDataAnnotationForSprocResult": true,
    "UseFluentApiOnly": false,
    "UseHandleBars": false,
    "UseHierarchyId": false,
@@ -98,7 +105,6 @@
    "UseLegacyPluralizer": false,
    "UseManyToManyEntity": false,
    "UseNoDefaultConstructor": false,
-   "UseNoNavigations": false,
    "UseNoObjectFilter": false,
    "UseNodaTime": false,
    "UseNullableReferences": false,

@@ -70,6 +70,8 @@
     <Build Include="dbo\Tables\UserProfileClaims.sql" />
     <Build Include="dbo\Tables\RecentPlayers.sql" />
     <Build Include="dbo\Tables\Reports.sql" />
+    <Build Include="dbo\Tables\MapPacks.sql" />
+    <Build Include="dbo\Tables\MapPackMaps.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\Script.PostDeploymentPermissions.sql" />
