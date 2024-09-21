@@ -35,7 +35,7 @@ public partial class LivePlayer
     [StringLength(10)]
     public string Team { get; set; }
 
-    public TimeOnly Time { get; set; }
+    public TimeSpan Time { get; set; }
 
     [StringLength(60)]
     public string IpAddress { get; set; }
