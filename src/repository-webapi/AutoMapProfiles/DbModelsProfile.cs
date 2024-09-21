@@ -8,6 +8,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.ChatMessages;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Demos;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.MapPacks;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.RecentPlayers;
@@ -150,6 +151,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.AutoMapProfiles
 
             CreateMap<MapVote, MapVoteDto>();
             CreateMap<UpsertMapVoteDto, MapVote>();
+
+            // Map Packs
+            CreateMap<MapPack, MapPackDto>();
+
+            CreateMap<CreateMapPackDto, MapPack>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+            CreateMap<UpdateMapPackDto, MapPack>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
             // Players
             CreateMap<Player, PlayerDto>()
