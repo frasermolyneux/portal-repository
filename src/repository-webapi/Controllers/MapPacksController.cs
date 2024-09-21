@@ -113,7 +113,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         }
 
         [HttpPost]
-        [Route("map/pack")]
+        [Route("maps/pack")]
         public async Task<IActionResult> CreateMapPacks()
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();

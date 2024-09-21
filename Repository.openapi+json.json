@@ -1050,9 +1050,7 @@
                         "description": "OK"
                     }
                 }
-            }
-        },
-        "/map/pack": {
+            },
             "post": {
                 "tags": [
                     "MapPacks"
