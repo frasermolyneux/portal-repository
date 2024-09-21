@@ -27,6 +27,8 @@ public partial class MapPack
 
     public bool SyncToGameServer { get; set; }
 
+    public bool SyncCompleted { get; set; }
+
     public bool Deleted { get; set; }
 
     [ForeignKey("GameServerId")]
