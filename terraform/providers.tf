@@ -20,14 +20,15 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
+
+  storage_use_azuread = true
 }
 
 provider "azurerm" {
   alias           = "dns"
   subscription_id = var.dns_subscription_id
 
-  # This is a workload repository so won't have permissions to register providers
-  skip_provider_registration = true
-
   features {}
+
+  storage_use_azuread = true
 }
