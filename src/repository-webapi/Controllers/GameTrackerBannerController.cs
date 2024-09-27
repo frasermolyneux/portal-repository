@@ -1,5 +1,5 @@
 ﻿using System.Net;
-
+using Azure.Identity;
 using Azure.Storage.Blobs;
 
 using Microsoft.AspNetCore.Authorization;
@@ -38,10 +38,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 
         async Task<ApiResponseDto<GameTrackerBannerDto>> IGameTrackerBannerApi.GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
         {
-            var blobKey = $"{ipAddress}_{queryPort}_{imageName}";
-            var blobServiceClient = new BlobServiceClient(configuration["appdata_storage_connectionstring"]);
+            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("gametracker");
 
+            var blobKey = $"{ipAddress}_{queryPort}_{imageName}";
             var blobClient = containerClient.GetBlobClient(blobKey);
             if (await blobClient.ExistsAsync())
             {

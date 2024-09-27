@@ -1,7 +1,7 @@
 ﻿using System.Net;
 
 using AutoMapper;
-
+using Azure.Identity;
 using Azure.Storage.Blobs;
 
 using Microsoft.AspNetCore.Authorization;
@@ -180,9 +180,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             if (demo == null)
                 return new ApiResponseDto(HttpStatusCode.NotFound);
 
-            var blobKey = $"{Guid.NewGuid()}.{demo.GameType.ToGameType().DemoExtension()}";
-            var blobServiceClient = new BlobServiceClient(configuration["appdata_storage_connectionstring"]);
+            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("demos");
+
+            var blobKey = $"{Guid.NewGuid()}.{demo.GameType.ToGameType().DemoExtension()}";
             var blobClient = containerClient.GetBlobClient(blobKey);
             await blobClient.UploadAsync(filePath);
 

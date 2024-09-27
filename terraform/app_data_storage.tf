@@ -11,6 +11,9 @@ resource "azurerm_storage_account" "app_data_storage" {
   https_traffic_only_enabled = true
   min_tls_version            = "TLS1_2"
 
+  local_user_enabled        = false
+  shared_access_key_enabled = false
+
   tags = var.tags
 }
 
