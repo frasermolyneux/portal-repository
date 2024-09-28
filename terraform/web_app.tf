@@ -42,7 +42,7 @@ resource "azurerm_linux_web_app" "app" {
     "AzureAd__Audience"                          = format("api://%s", local.app_registration_name)
 
     "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;", data.azurerm_mssql_server.core.fully_qualified_domain_name, local.sql_database_name)
-    "appdata_storage_blob_endpoint" = azurerm_storage_account.app_data.primary_blob_endpoint
+    "appdata_storage_blob_endpoint" = azurerm_storage_account.app_data_storage.primary_blob_endpoint
 
     // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler
     "APPINSIGHTS_PROFILERFEATURE_VERSION"  = "1.0.0"
