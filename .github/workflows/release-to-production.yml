@@ -25,7 +25,7 @@ jobs:
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
         dotnet-project: "repository-webapi"
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
         src-folder: "src"
         majorMinorVersion: "1.1"
 
@@ -165,7 +165,7 @@ jobs:
 
     - uses: frasermolyneux/actions/run-api-integration-tests@main
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
         src-folder: "src"
         api-base-url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
         api-key: ${{ env.int_test_api_key }}
@@ -298,7 +298,7 @@ jobs:
 
     - uses: frasermolyneux/actions/run-api-integration-tests@main
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
         src-folder: "src"
         api-base-url: ${{ needs.terraform-plan-and-apply-prd.outputs.workload_public_url }}
         api-key: ${{ env.int_test_api_key }}
