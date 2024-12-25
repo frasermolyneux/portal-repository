@@ -13,7 +13,7 @@ dns_zone_name           = "xtremeidiots.dev"
 
 tags = {
   Environment = "dev",
-  Workload    = "portal",
+  Workload    = "portal-repository",
   DeployedBy  = "GitHub-Terraform",
   Git         = "https://github.com/frasermolyneux/portal-repository"
 }
