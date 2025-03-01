@@ -29,20 +29,20 @@ resource "azurerm_storage_account" "app_data_storage" {
 resource "azurerm_storage_container" "map_images_container" {
   name = "map-images"
 
-  storage_account_name  = azurerm_storage_account.app_data_storage.name
+  storage_account_id    = azurerm_storage_account.app_data_storage.id
   container_access_type = "blob"
 }
 
 resource "azurerm_storage_container" "demos_container" {
   name = "demos"
 
-  storage_account_name  = azurerm_storage_account.app_data_storage.name
+  storage_account_id    = azurerm_storage_account.app_data_storage.id
   container_access_type = "blob"
 }
 
 resource "azurerm_storage_container" "gametracker_container" {
   name = "gametracker"
 
-  storage_account_name  = azurerm_storage_account.app_data_storage.name
+  storage_account_id    = azurerm_storage_account.app_data_storage.id
   container_access_type = "blob"
 }
