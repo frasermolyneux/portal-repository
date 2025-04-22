@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameTracker
 {
-    public class GameTrackerBannerDto : IDto
+    public record GameTrackerBannerDto : IDto
     {
         [JsonProperty]
         public string BannerUrl { get; internal set; } = string.Empty;

@@ -21,7 +21,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<DemoDto>> GetDemo(Guid demoId)
         {
-            var request = await CreateRequest($"demos/{demoId}", Method.Get);
+            var request = await CreateRequestAsync($"demos/{demoId}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<DemoDto>();
@@ -29,7 +29,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<DemosCollectionDto>> GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order)
         {
-            var request = await CreateRequest("demos", Method.Get);
+            var request = await CreateRequestAsync("demos", Method.Get);
 
             if (gameTypes != null)
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
@@ -53,7 +53,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<DemoDto>> CreateDemo(CreateDemoDto createDemoDto)
         {
-            var request = await CreateRequest("demos", Method.Post);
+            var request = await CreateRequestAsync("demos", Method.Post);
             request.AddJsonBody(createDemoDto);
 
             var response = await ExecuteAsync(request);
@@ -63,7 +63,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> SetDemoFile(Guid demoId, string fileName, string filePath)
         {
-            var request = await CreateRequest($"demos/{demoId}/file", Method.Post);
+            var request = await CreateRequestAsync($"demos/{demoId}/file", Method.Post);
             request.AddFile(fileName, filePath);
 
             var response = await ExecuteAsync(request);
@@ -73,7 +73,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> DeleteDemo(Guid demoId)
         {
-            var request = await CreateRequest($"demos/{demoId}", Method.Delete);
+            var request = await CreateRequestAsync($"demos/{demoId}", Method.Delete);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();

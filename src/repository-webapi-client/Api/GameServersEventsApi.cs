@@ -20,7 +20,7 @@ public class GameServersEventsApi : BaseApi, IGameServersEventsApi
 
     public async Task<ApiResponseDto> CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto)
     {
-        var request = await CreateRequest($"game-server-events", Method.Post);
+        var request = await CreateRequestAsync($"game-server-events", Method.Post);
         request.AddJsonBody(new List<CreateGameServerEventDto> { createGameServerEventDto });
 
         var response = await ExecuteAsync(request);
@@ -30,7 +30,7 @@ public class GameServersEventsApi : BaseApi, IGameServersEventsApi
 
     public async Task<ApiResponseDto> CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos)
     {
-        var request = await CreateRequest($"game-server-events", Method.Post);
+        var request = await CreateRequestAsync($"game-server-events", Method.Post);
         request.AddJsonBody(createGameServerEventDtos);
 
         var response = await ExecuteAsync(request);

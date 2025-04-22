@@ -8,7 +8,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class RelatedPlayerDto : IDto
+    public record RelatedPlayerDto : IDto
     {
         [JsonProperty]
         [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]

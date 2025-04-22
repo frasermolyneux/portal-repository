@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class AliasDto : IDto
+    public record AliasDto : IDto
     {
         [JsonProperty]
         public string Name { get; internal set; } = string.Empty;

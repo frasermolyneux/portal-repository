@@ -19,7 +19,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> GetRoot()
         {
-            var request = await CreateRequest($"/", Method.Post);
+            var request = await CreateRequestAsync($"/", Method.Post);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();

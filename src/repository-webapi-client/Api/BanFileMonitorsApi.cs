@@ -1,5 +1,4 @@
-﻿
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using MxIO.ApiClient;
@@ -22,7 +21,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<BanFileMonitorDto>> GetBanFileMonitor(Guid banFileMonitorId)
         {
-            var request = await CreateRequest($"ban-file-monitors/{banFileMonitorId}", Method.Get);
+            var request = await CreateRequestAsync($"ban-file-monitors/{banFileMonitorId}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<BanFileMonitorDto>();
@@ -30,7 +29,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<BanFileMonitorCollectionDto>> GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
         {
-            var request = await CreateRequest("ban-file-monitors", Method.Get);
+            var request = await CreateRequestAsync("ban-file-monitors", Method.Get);
 
             if (gameTypes != null)
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
@@ -54,7 +53,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto)
         {
-            var request = await CreateRequest($"ban-file-monitors", Method.Post);
+            var request = await CreateRequestAsync($"ban-file-monitors", Method.Post);
             request.AddJsonBody(createBanFileMonitorDto);
 
             var response = await ExecuteAsync(request);
@@ -64,7 +63,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto)
         {
-            var request = await CreateRequest($"ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch);
+            var request = await CreateRequestAsync($"ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch);
             request.AddJsonBody(editBanFileMonitorDto);
 
             var response = await ExecuteAsync(request);
@@ -74,7 +73,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> DeleteBanFileMonitor(Guid banFileMonitorId)
         {
-            var request = await CreateRequest($"ban-file-monitors/{banFileMonitorId}", Method.Delete);
+            var request = await CreateRequestAsync($"ban-file-monitors/{banFileMonitorId}", Method.Delete);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();

@@ -8,7 +8,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors
 {
-    public class CreateBanFileMonitorDto : IDto
+    public record CreateBanFileMonitorDto : IDto
     {
         public CreateBanFileMonitorDto(Guid gameServerId, string filePath, GameType gameType)
         {

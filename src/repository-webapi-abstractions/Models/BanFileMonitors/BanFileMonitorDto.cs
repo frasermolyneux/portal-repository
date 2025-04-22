@@ -5,7 +5,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors
 {
-    public class BanFileMonitorDto : IDto
+    public record BanFileMonitorDto : IDto
     {
         [JsonProperty]
         public Guid BanFileMonitorId { get; internal set; }

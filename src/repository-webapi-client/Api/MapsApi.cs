@@ -1,5 +1,4 @@
-﻿
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -24,7 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<MapDto>> GetMap(Guid mapId)
         {
-            var request = await CreateRequest($"maps/{mapId}", Method.Get);
+            var request = await CreateRequestAsync($"maps/{mapId}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<MapDto>();
@@ -32,7 +31,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<MapDto>> GetMap(GameType gameType, string mapName)
         {
-            var request = await CreateRequest($"maps/{gameType}/{mapName}", Method.Get);
+            var request = await CreateRequestAsync($"maps/{gameType}/{mapName}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<MapDto>();
@@ -40,7 +39,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<MapsCollectionDto>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order)
         {
-            var request = await CreateRequest("maps", Method.Get);
+            var request = await CreateRequestAsync("maps", Method.Get);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -67,7 +66,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateMap(CreateMapDto createMapDto)
         {
-            var request = await CreateRequest("maps", Method.Post);
+            var request = await CreateRequestAsync("maps", Method.Post);
             request.AddJsonBody(new List<CreateMapDto> { createMapDto });
 
             var response = await ExecuteAsync(request);
@@ -77,7 +76,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateMaps(List<CreateMapDto> createMapDtos)
         {
-            var request = await CreateRequest("maps", Method.Post);
+            var request = await CreateRequestAsync("maps", Method.Post);
             request.AddJsonBody(createMapDtos);
 
             var response = await ExecuteAsync(request);
@@ -87,7 +86,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpdateMap(EditMapDto editMapDto)
         {
-            var request = await CreateRequest("maps", Method.Put);
+            var request = await CreateRequestAsync("maps", Method.Put);
             request.AddJsonBody(new List<EditMapDto> { editMapDto });
 
             var response = await ExecuteAsync(request);
@@ -97,7 +96,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpdateMaps(List<EditMapDto> editMapDtos)
         {
-            var request = await CreateRequest("maps", Method.Put);
+            var request = await CreateRequestAsync("maps", Method.Put);
             request.AddJsonBody(editMapDtos);
 
             var response = await ExecuteAsync(request);
@@ -107,7 +106,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> DeleteMap(Guid mapId)
         {
-            var request = await CreateRequest($"maps/{mapId}", Method.Delete);
+            var request = await CreateRequestAsync($"maps/{mapId}", Method.Delete);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();
@@ -115,7 +114,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> RebuildMapPopularity()
         {
-            var request = await CreateRequest($"maps/popularity", Method.Post);
+            var request = await CreateRequestAsync($"maps/popularity", Method.Post);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();
@@ -123,7 +122,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto)
         {
-            var request = await CreateRequest($"maps/votes", Method.Post);
+            var request = await CreateRequestAsync($"maps/votes", Method.Post);
             request.AddJsonBody(new List<UpsertMapVoteDto> { upsertMapVoteDto });
 
             var response = await ExecuteAsync(request);
@@ -133,7 +132,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos)
         {
-            var request = await CreateRequest($"maps/votes", Method.Post);
+            var request = await CreateRequestAsync($"maps/votes", Method.Post);
             request.AddJsonBody(upsertMapVoteDtos);
 
             var response = await ExecuteAsync(request);
@@ -143,7 +142,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpdateMapImage(Guid mapId, string filePath)
         {
-            var request = await CreateRequest($"maps/{mapId}/image", Method.Post);
+            var request = await CreateRequestAsync($"maps/{mapId}/image", Method.Post);
             request.AddFile("map.jpg", filePath);
 
             var response = await ExecuteAsync(request);

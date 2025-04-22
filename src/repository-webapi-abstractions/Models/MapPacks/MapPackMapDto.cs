@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.MapPacks;
 
-public class MapPackMapDto : IDto
+public record MapPackMapDto : IDto
 {
     [JsonProperty]
     public Guid MapPackMapId { get; set; }

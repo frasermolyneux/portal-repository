@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.MapPacks;
 
-public class CreateMapPackDto : IDto
+public record CreateMapPackDto : IDto
 {
     public CreateMapPackDto(Guid gameServerId, string title, string gameMode)
     {

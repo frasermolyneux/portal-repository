@@ -20,7 +20,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<GameTrackerBannerDto>> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
         {
-            var request = await CreateRequest($"gametracker/{ipAddress}:{queryPort}/{imageName}", Method.Get);
+            var request = await CreateRequestAsync($"gametracker/{ipAddress}:{queryPort}/{imageName}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<GameTrackerBannerDto>();

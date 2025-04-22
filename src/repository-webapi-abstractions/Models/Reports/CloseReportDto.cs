@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 {
-    public class CloseReportDto : IDto
+    public record CloseReportDto : IDto
     {
         public CloseReportDto(Guid userProfileId, string closingComments)
         {

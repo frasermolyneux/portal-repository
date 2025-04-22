@@ -8,7 +8,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.ChatMessages
 {
-    public class CreateChatMessageDto : IDto
+    public record CreateChatMessageDto : IDto
     {
         public CreateChatMessageDto(Guid gameServerId, Guid playerId, ChatType chatType, string username, string message, DateTime timestamp)
         {

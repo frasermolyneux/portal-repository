@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class UpsertMapVoteDto : IDto
+    public record UpsertMapVoteDto : IDto
     {
         public UpsertMapVoteDto(Guid mapId, Guid playerId, Guid gameServerId, bool like)
         {

@@ -9,7 +9,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class LivePlayerDto : IDto
+    public record LivePlayerDto : IDto
     {
         [JsonProperty]
         public Guid LivePlayerId { get; internal set; }

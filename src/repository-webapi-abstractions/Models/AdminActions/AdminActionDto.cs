@@ -11,7 +11,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 {
-    public class AdminActionDto : IDto
+    public record AdminActionDto : IDto
     {
         [JsonProperty]
         public Guid AdminActionId { get; internal set; }

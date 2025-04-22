@@ -22,7 +22,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<ChatMessageDto>> GetChatMessage(Guid chatMessageId)
         {
-            var request = await CreateRequest($"chat-messages/{chatMessageId}", Method.Get);
+            var request = await CreateRequestAsync($"chat-messages/{chatMessageId}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<ChatMessageDto>();
@@ -30,7 +30,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<ChatMessagesCollectionDto>> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order)
         {
-            var request = await CreateRequest("chat-messages", Method.Get);
+            var request = await CreateRequestAsync("chat-messages", Method.Get);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -57,7 +57,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateChatMessage(CreateChatMessageDto createChatMessageDto)
         {
-            var request = await CreateRequest("chat-messages", Method.Post);
+            var request = await CreateRequestAsync("chat-messages", Method.Post);
             request.AddJsonBody(new List<CreateChatMessageDto> { createChatMessageDto });
 
             var response = await ExecuteAsync(request);
@@ -67,7 +67,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos)
         {
-            var request = await CreateRequest("chat-messages", Method.Post);
+            var request = await CreateRequestAsync("chat-messages", Method.Post);
             request.AddJsonBody(createChatMessageDtos);
 
             var response = await ExecuteAsync(request);

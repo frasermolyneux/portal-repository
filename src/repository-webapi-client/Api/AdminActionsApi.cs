@@ -21,7 +21,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<AdminActionDto>> GetAdminAction(Guid adminActionId)
         {
-            var request = await CreateRequest($"admin-actions/{adminActionId}", Method.Get);
+            var request = await CreateRequestAsync($"admin-actions/{adminActionId}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<AdminActionDto>();
@@ -29,7 +29,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<AdminActionCollectionDto>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order)
         {
-            var request = await CreateRequest($"admin-actions", Method.Get);
+            var request = await CreateRequestAsync($"admin-actions", Method.Get);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -56,7 +56,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateAdminAction(CreateAdminActionDto createAdminActionDto)
         {
-            var request = await CreateRequest($"admin-actions", Method.Post);
+            var request = await CreateRequestAsync($"admin-actions", Method.Post);
             request.AddJsonBody(createAdminActionDto);
 
             var response = await ExecuteAsync(request);
@@ -66,7 +66,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpdateAdminAction(EditAdminActionDto editAdminActionDto)
         {
-            var request = await CreateRequest($"admin-actions/{editAdminActionDto.AdminActionId}", Method.Patch);
+            var request = await CreateRequestAsync($"admin-actions/{editAdminActionDto.AdminActionId}", Method.Patch);
             request.AddJsonBody(editAdminActionDto);
 
             var response = await ExecuteAsync(request);
@@ -76,7 +76,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> DeleteAdminAction(Guid adminActionId)
         {
-            var request = await CreateRequest($"admin-actions/{adminActionId}", Method.Delete);
+            var request = await CreateRequestAsync($"admin-actions/{adminActionId}", Method.Delete);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();

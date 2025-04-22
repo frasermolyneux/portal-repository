@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 {
-    public class AdminActionCollectionDto : CollectionDto<AdminActionDto>
+    public record AdminActionCollectionDto : CollectionDto<AdminActionDto>
     {
     }
 }

@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class EditPlayerDto : IDto
+    public record EditPlayerDto : IDto
     {
         public EditPlayerDto(Guid playerId)
         {

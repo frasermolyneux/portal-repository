@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class EditGameServerDto : IDto
+    public record EditGameServerDto : IDto
     {
         public EditGameServerDto(Guid gameServerId)
         {

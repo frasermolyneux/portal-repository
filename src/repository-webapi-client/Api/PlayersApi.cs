@@ -1,5 +1,4 @@
-﻿
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -23,7 +22,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
         }
         public async Task<ApiResponseDto<PlayerDto>> GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions)
         {
-            var request = await CreateRequest($"players/{playerId}", Method.Get);
+            var request = await CreateRequestAsync($"players/{playerId}", Method.Get);
             request.AddQueryParameter(nameof(playerEntityOptions), playerEntityOptions);
 
             var response = await ExecuteAsync(request);
@@ -33,7 +32,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> HeadPlayerByGameType(GameType gameType, string guid)
         {
-            var request = await CreateRequest($"players/by-game-type/{gameType}/{guid}", Method.Head);
+            var request = await CreateRequestAsync($"players/by-game-type/{gameType}/{guid}", Method.Head);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();
@@ -41,7 +40,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<PlayerDto>> GetPlayerByGameType(GameType gameType, string guid, PlayerEntityOptions playerEntityOptions)
         {
-            var request = await CreateRequest($"players/by-game-type/{gameType}/{guid}", Method.Get);
+            var request = await CreateRequestAsync($"players/by-game-type/{gameType}/{guid}", Method.Get);
             request.AddQueryParameter(nameof(playerEntityOptions), playerEntityOptions);
 
             var response = await ExecuteAsync(request);
@@ -51,7 +50,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<PlayersCollectionDto>> GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
         {
-            var request = await CreateRequest("players", Method.Get);
+            var request = await CreateRequestAsync("players", Method.Get);
             request.AddQueryParameter(nameof(playerEntityOptions), playerEntityOptions);
 
             if (gameType.HasValue)
@@ -76,7 +75,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreatePlayer(CreatePlayerDto createPlayerDto)
         {
-            var request = await CreateRequest("players", Method.Post);
+            var request = await CreateRequestAsync("players", Method.Post);
             request.AddJsonBody(new List<CreatePlayerDto> { createPlayerDto });
 
             var response = await ExecuteAsync(request);
@@ -86,7 +85,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreatePlayers(List<CreatePlayerDto> createPlayerDtos)
         {
-            var request = await CreateRequest("players", Method.Post);
+            var request = await CreateRequestAsync("players", Method.Post);
             request.AddJsonBody(createPlayerDtos);
 
             var response = await ExecuteAsync(request);
@@ -96,7 +95,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> UpdatePlayer(EditPlayerDto editPlayerDto)
         {
-            var request = await CreateRequest($"players/{editPlayerDto.PlayerId}", Method.Patch);
+            var request = await CreateRequestAsync($"players/{editPlayerDto.PlayerId}", Method.Patch);
             request.AddJsonBody(editPlayerDto);
 
             var response = await ExecuteAsync(request);

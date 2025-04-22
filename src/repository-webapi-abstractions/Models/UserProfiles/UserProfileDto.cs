@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 {
-    public class UserProfileDto : IDto
+    public record UserProfileDto : IDto
     {
         [JsonProperty]
         public Guid UserProfileId { get; internal set; }

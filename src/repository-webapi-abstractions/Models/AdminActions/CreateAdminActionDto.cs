@@ -8,7 +8,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions
 {
-    public class CreateAdminActionDto : IDto
+    public record CreateAdminActionDto : IDto
     {
         public CreateAdminActionDto(Guid playerId, AdminActionType type, string text)
         {

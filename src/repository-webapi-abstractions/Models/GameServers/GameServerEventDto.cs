@@ -4,7 +4,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class GameServerEventDto : IDto
+    public record GameServerEventDto : IDto
     {
         [JsonProperty]
         public Guid GameServerEventId { get; internal set; }

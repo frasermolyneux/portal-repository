@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class MapFileDto : IDto
+    public record MapFileDto : IDto
     {
         public MapFileDto(string fileName, string url)
         {

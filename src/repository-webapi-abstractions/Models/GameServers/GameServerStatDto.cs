@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class GameServerStatDto : IDto
+    public record GameServerStatDto : IDto
     {
         [JsonProperty]
         public Guid GameServerStatId { get; internal set; }

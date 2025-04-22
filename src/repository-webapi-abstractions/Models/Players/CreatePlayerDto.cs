@@ -8,7 +8,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class CreatePlayerDto : IDto
+    public record CreatePlayerDto : IDto
     {
         public CreatePlayerDto(string username, string guid, GameType gameType)
         {

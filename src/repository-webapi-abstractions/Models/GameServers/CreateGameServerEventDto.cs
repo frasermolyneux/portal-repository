@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class CreateGameServerEventDto : IDto
+    public record CreateGameServerEventDto : IDto
     {
         public CreateGameServerEventDto(Guid gameServerId, string eventType, string eventData)
         {

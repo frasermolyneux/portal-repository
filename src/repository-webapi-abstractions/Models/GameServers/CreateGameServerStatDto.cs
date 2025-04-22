@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers
 {
-    public class CreateGameServerStatDto : IDto
+    public record CreateGameServerStatDto : IDto
     {
         public CreateGameServerStatDto(Guid gameServerId, int playerCount, string mapName)
         {

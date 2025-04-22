@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 {
-    public class CreateReportDto : IDto
+    public record CreateReportDto : IDto
     {
         public CreateReportDto(Guid playerId, Guid userProfileId, string comments)
         {

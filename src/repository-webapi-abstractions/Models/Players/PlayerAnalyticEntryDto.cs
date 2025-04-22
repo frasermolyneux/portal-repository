@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class PlayerAnalyticEntryDto : IDto
+    public record PlayerAnalyticEntryDto : IDto
     {
         [JsonProperty]
         public DateTime Created { get; internal set; }

@@ -20,7 +20,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<PlayerAnalyticEntryCollectionDto>> GetCumulativeDailyPlayers(DateTime cutoff)
         {
-            var request = await CreateRequest($"player-analytics/cumulative-daily-players", Method.Get);
+            var request = await CreateRequestAsync($"player-analytics/cumulative-daily-players", Method.Get);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
             var response = await ExecuteAsync(request);
@@ -30,7 +30,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<PlayerAnalyticPerGameEntryCollectionDto>> GetNewDailyPlayersPerGame(DateTime cutoff)
         {
-            var request = await CreateRequest($"player-analytics/new-daily-players-per-game", Method.Get);
+            var request = await CreateRequestAsync($"player-analytics/new-daily-players-per-game", Method.Get);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
             var response = await ExecuteAsync(request);
@@ -40,7 +40,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<PlayerAnalyticPerGameEntryCollectionDto>> GetPlayersDropOffPerGameJson(DateTime cutoff)
         {
-            var request = await CreateRequest($"player-analytics/players-drop-off-per-game", Method.Get);
+            var request = await CreateRequestAsync($"player-analytics/players-drop-off-per-game", Method.Get);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
             var response = await ExecuteAsync(request);

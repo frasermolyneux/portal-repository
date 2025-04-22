@@ -8,7 +8,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class MapDto : IDto
+    public record MapDto : IDto
     {
         [JsonProperty]
         public Guid MapId { get; internal set; }

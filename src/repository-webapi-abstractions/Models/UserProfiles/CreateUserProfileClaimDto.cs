@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 {
-    public class CreateUserProfileClaimDto : IDto
+    public record CreateUserProfileClaimDto : IDto
     {
         public CreateUserProfileClaimDto(Guid userProfileId, string claimType, string claimValue, bool systemGenerated)
         {

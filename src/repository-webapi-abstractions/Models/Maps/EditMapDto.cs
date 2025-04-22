@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class EditMapDto : IDto
+    public record EditMapDto : IDto
     {
         public EditMapDto(Guid mapId)
         {

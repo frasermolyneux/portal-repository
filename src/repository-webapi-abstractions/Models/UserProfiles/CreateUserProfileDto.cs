@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles
 {
-    public class CreateUserProfileDto : IDto
+    public record CreateUserProfileDto : IDto
     {
         public CreateUserProfileDto(string xtremeIdiotsForumId, string displayName, string email)
         {

@@ -6,7 +6,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports
 {
-    public class ReportDto : IDto
+    public record ReportDto : IDto
     {
         [JsonProperty]
         public Guid ReportId { get; internal set; }

@@ -10,7 +10,7 @@ using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.RecentPlayers
 {
-    public class RecentPlayerDto : IDto
+    public record RecentPlayerDto : IDto
     {
         [JsonProperty]
         public Guid RecentPlayerId { get; internal set; }

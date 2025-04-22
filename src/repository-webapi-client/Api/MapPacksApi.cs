@@ -21,7 +21,7 @@ public class MapPacksApi : BaseApi, IMapPacksApi
 
     public async Task<ApiResponseDto<MapPackDto>> GetMapPack(Guid mapPackId)
     {
-        var request = await CreateRequest($"maps/pack/{mapPackId}", Method.Get);
+        var request = await CreateRequestAsync($"maps/pack/{mapPackId}", Method.Get);
         var response = await ExecuteAsync(request);
 
         return response.ToApiResponse<MapPackDto>();
@@ -29,7 +29,7 @@ public class MapPacksApi : BaseApi, IMapPacksApi
 
     public async Task<ApiResponseDto<MapPackCollectionDto>> GetMapPacks(GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter, int skipEntries, int takeEntries, MapPacksOrder? order)
     {
-        var request = await CreateRequest("maps/pack", Method.Get);
+        var request = await CreateRequestAsync("maps/pack", Method.Get);
 
         if (gameTypes != null)
             request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
@@ -53,7 +53,7 @@ public class MapPacksApi : BaseApi, IMapPacksApi
 
     public async Task<ApiResponseDto> CreateMapPack(CreateMapPackDto createMapPackDto)
     {
-        var request = await CreateRequest("maps/pack", Method.Post);
+        var request = await CreateRequestAsync("maps/pack", Method.Post);
         request.AddJsonBody(new List<CreateMapPackDto> { createMapPackDto });
 
         var response = await ExecuteAsync(request);
@@ -63,7 +63,7 @@ public class MapPacksApi : BaseApi, IMapPacksApi
 
     public async Task<ApiResponseDto> CreateMapPacks(List<CreateMapPackDto> createMapPackDtos)
     {
-        var request = await CreateRequest("maps/pack", Method.Post);
+        var request = await CreateRequestAsync("maps/pack", Method.Post);
         request.AddJsonBody(createMapPackDtos);
 
         var response = await ExecuteAsync(request);
@@ -73,7 +73,7 @@ public class MapPacksApi : BaseApi, IMapPacksApi
 
     public async Task<ApiResponseDto> UpdateMapPack(UpdateMapPackDto updateMapPackDto)
     {
-        var request = await CreateRequest($"maps/pack/{updateMapPackDto.MapPackId}", Method.Patch);
+        var request = await CreateRequestAsync($"maps/pack/{updateMapPackDto.MapPackId}", Method.Patch);
         request.AddJsonBody(updateMapPackDto);
 
         var response = await ExecuteAsync(request);
@@ -83,7 +83,7 @@ public class MapPacksApi : BaseApi, IMapPacksApi
 
     public async Task<ApiResponseDto> DeleteMapPack(Guid mapPackId)
     {
-        var request = await CreateRequest($"maps/pack/{mapPackId}", Method.Delete);
+        var request = await CreateRequestAsync($"maps/pack/{mapPackId}", Method.Delete);
         var response = await ExecuteAsync(request);
 
         return response.ToApiResponse();

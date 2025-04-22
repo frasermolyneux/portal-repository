@@ -6,7 +6,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps
 {
-    public class MapVoteDto : IDto
+    public record MapVoteDto : IDto
     {
         [JsonProperty]
         public Guid MapVoteId { get; internal set; }

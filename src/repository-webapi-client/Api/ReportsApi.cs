@@ -21,7 +21,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<ReportDto>> GetReport(Guid reportId)
         {
-            var request = await CreateRequest($"reports/{reportId}", Method.Get);
+            var request = await CreateRequestAsync($"reports/{reportId}", Method.Get);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<ReportDto>();
@@ -29,7 +29,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto<ReportsCollectionDto>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order)
         {
-            var request = await CreateRequest("reports", Method.Get);
+            var request = await CreateRequestAsync("reports", Method.Get);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -56,7 +56,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CreateReports(List<CreateReportDto> createReportDtos)
         {
-            var request = await CreateRequest("reports", Method.Post);
+            var request = await CreateRequestAsync("reports", Method.Post);
             request.AddJsonBody(createReportDtos);
 
             var response = await ExecuteAsync(request);
@@ -66,7 +66,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         public async Task<ApiResponseDto> CloseReport(Guid reportId, CloseReportDto closeReportDto)
         {
-            var request = await CreateRequest($"reports/{reportId}/close", Method.Post);
+            var request = await CreateRequestAsync($"reports/{reportId}/close", Method.Post);
             request.AddJsonBody(closeReportDto);
 
             var response = await ExecuteAsync(request);

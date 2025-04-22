@@ -4,7 +4,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
-    public class PlayerAnalyticPerGameEntryDto : IDto
+    public record PlayerAnalyticPerGameEntryDto : IDto
     {
         [JsonProperty]
         public DateTime Created { get; internal set; }

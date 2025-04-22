@@ -2,7 +2,7 @@
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.BanFileMonitors
 {
-    public class EditBanFileMonitorDto : IDto
+    public record EditBanFileMonitorDto : IDto
     {
         [JsonConstructor]
         public EditBanFileMonitorDto(Guid banFileMonitorId)
