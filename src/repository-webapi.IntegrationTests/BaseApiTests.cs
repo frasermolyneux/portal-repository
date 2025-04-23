@@ -22,9 +22,7 @@ public class BaseApiTests
     {
         Console.WriteLine($"Using API Base URL: {Environment.GetEnvironmentVariable("api_base_url")}");
 
-        var fakeMemoryCache = A.Fake<IMemoryCache>();
         var fakeRepositoryApiTokenProviderLogger = A.Fake<ILogger<ApiTokenProvider>>();
-        var fakeTokenCredentialProvider = A.Fake<ITokenCredentialProvider>();
 
         string baseUrl = Environment.GetEnvironmentVariable("api_base_url") ?? throw new Exception("Environment variable 'api_base_url' is null - this needs to be set to invoke tests");
         string apiKey = Environment.GetEnvironmentVariable("api_key") ?? throw new Exception("Environment variable 'api_key' is null - this needs to be set to invoke tests");
@@ -36,9 +34,9 @@ public class BaseApiTests
             PrimaryApiKey = apiKey,
             ApiAudience = apiAudience
         });
-        var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, fakeMemoryCache, fakeTokenCredentialProvider);
+        var tokenProvider = new ApiTokenProvider(fakeRepositoryApiTokenProviderLogger, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
 
-        playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, fakeMemoryCache, repositoryApiClientOptions, new RestClientSingleton());
+        playersApi = new PlayersApi(A.Fake<ILogger<PlayersApi>>(), tokenProvider, new MemoryCache(new MemoryCacheOptions()), repositoryApiClientOptions, new RestClientSingleton());
         rootApi = new RootApi(A.Fake<ILogger<RootApi>>(), tokenProvider, repositoryApiClientOptions, new RestClientSingleton());
 
         await WarmUp();
