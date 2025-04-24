@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 
@@ -7,7 +5,7 @@ namespace repository_webapi.IntegrationTests;
 
 public class PlayersApiTests : BaseApiTests
 {
-    [Test]
+    [Fact]
     public async Task CreateAndRetrievePlayer()
     {
         // Arrange
@@ -19,14 +17,14 @@ public class PlayersApiTests : BaseApiTests
         var getResult = await playersApi.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.None);
 
         // Assert
-        getResult.IsSuccess.Should().BeTrue();
-        getResult.Result.Should().NotBeNull();
-        getResult.Result?.Username.Should().Be(player.Username);
-        getResult.Result?.GameType.Should().Be(player.GameType);
-        getResult.Result?.Guid.Should().Be(player.Guid);
+        Assert.True(getResult.IsSuccess);
+        Assert.NotNull(getResult.Result);
+        Assert.Equal(player.Username, getResult.Result?.Username);
+        Assert.Equal(player.GameType, getResult.Result?.GameType);
+        Assert.Equal(player.Guid, getResult.Result?.Guid);
     }
 
-    [Test]
+    [Fact]
     public async Task CheckNonExistantPlayerExistsReturnsNotFound()
     {
         // Arrange
@@ -35,6 +33,6 @@ public class PlayersApiTests : BaseApiTests
         var result = await playersApi.HeadPlayerByGameType(GameType.CallOfDuty2, "non-existing-guid");
 
         // Assert
-        result.IsNotFound.Should().BeTrue();
+        Assert.True(result.IsNotFound);
     }
 }
