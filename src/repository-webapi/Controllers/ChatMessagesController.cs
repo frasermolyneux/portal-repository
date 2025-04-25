@@ -115,11 +115,11 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
         }
 
         if (createChatMessageDtos == null || !createChatMessageDtos.Any())
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
         var response = await ((IChatMessagesApi)this).CreateChatMessages(createChatMessageDtos);
 

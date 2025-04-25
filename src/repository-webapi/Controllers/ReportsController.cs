@@ -113,11 +113,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createReportDtos == null || !createReportDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IReportsApi)this).CreateReports(createReportDtos);
 
@@ -153,11 +153,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (closeReportDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto);
 
@@ -174,7 +174,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             var userProfile = await context.UserProfiles.SingleOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId);
 
             if (userProfile == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not user profile with specified user profile id");
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not user profile with specified user profile id" });
 
             mapper.Map(closeReportDto, report);
 

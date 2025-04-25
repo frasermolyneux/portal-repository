@@ -124,11 +124,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createBanFileMonitorDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((IBanFileMonitorsApi)this).CreateBanFileMonitor(createBanFileMonitorDto);
 
@@ -159,14 +159,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch (Exception)
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (editBanFileMonitorDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             if (editBanFileMonitorDto.BanFileMonitorId != banFileMonitorId)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request entity identifiers did not match").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
 
             var response = await ((IBanFileMonitorsApi)this).UpdateBanFileMonitor(editBanFileMonitorDto);
 

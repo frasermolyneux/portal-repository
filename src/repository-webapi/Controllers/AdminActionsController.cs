@@ -110,11 +110,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createAdminActionDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((IAdminActionsApi)this).CreateAdminAction(createAdminActionDto);
 
@@ -149,14 +149,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (editAdminActionDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             if (editAdminActionDto.AdminActionId != adminActionId)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request entity identifiers did not match").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
 
             var response = await ((IAdminActionsApi)this).UpdateAdminAction(editAdminActionDto);
 

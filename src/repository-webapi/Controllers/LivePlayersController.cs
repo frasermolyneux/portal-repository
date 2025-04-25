@@ -86,11 +86,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createLivePlayerDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos);
 

@@ -183,11 +183,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createUserProfileDto == null || !createUserProfileDto.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IUserProfileApi)this).CreateUserProfiles(createUserProfileDto);
 
@@ -222,11 +222,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (editUserProfileDto == null || !editUserProfileDto.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IUserProfileApi)this).UpdateUserProfiles(editUserProfileDto);
 
@@ -259,11 +259,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createUserProfileClaimDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((IUserProfileApi)this).CreateUserProfileClaim(userProfileId, createUserProfileClaimDtos);
 
@@ -293,11 +293,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createUserProfileClaimDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos);
 

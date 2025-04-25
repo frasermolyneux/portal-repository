@@ -218,11 +218,11 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
         }
 
         if (createPlayerDtos == null || !createPlayerDtos.Any())
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
         var response = await ((IPlayersApi)this).CreatePlayers(createPlayerDtos);
 
@@ -239,7 +239,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         foreach (var createPlayerDto in createPlayerDtos)
         {
             if (await context.Players.AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
-                return new ApiResponseDto(HttpStatusCode.Conflict, $"Player with gameType '{createPlayerDto.GameType}' and guid '{createPlayerDto.Guid}' already exists");
+                return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { $"Player with gameType '{createPlayerDto.GameType}' and guid '{createPlayerDto.Guid}' already exists" });
 
             var player = mapper.Map<Player>(createPlayerDto);
             player.FirstSeen = DateTime.UtcNow;
@@ -293,14 +293,14 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
         }
 
         if (editPlayerDto == null)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
         if (editPlayerDto.PlayerId != playerId)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request entity identifiers did not match").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
 
         var response = await ((IPlayersApi)this).UpdatePlayer(editPlayerDto);
 

@@ -123,11 +123,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createDemoDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
             var response = await ((IDemosApi)this).CreateDemo(createDemoDto);
 
@@ -156,13 +156,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         public async Task<IActionResult> SetDemoFile(Guid demoId)
         {
             if (Request.Form.Files.Count == 0)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request did not contain any files").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request did not contain any files" }).ToHttpResult();
 
             var whitelistedExtensions = new List<string> { ".dm_1", ".dm_6" };
 
             var file = Request.Form.Files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Invalid file type extension").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Invalid file type extension" }).ToHttpResult();
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             using (var stream = System.IO.File.Create(filePath))

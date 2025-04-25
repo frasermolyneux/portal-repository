@@ -46,11 +46,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createGameServerStatDto == null || !createGameServerStatDto.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDto);
 
@@ -97,7 +97,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             else
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Cutoff date was not provided or was invalid").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Cutoff date was not provided or was invalid" }).ToHttpResult();
             }
         }
 

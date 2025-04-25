@@ -146,11 +146,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (createMapDtos == null || !createMapDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IMapsApi)this).CreateMaps(createMapDtos);
 
@@ -162,7 +162,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             foreach (var createMapDto in createMapDtos)
             {
                 if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName))
-                    return new ApiResponseDto(HttpStatusCode.Conflict, $"Map with gameType '{createMapDto.GameType}' and name '{createMapDto.MapName}' already exists");
+                    return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { $"Map with gameType '{createMapDto.GameType}' and name '{createMapDto.MapName}' already exists" });
 
                 var map = mapper.Map<Map>(createMapDto);
                 await context.Maps.AddAsync(map);
@@ -191,11 +191,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (editMapDtos == null || !editMapDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IMapsApi)this).UpdateMaps(editMapDtos);
 
@@ -293,11 +293,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
             }
 
             if (upsertMapVoteDtos == null || !upsertMapVoteDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
             var response = await ((IMapsApi)this).UpsertMapVotes(upsertMapVoteDtos);
 
@@ -337,7 +337,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         public async Task<IActionResult> UpdateMapImage(Guid mapId)
         {
             if (Request.Form.Files.Count == 0)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, "Request does not contain any files").ToHttpResult();
+                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request does not contain any files" }).ToHttpResult();
 
             var file = Request.Form.Files.First();
 

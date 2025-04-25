@@ -129,11 +129,11 @@ public class GameServersController : Controller, IGameServersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
         }
 
         if (createGameServerDtos == null || !createGameServerDtos.Any())
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null or did not contain any entries").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
 
         var response = await ((IGameServersApi)this).CreateGameServers(createGameServerDtos);
 
@@ -163,14 +163,14 @@ public class GameServersController : Controller, IGameServersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Could not deserialize request body").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
         }
 
         if (editGameServerDto == null)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request body was null").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
 
         if (editGameServerDto.GameServerId != gameServerId)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, "Request entity identifiers did not match").ToHttpResult();
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
 
         var response = await ((IGameServersApi)this).UpdateGameServer(editGameServerDto);
 
