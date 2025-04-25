@@ -49,6 +49,23 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "test-integration",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "${workspaceFolder}/src/portal-repository.sln",
+                "--filter",
+                "FullyQualifiedName~IntegrationTests",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "group": {
+                "kind": "test"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "clean release",
             "command": "dotnet",
             "type": "process",
