@@ -1,4 +1,6 @@
 using Newtonsoft.Json;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Extensions;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
@@ -38,6 +40,9 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
         [JsonProperty]
         public Guid CreatedByUserProfileId { get; set; }
 
+        [JsonProperty]
+        public UserProfileDto? CreatedByUserProfile { get; internal set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties
         {
@@ -46,9 +51,11 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(ProtectedNameId), ProtectedNameId.ToString() },
-                    { nameof(PlayerId), PlayerId.ToString() },
-                    { nameof(CreatedByUserProfileId), CreatedByUserProfileId.ToString() }
+                    { nameof(PlayerId), PlayerId.ToString() }
                 };
+
+                if (CreatedByUserProfile is not null)
+                    telemetryProperties.AddAdditionalProperties(CreatedByUserProfile.TelemetryProperties);
 
                 return telemetryProperties;
             }

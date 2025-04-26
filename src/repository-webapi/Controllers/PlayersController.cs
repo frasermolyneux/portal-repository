@@ -445,7 +445,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
     async Task<ApiResponseDto<ProtectedNamesCollectionDto>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
     {
-        var query = context.ProtectedNames.AsQueryable();
+        var query = context.ProtectedNames.Include(pn => pn.Player).Include(pn => pn.CreatedByUserProfile).AsQueryable();
         var totalCount = await query.CountAsync();
 
         query = query.OrderBy(pn => pn.Name).Skip(skipEntries).Take(takeEntries);
@@ -475,6 +475,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var protectedName = await context.ProtectedNames
             .Include(pn => pn.Player)
+            .Include(pn => pn.CreatedByUserProfile)
             .SingleOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
 
         if (protectedName == null)
@@ -499,7 +500,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
             return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.NotFound);
 
-        var query = context.ProtectedNames.Where(pn => pn.PlayerId == playerId).AsQueryable();
+        var query = context.ProtectedNames.Include(pn => pn.Player).Include(pn => pn.CreatedByUserProfile).Where(pn => pn.PlayerId == playerId).AsQueryable();
         var totalCount = await query.CountAsync();
 
         query = query.OrderBy(pn => pn.Name);
@@ -604,6 +605,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var protectedName = await context.ProtectedNames
             .Include(pn => pn.Player)
+            .Include(pn => pn.CreatedByUserProfile)
             .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
 
         if (protectedName == null)
