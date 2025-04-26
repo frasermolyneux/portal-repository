@@ -7,6 +7,7 @@
         Aliases = 1,
         IpAddresses = 2,
         AdminActions = 4,
-        RelatedPlayers = 8
+        RelatedPlayers = 8,
+        ProtectedNames = 16,
     }
 }
