@@ -60,7 +60,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             player.AdminActions = await context.AdminActions.OrderByDescending(aa => aa.Created).Where(aa => aa.PlayerId == player.PlayerId).ToListAsync();
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
-            player.ProtectedNames = await context.ProtectedNames.OrderByDescending(pn => pn.CreatedOn).Where(pn => pn.PlayerId == player.PlayerId).ToListAsync();
+            player.ProtectedNames = await context.ProtectedNames.Include(pn => pn.CreatedByUserProfile).OrderByDescending(pn => pn.CreatedOn).Where(pn => pn.PlayerId == player.PlayerId).ToListAsync();
 
         var result = mapper.Map<PlayerDto>(player);
 
