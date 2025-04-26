@@ -49,6 +49,9 @@ public partial class Player
     public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; } = new List<PlayerIpAddress>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = new List<ProtectedName>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
 
     [InverseProperty("Player")]

@@ -43,6 +43,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<PlayerIpAddress> PlayerIpAddresses { get; set; }
 
+    public virtual DbSet<ProtectedName> ProtectedNames { get; set; }
+
     public virtual DbSet<RecentPlayer> RecentPlayers { get; set; }
 
     public virtual DbSet<Report> Reports { get; set; }
@@ -208,6 +210,17 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.PlayerIpAddressId).HasDefaultValueSql("newsequentialid()");
 
             entity.HasOne(d => d.Player).WithMany(p => p.PlayerIpAddresses).HasConstraintName("FK_dbo.PlayerIpAddresses_dbo.Players_PlayerId");
+        });
+
+        modelBuilder.Entity<ProtectedName>(entity =>
+        {
+            entity.HasKey(e => e.ProtectedNameId).HasName("PK_dbo.ProtectedNames");
+
+            entity.Property(e => e.ProtectedNameId).HasDefaultValueSql("newsequentialid()");
+
+            entity.HasOne(d => d.CreatedByUserProfile).WithMany(p => p.ProtectedNames).HasConstraintName("FK_dbo.ProtectedNames_dbo.UserProfiles_CreatedByUserProfileId");
+
+            entity.HasOne(d => d.Player).WithMany(p => p.ProtectedNames).HasConstraintName("FK_dbo.ProtectedNames_dbo.Players_PlayerId");
         });
 
         modelBuilder.Entity<RecentPlayer>(entity =>

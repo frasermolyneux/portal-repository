@@ -425,4 +425,228 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         return query;
     }
+
+    #region Protected Names
+
+    [HttpGet]
+    [Route("players/protected-names")]
+    public async Task<IActionResult> GetProtectedNames(int? skipEntries, int? takeEntries)
+    {
+        if (!skipEntries.HasValue)
+            skipEntries = 0;
+
+        if (!takeEntries.HasValue)
+            takeEntries = 20;
+
+        var response = await ((IPlayersApi)this).GetProtectedNames(skipEntries.Value, takeEntries.Value);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<ProtectedNamesCollectionDto>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
+    {
+        var query = context.ProtectedNames.AsQueryable();
+        var totalCount = await query.CountAsync();
+
+        query = query.OrderBy(pn => pn.Name).Skip(skipEntries).Take(takeEntries);
+        var results = await query.ToListAsync();
+
+        var entries = results.Select(pn => mapper.Map<ProtectedNameDto>(pn)).ToList();
+
+        var result = new ProtectedNamesCollectionDto
+        {
+            TotalRecords = totalCount,
+            Entries = entries
+        };
+
+        return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.OK, result);
+    }
+
+    [HttpGet]
+    [Route("players/protected-names/{protectedNameId}")]
+    public async Task<IActionResult> GetProtectedName(Guid protectedNameId)
+    {
+        var response = await ((IPlayersApi)this).GetProtectedName(protectedNameId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<ProtectedNameDto>> IPlayersApi.GetProtectedName(Guid protectedNameId)
+    {
+        var protectedName = await context.ProtectedNames
+            .Include(pn => pn.Player)
+            .SingleOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
+
+        if (protectedName == null)
+            return new ApiResponseDto<ProtectedNameDto>(HttpStatusCode.NotFound);
+
+        var result = mapper.Map<ProtectedNameDto>(protectedName);
+
+        return new ApiResponseDto<ProtectedNameDto>(HttpStatusCode.OK, result);
+    }
+
+    [HttpGet]
+    [Route("players/{playerId}/protected-names")]
+    public async Task<IActionResult> GetProtectedNamesForPlayer(Guid playerId)
+    {
+        var response = await ((IPlayersApi)this).GetProtectedNamesForPlayer(playerId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<ProtectedNamesCollectionDto>> IPlayersApi.GetProtectedNamesForPlayer(Guid playerId)
+    {
+        if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
+            return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.NotFound);
+
+        var query = context.ProtectedNames.Where(pn => pn.PlayerId == playerId).AsQueryable();
+        var totalCount = await query.CountAsync();
+
+        query = query.OrderBy(pn => pn.Name);
+        var results = await query.ToListAsync();
+
+        var entries = results.Select(pn => mapper.Map<ProtectedNameDto>(pn)).ToList();
+
+        var result = new ProtectedNamesCollectionDto
+        {
+            TotalRecords = totalCount,
+            Entries = entries
+        };
+
+        return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.OK, result);
+    }
+
+    [HttpPost]
+    [Route("players/protected-names")]
+    public async Task<IActionResult> CreateProtectedName()
+    {
+        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
+
+        CreateProtectedNameDto? createProtectedNameDto;
+        try
+        {
+            createProtectedNameDto = JsonConvert.DeserializeObject<CreateProtectedNameDto>(requestBody);
+        }
+        catch
+        {
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+        }
+
+        if (createProtectedNameDto == null)
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+
+        var response = await ((IPlayersApi)this).CreateProtectedName(createProtectedNameDto);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
+    {
+        // Check if player exists
+        if (!await context.Players.AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId))
+            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player not found" });
+
+        // Check if the name is already protected
+        if (await context.ProtectedNames.AnyAsync(pn => pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()))
+            return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { "This name is already protected" });
+
+        var protectedName = new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = createProtectedNameDto.PlayerId,
+            Name = createProtectedNameDto.Name,
+            CreatedOn = DateTime.UtcNow,
+            CreatedByUserProfileId = createProtectedNameDto.CreatedByUserProfileId
+        };
+
+        await context.ProtectedNames.AddAsync(protectedName);
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.Created);
+    }
+
+    [HttpDelete]
+    [Route("players/protected-names/{protectedNameId}")]
+    public async Task<IActionResult> DeleteProtectedName(Guid protectedNameId)
+    {
+        var deleteProtectedNameDto = new DeleteProtectedNameDto(protectedNameId);
+        var response = await ((IPlayersApi)this).DeleteProtectedName(deleteProtectedNameDto);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto)
+    {
+        var protectedName = await context.ProtectedNames
+            .SingleOrDefaultAsync(pn => pn.ProtectedNameId == deleteProtectedNameDto.ProtectedNameId);
+
+        if (protectedName == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound);
+
+        context.ProtectedNames.Remove(protectedName);
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.NoContent);
+    }
+
+    [HttpGet]
+    [Route("players/protected-names/{protectedNameId}/usage-report")]
+    public async Task<IActionResult> GetProtectedNameUsageReport(Guid protectedNameId)
+    {
+        var response = await ((IPlayersApi)this).GetProtectedNameUsageReport(protectedNameId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<ProtectedNameUsageReportDto>> IPlayersApi.GetProtectedNameUsageReport(Guid protectedNameId)
+    {
+        var protectedName = await context.ProtectedNames
+            .Include(pn => pn.Player)
+            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
+
+        if (protectedName == null)
+            return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
+
+        var owningPlayer = await context.Players
+            .FirstOrDefaultAsync(p => p.PlayerId == protectedName.PlayerId);
+
+        if (owningPlayer == null)
+            return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
+
+        // Find all player aliases that match this protected name
+        var matchingAliases = await context.PlayerAliases
+            .Include(pa => pa.Player)
+            .Where(pa => pa.Name.ToLower() == protectedName.Name.ToLower())
+            .OrderByDescending(pa => pa.LastUsed)
+            .ToListAsync();
+
+        var usageInstances = new List<ProtectedNameUsageReportDto.PlayerUsageDto>();
+
+        // Group by player and create usage instances
+        foreach (var group in matchingAliases.GroupBy(a => a.PlayerId))
+        {
+            var player = group.First().Player;
+            var isOwner = player.PlayerId == protectedName.PlayerId;
+
+            usageInstances.Add(new ProtectedNameUsageReportDto.PlayerUsageDto
+            {
+                PlayerId = player.PlayerId,
+                Username = player.Username,
+                IsOwner = isOwner,
+                LastUsed = group.Max(a => a.LastUsed),
+                UsageCount = group.Count()
+            });
+        }
+
+        var result = new ProtectedNameUsageReportDto
+        {
+            ProtectedName = mapper.Map<ProtectedNameDto>(protectedName),
+            OwningPlayer = mapper.Map<PlayerDto>(owningPlayer),
+            UsageInstances = usageInstances
+        };
+
+        return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.OK, result);
+    }
+
+    #endregion
 }

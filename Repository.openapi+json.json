@@ -1,5 +1,5 @@
 {
-    "openapi": "3.0.1",
+    "openapi": "3.0.4",
     "info": {
         "title": "Repository API",
         "version": "v1"
@@ -1517,6 +1517,136 @@
             "post": {
                 "tags": [
                     "Players"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/players/protected-names": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "skipEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "takeEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/players/protected-names/{protectedNameId}": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "protectedNameId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "protectedNameId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/players/{playerId}/protected-names": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/players/protected-names/{protectedNameId}/usage-report": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "protectedNameId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
                 ],
                 "responses": {
                     "200": {

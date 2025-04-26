@@ -48,6 +48,9 @@ public partial class UserProfile
     [InverseProperty("UserProfile")]
     public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
 
+    [InverseProperty("CreatedByUserProfile")]
+    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = new List<ProtectedName>();
+
     [InverseProperty("AdminUserProfile")]
     public virtual ICollection<Report> ReportAdminUserProfiles { get; set; } = new List<Report>();
 

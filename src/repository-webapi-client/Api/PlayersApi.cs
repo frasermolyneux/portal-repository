@@ -102,5 +102,67 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
             return response.ToApiResponse();
         }
+
+        #region Protected Names
+
+        public async Task<ApiResponseDto<ProtectedNamesCollectionDto>> GetProtectedNames(int skipEntries, int takeEntries)
+        {
+            var request = await CreateRequestAsync("players/protected-names", Method.Get);
+
+            request.AddQueryParameter("skipEntries", skipEntries.ToString());
+            request.AddQueryParameter("takeEntries", takeEntries.ToString());
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<ProtectedNamesCollectionDto>();
+        }
+
+        public async Task<ApiResponseDto<ProtectedNameDto>> GetProtectedName(Guid protectedNameId)
+        {
+            var request = await CreateRequestAsync($"players/protected-names/{protectedNameId}", Method.Get);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<ProtectedNameDto>();
+        }
+
+        public async Task<ApiResponseDto<ProtectedNamesCollectionDto>> GetProtectedNamesForPlayer(Guid playerId)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/protected-names", Method.Get);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<ProtectedNamesCollectionDto>();
+        }
+
+        public async Task<ApiResponseDto> CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
+        {
+            var request = await CreateRequestAsync("players/protected-names", Method.Post);
+            request.AddJsonBody(createProtectedNameDto);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto> DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto)
+        {
+            var request = await CreateRequestAsync($"players/protected-names/{deleteProtectedNameDto.ProtectedNameId}", Method.Delete);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto<ProtectedNameUsageReportDto>> GetProtectedNameUsageReport(Guid protectedNameId)
+        {
+            var request = await CreateRequestAsync($"players/protected-names/{protectedNameId}/usage-report", Method.Get);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<ProtectedNameUsageReportDto>();
+        }
+
+        #endregion
     }
 }

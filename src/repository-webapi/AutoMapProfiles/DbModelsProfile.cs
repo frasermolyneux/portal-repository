@@ -196,6 +196,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.AutoMapProfiles
                 )
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
+            // Protected Names
+            CreateMap<ProtectedName, ProtectedNameDto>();
+            CreateMap<CreateProtectedNameDto, ProtectedName>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
             // Recent Players
             CreateMap<RecentPlayer, RecentPlayerDto>()
                 .ForMember(

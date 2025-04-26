@@ -49,6 +49,9 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
         [JsonProperty]
         public List<RelatedPlayerDto> RelatedPlayers { get; internal set; } = new List<RelatedPlayerDto>();
 
+        [JsonProperty]
+        public List<ProtectedNameDto> ProtectedNames { get; internal set; } = new List<ProtectedNameDto>();
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties
         {

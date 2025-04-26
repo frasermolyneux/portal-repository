@@ -16,5 +16,13 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
         Task<ApiResponseDto> CreatePlayers(List<CreatePlayerDto> createPlayerDtos);
 
         Task<ApiResponseDto> UpdatePlayer(EditPlayerDto editPlayerDto);
+
+        // Protected Names methods
+        Task<ApiResponseDto<ProtectedNamesCollectionDto>> GetProtectedNames(int skipEntries, int takeEntries);
+        Task<ApiResponseDto<ProtectedNameDto>> GetProtectedName(Guid protectedNameId);
+        Task<ApiResponseDto<ProtectedNamesCollectionDto>> GetProtectedNamesForPlayer(Guid playerId);
+        Task<ApiResponseDto> CreateProtectedName(CreateProtectedNameDto createProtectedNameDto);
+        Task<ApiResponseDto> DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto);
+        Task<ApiResponseDto<ProtectedNameUsageReportDto>> GetProtectedNameUsageReport(Guid protectedNameId);
     }
 }

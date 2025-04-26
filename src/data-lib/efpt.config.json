@@ -76,6 +76,10 @@
          "ObjectType": 0
       },
       {
+         "Name": "[dbo].[ProtectedNames]",
+         "ObjectType": 0
+      },
+      {
          "Name": "[dbo].[RecentPlayers]",
          "ObjectType": 0
       },
