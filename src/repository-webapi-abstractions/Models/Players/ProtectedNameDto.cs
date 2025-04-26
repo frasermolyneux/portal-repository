@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
@@ -10,26 +10,32 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
         /// <summary>
         /// Unique identifier for the protected name
         /// </summary>
+        [JsonProperty]
         public Guid ProtectedNameId { get; set; }
 
         /// <summary>
         /// The player ID that owns this protected name
         /// </summary>
+
+        [JsonProperty]
         public Guid PlayerId { get; set; }
 
         /// <summary>
         /// The protected name string
         /// </summary>
+        [JsonProperty]
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// When the protected name was created
         /// </summary>
+        [JsonProperty]
         public DateTime CreatedOn { get; set; }
 
         /// <summary>
         /// Who created the protected name
         /// </summary>
+        [JsonProperty]
         public Guid CreatedByUserProfileId { get; set; }
 
         [JsonIgnore]

@@ -8,13 +8,6 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
     public record DeleteProtectedNameDto : IDto
     {
         /// <summary>
-        /// Default constructor for serialization
-        /// </summary>
-        public DeleteProtectedNameDto()
-        {
-        }
-
-        /// <summary>
         /// Create a delete protected name request
         /// </summary>
         /// <param name="protectedNameId">ID of the protected name to delete</param>
@@ -26,6 +19,7 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
         /// <summary>
         /// The ID of the protected name to delete
         /// </summary>
+        [JsonProperty]
         public Guid ProtectedNameId { get; set; }
 
         [JsonIgnore]

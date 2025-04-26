@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 {
@@ -8,39 +8,35 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
     public record CreateProtectedNameDto : IDto
     {
         /// <summary>
-        /// Default constructor for serialization
-        /// </summary>
-        public CreateProtectedNameDto()
-        {
-        }
-
-        /// <summary>
         /// Create a new protected name request
         /// </summary>
         /// <param name="playerId">ID of player who owns this name</param>
         /// <param name="name">The name to protect</param>
-        /// <param name="createdBy">ID or username of the creator</param>
-        public CreateProtectedNameDto(Guid playerId, string name, Guid createdByUserProfileId)
+        /// <param name="adminId">ID of the creator</param>
+        public CreateProtectedNameDto(Guid playerId, string name, string adminId)
         {
             PlayerId = playerId;
             Name = name;
-            CreatedByUserProfileId = createdByUserProfileId;
+            AdminId = adminId;
         }
 
         /// <summary>
         /// The player ID that will own this protected name
         /// </summary>
+        [JsonProperty]
         public Guid PlayerId { get; set; }
 
         /// <summary>
         /// The name to protect
         /// </summary>
+        [JsonProperty]
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// Who is creating the protected name
         /// </summary>
-        public Guid CreatedByUserProfileId { get; set; }
+        [JsonProperty]
+        public string AdminId { get; set; }
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties
@@ -50,7 +46,7 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(PlayerId), PlayerId.ToString() },
-                    { nameof(CreatedByUserProfileId), CreatedByUserProfileId.ToString() }
+                    { nameof(AdminId), AdminId.ToString() }
                 };
 
                 return telemetryProperties;

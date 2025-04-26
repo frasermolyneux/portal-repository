@@ -555,9 +555,11 @@ public class PlayersController : ControllerBase, IPlayersApi
             ProtectedNameId = Guid.NewGuid(),
             PlayerId = createProtectedNameDto.PlayerId,
             Name = createProtectedNameDto.Name,
-            CreatedOn = DateTime.UtcNow,
-            CreatedByUserProfileId = createProtectedNameDto.CreatedByUserProfileId
+            CreatedOn = DateTime.UtcNow
         };
+
+        if (!string.IsNullOrWhiteSpace(createProtectedNameDto.AdminId))
+            protectedName.CreatedByUserProfile = await context.UserProfiles.SingleOrDefaultAsync(u => u.XtremeIdiotsForumId == createProtectedNameDto.AdminId);
 
         await context.ProtectedNames.AddAsync(protectedName);
         await context.SaveChangesAsync();
