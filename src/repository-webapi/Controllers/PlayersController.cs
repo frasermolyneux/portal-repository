@@ -568,7 +568,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         await context.ProtectedNames.AddAsync(protectedName);
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.Created);
+        return new ApiResponseDto(HttpStatusCode.OK);
     }
 
     [HttpDelete]
@@ -592,7 +592,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         context.ProtectedNames.Remove(protectedName);
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.NoContent);
+        return new ApiResponseDto(HttpStatusCode.OK);
     }
 
     [HttpGet]
