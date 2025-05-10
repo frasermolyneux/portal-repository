@@ -361,6 +361,13 @@
                         "schema": {
                             "$ref": "#/components/schemas/ChatMessageOrder"
                         }
+                    },
+                    {
+                        "name": "lockedOnly",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ],
                 "responses": {
@@ -372,6 +379,29 @@
             "post": {
                 "tags": [
                     "ChatMessages"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/chat-messages/{chatMessageId}/toggle-lock": {
+            "post": {
+                "tags": [
+                    "ChatMessages"
+                ],
+                "parameters": [
+                    {
+                        "name": "chatMessageId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
                 ],
                 "responses": {
                     "200": {
@@ -2273,7 +2303,8 @@
                     "Aliases",
                     "IpAddresses",
                     "AdminActions",
-                    "RelatedPlayers"
+                    "RelatedPlayers",
+                    "ProtectedNames"
                 ],
                 "type": "string",
                 "format": "int32"

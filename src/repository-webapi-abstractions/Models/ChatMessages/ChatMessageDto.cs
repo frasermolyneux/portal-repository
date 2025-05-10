@@ -40,6 +40,9 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.ChatMessages
                 public DateTime Timestamp { get; internal set; }
 
                 [JsonProperty]
+                public bool Locked { get; internal set; }
+
+                [JsonProperty]
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
                 public PlayerDto Player { get; internal set; }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -59,7 +62,8 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.ChatMessages
                     { nameof(ChatMessageId), ChatMessageId.ToString() },
                     { nameof(GameServerId), GameServerId.ToString() },
                     { nameof(PlayerId), PlayerId.ToString() },
-                    { nameof(ChatType), ChatType.ToString() }
+                    { nameof(ChatType), ChatType.ToString() },
+                    { nameof(Locked), Locked.ToString() }
                 };
 
                                 if (GameServer is not null)

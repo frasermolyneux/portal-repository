@@ -28,7 +28,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
             return response.ToApiResponse<ChatMessageDto>();
         }
 
-        public async Task<ApiResponseDto<ChatMessagesCollectionDto>> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order)
+        public async Task<ApiResponseDto<ChatMessagesCollectionDto>> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly = null)
         {
             var request = await CreateRequestAsync("chat-messages", Method.Get);
 
@@ -43,6 +43,9 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
             if (!string.IsNullOrWhiteSpace(filterString))
                 request.AddQueryParameter("filterString", filterString);
+
+            if (lockedOnly.HasValue)
+                request.AddQueryParameter("lockedOnly", lockedOnly.ToString());
 
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
@@ -70,6 +73,14 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
             var request = await CreateRequestAsync("chat-messages", Method.Post);
             request.AddJsonBody(createChatMessageDtos);
 
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto> ToggleLockedStatus(Guid chatMessageId)
+        {
+            var request = await CreateRequestAsync($"chat-messages/{chatMessageId}/toggle-lock", Method.Post);
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse();

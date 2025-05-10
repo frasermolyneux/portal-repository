@@ -60,7 +60,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
 
     [HttpGet]
     [Route("chat-messages")]
-    public async Task<IActionResult> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int? skipEntries, int? takeEntries, ChatMessageOrder? order)
+    public async Task<IActionResult> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int? skipEntries, int? takeEntries, ChatMessageOrder? order, bool? lockedOnly = null)
     {
         if (!skipEntries.HasValue)
             skipEntries = 0;
@@ -68,18 +68,18 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         if (!takeEntries.HasValue)
             takeEntries = 20;
 
-        var response = await ((IChatMessagesApi)this).GetChatMessages(gameType, gameServerId, playerId, filterString, skipEntries.Value, takeEntries.Value, order);
+        var response = await ((IChatMessagesApi)this).GetChatMessages(gameType, gameServerId, playerId, filterString, skipEntries.Value, takeEntries.Value, order, lockedOnly);
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<ChatMessagesCollectionDto>> IChatMessagesApi.GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order)
+    async Task<ApiResponseDto<ChatMessagesCollectionDto>> IChatMessagesApi.GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly = null)
     {
         var query = context.ChatMessages.Include(cl => cl.GameServer).Include(cl => cl.Player).AsQueryable();
-        query = ApplyFilter(query, gameType, gameServerId, playerId, string.Empty);
+        query = ApplyFilter(query, gameType, gameServerId, playerId, string.Empty, lockedOnly);
         var totalCount = await query.CountAsync();
 
-        query = ApplyFilter(query, gameType, gameServerId, playerId, filterString);
+        query = ApplyFilter(query, gameType, gameServerId, playerId, filterString, lockedOnly);
         var filteredCount = await query.CountAsync();
 
         query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
@@ -126,6 +126,31 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return response.ToHttpResult();
     }
 
+    [HttpPost]
+    [Route("chat-messages/{chatMessageId}/toggle-lock")]
+    public async Task<IActionResult> ToggleLockedStatus(Guid chatMessageId)
+    {
+        var response = await ((IChatMessagesApi)this).ToggleLockedStatus(chatMessageId);
+        
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IChatMessagesApi.ToggleLockedStatus(Guid chatMessageId)
+    {
+        var chatMessage = await context.ChatMessages
+            .SingleOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId);
+
+        if (chatMessage == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound);
+
+        // Toggle the locked status
+        chatMessage.Locked = !chatMessage.Locked;
+
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.OK);
+    }
+
     async Task<ApiResponseDto> IChatMessagesApi.CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos)
     {
         var chatLogs = createChatMessageDtos.Select(cm => mapper.Map<ChatMessage>(cm)).ToList();
@@ -136,7 +161,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return new ApiResponseDto(HttpStatusCode.OK);
     }
 
-    private IQueryable<ChatMessage> ApplyFilter(IQueryable<ChatMessage> query, GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString)
+    private IQueryable<ChatMessage> ApplyFilter(IQueryable<ChatMessage> query, GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, bool? lockedOnly = null)
     {
         if (gameType.HasValue)
             query = query.Where(cl => cl.GameServer.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
@@ -149,6 +174,9 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
 
         if (!string.IsNullOrWhiteSpace(filterString))
             query = query.Where(m => m.Message.Contains(filterString)).AsQueryable();
+
+        if (lockedOnly.HasValue && lockedOnly.Value)
+            query = query.Where(m => m.Locked).AsQueryable();
 
         return query;
     }
