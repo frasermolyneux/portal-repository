@@ -11,6 +11,7 @@ using RestSharp;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 
 namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 {
@@ -158,9 +159,39 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
         {
             var request = await CreateRequestAsync($"players/protected-names/{protectedNameId}/usage-report", Method.Get);
 
+            var response = await ExecuteAsync(request); return response.ToApiResponse<ProtectedNameUsageReportDto>();
+        }
+
+        #endregion
+
+        #region Player Tags
+
+        public async Task<ApiResponseDto<PlayerTagsCollectionDto>> GetPlayerTags(Guid playerId)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/tags", Method.Get);
+
             var response = await ExecuteAsync(request);
 
-            return response.ToApiResponse<ProtectedNameUsageReportDto>();
+            return response.ToApiResponse<PlayerTagsCollectionDto>();
+        }
+
+        public async Task<ApiResponseDto> AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/tags", Method.Post);
+            request.AddJsonBody(playerTagDto);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto> RemovePlayerTag(Guid playerId, Guid playerTagId)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/tags/{playerTagId}", Method.Delete);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
         }
 
         #endregion

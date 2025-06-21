@@ -9,5 +9,6 @@
         AdminActions = 4,
         RelatedPlayers = 8,
         ProtectedNames = 16,
+        Tags = 32,
     }
 }

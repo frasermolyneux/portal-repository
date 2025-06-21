@@ -1685,6 +1685,106 @@
                 }
             }
         },
+        "/players/{playerId}/tags": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/players/{playerId}/tags/{playerTagId}": {
+            "delete": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "playerTagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/recent-players": {
             "get": {
                 "tags": [
@@ -1921,6 +2021,232 @@
                 }
             }
         },
+        "/tags": {
+            "get": {
+                "tags": [
+                    "Tags"
+                ],
+                "parameters": [
+                    {
+                        "name": "skipEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "takeEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Tags"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Tags"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TagDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/tags/{tagId}": {
+            "get": {
+                "tags": [
+                    "Tags"
+                ],
+                "parameters": [
+                    {
+                        "name": "tagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Tags"
+                ],
+                "parameters": [
+                    {
+                        "name": "tagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/tags/player/{playerId}": {
+            "get": {
+                "tags": [
+                    "Tags"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/tags/player": {
+            "post": {
+                "tags": [
+                    "Tags"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlayerTagDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/tags/player/{playerTagId}": {
+            "delete": {
+                "tags": [
+                    "Tags"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerTagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/user-profile/{userProfileId}": {
             "get": {
                 "tags": [
@@ -2153,6 +2479,67 @@
     },
     "components": {
         "schemas": {
+            "AdminActionDto": {
+                "type": "object",
+                "properties": {
+                    "adminActionId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "playerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "userProfileId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "forumTopicId": {
+                        "type": "integer",
+                        "format": "int32",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/AdminActionType"
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "expires": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "player": {
+                        "$ref": "#/components/schemas/PlayerDto"
+                    },
+                    "userProfile": {
+                        "$ref": "#/components/schemas/UserProfileDto"
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "AdminActionFilter": {
                 "enum": [
                     "ActiveBans",
@@ -2168,6 +2555,51 @@
                 ],
                 "type": "string",
                 "format": "int32"
+            },
+            "AdminActionType": {
+                "enum": [
+                    "Observation",
+                    "Warning",
+                    "Kick",
+                    "TempBan",
+                    "Ban"
+                ],
+                "type": "string",
+                "format": "int32"
+            },
+            "AliasDto": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "added": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "lastUsed": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "confidenceScore": {
+                        "type": "integer",
+                        "format": "int32",
+                        "readOnly": true
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
             },
             "BanFileMonitorOrder": {
                 "enum": [
@@ -2247,6 +2679,40 @@
                 "type": "string",
                 "format": "int32"
             },
+            "IpAddressDto": {
+                "type": "object",
+                "properties": {
+                    "address": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "added": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "lastUsed": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "confidenceScore": {
+                        "type": "integer",
+                        "format": "int32",
+                        "readOnly": true
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "LivePlayerFilter": {
                 "enum": [
                     "GeoLocated"
@@ -2297,6 +2763,109 @@
                 "type": "string",
                 "format": "int32"
             },
+            "PlayerDto": {
+                "type": "object",
+                "properties": {
+                    "playerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "gameType": {
+                        "$ref": "#/components/schemas/GameType"
+                    },
+                    "username": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "guid": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "firstSeen": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "lastSeen": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "ipAddress": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "playerAliases": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AliasDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "playerIpAddresses": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IpAddressDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "adminActions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AdminActionDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "reports": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "relatedPlayers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RelatedPlayerDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "protectedNames": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProtectedNameDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlayerTagDto"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "PlayerEntityOptions": {
                 "enum": [
                     "None",
@@ -2304,10 +2873,49 @@
                     "IpAddresses",
                     "AdminActions",
                     "RelatedPlayers",
-                    "ProtectedNames"
+                    "ProtectedNames",
+                    "Tags"
                 ],
                 "type": "string",
                 "format": "int32"
+            },
+            "PlayerTagDto": {
+                "type": "object",
+                "properties": {
+                    "playerTagId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "playerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "tagId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "userProfileId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "assigned": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "player": {
+                        "$ref": "#/components/schemas/PlayerDto"
+                    },
+                    "tag": {
+                        "$ref": "#/components/schemas/TagDto"
+                    },
+                    "userProfile": {
+                        "$ref": "#/components/schemas/UserProfileDto"
+                    }
+                },
+                "additionalProperties": false
             },
             "PlayersFilter": {
                 "enum": [
@@ -2331,6 +2939,43 @@
                 "type": "string",
                 "format": "int32"
             },
+            "ProtectedNameDto": {
+                "type": "object",
+                "properties": {
+                    "protectedNameId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "playerId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "createdOn": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdByUserProfileId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "createdByUserProfile": {
+                        "$ref": "#/components/schemas/UserProfileDto"
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "RecentPlayersFilter": {
                 "enum": [
                     "GeoLocated"
@@ -2345,6 +2990,110 @@
                 ],
                 "type": "string",
                 "format": "int32"
+            },
+            "RelatedPlayerDto": {
+                "type": "object",
+                "properties": {
+                    "gameType": {
+                        "$ref": "#/components/schemas/GameType"
+                    },
+                    "username": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "playerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "ipAddress": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "ReportDto": {
+                "type": "object",
+                "properties": {
+                    "reportId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "playerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "userProfileId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "gameServerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "gameType": {
+                        "$ref": "#/components/schemas/GameType"
+                    },
+                    "comments": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "adminUserProfileId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "adminClosingComments": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "closed": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "closedTimestamp": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "userProfile": {
+                        "$ref": "#/components/schemas/UserProfileDto"
+                    },
+                    "adminUserProfile": {
+                        "$ref": "#/components/schemas/UserProfileDto"
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
             },
             "ReportsFilter": {
                 "enum": [
@@ -2361,6 +3110,143 @@
                 ],
                 "type": "string",
                 "format": "int32"
+            },
+            "TagDto": {
+                "type": "object",
+                "properties": {
+                    "tagId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "userDefined": {
+                        "type": "boolean"
+                    },
+                    "tagHtml": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "UserProfileClaimDto": {
+                "type": "object",
+                "properties": {
+                    "userProfileClaimId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "userProfileId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "systemGenerated": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "claimType": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "claimValue": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "UserProfileDto": {
+                "type": "object",
+                "properties": {
+                    "userProfileId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "identityOid": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "xtremeIdiotsForumId": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "demoAuthKey": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "displayName": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "formattedName": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "primaryGroup": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "photoUrl": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "profileUrl": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "timeZone": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "userProfileClaims": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserProfileClaimDto"
+                        },
+                        "nullable": true
+                    },
+                    "telemetryProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
             },
             "UserProfilesOrder": {
                 "enum": [

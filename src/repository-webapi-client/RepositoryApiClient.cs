@@ -22,7 +22,8 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             IRecentPlayersApi recentPlayersApiClient,
             IReportsApi reportsApiClient,
             IRootApi rootApiClient,
-            IUserProfileApi userProfileApiClient)
+            IUserProfileApi userProfileApiClient,
+            ITagsApi tagsApiClient)
         {
             AdminActions = adminActionsApiClient;
             BanFileMonitors = banFileMonitorsApiClient;
@@ -42,6 +43,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             Reports = reportsApiClient;
             Root = rootApiClient;
             UserProfiles = userProfileApiClient;
+            Tags = tagsApiClient; // initialize new property
         }
 
         public IAdminActionsApi AdminActions { get; }
@@ -62,5 +64,6 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
         public IReportsApi Reports { get; }
         public IRootApi Root { get; }
         public IUserProfileApi UserProfiles { get; }
+        public ITagsApi Tags { get; }
     }
 }

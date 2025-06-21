@@ -33,6 +33,7 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
             serviceCollection.AddSingleton<IReportsApi, ReportsApi>();
             serviceCollection.AddSingleton<IRootApi, RootApi>();
             serviceCollection.AddSingleton<IUserProfileApi, UserProfileApi>();
+            serviceCollection.AddSingleton<ITagsApi, TagsApi>();
 
             serviceCollection.AddSingleton<IRepositoryApiClient, RepositoryApiClient>();
         }

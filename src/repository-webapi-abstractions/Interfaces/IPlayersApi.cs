@@ -2,6 +2,7 @@
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
 {
@@ -24,5 +25,10 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
         Task<ApiResponseDto> CreateProtectedName(CreateProtectedNameDto createProtectedNameDto);
         Task<ApiResponseDto> DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto);
         Task<ApiResponseDto<ProtectedNameUsageReportDto>> GetProtectedNameUsageReport(Guid protectedNameId);
+
+        // Player Tags methods
+        Task<ApiResponseDto<PlayerTagsCollectionDto>> GetPlayerTags(Guid playerId);
+        Task<ApiResponseDto> AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto);
+        Task<ApiResponseDto> RemovePlayerTag(Guid playerId, Guid playerTagId);
     }
 }

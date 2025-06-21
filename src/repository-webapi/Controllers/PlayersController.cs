@@ -15,6 +15,7 @@ using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
@@ -62,6 +63,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
             player.ProtectedNames = await context.ProtectedNames.Include(pn => pn.CreatedByUserProfile).OrderByDescending(pn => pn.CreatedOn).Where(pn => pn.PlayerId == player.PlayerId).ToListAsync();
 
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
+            player.PlayerTags = await context.PlayerTags.Include(pt => pt.Tag).Where(pt => pt.PlayerId == player.PlayerId).ToListAsync();
+
         var result = mapper.Map<PlayerDto>(player);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.RelatedPlayers))
@@ -73,6 +77,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
             result.RelatedPlayers = playerIpAddresses.Select(pip => mapper.Map<RelatedPlayerDto>(pip)).ToList();
         }
+
+        // Optionally, map tags to DTO if requested
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
+            result.Tags = player.PlayerTags?.Select(mapper.Map<PlayerTagDto>).ToList() ?? new List<PlayerTagDto>();
 
         return new ApiResponseDto<PlayerDto>(HttpStatusCode.OK, result);
     }
@@ -132,6 +140,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
             result.RelatedPlayers = playerIpAddresses.Select(pip => mapper.Map<RelatedPlayerDto>(pip)).ToList();
         }
+
+        // Optionally, map tags to DTO if requested
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
+            result.Tags = player.PlayerTags?.Select(mapper.Map<PlayerTagDto>).ToList() ?? new List<PlayerTagDto>();
 
         return new ApiResponseDto<PlayerDto>(HttpStatusCode.OK, result);
     }
@@ -653,6 +665,81 @@ public class PlayersController : ControllerBase, IPlayersApi
         };
 
         return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.OK, result);
+    }
+
+    #endregion
+
+    #region Player Tags    
+    [HttpGet]
+    [Route("players/{playerId}/tags")]
+    public async Task<IActionResult> GetPlayerTags(Guid playerId)
+    {
+        var response = await ((IPlayersApi)this).GetPlayerTags(playerId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<PlayerTagsCollectionDto>> IPlayersApi.GetPlayerTags(Guid playerId)
+    {
+        var playerTags = await context.PlayerTags
+            .Include(pt => pt.Tag)
+            .Where(pt => pt.PlayerId == playerId)
+            .ToListAsync();
+
+        var result = new PlayerTagsCollectionDto { Entries = playerTags.Select(mapper.Map<PlayerTagDto>).ToList() };
+
+        return new ApiResponseDto<PlayerTagsCollectionDto>(HttpStatusCode.OK, result);
+    }
+
+    [HttpPost]
+    [Route("players/{playerId}/tags")]
+    public async Task<IActionResult> AddPlayerTag(Guid playerId, [FromBody] PlayerTagDto playerTagDto)
+    {
+        var response = await ((IPlayersApi)this).AddPlayerTag(playerId, playerTagDto);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto)
+    {
+        if (playerTagDto.TagId == null)
+            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "TagId is required" });
+
+        var exists = await context.PlayerTags.AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId);
+
+        if (exists)
+            return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { "Player already has this tag" });
+
+        var playerTag = mapper.Map<PlayerTag>(playerTagDto);
+        playerTag.PlayerId = playerId;
+        playerTag.Assigned = DateTime.UtcNow;
+
+        context.PlayerTags.Add(playerTag);
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.OK);
+    }
+
+    [HttpDelete]
+    [Route("players/{playerId}/tags/{playerTagId}")]
+    public async Task<IActionResult> RemovePlayerTag(Guid playerId, Guid playerTagId)
+    {
+        var response = await ((IPlayersApi)this).RemovePlayerTag(playerId, playerTagId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.RemovePlayerTag(Guid playerId, Guid playerTagId)
+    {
+        var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId);
+
+        if (playerTag == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound);
+
+        context.PlayerTags.Remove(playerTag);
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.OK);
     }
 
     #endregion

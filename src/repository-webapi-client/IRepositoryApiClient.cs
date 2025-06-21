@@ -22,5 +22,6 @@ namespace XtremeIdiots.Portal.RepositoryApiClient
         IReportsApi Reports { get; }
         IRootApi Root { get; }
         IUserProfileApi UserProfiles { get; }
+        ITagsApi Tags { get; }
     }
 }

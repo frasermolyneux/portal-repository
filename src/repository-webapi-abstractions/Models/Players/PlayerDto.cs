@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.AdminActions;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports;
-
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
@@ -51,6 +51,8 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players
 
         [JsonProperty]
         public List<ProtectedNameDto> ProtectedNames { get; internal set; } = new List<ProtectedNameDto>();
+
+        public List<PlayerTagDto> Tags { get; internal set; } = new List<PlayerTagDto>();
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties
