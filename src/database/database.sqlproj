@@ -70,12 +70,19 @@
     <Build Include="dbo\Tables\UserProfileClaims.sql" />
     <Build Include="dbo\Tables\RecentPlayers.sql" />
     <Build Include="dbo\Tables\Reports.sql" />
-    <Build Include="dbo\Tables\MapPacks.sql" />
-    <Build Include="dbo\Tables\MapPackMaps.sql" />
+    <Build Include="dbo\Tables\MapPacks.sql" />    <Build Include="dbo\Tables\MapPackMaps.sql" />
     <Build Include="dbo\Tables\ProtectedNames.sql" />
-  </ItemGroup>
-  <ItemGroup>
+    <Build Include="dbo\Tables\Tags.sql">
+      <AnsiNulls>On</AnsiNulls>
+      <QuotedIdentifier>On</QuotedIdentifier>
+    </Build>
+    <Build Include="dbo\Tables\PlayerTags.sql">
+      <AnsiNulls>On</AnsiNulls>
+      <QuotedIdentifier>On</QuotedIdentifier>
+    </Build>
+  </ItemGroup><ItemGroup>
     <PostDeploy Include="Scripts\Script.PostDeploymentPermissions.sql" />
+    <PostDeploy Include="Scripts\Script.PostDeploymentTags.sql" />
   </ItemGroup>
   <ItemGroup>
     <SqlCmdVariable Include="env">
