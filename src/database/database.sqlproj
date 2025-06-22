@@ -79,10 +79,11 @@
     <Build Include="dbo\Tables\PlayerTags.sql">
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
-    </Build>
-  </ItemGroup><ItemGroup>
-    <PostDeploy Include="Scripts\Script.PostDeploymentPermissions.sql" />
-    <PostDeploy Include="Scripts\Script.PostDeploymentTags.sql" />
+    </Build>  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="Scripts\Script.PostDeployment.sql" />
+    <None Include="Scripts\Script.PostDeploymentPermissions.sql" />
+    <None Include="Scripts\Script.PostDeploymentTags.sql" />
   </ItemGroup>
   <ItemGroup>
     <SqlCmdVariable Include="env">
