@@ -96,59 +96,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             var response = await ((ITagsApi)this).DeleteTag(tagId);
             return response.ToHttpResult();
         }
-
         async Task<ApiResponseDto> ITagsApi.DeleteTag(Guid tagId)
         {
             var tag = await context.Tags.FindAsync(tagId);
             if (tag == null)
                 return new ApiResponseDto(HttpStatusCode.NotFound);
             context.Tags.Remove(tag);
-            await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
-        }
-
-        [HttpGet("player/{playerId}")]
-        public async Task<IActionResult> GetPlayerTags(Guid playerId)
-        {
-            var response = await ((ITagsApi)this).GetPlayerTags(playerId);
-            return response.ToHttpResult();
-        }
-
-        async Task<ApiResponseDto<PlayerTagsCollectionDto>> ITagsApi.GetPlayerTags(Guid playerId)
-        {
-            var playerTags = await context.PlayerTags.Where(pt => pt.PlayerId == playerId).ToListAsync();
-            var result = new PlayerTagsCollectionDto { Entries = playerTags.Select(mapper.Map<PlayerTagDto>).ToList() };
-            return new ApiResponseDto<PlayerTagsCollectionDto>(HttpStatusCode.OK, result);
-        }
-
-        [HttpPost("player")]
-        public async Task<IActionResult> AddPlayerTag([FromBody] PlayerTagDto playerTagDto)
-        {
-            var response = await ((ITagsApi)this).AddPlayerTag(playerTagDto);
-            return response.ToHttpResult();
-        }
-
-        async Task<ApiResponseDto> ITagsApi.AddPlayerTag(PlayerTagDto playerTagDto)
-        {
-            var playerTag = mapper.Map<PlayerTag>(playerTagDto);
-            context.PlayerTags.Add(playerTag);
-            await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
-        }
-
-        [HttpDelete("player/{playerTagId}")]
-        public async Task<IActionResult> RemovePlayerTag(Guid playerTagId)
-        {
-            var response = await ((ITagsApi)this).RemovePlayerTag(playerTagId);
-            return response.ToHttpResult();
-        }
-
-        async Task<ApiResponseDto> ITagsApi.RemovePlayerTag(Guid playerTagId)
-        {
-            var playerTag = await context.PlayerTags.FindAsync(playerTagId);
-            if (playerTag == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
-            context.PlayerTags.Remove(playerTag);
             await context.SaveChangesAsync();
             return new ApiResponseDto(HttpStatusCode.OK);
         }

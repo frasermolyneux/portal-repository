@@ -7,8 +7,11 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
 {
     /// <summary>
-    /// API contract for managing Tags and PlayerTags.
+    /// API contract for managing Tags.
     /// </summary>
+    /// <remarks>
+    /// Player tag operations have been moved to IPlayersApi.
+    /// </remarks>
     public interface ITagsApi
     {
         Task<ApiResponseDto<TagsCollectionDto>> GetTags(int skipEntries, int takeEntries);
@@ -16,9 +19,5 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
         Task<ApiResponseDto> CreateTag(TagDto tagDto);
         Task<ApiResponseDto> UpdateTag(TagDto tagDto);
         Task<ApiResponseDto> DeleteTag(Guid tagId);
-
-        Task<ApiResponseDto<PlayerTagsCollectionDto>> GetPlayerTags(Guid playerId);
-        Task<ApiResponseDto> AddPlayerTag(PlayerTagDto playerTagDto);
-        Task<ApiResponseDto> RemovePlayerTag(Guid playerTagId);
     }
 }

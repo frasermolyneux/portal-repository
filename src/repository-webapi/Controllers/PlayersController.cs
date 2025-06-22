@@ -838,7 +838,6 @@ public class PlayersController : ControllerBase, IPlayersApi
     }
 
     #endregion
-
     #region Player Tags    
     [HttpGet]
     [Route("players/{playerId}/tags")]
@@ -850,9 +849,17 @@ public class PlayersController : ControllerBase, IPlayersApi
     }
 
     async Task<ApiResponseDto<PlayerTagsCollectionDto>> IPlayersApi.GetPlayerTags(Guid playerId)
-    {
+    {        // Check if the player exists
+        if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
+        {
+            var response = new ApiResponseDto<PlayerTagsCollectionDto>(HttpStatusCode.NotFound);
+            response.Errors = new List<string> { "Player not found" };
+            return response;
+        }
+
         var playerTags = await context.PlayerTags
             .Include(pt => pt.Tag)
+            .Include(pt => pt.UserProfile)
             .Where(pt => pt.PlayerId == playerId)
             .ToListAsync();
 
@@ -860,11 +867,19 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         return new ApiResponseDto<PlayerTagsCollectionDto>(HttpStatusCode.OK, result);
     }
-
     [HttpPost]
     [Route("players/{playerId}/tags")]
     public async Task<IActionResult> AddPlayerTag(Guid playerId, [FromBody] PlayerTagDto playerTagDto)
     {
+        // Ensure the path playerId and body playerId match
+        if (playerTagDto.PlayerId != null && playerTagDto.PlayerId.Value != playerId)
+        {
+            return BadRequest(new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "PlayerId in the URL must match PlayerId in the request body" }));
+        }
+
+        // Set the playerId in the DTO to match the URL
+        playerTagDto.PlayerId = playerId;
+
         var response = await ((IPlayersApi)this).AddPlayerTag(playerId, playerTagDto);
 
         return response.ToHttpResult();
@@ -875,8 +890,17 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerTagDto.TagId == null)
             return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "TagId is required" });
 
-        var exists = await context.PlayerTags.AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId);
+        // Check if the player exists
+        if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
+            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player not found" });
 
+        // Check if the tag exists
+        var tagExists = await context.Tags.AnyAsync(t => t.TagId == playerTagDto.TagId);
+        if (!tagExists)
+            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Tag not found" });
+
+        // Check if player already has this tag
+        var exists = await context.PlayerTags.AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId);
         if (exists)
             return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { "Player already has this tag" });
 
@@ -884,12 +908,17 @@ public class PlayersController : ControllerBase, IPlayersApi
         playerTag.PlayerId = playerId;
         playerTag.Assigned = DateTime.UtcNow;
 
-        context.PlayerTags.Add(playerTag);
-        await context.SaveChangesAsync();
-
-        return new ApiResponseDto(HttpStatusCode.OK);
+        try
+        {
+            context.PlayerTags.Add(playerTag);
+            await context.SaveChangesAsync();
+            return new ApiResponseDto(HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponseDto(HttpStatusCode.InternalServerError, new List<string> { $"Error adding player tag: {ex.Message}" });
+        }
     }
-
     [HttpDelete]
     [Route("players/{playerId}/tags/{playerTagId}")]
     public async Task<IActionResult> RemovePlayerTag(Guid playerId, Guid playerTagId)
@@ -901,15 +930,79 @@ public class PlayersController : ControllerBase, IPlayersApi
 
     async Task<ApiResponseDto> IPlayersApi.RemovePlayerTag(Guid playerId, Guid playerTagId)
     {
+        // Check if the player exists
+        if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
+            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player not found" });
+
         var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId);
 
         if (playerTag == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound);
+            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player tag not found" });
 
-        context.PlayerTags.Remove(playerTag);
-        await context.SaveChangesAsync();
+        try
+        {
+            context.PlayerTags.Remove(playerTag);
+            await context.SaveChangesAsync();
+            return new ApiResponseDto(HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponseDto(HttpStatusCode.InternalServerError, new List<string> { $"Error removing player tag: {ex.Message}" });
+        }
+    }    // Helper endpoint to get a player tag by ID
+    [HttpGet]
+    [Route("players/tags/{playerTagId}")]
+    public async Task<IActionResult> GetPlayerTagById(Guid playerTagId)
+    {
+        var response = await ((IPlayersApi)this).GetPlayerTagById(playerTagId);
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<PlayerTagDto>> IPlayersApi.GetPlayerTagById(Guid playerTagId)
+    {
+        var playerTag = await context.PlayerTags
+            .Include(pt => pt.Player)
+            .Include(pt => pt.Tag)
+            .Include(pt => pt.UserProfile)
+            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId);
+        if (playerTag == null)
+        {
+            var response = new ApiResponseDto<PlayerTagDto>(HttpStatusCode.NotFound);
+            response.Errors = new List<string> { "Player tag not found" };
+            return response;
+        }
+
+        var result = mapper.Map<PlayerTagDto>(playerTag);
+        return new ApiResponseDto<PlayerTagDto>(HttpStatusCode.OK, result);
+    }
+    [HttpDelete]
+    [Route("players/tags/{playerTagId}")]
+    public async Task<IActionResult> RemovePlayerTagById(Guid playerTagId)
+    {
+        var response = await ((IPlayersApi)this).RemovePlayerTagById(playerTagId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.RemovePlayerTagById(Guid playerTagId)
+    {
+        var playerTag = await context.PlayerTags
+            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId);
+
+        if (playerTag == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player tag not found" });
+
+        try
+        {
+            context.PlayerTags.Remove(playerTag);
+            await context.SaveChangesAsync();
+            return new ApiResponseDto(HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponseDto(HttpStatusCode.InternalServerError, new List<string> { $"Error removing player tag: {ex.Message}" });
+        }
     }
 
     #endregion

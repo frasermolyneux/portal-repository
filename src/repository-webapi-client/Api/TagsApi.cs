@@ -5,6 +5,7 @@ using MxIO.ApiClient.Abstractions;
 using MxIO.ApiClient.Extensions;
 using RestSharp;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
@@ -49,32 +50,9 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
             var response = await ExecuteAsync(request);
             return response.ToApiResponse();
         }
-
         public async Task<ApiResponseDto> DeleteTag(Guid tagId)
         {
             var request = await CreateRequestAsync($"tags/{tagId}", Method.Delete);
-            var response = await ExecuteAsync(request);
-            return response.ToApiResponse();
-        }
-
-        public async Task<ApiResponseDto<PlayerTagsCollectionDto>> GetPlayerTags(Guid playerId)
-        {
-            var request = await CreateRequestAsync($"tags/player/{playerId}", Method.Get);
-            var response = await ExecuteAsync(request);
-            return response.ToApiResponse<PlayerTagsCollectionDto>();
-        }
-
-        public async Task<ApiResponseDto> AddPlayerTag(PlayerTagDto playerTagDto)
-        {
-            var request = await CreateRequestAsync($"tags/player", Method.Post);
-            request.AddJsonBody(playerTagDto);
-            var response = await ExecuteAsync(request);
-            return response.ToApiResponse();
-        }
-
-        public async Task<ApiResponseDto> RemovePlayerTag(Guid playerTagId)
-        {
-            var request = await CreateRequestAsync($"tags/player/{playerTagId}", Method.Delete);
             var response = await ExecuteAsync(request);
             return response.ToApiResponse();
         }

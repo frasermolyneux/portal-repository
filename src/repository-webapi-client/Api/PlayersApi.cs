@@ -201,10 +201,27 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
             return response.ToApiResponse();
         }
-
         public async Task<ApiResponseDto> RemovePlayerTag(Guid playerId, Guid playerTagId)
         {
             var request = await CreateRequestAsync($"players/{playerId}/tags/{playerTagId}", Method.Delete);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto<PlayerTagDto>> GetPlayerTagById(Guid playerTagId)
+        {
+            var request = await CreateRequestAsync($"players/tags/{playerTagId}", Method.Get);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<PlayerTagDto>();
+        }
+
+        public async Task<ApiResponseDto> RemovePlayerTagById(Guid playerTagId)
+        {
+            var request = await CreateRequestAsync($"players/tags/{playerTagId}", Method.Delete);
 
             var response = await ExecuteAsync(request);
 
