@@ -1785,6 +1785,58 @@
                 }
             }
         },
+        "/players/with-ip-address/{ipAddress}": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "ipAddress",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "skipEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "takeEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "schema": {
+                            "$ref": "#/components/schemas/PlayersOrder"
+                        }
+                    },
+                    {
+                        "name": "playerEntityOptions",
+                        "in": "query",
+                        "schema": {
+                            "$ref": "#/components/schemas/PlayerEntityOptions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/recent-players": {
             "get": {
                 "tags": [

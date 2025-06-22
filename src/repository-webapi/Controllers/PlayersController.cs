@@ -913,4 +913,89 @@ public class PlayersController : ControllerBase, IPlayersApi
     }
 
     #endregion
+
+    #region Players with IP Address
+    [HttpGet]
+    [Route("players/with-ip-address/{ipAddress}")]
+    public async Task<IActionResult> GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
+    {
+        var response = await ((IPlayersApi)this).GetPlayersWithIpAddress(ipAddress, skipEntries, takeEntries, order, playerEntityOptions);
+
+        return response.ToHttpResult();
+    }
+    async Task<ApiResponseDto<PlayersCollectionDto>> IPlayersApi.GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress))
+                return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.BadRequest);
+
+            // Filter players related to this IP address 
+            var query = context.Players
+                .Include(p => p.PlayerIpAddresses.Where(i => i.Address == ipAddress))
+                .Include(p => p.PlayerTags).ThenInclude(pt => pt.Tag)
+                .Where(p => p.PlayerIpAddresses.Any(i => i.Address == ipAddress));
+
+            // Filter out test server guids
+            query = query.Where(p => p.Guid != null && (!p.Guid.Contains("test") && !p.Guid.Contains("server")));
+
+            // Apply ordering
+            if (order.HasValue)
+            {
+                query = order switch
+                {
+                    PlayersOrder.UsernameAsc => query.OrderBy(p => p.Username),
+                    PlayersOrder.UsernameDesc => query.OrderByDescending(p => p.Username),
+                    PlayersOrder.LastSeenAsc => query.OrderBy(p => p.LastSeen),
+                    PlayersOrder.LastSeenDesc => query.OrderByDescending(p => p.LastSeen),
+                    PlayersOrder.FirstSeenAsc => query.OrderBy(p => p.FirstSeen),
+                    PlayersOrder.FirstSeenDesc => query.OrderByDescending(p => p.FirstSeen),
+                    PlayersOrder.GameTypeAsc => query.OrderBy(p => p.GameType),
+                    PlayersOrder.GameTypeDesc => query.OrderByDescending(p => p.GameType),
+                    _ => query.OrderByDescending(p => p.LastSeen) // Default ordering
+                };
+            }
+            else
+            {
+                query = query.OrderByDescending(p => p.LastSeen);
+            }
+
+            // Execute count query
+            var totalCount = await query.CountAsync();
+
+            // Apply pagination
+            query = query.Skip(skipEntries).Take(takeEntries);
+
+            // Execute the final query
+            var players = await query.ToListAsync();
+
+            // Include related data based on options
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
+                players.ForEach(p => context.Entry(p).Collection(p => p.PlayerAliases).Load());
+
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses))
+                players.ForEach(p => context.Entry(p).Collection(p => p.PlayerIpAddresses).Load());
+
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions))
+                players.ForEach(p => context.Entry(p).Collection(p => p.AdminActions).Load());
+
+            // Map to DTOs
+            var playerDtos = mapper.Map<List<PlayerDto>>(players);
+
+            // Create result
+            var result = new PlayersCollectionDto
+            {
+                TotalRecords = totalCount,
+                FilteredRecords = totalCount,
+                Entries = playerDtos
+            };
+
+            return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.OK, result);
+        }
+        catch
+        {
+            return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.InternalServerError);
+        }
+    }
+    #endregion
 }

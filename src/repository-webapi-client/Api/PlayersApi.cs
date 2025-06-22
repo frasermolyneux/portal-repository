@@ -49,6 +49,23 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
             return response.ToApiResponse<PlayerDto>();
         }
 
+        public async Task<ApiResponseDto<PlayersCollectionDto>> GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
+        {
+            var request = await CreateRequestAsync($"players/with-ip-address/{ipAddress}", Method.Get);
+
+            request.AddQueryParameter(nameof(skipEntries), skipEntries);
+            request.AddQueryParameter(nameof(takeEntries), takeEntries);
+
+            if (order.HasValue)
+                request.AddQueryParameter(nameof(order), order.Value);
+
+            request.AddQueryParameter(nameof(playerEntityOptions), playerEntityOptions);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<PlayersCollectionDto>();
+        }
+
         public async Task<ApiResponseDto<PlayersCollectionDto>> GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
         {
             var request = await CreateRequestAsync("players", Method.Get);
