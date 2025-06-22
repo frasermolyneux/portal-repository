@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Maps;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.RecentPlayers;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Reports;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.UserProfiles;
 using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
 
@@ -223,6 +224,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.AutoMapProfiles
                 );
 
             CreateMap<CreateReportDto, Report>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+            // Tags
+            CreateMap<Tag, TagDto>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+            
+            CreateMap<TagDto, Tag>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+            // PlayerTags
+            CreateMap<PlayerTag, PlayerTagDto>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+            
+            CreateMap<PlayerTagDto, PlayerTag>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
             // User Profile
