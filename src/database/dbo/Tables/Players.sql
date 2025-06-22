@@ -1,8 +1,9 @@
-﻿CREATE TABLE [dbo].[Players] (
+﻿CREATE TABLE [dbo].[Players]
+(
     [PlayerId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [GameType] INT NOT NULL,
-    [Username] NVARCHAR (MAX) NULL,
-    [Guid] NVARCHAR (MAX) NULL,
+    [Username] NVARCHAR (100) NULL,
+    [Guid] NVARCHAR (50) NULL,
     [FirstSeen] DATETIME NOT NULL,
     [LastSeen] DATETIME NOT NULL,
     [IpAddress] NVARCHAR (MAX) NULL,
@@ -20,3 +21,11 @@ CREATE NONCLUSTERED INDEX [IX_GameType]
 GO
 CREATE NONCLUSTERED INDEX [IX_GameTypeAndLastSeen]
     ON [dbo].[Players]([GameType] ASC, [LastSeen] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Players_Username] 
+    ON dbo.Players(Username);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Players_Guid]
+    ON dbo.Players(Guid);

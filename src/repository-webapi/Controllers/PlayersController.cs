@@ -5,6 +5,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 using MxIO.ApiClient.Abstractions;
 using MxIO.ApiClient.WebExtensions;
@@ -26,13 +27,16 @@ public class PlayersController : ControllerBase, IPlayersApi
 {
     private readonly PortalDbContext context;
     private readonly IMapper mapper;
+    private readonly IMemoryCache _memoryCache;
 
     public PlayersController(
         PortalDbContext context,
-        IMapper mapper)
+        IMapper mapper,
+        IMemoryCache memoryCache)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
         this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
     [HttpGet]
@@ -162,54 +166,164 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         return response.ToHttpResult();
     }
-
     async Task<ApiResponseDto<PlayersCollectionDto>> IPlayersApi.GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
     {
+        // Only count the total records once every 10 minutes by using a cached counter
+        // This approach avoids counting the entire table for every search
+        var cacheKey = $"PlayerCount_{gameType}";
+        int totalCount;
+
+        if (!_memoryCache.TryGetValue(cacheKey, out totalCount))
+        {
+            var countQuery = context.Players.AsQueryable();
+            if (gameType.HasValue)
+                countQuery = countQuery.Where(p => p.GameType == gameType.Value.ToGameTypeInt());
+
+            totalCount = await countQuery.CountAsync();
+
+            // Cache the count for 10 minutes
+            _memoryCache.Set(cacheKey, totalCount, TimeSpan.FromMinutes(10));
+        }
+
+        // Start building the query for filtered results
         var query = context.Players.AsQueryable();
 
-        query = ApplyFilter(query, gameType, null, null);
-        var totalCount = await query.CountAsync();
-
+        // Apply the filter for the specific search
         query = ApplyFilter(query, gameType, filter, filterString);
-        var filteredCount = await query.CountAsync();
 
+        // For filtered results, always count but check cache first for common queries
+        int filteredCount;
+        var filteredCacheKey = $"FilteredPlayerCount_{gameType}_{filter}_{filterString?.GetHashCode()}";
+
+        if (string.IsNullOrWhiteSpace(filterString) && !_memoryCache.TryGetValue(filteredCacheKey, out filteredCount))
+        {
+            // Only cache counts if the filter string is empty (meaning this is likely a common query)
+            filteredCount = await query.CountAsync();
+
+            // Cache the filtered count for 5 minutes (shorter than total count)
+            _memoryCache.Set(filteredCacheKey, filteredCount, TimeSpan.FromMinutes(5));
+        }
+        else
+        {
+            // For all other cases, just count without caching
+            filteredCount = await query.CountAsync();
+        }
+
+        // Apply ordering and pagination before fetching results
         query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-        var results = await query.ToListAsync();
 
-        var playerIds = results.Select(e => (Guid?)e.PlayerId).ToList();
+        // Create a list to hold our results
+        List<Player> results;
 
-        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
+        // Optimize the query based on what related data is needed
+        if (playerEntityOptions != PlayerEntityOptions.None)
         {
-            var playerAliases = await context.PlayerAliases.Where(pa => playerIds.Contains(pa.PlayerId)).ToListAsync();
+            // Track what's been loaded with each query to avoid redundant queries
+            var loadedRelatedData = new Dictionary<string, bool>();
 
-            results.ForEach(player =>
+            // Construct a single optimized query that includes only what's needed
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
             {
-                player.PlayerAliases = playerAliases.Where(a => a.PlayerId == player.PlayerId).ToList();
-            });
+                // For the main query, load player data with top 10 aliases
+                results = await query
+                    .Select(p => new Player
+                    {
+                        PlayerId = p.PlayerId,
+                        GameType = p.GameType,
+                        Username = p.Username,
+                        Guid = p.Guid,
+                        FirstSeen = p.FirstSeen,
+                        LastSeen = p.LastSeen,
+                        IpAddress = p.IpAddress,
+                        // Preload top 10 most recent aliases
+                        PlayerAliases = p.PlayerAliases
+                            .OrderByDescending(a => a.LastUsed)
+                            .Take(10)
+                            .ToList()
+                    })
+                    .ToListAsync();
+
+                loadedRelatedData["Aliases"] = true;
+            }
+            else
+            {
+                // If not loading aliases, just get the player data
+                results = await query.ToListAsync();
+            }
+            // Extract player IDs for use in subsequent queries
+            var playerIds = results.Select(p => p.PlayerId).ToList();
+
+            // Use batch loading for related data when needed
+            // Load IP addresses if requested (optimized query)
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses) && !loadedRelatedData.ContainsKey("IpAddresses"))
+            {
+                // Get most recent 10 IP addresses per player in a single query                
+                var playerIdToIpAddresses = await context.PlayerIpAddresses
+                    .Where(ip => ip.PlayerId != null && playerIds.Contains(ip.PlayerId.Value))
+                    .GroupBy(ip => ip.PlayerId)
+                    .Select(g => new
+                    {
+                        PlayerId = g.Key!.Value, // Using null-forgiving operator since we've filtered out nulls
+                        IpAddresses = g.OrderByDescending(ip => ip.LastUsed)
+                            .Take(10)
+                            .ToList()
+                    })
+                    .ToDictionaryAsync(x => x.PlayerId, x => x.IpAddresses);
+
+                // Efficiently assign IP addresses to players
+                foreach (var player in results)
+                {
+                    if (playerIdToIpAddresses.TryGetValue(player.PlayerId, out var ipAddresses))
+                    {
+                        player.PlayerIpAddresses = ipAddresses;
+                    }
+                    else
+                    {
+                        player.PlayerIpAddresses = new List<PlayerIpAddress>();
+                    }
+                }
+            }
+
+            // Load admin actions if requested (optimized query)
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions) && !loadedRelatedData.ContainsKey("AdminActions"))
+            {
+                // Get most recent 10 admin actions per player in a single query
+                var playerIdToAdminActions = await context.AdminActions
+                    .Where(aa => playerIds.Contains(aa.PlayerId))
+                    .GroupBy(aa => aa.PlayerId)
+                    .Select(g => new
+                    {
+                        PlayerId = g.Key,
+                        AdminActions = g.OrderByDescending(aa => aa.Created)
+                            .Take(10)
+                            .ToList()
+                    })
+                    .ToDictionaryAsync(x => x.PlayerId, x => x.AdminActions);
+
+                // Efficiently assign admin actions to players
+                foreach (var player in results)
+                {
+                    if (playerIdToAdminActions.TryGetValue(player.PlayerId, out var adminActions))
+                    {
+                        player.AdminActions = adminActions;
+                    }
+                    else
+                    {
+                        player.AdminActions = new List<AdminAction>();
+                    }
+                }
+            }
+        }
+        else
+        {
+            // If no related data is requested, just get the player data
+            results = await query.ToListAsync();
         }
 
-        if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses))
-        {
-            var playerIpAddresses = await context.PlayerIpAddresses.Where(pip => playerIds.Contains(pip.PlayerId)).ToListAsync();
-
-            results.ForEach(player =>
-            {
-                player.PlayerIpAddresses = playerIpAddresses.Where(a => a.PlayerId == player.PlayerId).ToList();
-            });
-        }
-
-        if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions))
-        {
-            var adminActions = await context.AdminActions.Where(aa => playerIds.Contains(aa.PlayerId)).ToListAsync();
-
-            results.ForEach(player =>
-            {
-                player.AdminActions = adminActions.Where(a => a.PlayerId == player.PlayerId).ToList();
-            });
-        }
-
+        // Map to DTOs
         var entries = results.Select(p => mapper.Map<PlayerDto>(p)).ToList();
 
+        // Create the result collection
         var result = new PlayersCollectionDto
         {
             TotalRecords = totalCount,
@@ -375,29 +489,85 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         return new ApiResponseDto(HttpStatusCode.OK);
     }
-
     private IQueryable<Player> ApplyFilter(IQueryable<Player> query, GameType? gameType, PlayersFilter? filter, string? filterString)
     {
         if (gameType.HasValue)
-            query = query.Where(p => p.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+            query = query.Where(p => p.GameType == gameType.Value.ToGameTypeInt());
 
         if (filter.HasValue && !string.IsNullOrWhiteSpace(filterString))
         {
+            var trimmedFilter = filterString.Trim();
+
             switch (filter)
             {
                 case PlayersFilter.UsernameAndGuid:
-                    if (filterString.Length == 32) // Search is for a player GUID; perform a smart query
-                        query = query.Where(p => p.Guid == filterString).AsQueryable();
-                    else
-                        query = query.Where(p => p.Username.Contains(filterString) || p.Guid.Contains(filterString) || p.PlayerAliases.Any(a => a.Name.Contains(filterString))).AsQueryable();
+                    if (filterString.Length == 32) // Search is for a player GUID
+                    {
+                        // Exact match on GUID is most efficient
+                        query = query.Where(p => p.Guid == filterString);
+                    }
+                    else if (trimmedFilter.Length >= 3)
+                    {
+                        // For search strings with at least 3 characters, use a more optimized approach
+                        // First, get players matching username or GUID directly (leveraging indexes)
+                        var directMatches = query.Where(p => (p.Username != null && p.Username.Contains(trimmedFilter)) ||
+                                                          (p.Guid != null && p.Guid.Contains(trimmedFilter)));
 
+                        // Then, get player IDs with matching aliases (as a separate efficient query)
+                        var playerIdsWithMatchingAliases = context.PlayerAliases
+                            .Where(a => a.Name != null && a.Name.Contains(trimmedFilter))
+                            .Select(a => a.PlayerId)
+                            .Distinct();
+
+                        // Finally, get players matching those IDs
+                        var aliasMatches = query.Where(p => playerIdsWithMatchingAliases.Contains(p.PlayerId));
+
+                        // Union the results (removes duplicates)
+                        query = directMatches.Union(aliasMatches);
+                    }
+                    else
+                    {
+                        // For very short search strings, fall back to the original approach but without alias search
+                        // to avoid excessive matching and poor performance
+                        query = query.Where(p => (p.Username != null && p.Username.Contains(trimmedFilter)) ||
+                                              (p.Guid != null && p.Guid.Contains(trimmedFilter)));
+                    }
                     break;
-                case PlayersFilter.IpAddress:
-                    if (IPAddress.TryParse(filterString, out IPAddress? filterIpAddress)) // Search is for an IP Address; perform a smart query
-                        query = query.Where(p => p.IpAddress == filterString || p.PlayerIpAddresses.Any(ip => ip.Address == filterString)).AsQueryable();
-                    else
-                        query = query.Where(p => p.IpAddress.Contains(filterString) || p.PlayerIpAddresses.Any(ip => ip.Address.Contains(filterString))).AsQueryable();
 
+                case PlayersFilter.IpAddress:
+                    if (IPAddress.TryParse(trimmedFilter, out IPAddress? filterIpAddress))
+                    {
+                        // Exact match when it's a valid IP address
+                        query = query.Where(p => p.IpAddress == trimmedFilter);
+
+                        // Get players with this exact IP address in their history
+                        var playerIdsWithExactIpMatch = context.PlayerIpAddresses
+                            .Where(ip => ip.Address == trimmedFilter)
+                            .Select(ip => ip.PlayerId)
+                            .Distinct();
+
+                        // Union with exact matches from the IP history
+                        query = query.Union(context.Players.Where(p => playerIdsWithExactIpMatch.Contains(p.PlayerId)));
+                    }
+                    else if (trimmedFilter.Length >= 3)
+                    {
+                        // For partial IP searches (e.g., subnet searches like "192.168")
+                        var directMatches = query.Where(p => p.IpAddress != null && p.IpAddress.Contains(trimmedFilter));
+
+                        // Get player IDs with matching IP address patterns in their history
+                        var playerIdsWithPartialIpMatch = context.PlayerIpAddresses
+                            .Where(ip => ip.Address != null && ip.Address.Contains(trimmedFilter))
+                            .Select(ip => ip.PlayerId)
+                            .Distinct();
+
+                        // Union the results
+                        query = directMatches.Union(context.Players.Where(p => playerIdsWithPartialIpMatch.Contains(p.PlayerId)));
+                    }
+                    else
+                    {
+                        // For very short IP fragments, use a more restrictive search
+                        query = query.Where(p => p.IpAddress != null && p.IpAddress.Contains(trimmedFilter));
+                    }
                     break;
             }
         }
