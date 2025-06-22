@@ -229,14 +229,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.AutoMapProfiles
             // Tags
             CreateMap<Tag, TagDto>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
-            
+
             CreateMap<TagDto, Tag>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
             // PlayerTags
             CreateMap<PlayerTag, PlayerTagDto>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
-            
+
             CreateMap<PlayerTagDto, PlayerTag>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
