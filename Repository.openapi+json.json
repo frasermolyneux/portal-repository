@@ -1785,6 +1785,50 @@
                 }
             }
         },
+        "/players/tags/{playerTagId}": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerTagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerTagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/players/with-ip-address/{ipAddress}": {
             "get": {
                 "tags": [
@@ -1827,6 +1871,52 @@
                         "in": "query",
                         "schema": {
                             "$ref": "#/components/schemas/PlayerEntityOptions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/players/{playerId}/ip-addresses": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "parameters": [
+                    {
+                        "name": "playerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "skipEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "takeEntries",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "schema": {
+                            "$ref": "#/components/schemas/IpAddressesOrder"
                         }
                     }
                 ],
@@ -2202,88 +2292,6 @@
                 "parameters": [
                     {
                         "name": "tagId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/tags/player/{playerId}": {
-            "get": {
-                "tags": [
-                    "Tags"
-                ],
-                "parameters": [
-                    {
-                        "name": "playerId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/tags/player": {
-            "post": {
-                "tags": [
-                    "Tags"
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json-patch+json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PlayerTagDto"
-                            }
-                        },
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PlayerTagDto"
-                            }
-                        },
-                        "text/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PlayerTagDto"
-                            }
-                        },
-                        "application/*+json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PlayerTagDto"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/tags/player/{playerTagId}": {
-            "delete": {
-                "tags": [
-                    "Tags"
-                ],
-                "parameters": [
-                    {
-                        "name": "playerTagId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -2764,6 +2772,20 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "IpAddressesOrder": {
+                "enum": [
+                    "AddressAsc",
+                    "AddressDesc",
+                    "AddedAsc",
+                    "AddedDesc",
+                    "LastUsedAsc",
+                    "LastUsedDesc",
+                    "ConfidenceScoreAsc",
+                    "ConfidenceScoreDesc"
+                ],
+                "type": "string",
+                "format": "int32"
             },
             "LivePlayerFilter": {
                 "enum": [

@@ -13,6 +13,7 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
         Task<ApiResponseDto<PlayerDto>> GetPlayerByGameType(GameType gameType, string guid, PlayerEntityOptions playerEntityOptions);
         Task<ApiResponseDto<PlayersCollectionDto>> GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions);
         Task<ApiResponseDto<PlayersCollectionDto>> GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions);
+        Task<ApiResponseDto<IpAddressesCollectionDto>> GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order);
 
         Task<ApiResponseDto> CreatePlayer(CreatePlayerDto createPlayerDto);
         Task<ApiResponseDto> CreatePlayers(List<CreatePlayerDto> createPlayerDtos);

@@ -1091,4 +1091,85 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
     }
     #endregion
+
+    #region Player IP Addresses
+
+    [HttpGet]
+    [Route("players/{playerId}/ip-addresses")]
+    public async Task<IActionResult> GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
+    {
+        var response = await ((IPlayersApi)this).GetPlayerIpAddresses(playerId, skipEntries, takeEntries, order);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<IpAddressesCollectionDto>> IPlayersApi.GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
+    {
+        var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
+
+        if (player == null)
+            return new ApiResponseDto<IpAddressesCollectionDto>(HttpStatusCode.NotFound);
+
+        var query = context.PlayerIpAddresses
+            .Where(pip => pip.PlayerId == playerId)
+            .AsQueryable();
+
+        // Apply ordering
+        if (order.HasValue)
+        {
+            switch (order.Value)
+            {
+                case IpAddressesOrder.AddressAsc:
+                    query = query.OrderBy(pip => pip.Address);
+                    break;
+                case IpAddressesOrder.AddressDesc:
+                    query = query.OrderByDescending(pip => pip.Address);
+                    break;
+                case IpAddressesOrder.AddedAsc:
+                    query = query.OrderBy(pip => pip.Added);
+                    break;
+                case IpAddressesOrder.AddedDesc:
+                    query = query.OrderByDescending(pip => pip.Added);
+                    break;
+                case IpAddressesOrder.LastUsedAsc:
+                    query = query.OrderBy(pip => pip.LastUsed);
+                    break;
+                case IpAddressesOrder.LastUsedDesc:
+                    query = query.OrderByDescending(pip => pip.LastUsed);
+                    break;
+                case IpAddressesOrder.ConfidenceScoreAsc:
+                    query = query.OrderBy(pip => pip.ConfidenceScore);
+                    break;
+                case IpAddressesOrder.ConfidenceScoreDesc:
+                    query = query.OrderByDescending(pip => pip.ConfidenceScore);
+                    break;
+            }
+        }
+        else
+        {
+            // Default ordering
+            query = query.OrderByDescending(pip => pip.LastUsed);
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply pagination
+        var items = await query
+            .Skip(skipEntries)
+            .Take(takeEntries)
+            .ToListAsync();
+
+        // Map to DTOs
+        var dtos = items.Select(mapper.Map<IpAddressDto>).ToList();        // Create and return the response
+        var result = new IpAddressesCollectionDto
+        {
+            TotalCount = totalCount,
+            Entries = dtos
+        };
+
+        return new ApiResponseDto<IpAddressesCollectionDto>(HttpStatusCode.OK, result);
+    }
+
+    #endregion
 }

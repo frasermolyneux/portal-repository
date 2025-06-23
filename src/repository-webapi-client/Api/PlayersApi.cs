@@ -181,15 +181,28 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
 
         #endregion
 
-        #region Player Tags
-
+        #region Player Tags        
         public async Task<ApiResponseDto<PlayerTagsCollectionDto>> GetPlayerTags(Guid playerId)
         {
             var request = await CreateRequestAsync($"players/{playerId}/tags", Method.Get);
-
             var response = await ExecuteAsync(request);
 
             return response.ToApiResponse<PlayerTagsCollectionDto>();
+        }
+
+        public async Task<ApiResponseDto<IpAddressesCollectionDto>> GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/ip-addresses", Method.Get);
+
+            request.AddQueryParameter(nameof(skipEntries), skipEntries);
+            request.AddQueryParameter(nameof(takeEntries), takeEntries);
+
+            if (order.HasValue)
+                request.AddQueryParameter(nameof(order), order.Value);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<IpAddressesCollectionDto>();
         }
 
         public async Task<ApiResponseDto> AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto)
