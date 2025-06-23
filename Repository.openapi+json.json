@@ -458,6 +458,18 @@
                 }
             }
         },
+        "/data-maintenance/reset-system-assigned-player-tags": {
+            "put": {
+                "tags": [
+                    "DataMaintenance"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/demos/{demoId}": {
             "get": {
                 "tags": [

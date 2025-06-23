@@ -45,4 +45,11 @@ public class DataMaintenanceApi : BaseApi, IDataMaintenanceApi
 
         return response.ToApiResponse();
     }
+
+    public async Task<ApiResponseDto> ResetSystemAssignedPlayerTags()
+    {
+        var response = await ExecuteAsync(await CreateRequestAsync("data-maintenance/reset-system-assigned-player-tags", Method.Delete));
+
+        return response.ToApiResponse();
+    }
 }

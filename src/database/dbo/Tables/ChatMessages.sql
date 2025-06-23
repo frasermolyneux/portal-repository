@@ -6,6 +6,7 @@
     [Username] NVARCHAR (MAX) NOT NULL,
     [ChatType] INT NOT NULL,
     [Message] NVARCHAR (MAX) NOT NULL,
+    [MessageFirstWord] AS (LEFT(Message, CHARINDEX(' ', Message + ' ') - 1)),
     [Timestamp] DATETIME NOT NULL,
     [Locked] BIT DEFAULT 0 NOT NULL,
     CONSTRAINT [PK_dbo.ChatMessage] PRIMARY KEY CLUSTERED ([ChatMessageId] ASC),
@@ -39,11 +40,6 @@ GO
 CREATE NONCLUSTERED INDEX [IX_ChatMessages_GameServerId_Timestamp]
     ON [dbo].[ChatMessages]([GameServerId], [Timestamp] DESC)
     INCLUDE ([Username], [Message], [ChatType]);
-
-GO
--- Add computed column for common search patterns in chat messages
-ALTER TABLE [dbo].[ChatMessages]
-ADD MessageFirstWord AS (LEFT(Message, CHARINDEX(' ', Message + ' ') - 1));
 
 GO
 -- Create index on the computed column

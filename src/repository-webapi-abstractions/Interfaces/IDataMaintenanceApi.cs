@@ -8,4 +8,5 @@ public interface IDataMaintenanceApi
     Task<ApiResponseDto> PruneGameServerEvents();
     Task<ApiResponseDto> PruneGameServerStats();
     Task<ApiResponseDto> PruneRecentPlayers();
+    Task<ApiResponseDto> ResetSystemAssignedPlayerTags();
 }
