@@ -1,11 +1,12 @@
-﻿CREATE TABLE [dbo].[ChatMessages] (
+﻿CREATE TABLE [dbo].[ChatMessages]
+(
     [ChatMessageId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [GameServerId] UNIQUEIDENTIFIER NOT NULL,
     [PlayerId] UNIQUEIDENTIFIER NOT NULL,
     [Username] NVARCHAR (MAX) NOT NULL,
     [ChatType] INT NOT NULL,
     [Message] NVARCHAR (MAX) NOT NULL,
-    [Timestamp]  DATETIME NOT NULL,
+    [Timestamp] DATETIME NOT NULL,
     [Locked] BIT DEFAULT 0 NOT NULL,
     CONSTRAINT [PK_dbo.ChatMessage] PRIMARY KEY CLUSTERED ([ChatMessageId] ASC),
     CONSTRAINT [FK_dbo.ChatMessages_dbo.GameServers_GameServerId] FOREIGN KEY ([GameServerId]) REFERENCES [dbo].[GameServers] ([GameServerId]),
@@ -27,4 +28,24 @@ CREATE NONCLUSTERED INDEX [IX_Timestamp]
 GO
 CREATE NONCLUSTERED INDEX [IX_ChatMessages]
     ON [dbo].[ChatMessages] ([PlayerId], [GameServerId]) 
-    INCLUDE ([ChatType], [Message], [Timestamp], [Username]) 
+    INCLUDE ([ChatType], [Message], [Timestamp], [Username]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_ChatMessages_Timestamp_Locked]
+    ON [dbo].[ChatMessages]([Timestamp] DESC, [Locked])
+    INCLUDE ([Username], [Message], [ChatType]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_ChatMessages_GameServerId_Timestamp]
+    ON [dbo].[ChatMessages]([GameServerId], [Timestamp] DESC)
+    INCLUDE ([Username], [Message], [ChatType]);
+
+GO
+-- Add computed column for common search patterns in chat messages
+ALTER TABLE [dbo].[ChatMessages]
+ADD MessageFirstWord AS (LEFT(Message, CHARINDEX(' ', Message + ' ') - 1));
+
+GO
+-- Create index on the computed column
+CREATE NONCLUSTERED INDEX [IX_ChatMessages_MessageFirstWord]
+    ON [dbo].[ChatMessages] ([MessageFirstWord]);

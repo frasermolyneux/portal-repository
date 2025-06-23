@@ -1,4 +1,5 @@
-﻿CREATE TABLE [dbo].[LivePlayers] (
+﻿CREATE TABLE [dbo].[LivePlayers]
+(
     [LivePlayerId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [PlayerId] UNIQUEIDENTIFIER NULL,
     [GameServerId] UNIQUEIDENTIFIER NULL,
@@ -30,3 +31,8 @@ CREATE NONCLUSTERED INDEX [IX_GameServer_GameServerId]
 GO
 CREATE NONCLUSTERED INDEX [IX_Players_PlayerId]
     ON [dbo].[LivePlayers]([PlayerId] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_LivePlayers_GameServerId_Score]
+    ON [dbo].[LivePlayers]([GameServerId], [Score] DESC)
+    INCLUDE ([Name], [Ping], [Team]);

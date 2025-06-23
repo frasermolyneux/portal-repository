@@ -1,6 +1,7 @@
-﻿CREATE TABLE [dbo].[Reports] (
-	[ReportId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
-	[PlayerId] UNIQUEIDENTIFIER NULL,
+﻿CREATE TABLE [dbo].[Reports]
+(
+    [ReportId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
+    [PlayerId] UNIQUEIDENTIFIER NULL,
     [UserProfileId] UNIQUEIDENTIFIER NULL,
     [GameServerId] UNIQUEIDENTIFIER NULL,
     [GameType] INT DEFAULT 0 NOT NULL,
@@ -36,3 +37,21 @@ CREATE NONCLUSTERED INDEX [IX_UserProfileId]
 GO
 CREATE NONCLUSTERED INDEX [IX_AdminUserProfileId]
     ON [dbo].[Reports]([AdminUserProfileId] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Reports_Closed_Timestamp]
+    ON [dbo].[Reports]([Closed], [Timestamp] DESC)
+    INCLUDE ([PlayerId], [GameServerId], [Comments]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Reports_GameType_Closed]
+    ON [dbo].[Reports]([GameType], [Closed])
+    WHERE [Closed] = 0;
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Reports_AdminUserProfileId_Closed]
+    ON [dbo].[Reports]([AdminUserProfileId], [Closed]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Reports_GameType]
+    ON [dbo].[Reports]([GameType]);

@@ -6,7 +6,7 @@
     [Guid] NVARCHAR (50) NULL,
     [FirstSeen] DATETIME NOT NULL,
     [LastSeen] DATETIME NOT NULL,
-    [IpAddress] NVARCHAR (MAX) NULL,
+    [IpAddress] NVARCHAR (60) NULL,
     CONSTRAINT [PK_dbo.Players] PRIMARY KEY CLUSTERED ([PlayerId] ASC)
 );
 
@@ -29,3 +29,18 @@ CREATE NONCLUSTERED INDEX [IX_Players_Username]
 GO
 CREATE NONCLUSTERED INDEX [IX_Players_Guid]
     ON dbo.Players(Guid);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Players_GameType_Username]
+    ON [dbo].[Players]([GameType], [Username])
+    INCLUDE ([Guid], [LastSeen]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Players_GameType_Guid]
+    ON [dbo].[Players]([GameType], [Guid])
+    WHERE [Guid] IS NOT NULL;
+
+GO
+CREATE NONCLUSTERED INDEX [IX_Players_LastSeen]
+    ON [dbo].[Players]([LastSeen] DESC)
+    INCLUDE ([Username], [GameType]);
