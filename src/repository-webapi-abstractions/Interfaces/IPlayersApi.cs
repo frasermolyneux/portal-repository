@@ -20,6 +20,13 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces
 
         Task<ApiResponseDto> UpdatePlayer(EditPlayerDto editPlayerDto);
 
+        // Player Aliases methods
+        Task<ApiResponseDto<PlayerAliasesCollectionDto>> GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries);
+        Task<ApiResponseDto> AddPlayerAlias(Guid playerId, CreatePlayerAliasDto createPlayerAliasDto);
+        Task<ApiResponseDto> UpdatePlayerAlias(Guid playerId, Guid aliasId, CreatePlayerAliasDto updatePlayerAliasDto);
+        Task<ApiResponseDto> DeletePlayerAlias(Guid playerId, Guid aliasId);
+        Task<ApiResponseDto<PlayerAliasesCollectionDto>> SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries);
+
         // Protected Names methods
         Task<ApiResponseDto<ProtectedNamesCollectionDto>> GetProtectedNames(int skipEntries, int takeEntries);
         Task<ApiResponseDto<ProtectedNameDto>> GetProtectedName(Guid protectedNameId);

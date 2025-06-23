@@ -1172,4 +1172,186 @@ public class PlayersController : ControllerBase, IPlayersApi
     }
 
     #endregion
+
+    #region Player Aliases APIs
+
+    [HttpGet]
+    [Route("players/{playerId}/aliases")]
+    public async Task<IActionResult> GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries)
+    {
+        var response = await ((IPlayersApi)this).GetPlayerAliases(playerId, skipEntries, takeEntries);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<PlayerAliasesCollectionDto>> IPlayersApi.GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries)
+    {
+        // Check if the player exists
+        var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
+        if (player == null)
+            return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.NotFound);
+
+        // Get the aliases for the player
+        var query = context.PlayerAliases
+            .Where(pa => pa.PlayerId == playerId)
+            .OrderByDescending(pa => pa.LastUsed);
+
+        var totalCount = await query.CountAsync();
+
+        var aliases = await query
+            .Skip(skipEntries)
+            .Take(takeEntries)
+            .ToListAsync();
+
+        // Map the aliases to DTOs
+        var aliasesDto = mapper.Map<List<PlayerAliasDto>>(aliases);
+
+        var result = new PlayerAliasesCollectionDto
+        {
+            Entries = aliasesDto,
+            TotalRecords = totalCount,
+        };
+
+        return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.OK, result);
+    }
+
+    [HttpPost]
+    [Route("players/{playerId}/aliases")]
+    public async Task<IActionResult> AddPlayerAlias(Guid playerId, [FromBody] CreatePlayerAliasDto createPlayerAliasDto)
+    {
+        var response = await ((IPlayersApi)this).AddPlayerAlias(playerId, createPlayerAliasDto);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.AddPlayerAlias(Guid playerId, CreatePlayerAliasDto createPlayerAliasDto)
+    {
+        // Check if the player exists
+        var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
+        if (player == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound);
+
+        // Check if the alias already exists
+        var existingAlias = await context.PlayerAliases
+            .FirstOrDefaultAsync(pa => pa.PlayerId == playerId && pa.Name == createPlayerAliasDto.Name);
+
+        if (existingAlias != null)
+        {
+            // If alias exists, just update the LastUsed and increment the confidence score
+            existingAlias.LastUsed = DateTime.UtcNow;
+            existingAlias.ConfidenceScore++;
+        }
+        else
+        {
+            // Create a new alias
+            var newAlias = new PlayerAlias
+            {
+                PlayerId = playerId,
+                Name = createPlayerAliasDto.Name,
+                Added = DateTime.UtcNow,
+                LastUsed = DateTime.UtcNow,
+                ConfidenceScore = 1
+            };
+
+            await context.PlayerAliases.AddAsync(newAlias);
+        }
+
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.OK);
+    }
+
+    [HttpPut]
+    [Route("players/{playerId}/aliases/{aliasId}")]
+    public async Task<IActionResult> UpdatePlayerAlias(Guid playerId, Guid aliasId, [FromBody] CreatePlayerAliasDto updatePlayerAliasDto)
+    {
+        var response = await ((IPlayersApi)this).UpdatePlayerAlias(playerId, aliasId, updatePlayerAliasDto);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.UpdatePlayerAlias(Guid playerId, Guid aliasId, CreatePlayerAliasDto updatePlayerAliasDto)
+    {
+        // Check if the alias exists and belongs to the player
+        var alias = await context.PlayerAliases
+            .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId);
+
+        if (alias == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound);
+
+        // Update the alias
+        alias.Name = updatePlayerAliasDto.Name;
+        alias.LastUsed = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.OK);
+    }
+
+    [HttpDelete]
+    [Route("players/{playerId}/aliases/{aliasId}")]
+    public async Task<IActionResult> DeletePlayerAlias(Guid playerId, Guid aliasId)
+    {
+        var response = await ((IPlayersApi)this).DeletePlayerAlias(playerId, aliasId);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto> IPlayersApi.DeletePlayerAlias(Guid playerId, Guid aliasId)
+    {
+        // Check if the alias exists and belongs to the player
+        var alias = await context.PlayerAliases
+            .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId);
+
+        if (alias == null)
+            return new ApiResponseDto(HttpStatusCode.NotFound);
+
+        // Remove the alias
+        context.PlayerAliases.Remove(alias);
+        await context.SaveChangesAsync();
+
+        return new ApiResponseDto(HttpStatusCode.OK);
+    }
+
+    [HttpGet]
+    [Route("aliases/search")]
+    public async Task<IActionResult> SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries)
+    {
+        var response = await ((IPlayersApi)this).SearchPlayersByAlias(aliasSearch, skipEntries, takeEntries);
+
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResponseDto<PlayerAliasesCollectionDto>> IPlayersApi.SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries)
+    {
+        if (string.IsNullOrWhiteSpace(aliasSearch) || aliasSearch.Length < 3)
+            return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.BadRequest, null, new List<string> { "Search term must be at least 3 characters long" });
+
+        var trimmedSearch = aliasSearch.Trim();
+
+        // Find aliases that match the search term
+        var query = context.PlayerAliases
+            .Where(pa => pa.Name != null && pa.Name.Contains(trimmedSearch))
+            .OrderByDescending(pa => pa.LastUsed);
+
+        var totalCount = await query.CountAsync();
+
+        var aliases = await query
+            .Skip(skipEntries)
+            .Take(takeEntries)
+            .ToListAsync();
+
+        // Map the aliases to DTOs
+        var aliasesDto = mapper.Map<List<PlayerAliasDto>>(aliases);
+
+        var result = new PlayerAliasesCollectionDto
+        {
+            Entries = aliasesDto,
+            TotalRecords = totalCount,
+        };
+
+        return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.OK, result);
+    }
 }
+
+#endregion

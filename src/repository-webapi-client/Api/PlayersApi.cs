@@ -242,5 +242,59 @@ namespace XtremeIdiots.Portal.RepositoryApiClient.Api
         }
 
         #endregion
+
+        #region Player Aliases methods
+        public async Task<ApiResponseDto<PlayerAliasesCollectionDto>> GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/aliases", Method.Get);
+            request.AddQueryParameter(nameof(skipEntries), skipEntries);
+            request.AddQueryParameter(nameof(takeEntries), takeEntries);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<PlayerAliasesCollectionDto>();
+        }
+
+        public async Task<ApiResponseDto> AddPlayerAlias(Guid playerId, CreatePlayerAliasDto createPlayerAliasDto)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/aliases", Method.Post);
+            request.AddJsonBody(createPlayerAliasDto);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto> UpdatePlayerAlias(Guid playerId, Guid aliasId, CreatePlayerAliasDto updatePlayerAliasDto)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/aliases/{aliasId}", Method.Put);
+            request.AddJsonBody(updatePlayerAliasDto);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto> DeletePlayerAlias(Guid playerId, Guid aliasId)
+        {
+            var request = await CreateRequestAsync($"players/{playerId}/aliases/{aliasId}", Method.Delete);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse();
+        }
+
+        public async Task<ApiResponseDto<PlayerAliasesCollectionDto>> SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries)
+        {
+            var request = await CreateRequestAsync($"aliases/search", Method.Get);
+            request.AddQueryParameter(nameof(aliasSearch), aliasSearch);
+            request.AddQueryParameter(nameof(skipEntries), skipEntries);
+            request.AddQueryParameter(nameof(takeEntries), takeEntries);
+
+            var response = await ExecuteAsync(request);
+
+            return response.ToApiResponse<PlayerAliasesCollectionDto>();
+        }
+        #endregion
     }
 }

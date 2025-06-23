@@ -160,9 +160,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.AutoMapProfiles
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
             CreateMap<UpdateMapPackDto, MapPack>()
-                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
-
-            // Players
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));            // Players
             CreateMap<Player, PlayerDto>()
                 .ForMember(
                     dest => dest.GameType,
@@ -170,6 +168,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.AutoMapProfiles
                 );
 
             CreateMap<PlayerAlias, AliasDto>();
+            CreateMap<PlayerAlias, PlayerAliasDto>();
             CreateMap<PlayerIpAddress, IpAddressDto>();
 
             CreateMap<PlayerIpAddress, RelatedPlayerDto>()
