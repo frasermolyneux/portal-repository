@@ -1,5 +1,9 @@
 output "workload_public_url" {
-  value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api.path)
+  value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api_legacy.path)
+}
+
+output "workload_public_url_v1" {
+  value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api_v1.path)
 }
 
 output "web_app_name" {
