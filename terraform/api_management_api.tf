@@ -50,7 +50,7 @@ resource "azurerm_api_management_api" "repository_api_legacy" {
 
 resource "azurerm_api_management_product_api" "repository_api_legacy" {
   api_name   = azurerm_api_management_api.repository_api_legacy.name
-  product_id = azurerm_api_management_product.repository_api_product.id
+  product_id = azurerm_api_management_product.repository_api_product.product_id
 
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
@@ -85,7 +85,7 @@ resource "azurerm_api_management_api" "repository_api_v1" {
 
 resource "azurerm_api_management_product_api" "repository_api_v1" {
   api_name   = azurerm_api_management_api.repository_api_v1.name
-  product_id = azurerm_api_management_product.repository_api_product.id
+  product_id = azurerm_api_management_product.repository_api_product.product_id
 
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
@@ -130,7 +130,7 @@ resource "azurerm_api_management_named_value" "webapi_audience_named_value_v1" {
 }
 
 resource "azurerm_api_management_product_policy" "repository_api_product_policy" {
-  product_id          = azurerm_api_management_product.repository_api_product.id
+  product_id          = azurerm_api_management_product.repository_api_product.product_id
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
 
