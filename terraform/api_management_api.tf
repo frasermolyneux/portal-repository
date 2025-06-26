@@ -34,7 +34,7 @@ resource "azurerm_api_management_api" "repository_api_legacy" {
 
   subscription_required = true
 
-  version        = "legacy"
+  version        = ""
   version_set_id = azurerm_api_management_api_version_set.repository_api_version_set.id
 
   subscription_key_parameter_names {
