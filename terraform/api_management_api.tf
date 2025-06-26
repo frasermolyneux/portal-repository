@@ -1,3 +1,69 @@
+resource "azurerm_api_management_api_version_set" "repository_api_version_set" {
+  name                = "repository-api"
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  display_name      = "Repository API"
+  versioning_scheme = "Segment"
+}
+
+// Legacy resource for API Management API without a version number in the path
+// This is used to maintain compatibility with existing clients that do not include the version in the path
+resource "azurerm_api_management_api" "repository_api_legacy" {
+  name                = "repository-api-legacy"
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  revision     = "1"
+  display_name = "Repository API"
+  description  = "API for repository layer"
+  path         = "repository"
+  protocols    = ["https"]
+
+  subscription_required = true
+
+  version        = "legacy"
+  version_set_id = azurerm_api_management_api_version_set.repository_api_version_set.id
+
+  subscription_key_parameter_names {
+    header = "Ocp-Apim-Subscription-Key"
+    query  = "subscription-key"
+  }
+
+  import {
+    content_format = "openapi+json"
+    content_value  = file("../Repository.openapi+json-legacy.json")
+  }
+}
+
+resource "azurerm_api_management_api" "repository_api_v1" {
+  name                = "repository-api-v1"
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  revision     = "1"
+  display_name = "Repository API"
+  description  = "API for repository layer"
+  path         = "repository"
+  protocols    = ["https"]
+
+  subscription_required = true
+
+  version        = "v1"
+  version_set_id = azurerm_api_management_api_version_set.repository_api_version_set.id
+
+  subscription_key_parameter_names {
+    header = "Ocp-Apim-Subscription-Key"
+    query  = "subscription-key"
+  }
+
+  import {
+    content_format = "openapi+json"
+    content_value  = file("../Repository.openapi+json-v1.json")
+  }
+}
+
+
 resource "azurerm_api_management_backend" "webapi_api_management_backend" {
   name                = local.web_app_name
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -36,29 +102,7 @@ resource "azurerm_api_management_named_value" "webapi_audience_named_value" {
   value        = format("api://%s", local.app_registration_name)
 }
 
-resource "azurerm_api_management_api" "repository_api" {
-  name                = "repository-api"
-  resource_group_name = data.azurerm_api_management.core.resource_group_name
-  api_management_name = data.azurerm_api_management.core.name
 
-  revision     = "1"
-  display_name = "Repository API"
-  description  = "API for repository layer"
-  path         = "repository"
-  protocols    = ["https"]
-
-  subscription_required = true
-
-  subscription_key_parameter_names {
-    header = "Ocp-Apim-Subscription-Key"
-    query  = "subscription-key"
-  }
-
-  import {
-    content_format = "openapi+json"
-    content_value  = file("../Repository.openapi+json.json")
-  }
-}
 
 resource "azurerm_api_management_api_policy" "repository_api_policy" {
   api_name            = azurerm_api_management_api.repository_api.name
