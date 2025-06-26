@@ -12,12 +12,14 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 using MxIO.ApiClient.Abstractions;
 using MxIO.ApiClient.WebExtensions;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
-    [Route("tags")]
+    [ApiVersion(ApiVersions.V1)]
+    [Route("v{version:apiVersion}")]
     public class TagsController : ControllerBase, ITagsApi
     {
         private readonly PortalDbContext context;
@@ -30,6 +32,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         }
 
         [HttpGet]
+        [Route("tags")]
         public async Task<IActionResult> GetTags([FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50)
         {
             var response = await ((ITagsApi)this).GetTags(skipEntries, takeEntries);
@@ -43,7 +46,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             return new ApiResponseDto<TagsCollectionDto>(HttpStatusCode.OK, result);
         }
 
-        [HttpGet("{tagId}")]
+        [HttpGet]
+        [Route("tags/{tagId}")]
         public async Task<IActionResult> GetTag(Guid tagId)
         {
             var response = await ((ITagsApi)this).GetTag(tagId);
@@ -59,6 +63,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         }
 
         [HttpPost]
+        [Route("tags")]
         public async Task<IActionResult> CreateTag([FromBody] TagDto tagDto)
         {
             var response = await ((ITagsApi)this).CreateTag(tagDto);
@@ -74,6 +79,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
         }
 
         [HttpPut]
+        [Route("tags")]
         public async Task<IActionResult> UpdateTag([FromBody] TagDto tagDto)
         {
             var response = await ((ITagsApi)this).UpdateTag(tagDto);
@@ -90,7 +96,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
             return new ApiResponseDto(HttpStatusCode.OK);
         }
 
-        [HttpDelete("{tagId}")]
+        [HttpDelete]
+        [Route("tags/{tagId}")]
         public async Task<IActionResult> DeleteTag(Guid tagId)
         {
             var response = await ((ITagsApi)this).DeleteTag(tagId);

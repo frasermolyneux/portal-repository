@@ -11,11 +11,14 @@ using MxIO.ApiClient.WebExtensions;
 
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
+[ApiVersion(ApiVersions.V1)]
+[Route("v{version:apiVersion}")]
 public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 {
     private readonly PortalDbContext context;

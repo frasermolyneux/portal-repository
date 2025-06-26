@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using MxIO.ApiClient.Abstractions;
 using MxIO.ApiClient.WebExtensions;
-
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameTracker;
 using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
@@ -16,6 +16,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
+    [ApiVersion(ApiVersions.V1)]
+    [Route("v{version:apiVersion}")]
     public class GameTrackerBannerController : Controller, IGameTrackerBannerApi
     {
         private readonly IConfiguration configuration;

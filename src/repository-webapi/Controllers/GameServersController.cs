@@ -4,6 +4,7 @@ using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.EntityFrameworkCore;
 
 using MxIO.ApiClient.Abstractions;
@@ -21,6 +22,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
+[ApiVersion(ApiVersions.V1)]
+[Route("v{version:apiVersion}")]
 public class GameServersController : Controller, IGameServersApi
 {
     private readonly PortalDbContext context;

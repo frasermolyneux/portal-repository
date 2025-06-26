@@ -12,6 +12,7 @@ using MxIO.ApiClient.WebExtensions;
 using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.DataLib;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.GameServers;
 
@@ -19,6 +20,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
+[ApiVersion(ApiVersions.V1)]
+[Route("v{version:apiVersion}")]
 public class GameServersEventsController : ControllerBase, IGameServersEventsApi
 {
     private readonly PortalDbContext context;

@@ -8,6 +8,7 @@ using MxIO.ApiClient.Abstractions;
 using MxIO.ApiClient.WebExtensions;
 
 using XtremeIdiots.Portal.DataLib;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Extensions;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Players;
@@ -17,6 +18,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
+    [ApiVersion(ApiVersions.V1)]
+    [Route("v{version:apiVersion}")]
     public class PlayerAnalyticsController : Controller, IPlayerAnalyticsApi
     {
         private readonly PortalDbContext context;

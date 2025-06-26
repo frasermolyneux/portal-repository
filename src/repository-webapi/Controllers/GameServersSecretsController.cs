@@ -7,11 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using XtremeIdiots.Portal.DataLib;
+using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
+[ApiVersion(ApiVersions.V1)]
+[Route("v{version:apiVersion}")]
 public class GameServersSecretsController : ControllerBase
 {
     private readonly IConfiguration _configuration;

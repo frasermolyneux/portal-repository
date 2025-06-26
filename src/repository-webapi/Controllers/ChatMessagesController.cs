@@ -21,6 +21,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
+[ApiVersion(ApiVersions.V1)]
+[Route("v{version:apiVersion}")]
 public class ChatMessagesController : ControllerBase, IChatMessagesApi
 {
     private readonly PortalDbContext context;
@@ -131,7 +133,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     public async Task<IActionResult> ToggleLockedStatus(Guid chatMessageId)
     {
         var response = await ((IChatMessagesApi)this).ToggleLockedStatus(chatMessageId);
-        
+
         return response.ToHttpResult();
     }
 

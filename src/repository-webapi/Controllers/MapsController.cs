@@ -23,6 +23,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
+    [ApiVersion(ApiVersions.V1)]
+    [Route("v{version:apiVersion}")]
     public class MapsController : Controller, IMapsApi
     {
         private readonly PortalDbContext context;

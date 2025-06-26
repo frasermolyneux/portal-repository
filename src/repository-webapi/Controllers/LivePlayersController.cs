@@ -21,6 +21,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
+    [ApiVersion(ApiVersions.V1)]
+    [Route("v{version:apiVersion}")]
     public class LivePlayersController : Controller, ILivePlayersApi
     {
         private readonly PortalDbContext context;
