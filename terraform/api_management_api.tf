@@ -50,7 +50,7 @@ resource "azurerm_api_management_api" "repository_api_legacy" {
 
 resource "azurerm_api_management_product_api" "repository_api_legacy" {
   api_name   = azurerm_api_management_api.repository_api_legacy.name
-  product_id = azurerm_api_management_product.repository_api_product.product_id
+  product_id = azurerm_api_management_product.repository_api_product.id
 
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
@@ -85,7 +85,7 @@ resource "azurerm_api_management_api" "repository_api_v1" {
 
 resource "azurerm_api_management_product_api" "repository_api_v1" {
   api_name   = azurerm_api_management_api.repository_api_v1.name
-  product_id = azurerm_api_management_product.repository_api_product.product_id
+  product_id = azurerm_api_management_product.repository_api_product.id
 
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
@@ -129,8 +129,8 @@ resource "azurerm_api_management_named_value" "webapi_audience_named_value_v1" {
   value        = format("api://%s", local.app_registration_name)
 }
 
-resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
-  api_name            = azurerm_api_management_api.repository_api_legacy.name
+resource "azurerm_api_management_product_policy" "repository_api_product_policy" {
+  product_id          = azurerm_api_management_product.repository_api_product.id
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
 
@@ -138,7 +138,6 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
 <policies>
   <inbound>
       <base/>
-      <set-backend-service backend-id="{{repository-api-active-backend-v1}}" />
       <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" />
       <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
           <openid-config url="https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration" />
@@ -166,6 +165,29 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
 </policies>
 XML
 
+}
+
+resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
+  api_name            = azurerm_api_management_api.repository_api_legacy.name
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  xml_content = <<XML
+<policies>
+  <inbound>
+      <base/>
+      <set-backend-service backend-id="{{repository-api-active-backend-v1}}" />
+  </inbound>
+  <backend>
+      <forward-request />
+  </backend>
+  <outbound>
+      <base/>
+  </outbound>
+  <on-error />
+</policies>
+XML
+
   depends_on = [
     azurerm_api_management_named_value.webapi_active_backend_named_value_v1,
     azurerm_api_management_named_value.webapi_audience_named_value_v1
@@ -182,28 +204,12 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_v1" {
   <inbound>
       <base/>
       <set-backend-service backend-id="{{repository-api-active-backend-v1}}" />
-      <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" />
-      <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
-          <openid-config url="https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration" />
-          <audiences>
-              <audience>{{repository-api-audience-v1}}</audience>
-          </audiences>
-          <issuers>
-              <issuer>https://sts.windows.net/${data.azuread_client_config.current.tenant_id}/</issuer>
-          </issuers>
-          <required-claims>
-              <claim name="roles" match="any">
-                <value>ServiceAccount</value>
-              </claim>
-          </required-claims>
-      </validate-jwt>
   </inbound>
   <backend>
       <forward-request />
   </backend>
   <outbound>
       <base/>
-      <cache-store duration="3600" />
   </outbound>
   <on-error />
 </policies>

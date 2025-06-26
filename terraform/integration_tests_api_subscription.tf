@@ -5,6 +5,6 @@ resource "azurerm_api_management_subscription" "integration_tests" {
   state         = "active"
   allow_tracing = false
 
-  product_id   = azurerm_api_management_product.repository_api_product.product_id
+  product_id   = azurerm_api_management_product.repository_api_product.id
   display_name = "Integration Tests"
 }
