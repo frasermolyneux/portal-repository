@@ -7,6 +7,18 @@ resource "azurerm_api_management_api_version_set" "repository_api_version_set" {
   versioning_scheme = "Segment"
 }
 
+resource "azurerm_api_management_product" "repository_api_product" {
+  product_id          = "repository-api"
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  display_name = "Repository API"
+
+  subscription_required = true
+  approval_required     = false
+  published             = true
+}
+
 // Legacy resource for API Management API without a version number in the path
 // This is used to maintain compatibility with existing clients that do not include the version in the path
 resource "azurerm_api_management_api" "repository_api_legacy" {
@@ -36,6 +48,14 @@ resource "azurerm_api_management_api" "repository_api_legacy" {
   }
 }
 
+resource "azurerm_api_management_product_api" "repository_api_legacy" {
+  api_name   = azurerm_api_management_api.repository_api_legacy.name
+  product_id = azurerm_api_management_product.repository_api_product.product_id
+
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+}
+
 resource "azurerm_api_management_api" "repository_api_v1" {
   name                = "repository-api-v1"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -63,6 +83,13 @@ resource "azurerm_api_management_api" "repository_api_v1" {
   }
 }
 
+resource "azurerm_api_management_product_api" "repository_api_v1" {
+  api_name   = azurerm_api_management_api.repository_api_v1.name
+  product_id = azurerm_api_management_product.repository_api_product.product_id
+
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+}
 
 resource "azurerm_api_management_backend" "webapi_api_management_backend_v1" {
   name                = local.web_app_name

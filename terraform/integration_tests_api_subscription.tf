@@ -5,6 +5,6 @@ resource "azurerm_api_management_subscription" "integration_tests" {
   state         = "active"
   allow_tracing = false
 
-  api_id       = split(";", azurerm_api_management_api.repository_api.id)[0] // Strip revision from id when creating subscription
+  product_id   = azurerm_api_management_product.repository_api_product.product_id
   display_name = "Integration Tests"
 }
