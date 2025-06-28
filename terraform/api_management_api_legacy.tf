@@ -35,6 +35,44 @@ resource "azurerm_api_management_product_api" "repository_api_legacy" {
   api_management_name = data.azurerm_api_management.core.name
 }
 
+resource "azurerm_api_management_backend" "webapi_api_management_backend_legacy" {
+  name                = local.web_app_name
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  protocol    = "http"
+  title       = local.web_app_name
+  description = local.web_app_name
+  url         = format("https://%s", azurerm_linux_web_app.app.default_hostname)
+
+  tls {
+    validate_certificate_chain = true
+    validate_certificate_name  = true
+  }
+}
+
+resource "azurerm_api_management_named_value" "webapi_active_backend_named_value_legacy" {
+  name                = "repository-api-active-backend-legacy"
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  secret = false
+
+  display_name = "repository-api-active-backend-legacy"
+  value        = azurerm_api_management_backend.webapi_api_management_backend_legacy.name
+}
+
+resource "azurerm_api_management_named_value" "webapi_audience_named_value_legacy" {
+  name                = "repository-api-audience-legacy"
+  resource_group_name = data.azurerm_api_management.core.resource_group_name
+  api_management_name = data.azurerm_api_management.core.name
+
+  secret = false
+
+  display_name = "repository-api-audience-legacy"
+  value        = format("api://%s", local.app_registration_name)
+}
+
 resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
   api_name            = azurerm_api_management_api.repository_api_legacy.name
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -44,7 +82,7 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
 <policies>
   <inbound>
       <base/>
-      <set-backend-service backend-id="{{repository-api-active-backend-v1}}" />
+      <set-backend-service backend-id="{{repository-api-active-backend-legacy}}" />
   </inbound>
   <backend>
       <forward-request />
@@ -57,8 +95,8 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
 XML
 
   depends_on = [
-    azurerm_api_management_named_value.webapi_active_backend_named_value_v1,
-    azurerm_api_management_named_value.webapi_audience_named_value_v1
+    azurerm_api_management_named_value.webapi_active_backend_named_value_legacy,
+    azurerm_api_management_named_value.webapi_audience_named_value_legacy
   ]
 }
 
