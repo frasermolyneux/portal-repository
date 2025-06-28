@@ -10,6 +10,9 @@ Post-Deployment Script Template
 --------------------------------------------------------------------------------------
 */
 
+-- Fix ANSI_NULLS setting for Reports table
+:r .\AlterReportsTableAnsiNulls.sql
+
 -- Include Permissions script
 :r .\Script.PostDeploymentPermissions.sql
 
