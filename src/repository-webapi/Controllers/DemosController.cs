@@ -26,6 +26,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("v{version:apiVersion}")]
+    [Route("")]
     public class DemosController : Controller, IDemosApi
     {
         private readonly PortalDbContext context;

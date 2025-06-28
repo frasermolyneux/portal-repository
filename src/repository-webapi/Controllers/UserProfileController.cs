@@ -22,6 +22,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("v{version:apiVersion}")]
+    [Route("")]
     public class UserProfileController : Controller, IUserProfileApi
     {
         private readonly PortalDbContext context;

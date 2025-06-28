@@ -22,6 +22,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers;
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
 [Route("v{version:apiVersion}")]
+[Route("")]
 public class GameServersEventsController : ControllerBase, IGameServersEventsApi
 {
     private readonly PortalDbContext context;

@@ -113,8 +113,6 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-app.MapMethods("/", new[] { "HEAD", "GET" }, [AllowAnonymous] () => "OK");
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
