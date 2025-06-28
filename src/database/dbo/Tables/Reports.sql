@@ -43,10 +43,10 @@ CREATE NONCLUSTERED INDEX [IX_Reports_Closed_Timestamp]
     ON [dbo].[Reports]([Closed], [Timestamp] DESC)
     INCLUDE ([PlayerId], [GameServerId], [Comments]);
 
-/*GO
+GO
 CREATE NONCLUSTERED INDEX [IX_Reports_GameType_Closed]
     ON [dbo].[Reports]([GameType], [Closed])
-    WHERE [Closed] = 0;*/
+    WHERE [Closed] = 0;
 
 GO
 CREATE NONCLUSTERED INDEX [IX_Reports_AdminUserProfileId_Closed]
