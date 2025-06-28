@@ -17,6 +17,44 @@ using System.Reflection;
 
 namespace repository_webapi.IntegrationTests;
 
+/// <summary>
+/// Console logger implementation that logs messages to the console.
+/// </summary>
+public class ConsoleLogger<T> : ILogger<T>
+{
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+    {
+        return null;
+    }
+
+    public bool IsEnabled(LogLevel logLevel)
+    {
+        // Enable all log levels
+        return true;
+    }
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        if (!IsEnabled(logLevel))
+            return;
+
+        var message = formatter(state, exception);
+        Console.WriteLine($"[{DateTime.UtcNow}] {logLevel} [{typeof(T).Name}] {message}");
+
+        if (exception != null)
+        {
+            Console.WriteLine($"Exception: {exception.Message}");
+            Console.WriteLine(exception.StackTrace);
+
+            if (exception.InnerException != null)
+            {
+                Console.WriteLine($"Inner Exception: {exception.InnerException.Message}");
+                Console.WriteLine(exception.InnerException.StackTrace);
+            }
+        }
+    }
+}
+
 public class BaseApiTests
 {
     protected IPlayersApi playersApi;
@@ -31,7 +69,10 @@ public class BaseApiTests
 
         Console.WriteLine($"Using API Base URL: {configuration["api_base_url"]}");
 
-        var mockRepositoryApiTokenProviderLogger = new Mock<ILogger<ApiTokenProvider>>();
+        // Replace mock logger with real console logger
+        var apiTokenProviderLogger = new ConsoleLogger<ApiTokenProvider>();
+        var playersApiLogger = new ConsoleLogger<PlayersApi>();
+        var rootApiLogger = new ConsoleLogger<RootApi>();
 
         string baseUrl = configuration["api_base_url"] ?? throw new Exception("Environment variable 'api_base_url' is null - this needs to be set to invoke tests");
         string apiKey = configuration["api_key"] ?? throw new Exception("Environment variable 'api_key' is null - this needs to be set to invoke tests");
@@ -44,10 +85,10 @@ public class BaseApiTests
             ApiAudience = apiAudience,
             ApiPathPrefix = configuration["api_path_prefix"] ?? string.Empty
         });
-        var tokenProvider = new ApiTokenProvider(mockRepositoryApiTokenProviderLogger.Object, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
+        var tokenProvider = new ApiTokenProvider(apiTokenProviderLogger, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
 
-        playersApi = new PlayersApi(new Mock<ILogger<PlayersApi>>().Object, tokenProvider, new MemoryCache(new MemoryCacheOptions()), repositoryApiClientOptions, new RestClientSingleton());
-        rootApi = new RootApi(new Mock<ILogger<RootApi>>().Object, tokenProvider, repositoryApiClientOptions, new RestClientSingleton());
+        playersApi = new PlayersApi(playersApiLogger, tokenProvider, new MemoryCache(new MemoryCacheOptions()), repositoryApiClientOptions, new RestClientSingleton());
+        rootApi = new RootApi(rootApiLogger, tokenProvider, repositoryApiClientOptions, new RestClientSingleton());
 
         WarmUp().Wait();
     }
