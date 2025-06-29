@@ -6,7 +6,7 @@
         "version": "1.0"
     },
     "paths": {
-        "/v1/admin-actions/{adminActionId}": {
+        "/admin-actions/{adminActionId}": {
             "get": {
                 "tags": [
                     "AdminActions"
@@ -71,7 +71,7 @@
                 }
             }
         },
-        "/v1/admin-actions": {
+        "/admin-actions": {
             "get": {
                 "tags": [
                     "AdminActions"
@@ -147,7 +147,7 @@
                 }
             }
         },
-        "/v1/ban-file-monitors/{banFileMonitorId}": {
+        "/ban-file-monitors/{banFileMonitorId}": {
             "get": {
                 "tags": [
                     "BanFileMonitors"
@@ -212,7 +212,7 @@
                 }
             }
         },
-        "/v1/ban-file-monitors": {
+        "/ban-file-monitors": {
             "get": {
                 "tags": [
                     "BanFileMonitors"
@@ -281,7 +281,7 @@
                 }
             }
         },
-        "/v1/chat-messages/{chatMessageId}": {
+        "/chat-messages/{chatMessageId}": {
             "get": {
                 "tags": [
                     "ChatMessages"
@@ -304,7 +304,7 @@
                 }
             }
         },
-        "/v1/chat-messages": {
+        "/chat-messages": {
             "get": {
                 "tags": [
                     "ChatMessages"
@@ -388,7 +388,7 @@
                 }
             }
         },
-        "/v1/chat-messages/{chatMessageId}/toggle-lock": {
+        "/chat-messages/{chatMessageId}/toggle-lock": {
             "post": {
                 "tags": [
                     "ChatMessages"
@@ -411,7 +411,7 @@
                 }
             }
         },
-        "/v1/data-maintenance/prune-chat-messages": {
+        "/data-maintenance/prune-chat-messages": {
             "delete": {
                 "tags": [
                     "DataMaintenance"
@@ -423,7 +423,7 @@
                 }
             }
         },
-        "/v1/data-maintenance/prune-game-server-events": {
+        "/data-maintenance/prune-game-server-events": {
             "delete": {
                 "tags": [
                     "DataMaintenance"
@@ -435,7 +435,7 @@
                 }
             }
         },
-        "/v1/data-maintenance/prune-game-server-stats": {
+        "/data-maintenance/prune-game-server-stats": {
             "delete": {
                 "tags": [
                     "DataMaintenance"
@@ -447,7 +447,7 @@
                 }
             }
         },
-        "/v1/data-maintenance/prune-recent-players": {
+        "/data-maintenance/prune-recent-players": {
             "delete": {
                 "tags": [
                     "DataMaintenance"
@@ -459,7 +459,7 @@
                 }
             }
         },
-        "/v1/data-maintenance/reset-system-assigned-player-tags": {
+        "/data-maintenance/reset-system-assigned-player-tags": {
             "put": {
                 "tags": [
                     "DataMaintenance"
@@ -471,7 +471,7 @@
                 }
             }
         },
-        "/v1/demos/{demoId}": {
+        "/demos/{demoId}": {
             "get": {
                 "tags": [
                     "Demos"
@@ -515,7 +515,7 @@
                 }
             }
         },
-        "/v1/demos": {
+        "/demos": {
             "get": {
                 "tags": [
                     "Demos"
@@ -583,7 +583,7 @@
                 }
             }
         },
-        "/v1/demos/{demoId}/file": {
+        "/demos/{demoId}/file": {
             "post": {
                 "tags": [
                     "Demos"
@@ -606,7 +606,7 @@
                 }
             }
         },
-        "/v1/game-servers/{gameServerId}": {
+        "/game-servers/{gameServerId}": {
             "get": {
                 "tags": [
                     "GameServers"
@@ -671,7 +671,7 @@
                 }
             }
         },
-        "/v1/game-servers": {
+        "/game-servers": {
             "get": {
                 "tags": [
                     "GameServers"
@@ -739,7 +739,7 @@
                 }
             }
         },
-        "/v1/game-server-events": {
+        "/game-server-events": {
             "post": {
                 "tags": [
                     "GameServersEvents"
@@ -751,7 +751,7 @@
                 }
             }
         },
-        "/v1/game-servers/{gameServerId}/secret/{secretId}": {
+        "/game-servers/{gameServerId}/secret/{secretId}": {
             "get": {
                 "tags": [
                     "GameServersSecrets"
@@ -809,7 +809,7 @@
                 }
             }
         },
-        "/v1/game-servers-stats": {
+        "/game-servers-stats": {
             "post": {
                 "tags": [
                     "GameServersStats"
@@ -821,7 +821,7 @@
                 }
             }
         },
-        "/v1/game-servers-stats/{gameServerId}": {
+        "/game-servers-stats/{gameServerId}": {
             "get": {
                 "tags": [
                     "GameServersStats"
@@ -852,7 +852,7 @@
                 }
             }
         },
-        "/v1/gametracker/{ipAddress}:{queryPort}/{imageName}": {
+        "/gametracker/{ipAddress}:{queryPort}/{imageName}": {
             "get": {
                 "tags": [
                     "GameTrackerBanner"
@@ -890,7 +890,7 @@
                 }
             }
         },
-        "/v1/live-players": {
+        "/live-players": {
             "get": {
                 "tags": [
                     "LivePlayers"
@@ -949,7 +949,7 @@
                 }
             }
         },
-        "/v1/live-players/{gameServerId}": {
+        "/live-players/{gameServerId}": {
             "post": {
                 "tags": [
                     "LivePlayers"
@@ -972,7 +972,7 @@
                 }
             }
         },
-        "/v1/maps/pack/{mapPackId}": {
+        "/maps/pack/{mapPackId}": {
             "get": {
                 "tags": [
                     "MapPacks"
@@ -1037,7 +1037,7 @@
                 }
             }
         },
-        "/v1/maps/pack": {
+        "/maps/pack": {
             "get": {
                 "tags": [
                     "MapPacks"
@@ -1105,7 +1105,7 @@
                 }
             }
         },
-        "/v1/maps/{mapId}": {
+        "/maps/{mapId}": {
             "get": {
                 "tags": [
                     "Maps"
@@ -1149,7 +1149,7 @@
                 }
             }
         },
-        "/v1/maps/{gameType}/{mapName}": {
+        "/maps/{gameType}/{mapName}": {
             "get": {
                 "tags": [
                     "Maps"
@@ -1179,7 +1179,7 @@
                 }
             }
         },
-        "/v1/maps": {
+        "/maps": {
             "get": {
                 "tags": [
                     "Maps"
@@ -1264,7 +1264,7 @@
                 }
             }
         },
-        "/v1/maps/popularity": {
+        "/maps/popularity": {
             "post": {
                 "tags": [
                     "Maps"
@@ -1276,7 +1276,7 @@
                 }
             }
         },
-        "/v1/maps/votes": {
+        "/maps/votes": {
             "post": {
                 "tags": [
                     "Maps"
@@ -1288,7 +1288,7 @@
                 }
             }
         },
-        "/v1/maps/{mapId}/image": {
+        "/maps/{mapId}/image": {
             "post": {
                 "tags": [
                     "Maps"
@@ -1311,7 +1311,7 @@
                 }
             }
         },
-        "/v1/player-analytics/cumulative-daily-players": {
+        "/player-analytics/cumulative-daily-players": {
             "get": {
                 "tags": [
                     "PlayerAnalytics"
@@ -1333,7 +1333,7 @@
                 }
             }
         },
-        "/v1/player-analytics/new-daily-players-per-game": {
+        "/player-analytics/new-daily-players-per-game": {
             "get": {
                 "tags": [
                     "PlayerAnalytics"
@@ -1355,7 +1355,7 @@
                 }
             }
         },
-        "/v1/player-analytics/players-drop-off-per-game": {
+        "/player-analytics/players-drop-off-per-game": {
             "get": {
                 "tags": [
                     "PlayerAnalytics"
@@ -1377,7 +1377,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}": {
+        "/players/{playerId}": {
             "get": {
                 "tags": [
                     "Players"
@@ -1428,7 +1428,7 @@
                 }
             }
         },
-        "/v1/players/by-game-type/{gameType}/{guid}": {
+        "/players/by-game-type/{gameType}/{guid}": {
             "head": {
                 "tags": [
                     "Players"
@@ -1493,7 +1493,7 @@
                 }
             }
         },
-        "/v1/players": {
+        "/players": {
             "get": {
                 "tags": [
                     "Players"
@@ -1568,7 +1568,7 @@
                 }
             }
         },
-        "/v1/players/protected-names": {
+        "/players/protected-names": {
             "get": {
                 "tags": [
                     "Players"
@@ -1608,7 +1608,7 @@
                 }
             }
         },
-        "/v1/players/protected-names/{protectedNameId}": {
+        "/players/protected-names/{protectedNameId}": {
             "get": {
                 "tags": [
                     "Players"
@@ -1652,7 +1652,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}/protected-names": {
+        "/players/{playerId}/protected-names": {
             "get": {
                 "tags": [
                     "Players"
@@ -1675,7 +1675,7 @@
                 }
             }
         },
-        "/v1/players/protected-names/{protectedNameId}/usage-report": {
+        "/players/protected-names/{protectedNameId}/usage-report": {
             "get": {
                 "tags": [
                     "Players"
@@ -1698,7 +1698,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}/tags": {
+        "/players/{playerId}/tags": {
             "get": {
                 "tags": [
                     "Players"
@@ -1766,7 +1766,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}/tags/{playerTagId}": {
+        "/players/{playerId}/tags/{playerTagId}": {
             "delete": {
                 "tags": [
                     "Players"
@@ -1798,7 +1798,7 @@
                 }
             }
         },
-        "/v1/players/tags/{playerTagId}": {
+        "/players/tags/{playerTagId}": {
             "get": {
                 "tags": [
                     "Players"
@@ -1842,7 +1842,7 @@
                 }
             }
         },
-        "/v1/players/with-ip-address/{ipAddress}": {
+        "/players/with-ip-address/{ipAddress}": {
             "get": {
                 "tags": [
                     "Players"
@@ -1894,7 +1894,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}/ip-addresses": {
+        "/players/{playerId}/ip-addresses": {
             "get": {
                 "tags": [
                     "Players"
@@ -1940,7 +1940,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}/aliases": {
+        "/players/{playerId}/aliases": {
             "get": {
                 "tags": [
                     "Players"
@@ -2024,7 +2024,7 @@
                 }
             }
         },
-        "/v1/players/{playerId}/aliases/{aliasId}": {
+        "/players/{playerId}/aliases/{aliasId}": {
             "put": {
                 "tags": [
                     "Players"
@@ -2110,7 +2110,7 @@
                 }
             }
         },
-        "/v1/aliases/search": {
+        "/aliases/search": {
             "get": {
                 "tags": [
                     "Players"
@@ -2147,7 +2147,7 @@
                 }
             }
         },
-        "/v1/recent-players": {
+        "/recent-players": {
             "get": {
                 "tags": [
                     "RecentPlayers"
@@ -2224,7 +2224,7 @@
                 }
             }
         },
-        "/v1/reports/{reportId}": {
+        "/reports/{reportId}": {
             "get": {
                 "tags": [
                     "Reports"
@@ -2247,7 +2247,7 @@
                 }
             }
         },
-        "/v1/reports": {
+        "/reports": {
             "get": {
                 "tags": [
                     "Reports"
@@ -2324,7 +2324,7 @@
                 }
             }
         },
-        "/v1/reports/{reportId}/close": {
+        "/reports/{reportId}/close": {
             "patch": {
                 "tags": [
                     "Reports"
@@ -2347,7 +2347,90 @@
                 }
             }
         },
-        "/v1/tags": {
+        "/": {
+            "head": {
+                "tags": [
+                    "RootApi"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "RootApi"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "RootApi"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDto"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tags": {
             "get": {
                 "tags": [
                     "Tags"
@@ -2447,7 +2530,7 @@
                 }
             }
         },
-        "/v1/tags/{tagId}": {
+        "/tags/{tagId}": {
             "get": {
                 "tags": [
                     "Tags"
@@ -2491,7 +2574,7 @@
                 }
             }
         },
-        "/v1/user-profile/{userProfileId}": {
+        "/user-profile/{userProfileId}": {
             "get": {
                 "tags": [
                     "UserProfile"
@@ -2514,7 +2597,7 @@
                 }
             }
         },
-        "/v1/user-profile/by-identity-id/{identityId}": {
+        "/user-profile/by-identity-id/{identityId}": {
             "get": {
                 "tags": [
                     "UserProfile"
@@ -2536,7 +2619,7 @@
                 }
             }
         },
-        "/v1/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
+        "/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
             "get": {
                 "tags": [
                     "UserProfile"
@@ -2558,7 +2641,7 @@
                 }
             }
         },
-        "/v1/user-profile/by-demo-auth-key/{demoAuthKey}": {
+        "/user-profile/by-demo-auth-key/{demoAuthKey}": {
             "get": {
                 "tags": [
                     "UserProfile"
@@ -2580,7 +2663,7 @@
                 }
             }
         },
-        "/v1/user-profile": {
+        "/user-profile": {
             "get": {
                 "tags": [
                     "UserProfile"
@@ -2644,7 +2727,7 @@
                 }
             }
         },
-        "/v1/user-profile/{userProfileId}/claims": {
+        "/user-profile/{userProfileId}/claims": {
             "patch": {
                 "tags": [
                     "UserProfile"
@@ -2688,7 +2771,7 @@
                 }
             }
         },
-        "/v1/user-profile/{userProfileId}/claims/{userProfileClaimId}": {
+        "/user-profile/{userProfileId}/claims/{userProfileClaimId}": {
             "delete": {
                 "tags": [
                     "UserProfile"
@@ -2845,6 +2928,34 @@
                 },
                 "additionalProperties": false
             },
+            "ApiResponseDto": {
+                "type": "object",
+                "properties": {
+                    "statusCode": {
+                        "$ref": "#/components/schemas/HttpStatusCode"
+                    },
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "isSuccess": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "isNotFound": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "isConflict": {
+                        "type": "boolean",
+                        "readOnly": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "BanFileMonitorOrder": {
                 "enum": [
                     "BannerServerListPosition",
@@ -2937,6 +3048,79 @@
                     "Arma",
                     "Arma2",
                     "Arma3"
+                ],
+                "type": "string",
+                "format": "int32"
+            },
+            "HttpStatusCode": {
+                "enum": [
+                    "Continue",
+                    "SwitchingProtocols",
+                    "Processing",
+                    "EarlyHints",
+                    "OK",
+                    "Created",
+                    "Accepted",
+                    "NonAuthoritativeInformation",
+                    "NoContent",
+                    "ResetContent",
+                    "PartialContent",
+                    "MultiStatus",
+                    "AlreadyReported",
+                    "IMUsed",
+                    "MultipleChoices",
+                    "Ambiguous",
+                    "MovedPermanently",
+                    "Moved",
+                    "Found",
+                    "Redirect",
+                    "SeeOther",
+                    "RedirectMethod",
+                    "NotModified",
+                    "UseProxy",
+                    "Unused",
+                    "TemporaryRedirect",
+                    "RedirectKeepVerb",
+                    "PermanentRedirect",
+                    "BadRequest",
+                    "Unauthorized",
+                    "PaymentRequired",
+                    "Forbidden",
+                    "NotFound",
+                    "MethodNotAllowed",
+                    "NotAcceptable",
+                    "ProxyAuthenticationRequired",
+                    "RequestTimeout",
+                    "Conflict",
+                    "Gone",
+                    "LengthRequired",
+                    "PreconditionFailed",
+                    "RequestEntityTooLarge",
+                    "RequestUriTooLong",
+                    "UnsupportedMediaType",
+                    "RequestedRangeNotSatisfiable",
+                    "ExpectationFailed",
+                    "MisdirectedRequest",
+                    "UnprocessableEntity",
+                    "UnprocessableContent",
+                    "Locked",
+                    "FailedDependency",
+                    "UpgradeRequired",
+                    "PreconditionRequired",
+                    "TooManyRequests",
+                    "RequestHeaderFieldsTooLarge",
+                    "UnavailableForLegalReasons",
+                    "InternalServerError",
+                    "NotImplemented",
+                    "BadGateway",
+                    "ServiceUnavailable",
+                    "GatewayTimeout",
+                    "HttpVersionNotSupported",
+                    "VariantAlsoNegotiates",
+                    "InsufficientStorage",
+                    "LoopDetected",
+                    "NotExtended",
+                    "NetworkAuthenticationRequired"
                 ],
                 "type": "string",
                 "format": "int32"

@@ -7,13 +7,12 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 [ApiController]
 [AllowAnonymous]
 [ApiVersion(ApiVersions.V1)]
-[Route("v{version:apiVersion}")]
-[Route("")]
 public class RootApiController : ControllerBase, IRootApi
 {
     [HttpHead]
     [HttpGet]
     [HttpPost]
+    [Route("")]
     public Task<ApiResponseDto> GetRoot()
     {
         return Task.FromResult(new ApiResponseDto
