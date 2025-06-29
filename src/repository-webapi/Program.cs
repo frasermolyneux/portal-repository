@@ -1,21 +1,17 @@
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
-using Microsoft.Extensions.Options;
-using Microsoft.OpenApi.Models;
 
 using Newtonsoft.Json.Converters;
-using Swashbuckle.AspNetCore.SwaggerGen;
 
 using XtremeIdiots.Portal.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi;
 using XtremeIdiots.Portal.RepositoryWebApi.Configuration;
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
 using XtremeIdiots.Portal.RepositoryWebApi.OpenApiOperationFilters;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +26,7 @@ builder.Services.Configure<TelemetryConfiguration>(telemetryConfiguration =>
     telemetryProcessorChainBuilder.UseAdaptiveSampling(excludedTypes: "Exception");
     telemetryProcessorChainBuilder.Build();
 });
+
 builder.Services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
 {
     EnableAdaptiveSampling = false,
@@ -55,30 +52,29 @@ builder.Services.AddControllers().AddNewtonsoftJson(options =>
     options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
 });
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-
-// Add API versioning
+// Configure API versioning
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
+    // Configure URL path versioning
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
-});
-
-// Add API versioning explorer
-builder.Services.AddVersionedApiExplorer(options =>
+})
+.AddApiExplorer(options =>
 {
+    // Format the version as "'v'major[.minor]" (e.g. v1.0)
     options.GroupNameFormat = "'v'VVV";
     options.SubstituteApiVersionInUrl = true;
 });
 
-// Add swagger configuration options
-builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
+// Configure Swagger
+builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>
 {
+    options.OperationFilter<SwaggerDefaultValues>();
+
     options.SchemaFilter<EnumSchemaFilter>();
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -107,6 +103,9 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Configure Swagger options for versioning
+builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
+
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddHealthChecks();
@@ -117,18 +116,15 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-
-    // Configure for versioning
     app.UseSwaggerUI(options =>
     {
+        // Build a Swagger endpoint for each discovered API version
         var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-
-        // Build a swagger endpoint for each discovered API version
         foreach (var description in provider.ApiVersionDescriptions)
         {
             options.SwaggerEndpoint(
                 $"/swagger/{description.GroupName}/swagger.json",
-                $"Repository API {description.GroupName.ToUpperInvariant()}");
+                description.GroupName.ToUpperInvariant());
         }
     });
 }

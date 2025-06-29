@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Net;
+using Asp.Versioning;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +14,12 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.MapPacks;
 using XtremeIdiots.Portal.RepositoryWebApi.Extensions;
 
-namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
+namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1_0
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
+    [Route("api/v{version:apiVersion}")]
     public class MapPacksController : Controller, IMapPacksApi
     {
         private readonly PortalDbContext context;

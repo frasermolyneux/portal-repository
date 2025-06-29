@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Asp.Versioning.ApiExplorer;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -10,33 +10,44 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Configuration;
 /// </summary>
 public class ConfigureSwaggerOptions : IConfigureOptions<SwaggerGenOptions>
 {
-    private readonly IApiVersionDescriptionProvider _provider;
+    private readonly IApiVersionDescriptionProvider provider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ConfigureSwaggerOptions"/> class.
     /// </summary>
-    /// <param name="provider">The API version description provider.</param>
-    public ConfigureSwaggerOptions(IApiVersionDescriptionProvider provider)
-    {
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
+    /// <param name="provider">The <see cref="IApiVersionDescriptionProvider">provider</see> used to generate Swagger documents.</param>
+    public ConfigureSwaggerOptions(IApiVersionDescriptionProvider provider) => this.provider = provider;
 
-    /// <summary>
-    /// Configures the swagger generation options.
-    /// </summary>
-    /// <param name="options">The swagger generation options.</param>
+    /// <inheritdoc />
     public void Configure(SwaggerGenOptions options)
     {
-        foreach (var description in _provider.ApiVersionDescriptions)
+        // Add a swagger document for each discovered API version
+        foreach (var description in provider.ApiVersionDescriptions)
         {
             options.SwaggerDoc(
                 description.GroupName,
                 new OpenApiInfo
                 {
-                    Title = "Repository API",
+                    Title = $"Repository API {description.ApiVersion}",
                     Version = description.ApiVersion.ToString(),
-                    Description = description.IsDeprecated ? "This API version has been deprecated." : string.Empty
+                    Description = description.IsDeprecated
+                        ? "This API version has been deprecated."
+                        : GetVersionDescription(description.ApiVersion)
                 });
         }
+
+        // Include XML comments if available
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+        if (File.Exists(xmlPath))
+        {
+            options.IncludeXmlComments(xmlPath);
+        }
+    }
+
+    private static string GetVersionDescription(Asp.Versioning.ApiVersion apiVersion)
+    {
+        return $"Repository API {apiVersion}";
     }
 }

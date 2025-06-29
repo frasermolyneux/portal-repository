@@ -5,13 +5,7 @@ namespace XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
 /// </summary>
 public static class ApiVersions
 {
-    /// <summary>
-    /// The current API version (1.0)
-    /// </summary>
     public const string V1 = "1.0";
-
-    /// <summary>
-    /// The next API version (2.0)
-    /// </summary>
+    public const string V1_1 = "1.1";
     public const string V2 = "2.0";
 }

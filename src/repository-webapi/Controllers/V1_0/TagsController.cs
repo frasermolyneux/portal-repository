@@ -13,12 +13,14 @@ using XtremeIdiots.Portal.RepositoryApi.Abstractions.Models.Tags;
 using MxIO.ApiClient.Abstractions;
 using MxIO.ApiClient.WebExtensions;
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Constants;
+using Asp.Versioning;
 
-namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers
+namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1_0
 {
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
+    [Route("api/v{version:apiVersion}")]
     public class TagsController : ControllerBase, ITagsApi
     {
         private readonly PortalDbContext context;
