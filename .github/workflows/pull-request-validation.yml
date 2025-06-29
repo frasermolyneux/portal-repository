@@ -156,13 +156,34 @@ jobs:
         echo "int_test_client_tenant_id=$client_tenant_id" >> $GITHUB_ENV
         echo "int_test_api_key=$api_key" >> $GITHUB_ENV
 
-    - uses: frasermolyneux/actions/run-api-integration-tests@main
+    # Set up .NET
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 9.0.x
-        src-folder: "src"
-        api-base-url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
-        api-key: ${{ env.int_test_api_key }}
-        api-audience: ${{ needs.terraform-plan-and-apply-dev.outputs.api_audience }}
+    
+    # Run legacy integration tests
+    - name: Run Legacy Integration Tests
+      shell: bash
+      run: |
+        dotnet test src/repository-webapi.IntegrationTests/repository-webapi.IntegrationTests.csproj -c Release
+      env:
+        api_base_url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
+        api_key: ${{ env.int_test_api_key }}
+        api_audience: ${{ needs.terraform-plan-and-apply-dev.outputs.api_audience }}
+        AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
+        AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
+        AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}
+    
+    # Run v1 integration tests
+    - name: Run V1 Integration Tests
+      shell: bash
+      run: |
+        dotnet test src/repository-webapi.IntegrationTests.V1/repository-webapi.IntegrationTests.V1.csproj -c Release
+      env:
+        api_base_url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
+        api_key: ${{ env.int_test_api_key }}
+        api_audience: ${{ needs.terraform-plan-and-apply-dev.outputs.api_audience }}
         AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
         AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
         AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}
