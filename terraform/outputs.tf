@@ -3,7 +3,10 @@ output "workload_public_url" {
 }
 
 output "workload_public_url_v1" {
-  value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api_v1.path)
+  value = format("%s/%s/v1.0", data.azurerm_api_management.core.gateway_url, try(
+    azurerm_api_management_api.repository_api_versioned["v1.0"].path,
+    "repository" // Fallback path if v1.0 is not found
+  ))
 }
 
 output "web_app_name" {
