@@ -1,5 +1,10 @@
 // Legacy resource for API Management API without a version number in the path
 // This is used to maintain compatibility with existing clients that do not include the version in the path
+
+data "local_file" "repository_openapi_legacy" {
+  filename = "${path.module}/Repository.openapi+json-legacy.json"
+}
+
 resource "azurerm_api_management_api" "repository_api_legacy" {
   name                = "repository-api-legacy"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -23,7 +28,7 @@ resource "azurerm_api_management_api" "repository_api_legacy" {
 
   import {
     content_format = "openapi+json"
-    content_value  = file("terraform/Repository.openapi+json-legacy.json")
+    content_value  = data.local_file.repository_openapi_legacy.content
   }
 }
 
