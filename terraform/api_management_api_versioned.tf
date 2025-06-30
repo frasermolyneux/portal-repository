@@ -93,7 +93,7 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend_version
 resource "azurerm_api_management_api" "repository_api_versioned" {
   for_each = local.api_version_formats
 
-  name                = "repository-api-${each.key}"
+  name                = "repository-api-${replace(each.key, ".", "-")}"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
 
