@@ -5,6 +5,14 @@ data "local_file" "repository_openapi_legacy" {
   filename = "${path.module}/../openapi-legacy.json"
 }
 
+data "local_file" "foo1" {
+  filename = "${path.module}/../../openapi-legacy.json"
+}
+
+data "local_file" "foo2" {
+  filename = "${path.module}/openapi-legacy.json"
+}
+
 resource "azurerm_api_management_api" "repository_api_legacy" {
   name                = "repository-api-legacy"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
