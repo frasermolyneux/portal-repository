@@ -3,11 +3,11 @@
 
 locals {
   // List of version files that exist (excluding legacy which is handled separately)
-  version_files = fileset("../../", "Repository.openapi+json-v*.json")
+  version_files = fileset("../../", "openapi-v*.json")
 
   // Extract version strings from filenames (e.g., "v1.0", "v1.1", "v2.0")
   version_strings = [for file in local.version_files :
-    trimsuffix(trimprefix(basename(file), "Repository.openapi+json-"), ".json")
+    trimsuffix(trimprefix(basename(file), "openapi-"), ".json")
   ]
 
   // Filter out legacy as it's handled in separate file

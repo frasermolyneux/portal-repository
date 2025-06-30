@@ -2,7 +2,7 @@
 // This is used to maintain compatibility with existing clients that do not include the version in the path
 
 data "local_file" "repository_openapi_legacy" {
-  filename = "../../Repository.openapi+json-legacy.json"
+  filename = "../../openapi-legacy.json"
 }
 
 resource "azurerm_api_management_api" "repository_api_legacy" {
