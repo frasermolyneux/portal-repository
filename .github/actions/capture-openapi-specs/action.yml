@@ -64,28 +64,44 @@ runs:
       shell: bash
       run: |
         curl -s ${{ inputs.api-url }}/swagger/v1/swagger.json -o openapi-specs/openapi-legacy-temp.json
-        # Replace all instances of '/api/v1' with '/api' for legacy compatibility
-        sed 's|/api/v1|/api|g' openapi-specs/openapi-legacy-temp.json > openapi-specs/openapi-legacy.json
-        rm openapi-specs/openapi-legacy-temp.json
-        echo "Downloaded and processed legacy OpenAPI spec"
+        if [ -s openapi-specs/openapi-legacy-temp.json ]; then
+          # Replace all instances of '/api/v1' with '/api' for legacy compatibility
+          sed 's|/api/v1|/api|g' openapi-specs/openapi-legacy-temp.json > openapi-specs/openapi-legacy.json
+          echo "Downloaded and processed legacy OpenAPI spec"
+        else
+          echo "Legacy OpenAPI spec download failed or returned empty file"
+        fi
+        rm -f openapi-specs/openapi-legacy-temp.json
       
     - name: Download OpenAPI Spec for v1
       shell: bash
       run: |
         echo "Downloading spec for v1"
         curl -s "${{ inputs.api-url }}/swagger/v1/swagger.json" -o "openapi-specs/openapi-v1.json" || echo "v1 spec download failed, but continuing"
+        if [ ! -s openapi-specs/openapi-v1.json ]; then
+          rm -f openapi-specs/openapi-v1.json
+          echo "v1 spec download failed or returned empty file"
+        fi
     
     - name: Download OpenAPI Spec for v1.1
       shell: bash
       run: |
         echo "Downloading spec for v1.1"
         curl -s "${{ inputs.api-url }}/swagger/v1.1/swagger.json" -o "openapi-specs/openapi-v1.1.json" || echo "v1.1 spec download failed, but continuing"
+        if [ ! -s openapi-specs/openapi-v1.1.json ]; then
+          rm -f openapi-specs/openapi-v1.1.json
+          echo "v1.1 spec download failed or returned empty file"
+        fi
     
     - name: Download OpenAPI Spec for v1.2
       shell: bash
       run: |
         echo "Downloading spec for v1.2"
         curl -s "${{ inputs.api-url }}/swagger/v1.2/swagger.json" -o "openapi-specs/openapi-v1.2.json" || echo "v1.2 spec download failed, but continuing"
+        if [ ! -s openapi-specs/openapi-v1.2.json ]; then
+          rm -f openapi-specs/openapi-v1.2.json
+          echo "v1.2 spec download failed or returned empty file"
+        fi
         
     - name: List Captured Specs
       shell: bash
