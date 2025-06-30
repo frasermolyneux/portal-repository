@@ -72,6 +72,8 @@ jobs:
         echo "Current working directory: $(pwd)"
         echo "Downloaded OpenAPI files:"
         ls -la *.json
+        echo "Contents of terraform folder:"
+        ls -la terraform/
         echo "File verification complete."
 
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
