@@ -23,7 +23,7 @@ resource "azurerm_api_management_api" "repository_api_legacy" {
 
   import {
     content_format = "openapi+json"
-    content_value  = file("../Repository.openapi+json-legacy.json")
+    content_value  = file("Repository.openapi+json-legacy.json")
   }
 }
 

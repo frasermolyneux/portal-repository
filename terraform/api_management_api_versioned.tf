@@ -3,7 +3,7 @@
 
 locals {
   // List of version files that exist (excluding legacy which is handled separately)
-  version_files = fileset("../", "Repository.openapi+json-v*.json")
+  version_files = fileset(".", "Repository.openapi+json-v*.json")
 
   // Extract version strings from filenames (e.g., "v1.0", "v1.1", "v2.0")
   version_strings = [for file in local.version_files :
@@ -109,7 +109,7 @@ resource "azurerm_api_management_api" "repository_api_versioned" {
 
   import {
     content_format = "openapi+json"
-    content_value  = file("../Repository.openapi+json-${each.key}.json")
+    content_value  = file("Repository.openapi+json-${each.key}.json")
   }
 }
 
