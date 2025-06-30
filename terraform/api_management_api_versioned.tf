@@ -49,7 +49,7 @@ locals {
     major_version => {
       name         = app.name
       hostname     = app.hostname
-      protocol     = "https"
+      protocol     = "http"
       api_path     = "api"
       tls_validate = true
       description  = "Backend for ${major_version}.x APIs"
@@ -90,7 +90,7 @@ resource "azurerm_api_management_backend" "webapi_api_management_backend_version
   protocol    = lower(each.value.protocol)
   title       = each.value.name
   description = each.value.description
-  url         = format("%s://%s", lower(each.value.protocol), each.value.hostname)
+  url         = format("https://%s", each.value.hostname)
 
   tls {
     validate_certificate_chain = each.value.tls_validate
