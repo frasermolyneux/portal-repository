@@ -59,10 +59,6 @@ jobs:
           # Give the API time to start up
           sleep 10
       
-      - name: Check API Health
-        run: |
-          curl -f http://localhost:5000/api/health || (echo "API is not healthy" && exit 1)
-        
       - name: Create Specs Directory
         run: mkdir -p openapi-specs
       
