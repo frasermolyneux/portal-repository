@@ -31,71 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+      - uses: ./.github/actions/capture-openapi-specs
         with:
           dotnet-version: '9.0.x'
-          
-      - name: Restore dependencies
-        run: dotnet restore src/portal-repository.sln
-        
-      - name: Build
-        run: dotnet build src/portal-repository.sln --no-restore
-      
-      - name: Publish API
-        run: dotnet publish src/repository-webapi/repository-webapi.csproj --configuration Release --output ./publish
-      
-      - name: Start API (Background)
-        run: |
-          cd ./publish
-          dotnet repository-webapi.dll --urls "http://localhost:5000" &
-          # Store the PID for later cleanup
-          echo "API_PID=$!" >> $GITHUB_ENV
-          # Give the API time to start up
-          sleep 10
-      
-      - name: Create Specs Directory
-        run: mkdir -p openapi-specs
-      
-      - name: Download Default/Legacy OpenAPI Spec
-        run: |
-          curl -s http://localhost:5000/swagger/v1/swagger.json -o openapi-specs/openapi-legacy-temp.json
-          # Replace all instances of '/api/v1' with '/api' for legacy compatibility
-          sed 's|/api/v1|/api|g' openapi-specs/openapi-legacy-temp.json > openapi-specs/openapi-legacy.json
-          rm openapi-specs/openapi-legacy-temp.json
-          echo "Downloaded and processed legacy OpenAPI spec"
-        
-      - name: Download OpenAPI Spec for v1
-        run: |
-          echo "Downloading spec for v1"
-          curl -s "http://localhost:5000/swagger/v1/swagger.json" -o "openapi-specs/openapi-v1.json" || echo "v1 spec download failed, but continuing"
-      
-      - name: Download OpenAPI Spec for v1.1
-        run: |
-          echo "Downloading spec for v1.1"
-          curl -s "http://localhost:5000/swagger/v1.1/swagger.json" -o "openapi-specs/openapi-v1.1.json" || echo "v1.1 spec download failed, but continuing"
-      
-      - name: Download OpenAPI Spec for v1.2
-        run: |
-          echo "Downloading spec for v1.2"
-          curl -s "http://localhost:5000/swagger/v1.2/swagger.json" -o "openapi-specs/openapi-v1.2.json" || echo "v1.2 spec download failed, but continuing"
-          
-      - name: List Captured Specs
-        run: ls -la openapi-specs/
-      
-      - name: Stop API
-        if: always()
-        run: |
-          if [[ -n "${{ env.API_PID }}" ]]; then
-            kill ${{ env.API_PID }} || true
-          fi
-      
-      - name: Upload OpenAPI Specs as Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: openapi-specs
-          path: openapi-specs/
-          retention-days: 30
 
   publish-nuget-packages:
     environment: NuGet

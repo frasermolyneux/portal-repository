@@ -1,0 +1,107 @@
+name: 'Capture OpenAPI Specs'
+description: 'Builds and runs the API to capture OpenAPI specifications for all versions'
+inputs:
+  dotnet-version:
+    description: 'The .NET version to use'
+    required: false
+    default: '9.0.x'
+  src-folder:
+    description: 'The source folder containing the solution'
+    required: false
+    default: 'src'
+  solution-file:
+    description: 'The solution file name'
+    required: false
+    default: 'portal-repository.sln'
+  project-file:
+    description: 'The project file to publish'
+    required: false
+    default: 'repository-webapi/repository-webapi.csproj'
+  api-url:
+    description: 'The URL to run the API on'
+    required: false
+    default: 'http://localhost:5000'
+  retention-days:
+    description: 'Number of days to retain the artifact'
+    required: false
+    default: '30'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        
+    - name: Restore dependencies
+      shell: bash
+      run: dotnet restore ${{ inputs.src-folder }}/${{ inputs.solution-file }}
+      
+    - name: Build
+      shell: bash
+      run: dotnet build ${{ inputs.src-folder }}/${{ inputs.solution-file }} --no-restore
+    
+    - name: Publish API
+      shell: bash
+      run: dotnet publish ${{ inputs.src-folder }}/${{ inputs.project-file }} --configuration Release --output ./publish
+    
+    - name: Start API (Background)
+      shell: bash
+      run: |
+        cd ./publish
+        dotnet repository-webapi.dll --urls "${{ inputs.api-url }}" &
+        # Store the PID for later cleanup
+        echo "API_PID=$!" >> $GITHUB_ENV
+        # Give the API time to start up
+        sleep 10
+    
+    - name: Create Specs Directory
+      shell: bash
+      run: mkdir -p openapi-specs
+    
+    - name: Download Default/Legacy OpenAPI Spec
+      shell: bash
+      run: |
+        curl -s ${{ inputs.api-url }}/swagger/v1/swagger.json -o openapi-specs/openapi-legacy-temp.json
+        # Replace all instances of '/api/v1' with '/api' for legacy compatibility
+        sed 's|/api/v1|/api|g' openapi-specs/openapi-legacy-temp.json > openapi-specs/openapi-legacy.json
+        rm openapi-specs/openapi-legacy-temp.json
+        echo "Downloaded and processed legacy OpenAPI spec"
+      
+    - name: Download OpenAPI Spec for v1
+      shell: bash
+      run: |
+        echo "Downloading spec for v1"
+        curl -s "${{ inputs.api-url }}/swagger/v1/swagger.json" -o "openapi-specs/openapi-v1.json" || echo "v1 spec download failed, but continuing"
+    
+    - name: Download OpenAPI Spec for v1.1
+      shell: bash
+      run: |
+        echo "Downloading spec for v1.1"
+        curl -s "${{ inputs.api-url }}/swagger/v1.1/swagger.json" -o "openapi-specs/openapi-v1.1.json" || echo "v1.1 spec download failed, but continuing"
+    
+    - name: Download OpenAPI Spec for v1.2
+      shell: bash
+      run: |
+        echo "Downloading spec for v1.2"
+        curl -s "${{ inputs.api-url }}/swagger/v1.2/swagger.json" -o "openapi-specs/openapi-v1.2.json" || echo "v1.2 spec download failed, but continuing"
+        
+    - name: List Captured Specs
+      shell: bash
+      run: ls -la openapi-specs/
+    
+    - name: Stop API
+      if: always()
+      shell: bash
+      run: |
+        if [[ -n "${{ env.API_PID }}" ]]; then
+          kill ${{ env.API_PID }} || true
+        fi
+    
+    - name: Upload OpenAPI Specs as Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: openapi-specs
+        path: openapi-specs/
+        retention-days: ${{ inputs.retention-days }}
