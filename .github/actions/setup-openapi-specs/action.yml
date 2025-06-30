@@ -1,12 +1,8 @@
 name: 'Setup OpenAPI Specs'
-description: 'Downloads OpenAPI specs artifact and copies them to Terraform directory'
+description: 'Downloads OpenAPI specs artifact to the root directory'
 inputs:
   artifact-name:
     description: 'Name of the artifact containing OpenAPI specs'
-    required: false
-    default: 'openapi-specs'
-  download-path:
-    description: 'Path to download the OpenAPI specs to'
     required: false
     default: 'openapi-specs'
 
@@ -17,45 +13,13 @@ runs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.download-path }}
+        path: .
 
-    - name: Copy OpenAPI Specs to Terraform Directory
+    - name: Debug - Show Directory Contents
       shell: bash
       run: |
-        # Ensure terraform directory exists
-        mkdir -p terraform
-        
-        # Copy legacy spec (required) to terraform directory
-        if [ -f "${{ inputs.download-path }}/openapi-legacy.json" ]; then
-          cp "${{ inputs.download-path }}/openapi-legacy.json" terraform/Repository.openapi+json-legacy.json
-          echo "Copied legacy spec to terraform directory"
-        else
-          echo "ERROR: Legacy OpenAPI spec not found at ${{ inputs.download-path }}/openapi-legacy.json"
-          exit 1
-        fi
-        
-        # Copy specific versioned specs to terraform directory
-        if [ -f "${{ inputs.download-path }}/openapi-v1.json" ]; then
-          echo "Processing v1"
-          cp "${{ inputs.download-path }}/openapi-v1.json" "terraform/Repository.openapi+json-v1.json"
-        fi
-        
-        if [ -f "${{ inputs.download-path }}/openapi-v1.1.json" ]; then
-          echo "Processing v1.1"
-          cp "${{ inputs.download-path }}/openapi-v1.1.json" "terraform/Repository.openapi+json-v1.1.json"
-        fi
-        
-        if [ -f "${{ inputs.download-path }}/openapi-v1.2.json" ]; then
-          echo "Processing v1.2"
-          cp "${{ inputs.download-path }}/openapi-v1.2.json" "terraform/Repository.openapi+json-v1.2.json"
-        fi
-        
         echo "Current directory: $(pwd)"
-        echo "Files copied successfully to terraform directory:"
-        ls -la terraform/Repository.openapi+json-*.json
-        echo "Verifying file contents are not empty:"
-        for file in terraform/Repository.openapi+json-*.json; do
-          if [ -f "$file" ]; then
-            echo "$file: $(wc -c < "$file") bytes"
-          fi
-        done
+        echo "Directory contents:"
+        ls -la
+        echo "OpenAPI spec files:"
+        ls -la *.json 2>/dev/null || echo "No JSON files found"

@@ -66,12 +66,12 @@ jobs:
     
     - uses: ./.github/actions/setup-openapi-specs
 
-    - name: Verify OpenAPI files for Terraform
+    - name: Verify OpenAPI files
       shell: bash
       run: |
         echo "Current working directory: $(pwd)"
-        echo "Required OpenAPI files for Terraform:"
-        ls -la terraform/Repository.openapi+json-*.json
+        echo "Downloaded OpenAPI files:"
+        ls -la *.json
         echo "File verification complete."
 
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
@@ -210,12 +210,12 @@ jobs:
     
     - uses: ./.github/actions/setup-openapi-specs
 
-    - name: Verify OpenAPI files for Terraform
+    - name: Verify OpenAPI files
       shell: bash
       run: |
         echo "Current working directory: $(pwd)"
-        echo "Required OpenAPI files for Terraform:"
-        ls -la terraform/Repository.openapi+json-*.json
+        echo "Downloaded OpenAPI files:"
+        ls -la *.json
         echo "File verification complete."
 
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main

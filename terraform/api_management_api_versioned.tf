@@ -3,7 +3,7 @@
 
 locals {
   // List of version files that exist (excluding legacy which is handled separately)
-  version_files = fileset("terraform", "Repository.openapi+json-v*.json")
+  version_files = fileset("../../", "Repository.openapi+json-v*.json")
 
   // Extract version strings from filenames (e.g., "v1.0", "v1.1", "v2.0")
   version_strings = [for file in local.version_files :
@@ -25,7 +25,7 @@ locals {
     "v1" = {
       name         = local.web_app_name_v1
       hostname     = azurerm_linux_web_app.app_v1.default_hostname
-      protocol     = "https"
+      protocol     = "http"
       api_path     = "api" // Base API path in the backend service
       tls_validate = true
       description  = "Backend for v1.x APIs"
@@ -45,7 +45,7 @@ locals {
   default_backend = {
     name         = local.web_app_name_v1
     hostname     = azurerm_linux_web_app.app_v1.default_hostname
-    protocol     = "https"
+    protocol     = "http"
     api_path     = "api"
     tls_validate = true
     description  = "Default backend for APIs"
@@ -62,6 +62,12 @@ locals {
     local.backend_mapping[local.get_major_version[version]] :
     local.default_backend
   }
+}
+
+// Data sources for versioned OpenAPI specification files
+data "local_file" "repository_openapi_versioned" {
+  for_each = local.api_version_formats
+  filename = "../../Repository.openapi+json-${each.key}.json"
 }
 
 // Create backend for versioned APIs
@@ -109,7 +115,7 @@ resource "azurerm_api_management_api" "repository_api_versioned" {
 
   import {
     content_format = "openapi+json"
-    content_value  = file("terraform/Repository.openapi+json-${each.key}.json")
+    content_value  = data.local_file.repository_openapi_versioned[each.key].content
   }
 }
 
