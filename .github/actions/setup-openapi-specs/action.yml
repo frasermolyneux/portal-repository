@@ -1,0 +1,48 @@
+name: 'Setup OpenAPI Specs'
+description: 'Downloads OpenAPI specs artifact and copies them to Terraform directory'
+inputs:
+  artifact-name:
+    description: 'Name of the artifact containing OpenAPI specs'
+    required: false
+    default: 'openapi-specs'
+  download-path:
+    description: 'Path to download the OpenAPI specs to'
+    required: false
+    default: 'openapi-specs'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download OpenAPI Specs
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.download-path }}
+
+    - name: Copy OpenAPI Specs to Terraform Directory
+      shell: bash
+      run: |
+        # Change to terraform directory
+        cd terraform
+        
+        # Copy legacy spec
+        cp ../${{ inputs.download-path }}/openapi-legacy.json Repository.openapi+json-legacy.json
+        
+        # Copy specific versioned specs
+        if [ -f "../${{ inputs.download-path }}/openapi-v1.json" ]; then
+          echo "Processing v1"
+          cp "../${{ inputs.download-path }}/openapi-v1.json" "Repository.openapi+json-v1.json"
+        fi
+        
+        if [ -f "../${{ inputs.download-path }}/openapi-v1.1.json" ]; then
+          echo "Processing v1.1"
+          cp "../${{ inputs.download-path }}/openapi-v1.1.json" "Repository.openapi+json-v1.1.json"
+        fi
+        
+        if [ -f "../${{ inputs.download-path }}/openapi-v1.2.json" ]; then
+          echo "Processing v1.2"
+          cp "../${{ inputs.download-path }}/openapi-v1.2.json" "Repository.openapi+json-v1.2.json"
+        fi
+        
+        echo "Current directory: $(pwd)"
+        ls -la Repository.openapi+json-*.json

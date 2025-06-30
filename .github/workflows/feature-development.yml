@@ -59,34 +59,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Download OpenAPI Specs
-      uses: actions/download-artifact@v4
-      with:
-        name: openapi-specs
-        path: openapi-specs
-
-    - name: Copy OpenAPI Specs to Terraform Directory
-      run: |
-        # Copy legacy spec
-        cp openapi-specs/openapi-legacy.json Repository.openapi+json-legacy.json
-        
-        # Copy specific versioned specs
-        if [ -f "openapi-specs/openapi-v1.json" ]; then
-          echo "Processing v1"
-          cp "openapi-specs/openapi-v1.json" "Repository.openapi+json-v1.json"
-        fi
-        
-        if [ -f "openapi-specs/openapi-v1.1.json" ]; then
-          echo "Processing v1.1"
-          cp "openapi-specs/openapi-v1.1.json" "Repository.openapi+json-v1.1.json"
-        fi
-        
-        if [ -f "openapi-specs/openapi-v1.2.json" ]; then
-          echo "Processing v1.2"
-          cp "openapi-specs/openapi-v1.2.json" "Repository.openapi+json-v1.2.json"
-        fi
-        
-        ls -la Repository.openapi+json-*.json
+    - uses: ./.github/actions/setup-openapi-specs
 
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
