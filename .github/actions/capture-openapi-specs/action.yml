@@ -50,7 +50,7 @@ runs:
       shell: bash
       run: |
         cd ./publish
-        dotnet repository-webapi.dll --urls "${{ inputs.api-url }}" &
+        ASPNETCORE_ENVIRONMENT=Development dotnet repository-webapi.dll --urls "${{ inputs.api-url }}" &
         # Store the PID for later cleanup
         echo "API_PID=$!" >> $GITHUB_ENV
         # Give the API time to start up
