@@ -50,7 +50,7 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_legacy" {
   <inbound>
       <base/>
       <set-backend-service backend-id="${azurerm_api_management_backend.webapi_api_management_backend_versioned["v1"].name}" />
-      <!-- Add v1.0 path prefix to the request URL for the backend API -->
+      <!-- Correct path rewriting for legacy API - use v1.0 to match controller expectations -->
       <rewrite-uri template="/${local.backend_mapping["v1"].api_path}/v1.0@(context.Request.OriginalUrl.Path.Substring(context.Api.Path.Length))" />
   </inbound>
   <backend>
