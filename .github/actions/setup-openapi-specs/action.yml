@@ -15,6 +15,16 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: .
 
+    - name: Fix JSON file permissions
+      shell: bash
+      run: |
+        if ls *.json 1> /dev/null 2>&1; then
+          chmod 777 *.json
+          echo "Set permissions to 777 for JSON files"
+        else
+          echo "No JSON files found to fix permissions"
+        fi
+
     - name: Debug - Show Directory Contents
       shell: bash
       run: |
