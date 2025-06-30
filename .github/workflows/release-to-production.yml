@@ -64,24 +64,26 @@ jobs:
       
       - name: Download Default/Legacy OpenAPI Spec
         run: |
-          curl -s http://localhost:5000/swagger/v1/swagger.json -o openapi-specs/openapi-legacy.json
-          echo "Downloaded legacy OpenAPI spec"
+          curl -s http://localhost:5000/swagger/v1/swagger.json -o openapi-specs/openapi-legacy-temp.json
+          # Replace all instances of '/api/v1' with '/api' for legacy compatibility
+          sed 's|/api/v1|/api|g' openapi-specs/openapi-legacy-temp.json > openapi-specs/openapi-legacy.json
+          rm openapi-specs/openapi-legacy-temp.json
+          echo "Downloaded and processed legacy OpenAPI spec"
         
-      - name: Detect Available API Versions
-        id: detect-versions
+      - name: Download OpenAPI Spec for v1
         run: |
-          # Get the list of available versions from swagger
-          VERSIONS=$(curl -s http://localhost:5000/swagger/index.html | grep -o "/swagger/v[0-9.]\+/swagger.json" | sort | uniq | sed 's/\/swagger\///g' | sed 's/\/swagger.json//g')
-          echo "Available versions: $VERSIONS"
-          echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
+          echo "Downloading spec for v1"
+          curl -s "http://localhost:5000/swagger/v1/swagger.json" -o "openapi-specs/openapi-v1.json" || echo "v1 spec download failed, but continuing"
       
-      - name: Download OpenAPI Specs for Each Version
+      - name: Download OpenAPI Spec for v1.1
         run: |
-          # Loop through each version and download its OpenAPI spec
-          for VERSION in $(echo "${{ steps.detect-versions.outputs.versions }}" | tr " " "\n"); do
-            echo "Downloading spec for $VERSION"
-            curl -s "http://localhost:5000/swagger/$VERSION/swagger.json" -o "openapi-specs/openapi-$VERSION.json"
-          done
+          echo "Downloading spec for v1.1"
+          curl -s "http://localhost:5000/swagger/v1.1/swagger.json" -o "openapi-specs/openapi-v1.1.json" || echo "v1.1 spec download failed, but continuing"
+      
+      - name: Download OpenAPI Spec for v1.2
+        run: |
+          echo "Downloading spec for v1.2"
+          curl -s "http://localhost:5000/swagger/v1.2/swagger.json" -o "openapi-specs/openapi-v1.2.json" || echo "v1.2 spec download failed, but continuing"
           
       - name: List Captured Specs
         run: ls -la openapi-specs/
@@ -132,14 +134,24 @@ jobs:
 
     - name: Copy OpenAPI Specs to Terraform Directory
       run: |
+        # Copy legacy spec
         cp openapi-specs/openapi-legacy.json Repository.openapi+json-legacy.json
         
-        # Copy versioned specs
-        for file in openapi-specs/openapi-v*.json; do
-          VERSION=$(basename "$file" | sed 's/openapi-//g' | sed 's/.json//g')
-          echo "Processing $VERSION from $file"
-          cp "$file" "Repository.openapi+json-$VERSION.json"
-        done
+        # Copy specific versioned specs
+        if [ -f "openapi-specs/openapi-v1.json" ]; then
+          echo "Processing v1"
+          cp "openapi-specs/openapi-v1.json" "Repository.openapi+json-v1.json"
+        fi
+        
+        if [ -f "openapi-specs/openapi-v1.1.json" ]; then
+          echo "Processing v1.1"
+          cp "openapi-specs/openapi-v1.1.json" "Repository.openapi+json-v1.1.json"
+        fi
+        
+        if [ -f "openapi-specs/openapi-v1.2.json" ]; then
+          echo "Processing v1.2"
+          cp "openapi-specs/openapi-v1.2.json" "Repository.openapi+json-v1.2.json"
+        fi
         
         ls -la Repository.openapi+json-*.json
 
@@ -285,14 +297,24 @@ jobs:
 
     - name: Copy OpenAPI Specs to Terraform Directory
       run: |
+        # Copy legacy spec
         cp openapi-specs/openapi-legacy.json Repository.openapi+json-legacy.json
         
-        # Copy versioned specs
-        for file in openapi-specs/openapi-v*.json; do
-          VERSION=$(basename "$file" | sed 's/openapi-//g' | sed 's/.json//g')
-          echo "Processing $VERSION from $file"
-          cp "$file" "Repository.openapi+json-$VERSION.json"
-        done
+        # Copy specific versioned specs
+        if [ -f "openapi-specs/openapi-v1.json" ]; then
+          echo "Processing v1"
+          cp "openapi-specs/openapi-v1.json" "Repository.openapi+json-v1.json"
+        fi
+        
+        if [ -f "openapi-specs/openapi-v1.1.json" ]; then
+          echo "Processing v1.1"
+          cp "openapi-specs/openapi-v1.1.json" "Repository.openapi+json-v1.1.json"
+        fi
+        
+        if [ -f "openapi-specs/openapi-v1.2.json" ]; then
+          echo "Processing v1.2"
+          cp "openapi-specs/openapi-v1.2.json" "Repository.openapi+json-v1.2.json"
+        fi
         
         ls -la Repository.openapi+json-*.json
 
