@@ -109,7 +109,7 @@ resource "azurerm_api_management_api" "repository_api_versioned" {
 
   import {
     content_format = "openapi+json"
-    content_value  = file("Repository.openapi+json-${each.key}.json")
+    content_value  = fileexists("Repository.openapi+json-${each.key}.json") ? file("Repository.openapi+json-${each.key}.json") : file("../Repository.openapi+json-${each.key}.json")
   }
 }
 
