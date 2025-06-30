@@ -50,28 +50,9 @@ runs:
           cp "${{ inputs.download-path }}/openapi-v1.2.json" "terraform/Repository.openapi+json-v1.2.json"
         fi
         
-        # Also copy to root directory as backup
-        if [ -f "${{ inputs.download-path }}/openapi-legacy.json" ]; then
-          cp "${{ inputs.download-path }}/openapi-legacy.json" Repository.openapi+json-legacy.json
-        fi
-        
-        if [ -f "${{ inputs.download-path }}/openapi-v1.json" ]; then
-          cp "${{ inputs.download-path }}/openapi-v1.json" "Repository.openapi+json-v1.json"
-        fi
-        
-        if [ -f "${{ inputs.download-path }}/openapi-v1.1.json" ]; then
-          cp "${{ inputs.download-path }}/openapi-v1.1.json" "Repository.openapi+json-v1.1.json"
-        fi
-        
-        if [ -f "${{ inputs.download-path }}/openapi-v1.2.json" ]; then
-          cp "${{ inputs.download-path }}/openapi-v1.2.json" "Repository.openapi+json-v1.2.json"
-        fi
-        
         echo "Current directory: $(pwd)"
         echo "Files copied successfully to terraform directory:"
         ls -la terraform/Repository.openapi+json-*.json
-        echo "Files copied successfully to root directory:"
-        ls -la Repository.openapi+json-*.json
         echo "Verifying file contents are not empty:"
         for file in terraform/Repository.openapi+json-*.json; do
           if [ -f "$file" ]; then
