@@ -3,7 +3,7 @@
 
 locals {
   // List of version files that exist (excluding legacy which is handled separately)
-  version_files = fileset("../", "openapi-v*.json")
+  version_files = fileset("../openapi", "openapi-v*.json")
 
   // Extract version strings from filenames (e.g., "v1.0", "v1.1", "v2.0")
   version_strings = [for file in local.version_files :
@@ -67,7 +67,7 @@ locals {
 // Data sources for versioned OpenAPI specification files
 data "local_file" "repository_openapi_versioned" {
   for_each = local.api_version_formats
-  filename = "../openapi-${each.key}.json"
+  filename = "../openapi/openapi-${each.key}.json"
 }
 
 // Create backend for versioned APIs

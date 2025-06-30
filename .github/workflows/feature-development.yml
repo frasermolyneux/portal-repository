@@ -24,17 +24,6 @@ jobs:
         src-folder: "src"
         majorMinorVersion: "1.1"
 
-  capture-openapi-specs:
-    runs-on: ubuntu-latest
-    needs: [dotnet-web-ci]
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: ./.github/actions/capture-openapi-specs
-        with:
-          dotnet-version: '9.0.x'
-
   publish-nuget-packages:
     environment: NuGet
     runs-on: ubuntu-latest
@@ -51,7 +40,7 @@ jobs:
   terraform-plan-and-apply-dev:
     environment: Development
     runs-on: ubuntu-latest
-    needs: [capture-openapi-specs]
+    needs: [dotnet-web-ci]
 
     concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
       group: ${{ github.repository }}-dev
@@ -59,8 +48,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - uses: ./.github/actions/setup-openapi-specs
-
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
         terraform-folder: "terraform"
