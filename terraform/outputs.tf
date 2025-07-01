@@ -2,16 +2,8 @@ output "apim_base_url" {
   value = data.azurerm_api_management.core.gateway_url
 }
 
-output "web_app_name" {
-  value = azurerm_linux_web_app.app.name
-}
-
 output "web_app_name_v1" {
   value = azurerm_linux_web_app.app_v1.name
-}
-
-output "web_app_resource_group" {
-  value = azurerm_linux_web_app.app.resource_group_name
 }
 
 output "web_app_resource_group_v1" {

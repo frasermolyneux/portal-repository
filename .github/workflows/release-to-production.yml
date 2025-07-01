@@ -66,9 +66,7 @@ jobs:
       shell: bash
       run: |
         cd terraform
-        echo "web_app_name=$(terraform output -raw web_app_name)" >> $GITHUB_OUTPUT
         echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
-        echo "web_app_resource_group=$(terraform output -raw web_app_resource_group)" >> $GITHUB_OUTPUT
         echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
         echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
@@ -84,9 +82,7 @@ jobs:
         ARM_USE_OIDC: true
 
     outputs:
-      web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
       web_app_name_v1: ${{ steps.terraform-output.outputs.web_app_name_v1 }}
-      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
       web_app_resource_group_v1: ${{ steps.terraform-output.outputs.web_app_resource_group_v1 }}
       apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
@@ -205,9 +201,7 @@ jobs:
       shell: bash
       run: |
         cd terraform
-        echo "web_app_name=$(terraform output -raw web_app_name)" >> $GITHUB_OUTPUT
         echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
-        echo "web_app_resource_group=$(terraform output -raw web_app_resource_group)" >> $GITHUB_OUTPUT
         echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
         echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
@@ -223,9 +217,7 @@ jobs:
         ARM_USE_OIDC: true
 
     outputs:
-      web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
       web_app_name_v1: ${{ steps.terraform-output.outputs.web_app_name_v1 }}
-      web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
       web_app_resource_group_v1: ${{ steps.terraform-output.outputs.web_app_resource_group_v1 }}
       apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}

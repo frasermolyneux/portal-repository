@@ -5,7 +5,7 @@ locals {
     "subscription_id"          = var.subscription_id
     "resource_group_name"      = azurerm_resource_group.rg.name
     "key_vault_name"           = azurerm_key_vault.kv.name
-    "web_app_name"             = azurerm_linux_web_app.app.name
+    "web_app_name_v1"          = azurerm_linux_web_app.app_v1.name
     "core_resource_group_name" = data.azurerm_resource_group.core.name
     "app_insights_name"        = data.azurerm_application_insights.core.name
     "api_management_name"      = data.azurerm_api_management.core.name
