@@ -83,7 +83,7 @@ public class BaseApiTests
             BaseUrl = baseUrl,
             PrimaryApiKey = apiKey,
             ApiAudience = apiAudience,
-            ApiPathPrefix = configuration["api_path_prefix"] ?? string.Empty
+            ApiPathPrefix = configuration["api_path_prefix"] ?? "repository"
         });
         var tokenProvider = new ApiTokenProvider(apiTokenProviderLogger, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
 

@@ -59,7 +59,7 @@ jobs:
         cd terraform
         echo "web_app_name=$(terraform output -raw web_app_name)" >> $GITHUB_OUTPUT
         echo "web_app_resource_group=$(terraform output -raw web_app_resource_group)" >> $GITHUB_OUTPUT
-        echo "workload_public_url=$(terraform output -raw workload_public_url)" >> $GITHUB_OUTPUT
+        echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
         echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
         echo "key_vault_name=$(terraform output -raw key_vault_name)" >> $GITHUB_OUTPUT
@@ -75,7 +75,7 @@ jobs:
     outputs:
       web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
       web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
-      workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
+      apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
       key_vault_name: ${{ steps.terraform-output.outputs.key_vault_name }}
@@ -168,7 +168,7 @@ jobs:
       run: |
         dotnet test src/repository-webapi.IntegrationTests/repository-webapi.IntegrationTests.csproj -c Release
       env:
-        api_base_url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
+        api_base_url: ${{ needs.terraform-plan-and-apply-dev.outputs.apim_base_url }}
         api_key: ${{ env.int_test_api_key }}
         api_audience: ${{ needs.terraform-plan-and-apply-dev.outputs.api_audience }}
         AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
@@ -181,7 +181,7 @@ jobs:
       run: |
         dotnet test src/repository-webapi.IntegrationTests.V1/repository-webapi.IntegrationTests.V1.csproj -c Release
       env:
-        api_base_url: ${{ needs.terraform-plan-and-apply-dev.outputs.workload_public_url }}
+        api_base_url: ${{ needs.terraform-plan-and-apply-dev.outputs.apim_base_url }}
         api_key: ${{ env.int_test_api_key }}
         api_audience: ${{ needs.terraform-plan-and-apply-dev.outputs.api_audience }}
         AZURE_CLIENT_ID: ${{ env.int_test_client_id }}

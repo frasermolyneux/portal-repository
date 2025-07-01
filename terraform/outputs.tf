@@ -1,5 +1,5 @@
-output "workload_public_url" {
-  value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api_legacy.path)
+output "apim_base_url" {
+  value = data.azurerm_api_management.core.gateway_url
 }
 
 output "web_app_name" {
