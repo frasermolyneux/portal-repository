@@ -6,7 +6,7 @@
     "version": "1.0"
   },
   "paths": {
-    "/api/admin-actions/{adminActionId}": {
+    "/admin-actions/{adminActionId}": {
       "get": {
         "tags": [
           "AdminActions"
@@ -71,7 +71,7 @@
         }
       }
     },
-    "/api/admin-actions": {
+    "/admin-actions": {
       "get": {
         "tags": [
           "AdminActions"
@@ -147,7 +147,7 @@
         }
       }
     },
-    "/api/ban-file-monitors/{banFileMonitorId}": {
+    "/ban-file-monitors/{banFileMonitorId}": {
       "get": {
         "tags": [
           "BanFileMonitors"
@@ -212,7 +212,7 @@
         }
       }
     },
-    "/api/ban-file-monitors": {
+    "/ban-file-monitors": {
       "get": {
         "tags": [
           "BanFileMonitors"
@@ -281,7 +281,7 @@
         }
       }
     },
-    "/api/chat-messages/{chatMessageId}": {
+    "/chat-messages/{chatMessageId}": {
       "get": {
         "tags": [
           "ChatMessages"
@@ -304,7 +304,7 @@
         }
       }
     },
-    "/api/chat-messages": {
+    "/chat-messages": {
       "get": {
         "tags": [
           "ChatMessages"
@@ -388,7 +388,7 @@
         }
       }
     },
-    "/api/chat-messages/{chatMessageId}/toggle-lock": {
+    "/chat-messages/{chatMessageId}/toggle-lock": {
       "post": {
         "tags": [
           "ChatMessages"
@@ -411,7 +411,7 @@
         }
       }
     },
-    "/api/data-maintenance/prune-chat-messages": {
+    "/data-maintenance/prune-chat-messages": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -423,7 +423,7 @@
         }
       }
     },
-    "/api/data-maintenance/prune-game-server-events": {
+    "/data-maintenance/prune-game-server-events": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -435,7 +435,7 @@
         }
       }
     },
-    "/api/data-maintenance/prune-game-server-stats": {
+    "/data-maintenance/prune-game-server-stats": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -447,7 +447,7 @@
         }
       }
     },
-    "/api/data-maintenance/prune-recent-players": {
+    "/data-maintenance/prune-recent-players": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -459,7 +459,7 @@
         }
       }
     },
-    "/api/data-maintenance/reset-system-assigned-player-tags": {
+    "/data-maintenance/reset-system-assigned-player-tags": {
       "put": {
         "tags": [
           "DataMaintenance"
@@ -471,7 +471,7 @@
         }
       }
     },
-    "/api/demos/{demoId}": {
+    "/demos/{demoId}": {
       "get": {
         "tags": [
           "Demos"
@@ -515,7 +515,7 @@
         }
       }
     },
-    "/api/demos": {
+    "/demos": {
       "get": {
         "tags": [
           "Demos"
@@ -583,7 +583,7 @@
         }
       }
     },
-    "/api/demos/{demoId}/file": {
+    "/demos/{demoId}/file": {
       "post": {
         "tags": [
           "Demos"
@@ -606,7 +606,7 @@
         }
       }
     },
-    "/api/game-servers/{gameServerId}": {
+    "/game-servers/{gameServerId}": {
       "get": {
         "tags": [
           "GameServers"
@@ -671,7 +671,7 @@
         }
       }
     },
-    "/api/game-servers": {
+    "/game-servers": {
       "get": {
         "tags": [
           "GameServers"
@@ -739,7 +739,7 @@
         }
       }
     },
-    "/api/game-server-events": {
+    "/game-server-events": {
       "post": {
         "tags": [
           "GameServersEvents"
@@ -751,7 +751,7 @@
         }
       }
     },
-    "/api/game-servers/{gameServerId}/secret/{secretId}": {
+    "/game-servers/{gameServerId}/secret/{secretId}": {
       "get": {
         "tags": [
           "GameServersSecrets"
@@ -809,7 +809,7 @@
         }
       }
     },
-    "/api/game-servers-stats": {
+    "/game-servers-stats": {
       "post": {
         "tags": [
           "GameServersStats"
@@ -821,7 +821,7 @@
         }
       }
     },
-    "/api/game-servers-stats/{gameServerId}": {
+    "/game-servers-stats/{gameServerId}": {
       "get": {
         "tags": [
           "GameServersStats"
@@ -852,7 +852,7 @@
         }
       }
     },
-    "/api/gametracker/{ipAddress}:{queryPort}/{imageName}": {
+    "/gametracker/{ipAddress}:{queryPort}/{imageName}": {
       "get": {
         "tags": [
           "GameTrackerBanner"
@@ -890,7 +890,7 @@
         }
       }
     },
-    "/api/live-players": {
+    "/live-players": {
       "get": {
         "tags": [
           "LivePlayers"
@@ -949,7 +949,7 @@
         }
       }
     },
-    "/api/live-players/{gameServerId}": {
+    "/live-players/{gameServerId}": {
       "post": {
         "tags": [
           "LivePlayers"
@@ -972,7 +972,7 @@
         }
       }
     },
-    "/api/maps/pack/{mapPackId}": {
+    "/maps/pack/{mapPackId}": {
       "get": {
         "tags": [
           "MapPacks"
@@ -1037,7 +1037,7 @@
         }
       }
     },
-    "/api/maps/pack": {
+    "/maps/pack": {
       "get": {
         "tags": [
           "MapPacks"
@@ -1105,7 +1105,7 @@
         }
       }
     },
-    "/api/maps/{mapId}": {
+    "/maps/{mapId}": {
       "get": {
         "tags": [
           "Maps"
@@ -1149,7 +1149,7 @@
         }
       }
     },
-    "/api/maps/{gameType}/{mapName}": {
+    "/maps/{gameType}/{mapName}": {
       "get": {
         "tags": [
           "Maps"
@@ -1179,7 +1179,7 @@
         }
       }
     },
-    "/api/maps": {
+    "/maps": {
       "get": {
         "tags": [
           "Maps"
@@ -1264,7 +1264,7 @@
         }
       }
     },
-    "/api/maps/popularity": {
+    "/maps/popularity": {
       "post": {
         "tags": [
           "Maps"
@@ -1276,7 +1276,7 @@
         }
       }
     },
-    "/api/maps/votes": {
+    "/maps/votes": {
       "post": {
         "tags": [
           "Maps"
@@ -1288,7 +1288,7 @@
         }
       }
     },
-    "/api/maps/{mapId}/image": {
+    "/maps/{mapId}/image": {
       "post": {
         "tags": [
           "Maps"
@@ -1311,7 +1311,7 @@
         }
       }
     },
-    "/api/player-analytics/cumulative-daily-players": {
+    "/player-analytics/cumulative-daily-players": {
       "get": {
         "tags": [
           "PlayerAnalytics"
@@ -1333,7 +1333,7 @@
         }
       }
     },
-    "/api/player-analytics/new-daily-players-per-game": {
+    "/player-analytics/new-daily-players-per-game": {
       "get": {
         "tags": [
           "PlayerAnalytics"
@@ -1355,7 +1355,7 @@
         }
       }
     },
-    "/api/player-analytics/players-drop-off-per-game": {
+    "/player-analytics/players-drop-off-per-game": {
       "get": {
         "tags": [
           "PlayerAnalytics"
@@ -1377,7 +1377,7 @@
         }
       }
     },
-    "/api/players/{playerId}": {
+    "/players/{playerId}": {
       "get": {
         "tags": [
           "Players"
@@ -1428,7 +1428,7 @@
         }
       }
     },
-    "/api/players/by-game-type/{gameType}/{guid}": {
+    "/players/by-game-type/{gameType}/{guid}": {
       "head": {
         "tags": [
           "Players"
@@ -1493,7 +1493,7 @@
         }
       }
     },
-    "/api/players": {
+    "/players": {
       "get": {
         "tags": [
           "Players"
@@ -1568,7 +1568,7 @@
         }
       }
     },
-    "/api/players/protected-names": {
+    "/players/protected-names": {
       "get": {
         "tags": [
           "Players"
@@ -1608,7 +1608,7 @@
         }
       }
     },
-    "/api/players/protected-names/{protectedNameId}": {
+    "/players/protected-names/{protectedNameId}": {
       "get": {
         "tags": [
           "Players"
@@ -1652,7 +1652,7 @@
         }
       }
     },
-    "/api/players/{playerId}/protected-names": {
+    "/players/{playerId}/protected-names": {
       "get": {
         "tags": [
           "Players"
@@ -1675,7 +1675,7 @@
         }
       }
     },
-    "/api/players/protected-names/{protectedNameId}/usage-report": {
+    "/players/protected-names/{protectedNameId}/usage-report": {
       "get": {
         "tags": [
           "Players"
@@ -1698,7 +1698,7 @@
         }
       }
     },
-    "/api/players/{playerId}/tags": {
+    "/players/{playerId}/tags": {
       "get": {
         "tags": [
           "Players"
@@ -1766,7 +1766,7 @@
         }
       }
     },
-    "/api/players/{playerId}/tags/{playerTagId}": {
+    "/players/{playerId}/tags/{playerTagId}": {
       "delete": {
         "tags": [
           "Players"
@@ -1798,7 +1798,7 @@
         }
       }
     },
-    "/api/players/tags/{playerTagId}": {
+    "/players/tags/{playerTagId}": {
       "get": {
         "tags": [
           "Players"
@@ -1842,7 +1842,7 @@
         }
       }
     },
-    "/api/players/with-ip-address/{ipAddress}": {
+    "/players/with-ip-address/{ipAddress}": {
       "get": {
         "tags": [
           "Players"
@@ -1894,7 +1894,7 @@
         }
       }
     },
-    "/api/players/{playerId}/ip-addresses": {
+    "/players/{playerId}/ip-addresses": {
       "get": {
         "tags": [
           "Players"
@@ -1940,7 +1940,7 @@
         }
       }
     },
-    "/api/players/{playerId}/aliases": {
+    "/players/{playerId}/aliases": {
       "get": {
         "tags": [
           "Players"
@@ -2024,7 +2024,7 @@
         }
       }
     },
-    "/api/players/{playerId}/aliases/{aliasId}": {
+    "/players/{playerId}/aliases/{aliasId}": {
       "put": {
         "tags": [
           "Players"
@@ -2110,7 +2110,7 @@
         }
       }
     },
-    "/api/aliases/search": {
+    "/aliases/search": {
       "get": {
         "tags": [
           "Players"
@@ -2147,7 +2147,7 @@
         }
       }
     },
-    "/api/recent-players": {
+    "/recent-players": {
       "get": {
         "tags": [
           "RecentPlayers"
@@ -2224,7 +2224,7 @@
         }
       }
     },
-    "/api/reports/{reportId}": {
+    "/reports/{reportId}": {
       "get": {
         "tags": [
           "Reports"
@@ -2247,7 +2247,7 @@
         }
       }
     },
-    "/api/reports": {
+    "/reports": {
       "get": {
         "tags": [
           "Reports"
@@ -2324,7 +2324,7 @@
         }
       }
     },
-    "/api/reports/{reportId}/close": {
+    "/reports/{reportId}/close": {
       "patch": {
         "tags": [
           "Reports"
@@ -2347,7 +2347,7 @@
         }
       }
     },
-    "/api": {
+    "": {
       "head": {
         "tags": [
           "RootApi"
@@ -2358,17 +2358,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               }
             }
@@ -2385,17 +2385,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               }
             }
@@ -2412,17 +2412,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemasResponseDto"
                 }
               }
             }
@@ -2430,7 +2430,7 @@
         }
       }
     },
-    "/api/tags": {
+    "/tags": {
       "get": {
         "tags": [
           "Tags"
@@ -2530,7 +2530,7 @@
         }
       }
     },
-    "/api/tags/{tagId}": {
+    "/tags/{tagId}": {
       "get": {
         "tags": [
           "Tags"
@@ -2574,7 +2574,7 @@
         }
       }
     },
-    "/api/user-profile/{userProfileId}": {
+    "/user-profile/{userProfileId}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -2597,7 +2597,7 @@
         }
       }
     },
-    "/api/user-profile/by-identity-id/{identityId}": {
+    "/user-profile/by-identity-id/{identityId}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -2619,7 +2619,7 @@
         }
       }
     },
-    "/api/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
+    "/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -2641,7 +2641,7 @@
         }
       }
     },
-    "/api/user-profile/by-demo-auth-key/{demoAuthKey}": {
+    "/user-profile/by-demo-auth-key/{demoAuthKey}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -2663,7 +2663,7 @@
         }
       }
     },
-    "/api/user-profile": {
+    "/user-profile": {
       "get": {
         "tags": [
           "UserProfile"
@@ -2727,7 +2727,7 @@
         }
       }
     },
-    "/api/user-profile/{userProfileId}/claims": {
+    "/user-profile/{userProfileId}/claims": {
       "patch": {
         "tags": [
           "UserProfile"
@@ -2771,7 +2771,7 @@
         }
       }
     },
-    "/api/user-profile/{userProfileId}/claims/{userProfileClaimId}": {
+    "/user-profile/{userProfileId}/claims/{userProfileClaimId}": {
       "delete": {
         "tags": [
           "UserProfile"
