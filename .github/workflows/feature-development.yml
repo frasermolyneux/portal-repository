@@ -62,7 +62,9 @@ jobs:
       run: |
         cd terraform
         echo "web_app_name=$(terraform output -raw web_app_name)" >> $GITHUB_OUTPUT
+        echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
         echo "web_app_resource_group=$(terraform output -raw web_app_resource_group)" >> $GITHUB_OUTPUT
+        echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
         echo "workload_public_url=$(terraform output -raw workload_public_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
         echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
@@ -78,7 +80,9 @@ jobs:
 
     outputs:
       web_app_name: ${{ steps.terraform-output.outputs.web_app_name }}
+      web_app_name_v1: ${{ steps.terraform-output.outputs.web_app_name_v1 }}
       web_app_resource_group: ${{ steps.terraform-output.outputs.web_app_resource_group }}
+      web_app_resource_group_v1: ${{ steps.terraform-output.outputs.web_app_resource_group_v1 }}
       workload_public_url: ${{ steps.terraform-output.outputs.workload_public_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
@@ -123,6 +127,16 @@ jobs:
       with:
         web-artifact-name: "repository-webapi"
         web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name }}
+        resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group }}
+        AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - uses: frasermolyneux/actions/deploy-app-service@main
+      with:
+        web-artifact-name: "repository-webapi"
+        web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
+        resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group_v1 }}
         AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -137,7 +151,7 @@ jobs:
 
     steps:
     - name: "Az CLI Login"
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}

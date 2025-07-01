@@ -2,19 +2,20 @@ output "workload_public_url" {
   value = format("%s/%s", data.azurerm_api_management.core.gateway_url, azurerm_api_management_api.repository_api_legacy.path)
 }
 
-output "workload_public_url_v1" {
-  value = format("%s/%s/v1.0", data.azurerm_api_management.core.gateway_url, try(
-    azurerm_api_management_api.repository_api_versioned["v1.0"].path,
-    "repository" // Fallback path if v1.0 is not found
-  ))
-}
-
 output "web_app_name" {
   value = azurerm_linux_web_app.app.name
 }
 
+output "web_app_name_v1" {
+  value = azurerm_linux_web_app.app_v1.name
+}
+
 output "web_app_resource_group" {
   value = azurerm_linux_web_app.app.resource_group_name
+}
+
+output "web_app_resource_group_v1" {
+  value = azurerm_linux_web_app.app_v1.resource_group_name
 }
 
 output "sql_server_fqdn" {
