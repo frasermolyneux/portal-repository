@@ -1,60 +1,16 @@
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-
-using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
-using XtremeIdiots.Portal.RepositoryApiClient;
 using XtremeIdiots.Portal.RepositoryApiClient.V1;
 
 using System.Reflection;
 
 namespace repository_webapi.IntegrationTests.V1;
 
-/// <summary>
-/// Console logger implementation that logs messages to the console.
-/// </summary>
-public class ConsoleLogger<T> : ILogger<T>
-{
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
-    {
-        return null;
-    }
-
-    public bool IsEnabled(LogLevel logLevel)
-    {
-        // Enable all log levels
-        return true;
-    }
-
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-    {
-        if (!IsEnabled(logLevel))
-            return;
-
-        var message = formatter(state, exception);
-        Console.WriteLine($"[{DateTime.UtcNow}] {logLevel} [{typeof(T).Name}] {message}");
-
-        if (exception != null)
-        {
-            Console.WriteLine($"Exception: {exception.Message}");
-            Console.WriteLine(exception.StackTrace);
-
-            if (exception.InnerException != null)
-            {
-                Console.WriteLine($"Inner Exception: {exception.InnerException.Message}");
-                Console.WriteLine(exception.InnerException.StackTrace);
-            }
-        }
-    }
-}
-
 public class BaseApiTests
 {
-    protected IPlayersApi playersApi;
-    protected IRootApi rootApi;
+    protected IRepositoryApiClient repositoryApiClient;
 
     public BaseApiTests()
     {
@@ -65,27 +21,32 @@ public class BaseApiTests
 
         Console.WriteLine($"Using API Base URL: {configuration["api_base_url"]}");
 
-        // Replace mock logger with real console logger
-        var apiTokenProviderLogger = new ConsoleLogger<ApiTokenProvider>();
-        var playersApiLogger = new ConsoleLogger<PlayersApi>();
-        var rootApiLogger = new ConsoleLogger<RootApi>();
-
         string baseUrl = configuration["api_base_url"] ?? throw new Exception("Environment variable 'api_base_url' is null - this needs to be set to invoke tests");
         string apiKey = configuration["api_key"] ?? throw new Exception("Environment variable 'api_key' is null - this needs to be set to invoke tests");
         string apiAudience = configuration["api_audience"] ?? throw new Exception("Environment variable 'api_audience' is null - this needs to be set to invoke tests");
 
-        var repositoryApiClientOptions = Options.Create(new RepositoryApiClientOptions()
+        // Set up dependency injection using the service collection extension
+        var services = new ServiceCollection();
+
+        // Add console logging
+        services.AddLogging(loggingBuilder =>
         {
-            BaseUrl = baseUrl,
-            PrimaryApiKey = apiKey,
-            ApiAudience = apiAudience,
-            ApiPathPrefix = configuration["api_path_prefix"] ?? "repository"
+            loggingBuilder.ClearProviders();
+            loggingBuilder.SetMinimumLevel(LogLevel.Debug);
+            loggingBuilder.AddProvider(new ConsoleLoggerProvider());
         });
 
-        var tokenProvider = new ApiTokenProvider(apiTokenProviderLogger, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
+        // Add RepositoryApiClient with configuration
+        services.AddRepositoryApiClient(options =>
+        {
+            options.BaseUrl = baseUrl;
+            options.PrimaryApiKey = apiKey;
+            options.ApiAudience = apiAudience;
+            options.ApiPathPrefix = configuration["api_path_prefix"] ?? "repository";
+        });
 
-        playersApi = new PlayersApi(playersApiLogger, tokenProvider, new MemoryCache(new MemoryCacheOptions()), repositoryApiClientOptions, new RestClientSingleton());
-        rootApi = new RootApi(rootApiLogger, tokenProvider, repositoryApiClientOptions, new RestClientSingleton());
+        var serviceProvider = services.BuildServiceProvider();
+        repositoryApiClient = serviceProvider.GetRequiredService<IRepositoryApiClient>();
 
         WarmUp().Wait();
     }
@@ -96,7 +57,7 @@ public class BaseApiTests
         {
             try
             {
-                _ = await rootApi.GetRoot();
+                _ = await repositoryApiClient.Root.V1.GetRoot();
                 // Successfully warmed up, break out of the loop
                 break;
             }

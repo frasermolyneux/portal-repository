@@ -13,8 +13,8 @@ public class PlayersApiTests : BaseApiTests
         var player = new CreatePlayerDto("Test Player", testGuid, GameType.CallOfDuty2);
 
         // Act
-        _ = await playersApi.CreatePlayer(player);
-        var getResult = await playersApi.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.None);
+        _ = await repositoryApiClient.Players.V1.CreatePlayer(player);
+        var getResult = await repositoryApiClient.Players.V1.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.None);
 
         // Assert
         Assert.True(getResult.IsSuccess);
@@ -30,7 +30,7 @@ public class PlayersApiTests : BaseApiTests
         // Arrange
 
         // Act
-        var result = await playersApi.HeadPlayerByGameType(GameType.CallOfDuty2, "non-existing-guid");
+        var result = await repositoryApiClient.Players.V1.HeadPlayerByGameType(GameType.CallOfDuty2, "non-existing-guid");
 
         // Assert
         Assert.True(result.IsNotFound);
@@ -44,10 +44,10 @@ public class PlayersApiTests : BaseApiTests
         var player = new CreatePlayerDto("IP Test Player", testGuid, GameType.CallOfDuty2);
 
         // Act - Create player
-        _ = await playersApi.CreatePlayer(player);
+        _ = await repositoryApiClient.Players.V1.CreatePlayer(player);
 
         // Get player to retrieve the ID
-        var getResult = await playersApi.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.IpAddresses);
+        var getResult = await repositoryApiClient.Players.V1.GetPlayerByGameType(GameType.CallOfDuty2, testGuid, PlayerEntityOptions.IpAddresses);
 
         Assert.True(getResult.IsSuccess);
         Assert.NotNull(getResult.Result);
@@ -55,7 +55,7 @@ public class PlayersApiTests : BaseApiTests
         var playerId = getResult.Result!.PlayerId!;
 
         // Get IP Addresses
-        var ipAddressesResult = await playersApi.GetPlayerIpAddresses(playerId, 0, 10, IpAddressesOrder.LastUsedDesc);
+        var ipAddressesResult = await repositoryApiClient.Players.V1.GetPlayerIpAddresses(playerId, 0, 10, IpAddressesOrder.LastUsedDesc);
 
         // Assert
         Assert.True(ipAddressesResult.IsSuccess);
