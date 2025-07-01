@@ -110,7 +110,7 @@ resource "azurerm_api_management_api" "repository_api_versioned" {
   display_name = "Repository API"
   description  = "API for repository layer"
   path         = "repository"
-  protocols    = ["http"]
+  protocols    = ["https"]
 
   subscription_required = true
 

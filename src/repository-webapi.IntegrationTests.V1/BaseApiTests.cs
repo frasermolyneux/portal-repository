@@ -79,7 +79,7 @@ public class BaseApiTests
             BaseUrl = baseUrl,
             PrimaryApiKey = apiKey,
             ApiAudience = apiAudience,
-            ApiPathPrefix = "/v1" // Adding the v1 path prefix for the v1 API tests
+            ApiPathPrefix = configuration["api_path_prefix"] ?? "repository/v1"
         });
 
         var tokenProvider = new ApiTokenProvider(apiTokenProviderLogger, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
