@@ -7,7 +7,7 @@ using MxIO.ApiClient;
 
 using XtremeIdiots.Portal.RepositoryApi.Abstractions.Interfaces;
 using XtremeIdiots.Portal.RepositoryApiClient;
-using XtremeIdiots.Portal.RepositoryApiClient.Api;
+using XtremeIdiots.Portal.RepositoryApiClient.V1;
 
 using System.Reflection;
 
@@ -79,7 +79,7 @@ public class BaseApiTests
             BaseUrl = baseUrl,
             PrimaryApiKey = apiKey,
             ApiAudience = apiAudience,
-            ApiPathPrefix = configuration["api_path_prefix"] ?? "repository/v1"
+            ApiPathPrefix = configuration["api_path_prefix"] ?? "repository"
         });
 
         var tokenProvider = new ApiTokenProvider(apiTokenProviderLogger, new MemoryCache(new MemoryCacheOptions()), new DefaultTokenCredentialProvider(), TimeSpan.FromMinutes(5));
