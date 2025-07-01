@@ -60,10 +60,10 @@
           ContinueOnError="true" />
     
     <!-- Post-process OpenAPI files to replace /api/v1/ with / -->
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.json') -replace '/api/v1', '' | Set-Content '$(OpenApiOutputPath)\openapi-v1.json'&quot;" 
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.json').replace('/api/v1/', '/').replace('/api/v1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.json'&quot;" 
           ContinueOnError="true" />
     
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.1.json') -replace '/api/v1.1', '' | Set-Content '$(OpenApiOutputPath)\openapi-v1.1.json'&quot;" 
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.1.json').replace('/api/v1.1/', '/').replace('/api/v1.1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.1.json'&quot;" 
           ContinueOnError="true" />
     
     <Message Text="OpenAPI files generated and processed in $(OpenApiOutputPath)" Importance="high" />
