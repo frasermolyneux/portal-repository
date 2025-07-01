@@ -98,8 +98,8 @@ jobs:
         sql-args: /Variables:env=dev /Variables:instance=01
         sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
         sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
-        project-folder: "src/database"
-        project-file: "database.sqlproj"
+        project-folder: "src/XtremeIdiots.Portal.Repository.Database"
+        project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
         AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}

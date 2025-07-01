@@ -38,7 +38,7 @@ dotnet tool install ErikEJ.EFCorePowerTools.Cli -g --version 9.*
    Use the following command to reverse engineer the database from the `.dacpac` file:
 
    ```pwsh
-   efcpt ..\database\bin\Debug\database.dacpac mssql -i ".\efcpt-config.json"
+   efcpt ..\database\bin\Debug\XtremeIdiots.Portal.Repository.Database.dacpac mssql -i ".\efcpt-config.json"
    ```
 
    - Adjust the path to the `.dacpac` if your build configuration or output path differs.

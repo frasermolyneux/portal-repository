@@ -102,6 +102,6 @@
     </SqlCmdVariable>
   </ItemGroup>
   <ItemGroup>
-    <RefactorLog Include="database.refactorlog" />
+    <RefactorLog Include="XtremeIdiots.Portal.Repository.Database.refactorlog" />
   </ItemGroup>
 </Project>
