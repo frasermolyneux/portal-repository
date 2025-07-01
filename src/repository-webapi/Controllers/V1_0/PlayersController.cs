@@ -64,7 +64,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             player.PlayerIpAddresses = await context.PlayerIpAddresses.OrderByDescending(pip => pip.LastUsed).Where(pip => pip.PlayerId == player.PlayerId).ToListAsync();
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions))
-            player.AdminActions = await context.AdminActions.OrderByDescending(aa => aa.Created).Where(aa => aa.PlayerId == player.PlayerId).ToListAsync();
+            player.AdminActions = await context.AdminActions.OrderByDescending(aa => aa.Created).Include(aa => aa.UserProfile).Where(aa => aa.PlayerId == player.PlayerId).ToListAsync();
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
             player.ProtectedNames = await context.ProtectedNames.Include(pn => pn.CreatedByUserProfile).OrderByDescending(pn => pn.CreatedOn).Where(pn => pn.PlayerId == player.PlayerId).ToListAsync();
