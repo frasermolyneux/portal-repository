@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>XtremeIdiots.Portal.RepositoryWebApi.V1</RootNamespace>
+    <UserSecretsId>21c6e9c0-5bf8-4b85-9fff-e2c63efda9f1</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ApplicationInsights.Profiler.AspNetCore" Version="2.7.3" />
+    <PackageReference Include="Asp.Versioning.Mvc" Version="8.1.0" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.6" />
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
+    <PackageReference Include="Azure.Identity" Version="1.14.1" />
+    <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.8.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.24.1" />
+    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="3.9.4" />
+    <PackageReference Include="MxIO.ApiClient.Abstractions" Version="1.1.147.1" />
+    <PackageReference Include="MxIO.ApiClient.WebExtensions" Version="1.1.147.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.1" />
+    <PackageReference Include="System.ComponentModel.TypeConverter" Version="4.3.0" />
+    <PackageReference Include="XtremeIdiots.CallOfDuty.DemoReader" Version="1.1.42.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\data-lib\data-lib.csproj" />
+    <ProjectReference Include="..\repository-webapi-abstractions.V1\repository-webapi-abstractions.V1.csproj" />
+  </ItemGroup>
+
+  <!-- Post-build target to generate OpenAPI files -->
+  <Target Name="GenerateOpenApiFiles" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <PropertyGroup>
+      <OpenApiOutputPath>$(MSBuildProjectDirectory)\..\..\openapi</OpenApiOutputPath>
+      <SwaggerAssembly>$(MSBuildProjectDirectory)\$(OutputPath)$(AssemblyName).dll</SwaggerAssembly>
+    </PropertyGroup>
+    
+    <!-- Ensure output directory exists -->
+    <MakeDir Directories="$(OpenApiOutputPath)" />
+    
+    <!-- Restore local tools -->
+    <Exec Command="dotnet tool restore" 
+          WorkingDirectory="$(MSBuildProjectDirectory)\..\..\" />
+    
+    <!-- Generate OpenAPI files for different API versions -->
+    <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputPath)\openapi-v1.json&quot; &quot;$(SwaggerAssembly)&quot; v1" 
+          WorkingDirectory="$(MSBuildProjectDirectory)" 
+          ContinueOnError="true" />
+    
+    <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputPath)\openapi-v1.1.json&quot; &quot;$(SwaggerAssembly)&quot; v1.1" 
+          WorkingDirectory="$(MSBuildProjectDirectory)" 
+          ContinueOnError="true" />
+    
+    <!-- Post-process OpenAPI files to replace /api/v1/ with / -->
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.json').replace('/api/v1/', '/').replace('/api/v1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.json'&quot;" 
+          ContinueOnError="true" />
+    
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.1.json').replace('/api/v1.1/', '/').replace('/api/v1.1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.1.json'&quot;" 
+          ContinueOnError="true" />
+    
+    <Message Text="OpenAPI files generated and processed in $(OpenApiOutputPath)" Importance="high" />
+  </Target>
+
+</Project>

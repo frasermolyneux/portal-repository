@@ -20,7 +20,7 @@
 
   <ItemGroup>
       <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-        <_Parameter1>repository-webapi</_Parameter1>
+        <_Parameter1>repository-webapi.V1</_Parameter1>
       </AssemblyAttribute>
   </ItemGroup>
 

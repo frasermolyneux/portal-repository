@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "repository-webapi-abstracti
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "repository-webapi", "repository-webapi\repository-webapi.csproj", "{7E298762-DE59-4C69-96E5-685754594C2A}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "repository-webapi.V1", "repository-webapi.V1\repository-webapi.V1.csproj", "{8F397A6E-2F4C-4D8A-9B1F-3E5C6D7A8B9C}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "repository-webapi.Tests", "repository-webapi.Tests\repository-webapi.Tests.csproj", "{1799CEFF-533A-400C-9720-2C65A71E88C9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "repository-webapi-client.Tests", "repository-webapi-client.Tests\repository-webapi-client.Tests.csproj", "{76E415CD-B23C-4F80-BDC1-D4034F4E370C}"
@@ -47,6 +49,10 @@ Global
 		{7E298762-DE59-4C69-96E5-685754594C2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7E298762-DE59-4C69-96E5-685754594C2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7E298762-DE59-4C69-96E5-685754594C2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F397A6E-2F4C-4D8A-9B1F-3E5C6D7A8B9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F397A6E-2F4C-4D8A-9B1F-3E5C6D7A8B9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F397A6E-2F4C-4D8A-9B1F-3E5C6D7A8B9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F397A6E-2F4C-4D8A-9B1F-3E5C6D7A8B9C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1799CEFF-533A-400C-9720-2C65A71E88C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1799CEFF-533A-400C-9720-2C65A71E88C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1799CEFF-533A-400C-9720-2C65A71E88C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
