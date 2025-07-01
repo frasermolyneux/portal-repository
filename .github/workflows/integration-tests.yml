@@ -113,7 +113,7 @@ jobs:
     - name: Run Legacy Integration Tests
       shell: bash
       run: |
-        dotnet test src/repository-webapi.IntegrationTests/repository-webapi.IntegrationTests.csproj -c Release
+        dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy/XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy.csproj -c Release
       env:
         api_base_url: ${{ needs.terraform-get-outputs-dev.outputs.apim_base_url }}
         api_key: ${{ env.int_test_api_key }}
@@ -126,7 +126,7 @@ jobs:
     - name: Run V1 Integration Tests
       shell: bash
       run: |
-        dotnet test src/repository-webapi.IntegrationTests.V1/repository-webapi.IntegrationTests.V1.csproj -c Release
+        dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1.csproj -c Release
       env:
         api_base_url: ${{ needs.terraform-get-outputs-dev.outputs.apim_base_url }}
         api_key: ${{ env.int_test_api_key }}

@@ -10,9 +10,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/repository-webapi/bin/Debug/net9.0/repository-webapi.dll",
+            "program": "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.Api.V1/bin/Debug/net9.0/XtremeIdiots.Portal.Repository.Api.V1.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/src/repository-webapi",
+            "cwd": "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.Api.V1",
             "stopAtEntry": false,
             // Enable launching a web browser when ASP.NET Core starts. For more information: https://aka.ms/VSCode-CS-LaunchJson-WebBrowser
             "serverReadyAction": {

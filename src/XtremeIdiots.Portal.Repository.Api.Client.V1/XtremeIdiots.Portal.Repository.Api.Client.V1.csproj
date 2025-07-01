@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>XtremeIdiots.Portal.Repository.Api.Client.V1</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>XtremeIdiots.Portal.Repository.Api.Client.V1</PackageId>
+    <Authors>Fraser Molyneux</Authors>
+    <Company>XtremeIdiots</Company>
+    <Product>XtremeIdiots Portal</Product>
+    <Title>XtremeIdiots Portal Repository API Client V1</Title>
+    <Description>Versioned client for the XtremeIdiots Portal Repository API V1.</Description>
+    <PackageProjectUrl>https://github.com/frasermolyneux/portal-repository</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/frasermolyneux/portal-repository</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression> 
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.14.1" />
+    <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.8.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.6" />
+    <PackageReference Include="MxIO.ApiClient" Version="1.1.147.1" />
+    <PackageReference Include="MxIO.ApiClient.Abstractions" Version="1.1.147.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="RestSharp" Version="112.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V1\XtremeIdiots.Portal.Repository.Abstractions.V1.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="bin\" />
+  </ItemGroup>
+
+</Project>

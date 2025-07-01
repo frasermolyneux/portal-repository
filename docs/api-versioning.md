@@ -1,10 +1,10 @@
 # API Versioning with OpenAPI Specs
 
-This document outlines how API versioning is implemented in the repository-webapi project.
+This document outlines how API versioning is implemented in the XtremeIdiots.Portal.Repository.Api.V1 project.
 
 ## Overview
 
-The repository-webapi project supports multiple API versions, which are deployed to Azure API Management. The versioning follows a combination of path-based versioning and segment-based versioning:
+The XtremeIdiots.Portal.Repository.Api.V1 project supports multiple API versions, which are deployed to Azure API Management. The versioning follows a combination of path-based versioning and segment-based versioning:
 
 - **Path-based versioning**: APIs are accessible at paths like `/api/v1`, `/api/v1.1`, `/api/v2` etc. in the backend application
 - **Segment-based versioning**: In API Management, APIs are accessed through segments like `/repository/v1`, `/repository/v1.1`, `/repository/v2` etc.

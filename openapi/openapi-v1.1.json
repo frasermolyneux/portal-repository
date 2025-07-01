@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.4",
   "info": {
-    "title": "Repository API 1.1",
-    "description": "Repository API 1.1",
+    "title": "Repository API V1 1.1",
+    "description": "Repository API V1 1.1",
     "version": "1.1"
   },
   "paths": {
