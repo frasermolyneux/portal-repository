@@ -25,39 +25,37 @@ locals {
     version => can(regex("\\.", version)) ? version : "${version}.0"
   }
 
-  // Create a map of available web apps - this assumes naming convention
-  // This will only include web apps that actually exist
-  available_web_apps = {
-    for major_version in local.major_versions :
-    major_version => {
-      name     = major_version == "v1" ? local.web_app_name_v1 : (major_version == "v2" ? local.web_app_name_v2 : null)
-      hostname = major_version == "v1" ? azurerm_linux_web_app.app_v1.default_hostname : (major_version == "v2" ? azurerm_linux_web_app.app_v2.default_hostname : null)
-      // Add more conditions here as you create more versioned web apps
-    }
-  }
-
-  // Filter to only include web apps that have hostnames (i.e., actually exist)
-  existing_web_apps = {
-    for k, v in local.available_web_apps :
-    k => v if v.hostname != null
-  }
-
-  // Dynamic backend mapping based on discovered web apps
+  // Static mapping of major versions to web app configurations
+  // This approach allows Terraform to know the keys at plan time
   backend_mapping = {
-    for major_version, app in local.existing_web_apps :
-    major_version => {
-      name         = app.name
-      hostname     = app.hostname
+    "v1" = {
+      name         = local.web_app_name_v1
+      hostname     = azurerm_linux_web_app.app_v1.default_hostname
       protocol     = "http"
-      api_path     = "api"
       tls_validate = true
-      description  = "Backend for ${major_version}.x APIs"
+      description  = "Backend for v1.x APIs"
+      exists       = true
     }
+    "v2" = {
+      name         = local.web_app_name_v2
+      hostname     = azurerm_linux_web_app.app_v2.default_hostname
+      protocol     = "http"
+      tls_validate = true
+      description  = "Backend for v2.x APIs"
+      exists       = true
+    }
+    # Add future versions with explicit entries here
+  }
+
+  // Filter to only include web apps that have a major version in our discovered APIs
+  filtered_backend_mapping = {
+    for k, v in local.backend_mapping :
+    k => v if contains(local.major_versions, k) && v.exists
   }
 
   // Default backend uses the lowest available major version (v1 in most cases)
-  default_backend_version = sort(keys(local.backend_mapping))[0]
-  default_backend         = local.backend_mapping[local.default_backend_version]
+  default_backend_version = length(local.filtered_backend_mapping) > 0 ? sort(keys(local.filtered_backend_mapping))[0] : "v1"
+  default_backend         = length(local.filtered_backend_mapping) > 0 ? local.filtered_backend_mapping[local.default_backend_version] : local.backend_mapping["v1"]
 
   // Helper function to get the major version from a full version (e.g., "v1" from "v1.2")
   get_major_version = { for version in local.versioned_apis :
@@ -66,8 +64,8 @@ locals {
 
   // Get the backend configuration for a specific API version
   get_backend_for_version = { for version in local.versioned_apis :
-    version => contains(keys(local.backend_mapping), local.get_major_version[version]) ?
-    local.backend_mapping[local.get_major_version[version]] :
+    version => contains(keys(local.filtered_backend_mapping), local.get_major_version[version]) ?
+    local.filtered_backend_mapping[local.get_major_version[version]] :
     local.default_backend
   }
 }
@@ -80,7 +78,7 @@ data "local_file" "repository_openapi_versioned" {
 
 // Create backend for versioned APIs
 resource "azurerm_api_management_backend" "webapi_api_management_backend_versioned" {
-  for_each = local.backend_mapping
+  for_each = local.filtered_backend_mapping
 
   name                = each.value.name
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -151,9 +149,9 @@ resource "azurerm_api_management_api_policy" "repository_api_policy_versioned" {
   <inbound>
       <base/>
       <set-backend-service backend-id="${
-  contains(keys(local.backend_mapping), local.get_major_version[each.key])
+  contains(keys(local.filtered_backend_mapping), local.get_major_version[each.key])
   ? azurerm_api_management_backend.webapi_api_management_backend_versioned[local.get_major_version[each.key]].name
-  : azurerm_api_management_backend.webapi_api_management_backend_versioned["v1"].name
+  : azurerm_api_management_backend.webapi_api_management_backend_versioned[local.default_backend_version].name
 }" />
       <!-- Correct path rewriting for versioned APIs -->
       <set-variable name="rewriteUriTemplate" value="@("/api" + context.Request.OriginalUrl.Path.Substring(context.Api.Path.Length))" />
