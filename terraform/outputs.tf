@@ -10,6 +10,14 @@ output "web_app_resource_group_v1" {
   value = azurerm_linux_web_app.app_v1.resource_group_name
 }
 
+output "web_app_name_v2" {
+  value = azurerm_linux_web_app.app_v2.name
+}
+
+output "web_app_resource_group_v2" {
+  value = azurerm_linux_web_app.app_v2.resource_group_name
+}
+
 output "sql_server_fqdn" {
   value = data.azurerm_mssql_server.core.fully_qualified_domain_name
 }

@@ -30,10 +30,9 @@ locals {
   available_web_apps = {
     for major_version in local.major_versions :
     major_version => {
-      name     = major_version == "v1" ? local.web_app_name_v1 : null
-      hostname = major_version == "v1" ? azurerm_linux_web_app.app_v1.default_hostname : null
+      name     = major_version == "v1" ? local.web_app_name_v1 : (major_version == "v2" ? local.web_app_name_v2 : null)
+      hostname = major_version == "v1" ? azurerm_linux_web_app.app_v1.default_hostname : (major_version == "v2" ? azurerm_linux_web_app.app_v2.default_hostname : null)
       // Add more conditions here as you create more versioned web apps
-      // hostname = major_version == "v2" ? azurerm_linux_web_app.app_v2.default_hostname : (major_version == "v1" ? azurerm_linux_web_app.app_v1.default_hostname : null)
     }
   }
 

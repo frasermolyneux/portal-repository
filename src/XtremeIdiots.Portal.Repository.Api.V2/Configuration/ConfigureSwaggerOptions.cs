@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace XtremeIdiots.Portal.Repository.Api.V1.Configuration;
+namespace XtremeIdiots.Portal.Repository.Api.V2.Configuration;
 
 /// <summary>
 /// Configures the Swagger generation options for API versioning.
@@ -28,7 +28,7 @@ public class ConfigureSwaggerOptions : IConfigureOptions<SwaggerGenOptions>
                 description.GroupName,
                 new OpenApiInfo
                 {
-                    Title = $"Repository API V1 ({description.ApiVersion})",
+                    Title = $"Repository API V2 ({description.ApiVersion})",
                     Version = description.ApiVersion.ToString(),
                     Description = description.IsDeprecated
                         ? "This API version has been deprecated."
@@ -48,6 +48,6 @@ public class ConfigureSwaggerOptions : IConfigureOptions<SwaggerGenOptions>
 
     private static string GetVersionDescription(Asp.Versioning.ApiVersion apiVersion)
     {
-        return $"Repository API V1 {apiVersion}";
+        return $"Repository API V2 {apiVersion}";
     }
 }
