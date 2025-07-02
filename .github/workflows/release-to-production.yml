@@ -81,6 +81,8 @@ jobs:
         cd terraform
         echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
         echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
+        echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
+        echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
         echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
         echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
@@ -97,6 +99,8 @@ jobs:
     outputs:
       web_app_name_v1: ${{ steps.terraform-output.outputs.web_app_name_v1 }}
       web_app_resource_group_v1: ${{ steps.terraform-output.outputs.web_app_resource_group_v1 }}
+      web_app_name_v2: ${{ steps.terraform-output.outputs.web_app_name_v2 }}
+      web_app_resource_group_v2: ${{ steps.terraform-output.outputs.web_app_resource_group_v2 }}
       apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
@@ -126,10 +130,10 @@ jobs:
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-  app-service-deploy-dev:
+  app-service-deploy-v1-dev:
     environment: Development
     runs-on: ubuntu-latest
-    needs: [dotnet-web-ci, deploy-sql-database-dev, terraform-plan-and-apply-dev]
+    needs: [dotnet-web-ci-v1, deploy-sql-database-dev, terraform-plan-and-apply-dev]
 
     concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
       group: ${{ github.repository }}-dev
@@ -146,10 +150,30 @@ jobs:
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+  app-service-deploy-v2-dev:
+    environment: Development
+    runs-on: ubuntu-latest
+    needs: [dotnet-web-ci-v2, deploy-sql-database-dev, terraform-plan-and-apply-dev]
+
+    concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
+      group: ${{ github.repository }}-dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: frasermolyneux/actions/deploy-app-service@main
+      with:
+        web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
+        web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
+        resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group_v2 }}
+        AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
   run-api-integration-tests-dev:
     environment: Development
     runs-on: ubuntu-latest
-    needs: [app-service-deploy-dev, terraform-plan-and-apply-dev]
+    needs: [app-service-deploy-v1-dev, app-service-deploy-v2-dev, terraform-plan-and-apply-dev]
 
     concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
       group: ${{ github.repository }}-dev
@@ -189,7 +213,6 @@ jobs:
         AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
         AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
         AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}
-
   terraform-plan-and-apply-prd:
     environment: Production
     runs-on: ubuntu-latest
@@ -200,7 +223,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
         terraform-folder: "terraform"
@@ -216,6 +239,8 @@ jobs:
         cd terraform
         echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
         echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
+        echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
+        echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
         echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
         echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
@@ -232,6 +257,8 @@ jobs:
     outputs:
       web_app_name_v1: ${{ steps.terraform-output.outputs.web_app_name_v1 }}
       web_app_resource_group_v1: ${{ steps.terraform-output.outputs.web_app_resource_group_v1 }}
+      web_app_name_v2: ${{ steps.terraform-output.outputs.web_app_name_v2 }}
+      web_app_resource_group_v2: ${{ steps.terraform-output.outputs.web_app_resource_group_v2 }}
       apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
@@ -261,10 +288,10 @@ jobs:
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-  app-service-deploy-prd:
+  app-service-deploy-v1-prd:
     environment: Production
     runs-on: ubuntu-latest
-    needs: [dotnet-web-ci, deploy-sql-database-prd, terraform-plan-and-apply-prd]
+    needs: [dotnet-web-ci-v1, deploy-sql-database-prd, terraform-plan-and-apply-prd]
 
     concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
       group: ${{ github.repository }}-prd
@@ -281,10 +308,30 @@ jobs:
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+  app-service-deploy-v2-prd:
+    environment: Production
+    runs-on: ubuntu-latest
+    needs: [dotnet-web-ci-v2, deploy-sql-database-prd, terraform-plan-and-apply-prd]
+
+    concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
+      group: ${{ github.repository }}-prd
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: frasermolyneux/actions/deploy-app-service@main
+      with:
+        web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
+        web-app-name: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v2 }}
+        resource-group-name: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_resource_group_v2 }}
+        AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
   run-api-integration-tests-prd:
     environment: Production
     runs-on: ubuntu-latest
-    needs: [app-service-deploy-prd, terraform-plan-and-apply-prd]
+    needs: [app-service-deploy-v1-prd, app-service-deploy-v2-prd, terraform-plan-and-apply-prd]
 
     concurrency: # This is required to prevent multiple GitHub Actions invocations against stateful resources. e.g. Terraform state file / Database / Deployed Apps
       group: ${{ github.repository }}-prd
