@@ -13,7 +13,7 @@
     <PackageReference Include="Asp.Versioning.Mvc" Version="8.1.0" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.6" />
-    <PackageReference Include="AutoMapper" Version="14.0.0" />
+    <PackageReference Include="AutoMapper" Version="15.0.0" />
     <PackageReference Include="Azure.Identity" Version="1.14.1" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.8.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.24.1" />
@@ -22,7 +22,7 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.6" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.6" />
-    <PackageReference Include="Microsoft.Identity.Web" Version="3.9.4" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="3.10.0" />
     <PackageReference Include="MxIO.ApiClient.Abstractions" Version="1.1.147.1" />
     <PackageReference Include="MxIO.ApiClient.WebExtensions" Version="1.1.147.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
@@ -47,14 +47,10 @@
     <MakeDir Directories="$(OpenApiOutputPath)" />
     
     <!-- Restore local tools -->
-    <Exec Command="dotnet tool restore" 
-          WorkingDirectory="$(MSBuildProjectDirectory)" 
-          ContinueOnError="false" />
+    <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="false" />
     
     <!-- Generate OpenAPI JSON for V2 -->
-    <Exec Command="dotnet swagger tofile --output $(OpenApiOutputPath)\openapi-v2.json $(SwaggerAssembly) v2" 
-          WorkingDirectory="$(MSBuildProjectDirectory)" 
-          ContinueOnError="true" />
+    <Exec Command="dotnet swagger tofile --output $(OpenApiOutputPath)\openapi-v2.json $(SwaggerAssembly) v2" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" />
   </Target>
 
 </Project>
