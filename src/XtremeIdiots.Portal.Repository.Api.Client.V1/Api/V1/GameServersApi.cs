@@ -1,10 +1,12 @@
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+using Microsoft.Extensions.Logging;
+
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -14,22 +16,22 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class GameServersApi : BaseApi, IGameServersApi
+    public class GameServersApi : BaseApi<RepositoryApiClientOptions>, IGameServersApi
     {
-        public GameServersApi(ILogger<GameServersApi> logger, IApiTokenProvider apiTokenProvider, IMemoryCache memoryCache, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public GameServersApi(ILogger<GameServersApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
 
         }
 
-        public async Task<ApiResponseDto<GameServerDto>> GetGameServer(Guid gameServerId)
+        public async Task<ApiResult<GameServerDto>> GetGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<GameServerDto>();
+            return response.ToApiResult<GameServerDto>();
         }
 
-        public async Task<ApiResponseDto<GameServersCollectionDto>> GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order)
+        public async Task<ApiResult<CollectionModel<GameServerDto>>> GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/game-servers", Method.Get);
 
@@ -48,47 +50,49 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<GameServersCollectionDto>();
+            return response.ToApiResult<CollectionModel<GameServerDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateGameServer(CreateGameServerDto createGameServerDto)
+        public async Task<ApiResult> CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/game-servers", Method.Post);
             request.AddJsonBody(new List<CreateGameServerDto> { createGameServerDto });
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> CreateGameServers(List<CreateGameServerDto> createGameServerDtos)
+        public async Task<ApiResult> CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/game-servers", Method.Post);
             request.AddJsonBody(createGameServerDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> UpdateGameServer(EditGameServerDto editGameServerDto)
+        public async Task<ApiResult> UpdateGameServer(EditGameServerDto editGameServerDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers/{editGameServerDto.GameServerId}", Method.Patch);
             request.AddJsonBody(editGameServerDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> DeleteGameServer(Guid gameServerId)
+        public async Task<ApiResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Delete);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

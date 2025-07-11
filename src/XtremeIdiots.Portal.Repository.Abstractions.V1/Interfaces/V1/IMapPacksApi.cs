@@ -1,5 +1,5 @@
 using System;
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks;
 
@@ -7,13 +7,13 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IMapPacksApi
 {
-    Task<ApiResponseDto<MapPackDto>> GetMapPack(Guid mapPackId);
-    Task<ApiResponseDto<MapPackCollectionDto>> GetMapPacks(GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter, int skipEntries, int takeEntries, MapPacksOrder? order);
+    Task<ApiResult<MapPackDto>> GetMapPack(Guid mapPackId, CancellationToken cancellationToken = default);
+    Task<ApiResult<CollectionModel<MapPackDto>>> GetMapPacks(GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter, int skipEntries, int takeEntries, MapPacksOrder? order, CancellationToken cancellationToken = default);
 
-    Task<ApiResponseDto> CreateMapPack(CreateMapPackDto createMapPackDto);
-    Task<ApiResponseDto> CreateMapPacks(List<CreateMapPackDto> createMapPackDtos);
+    Task<ApiResult> CreateMapPack(CreateMapPackDto createMapPackDto, CancellationToken cancellationToken = default);
+    Task<ApiResult> CreateMapPacks(List<CreateMapPackDto> createMapPackDtos, CancellationToken cancellationToken = default);
 
-    Task<ApiResponseDto> UpdateMapPack(UpdateMapPackDto updateMapPackDto);
+    Task<ApiResult> UpdateMapPack(UpdateMapPackDto updateMapPackDto, CancellationToken cancellationToken = default);
 
-    Task<ApiResponseDto> DeleteMapPack(Guid mapPackId);
+    Task<ApiResult> DeleteMapPack(Guid mapPackId, CancellationToken cancellationToken = default);
 }

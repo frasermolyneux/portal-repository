@@ -1,12 +1,12 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IDataMaintenanceApi
 {
-    Task<ApiResponseDto> PruneChatMessages();
-    Task<ApiResponseDto> PruneGameServerEvents();
-    Task<ApiResponseDto> PruneGameServerStats();
-    Task<ApiResponseDto> PruneRecentPlayers();
-    Task<ApiResponseDto> ResetSystemAssignedPlayerTags();
+    Task<ApiResult> PruneChatMessages();
+    Task<ApiResult> PruneGameServerEvents();
+    Task<ApiResult> PruneGameServerStats();
+    Task<ApiResult> PruneRecentPlayers();
+    Task<ApiResult> ResetSystemAssignedPlayerTags();
 }

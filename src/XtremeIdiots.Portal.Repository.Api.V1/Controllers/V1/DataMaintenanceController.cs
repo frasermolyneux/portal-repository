@@ -1,13 +1,9 @@
-using System.Net;
-using System.Threading;
-using System.Linq;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -31,14 +27,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     [HttpDelete]
     [Route("data-maintenance/prune-chat-messages")]
-    public async Task<IActionResult> PruneChatMessages()
+    public async Task<IActionResult> PruneChatMessages(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneChatMessages();
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneChatMessages()
+    async Task<ApiResult> IDataMaintenanceApi.PruneChatMessages()
     {
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-12)}");
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-11)}");
@@ -47,64 +43,64 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-8)}");
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-7)}");
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult();
     }
 
     [HttpDelete]
     [Route("data-maintenance/prune-game-server-events")]
-    public async Task<IActionResult> PruneGameServerEvents()
+    public async Task<IActionResult> PruneGameServerEvents(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneGameServerEvents();
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerEvents()
+    async Task<ApiResult> IDataMaintenanceApi.PruneGameServerEvents()
     {
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult();
     }
 
     [HttpDelete]
     [Route("data-maintenance/prune-game-server-stats")]
-    public async Task<IActionResult> PruneGameServerStats()
+    public async Task<IActionResult> PruneGameServerStats(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneGameServerStats();
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerStats()
+    async Task<ApiResult> IDataMaintenanceApi.PruneGameServerStats()
     {
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult();
     }
 
     [HttpDelete]
     [Route("data-maintenance/prune-recent-players")]
-    public async Task<IActionResult> PruneRecentPlayers()
+    public async Task<IActionResult> PruneRecentPlayers(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneRecentPlayers();
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneRecentPlayers()
+    async Task<ApiResult> IDataMaintenanceApi.PruneRecentPlayers()
     {
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {DateTime.UtcNow.AddDays(-7)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult();
     }
 
     [HttpPut]
     [Route("data-maintenance/reset-system-assigned-player-tags")]
-    public async Task<IActionResult> ResetSystemAssignedPlayerTags()
+    public async Task<IActionResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).ResetSystemAssignedPlayerTags();
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.ResetSystemAssignedPlayerTags()
+    async Task<ApiResult> IDataMaintenanceApi.ResetSystemAssignedPlayerTags()
     {
         var twoWeeksAgo = DateTime.UtcNow.AddDays(-14);
 
@@ -196,6 +192,6 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult();
     }
 }

@@ -1,14 +1,10 @@
-using System.Collections.Generic;
-using Newtonsoft.Json;
+using MX.Api.Abstractions;
 
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
+
+[Obsolete("Use CollectionModel<PlayerTagDto> from MX.Api.Abstractions instead")]
+public record PlayerTagsCollectionDto
 {
-    /// <summary>
-    /// Collection DTO for PlayerTags.
-    /// </summary>
-    public class PlayerTagsCollectionDto
-    {
-        [JsonProperty]
-        public List<PlayerTagDto> Entries { get; set; } = new List<PlayerTagDto>();
-    }
+    public List<PlayerTagDto> Entries { get; set; } = new List<PlayerTagDto>();
+    public int TotalRecords { get; set; }
 }

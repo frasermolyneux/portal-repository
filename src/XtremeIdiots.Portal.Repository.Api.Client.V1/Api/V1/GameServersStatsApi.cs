@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -12,30 +14,32 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class GameServersStatsApi : BaseApi, IGameServersStatsApi
+    public class GameServersStatsApi : BaseApi<RepositoryApiClientOptions>, IGameServersStatsApi
     {
-        public GameServersStatsApi(ILogger<GameServersStatsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public GameServersStatsApi(ILogger<GameServersStatsApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto> CreateGameServerStats(List<CreateGameServerStatDto> createGameServerStatDtos)
+        public async Task<ApiResult> CreateGameServerStats(List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers-stats", Method.Post);
             request.AddJsonBody(createGameServerStatDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto<GameServerStatCollectionDto>> GetGameServerStatusStats(Guid gameServerId, DateTime cutoff)
+        public async Task<ApiResult<CollectionModel<GameServerStatDto>>> GetGameServerStatusStats(Guid gameServerId, DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers-stats/{gameServerId}", Method.Get);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<GameServerStatCollectionDto>();
+            return response.ToApiResult<CollectionModel<GameServerStatDto>>();
         }
     }
 }
+
+

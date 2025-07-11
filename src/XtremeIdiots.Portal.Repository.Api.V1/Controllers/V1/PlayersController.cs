@@ -7,9 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
-
 using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.Repository.DataLib;
@@ -18,6 +15,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -50,12 +49,12 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<PlayerDto>> IPlayersApi.GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions)
+    async Task<ApiResult<PlayerDto>> IPlayersApi.GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions)
     {
         var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
 
         if (player == null)
-            return new ApiResponseDto<PlayerDto>(HttpStatusCode.NotFound);
+            return new ApiResult<PlayerDto>(HttpStatusCode.NotFound);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
             player.PlayerAliases = await context.PlayerAliases.OrderByDescending(pa => pa.LastUsed).Where(pa => pa.PlayerId == player.PlayerId).ToListAsync();
@@ -88,7 +87,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
             result.Tags = player.PlayerTags?.Select(mapper.Map<PlayerTagDto>).ToList() ?? new List<PlayerTagDto>();
 
-        return new ApiResponseDto<PlayerDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<PlayerDto>(result).ToApiResult();
     }
 
     [HttpHead]
@@ -100,14 +99,14 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.HeadPlayerByGameType(GameType gameType, string guid)
+    async Task<ApiResult> IPlayersApi.HeadPlayerByGameType(GameType gameType, string guid)
     {
         var player = await context.Players.AnyAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid);
 
         if (player == false)
-            return new ApiResponseDto<PlayerDto>(HttpStatusCode.NotFound);
+            return new ApiResult<PlayerDto>(HttpStatusCode.NotFound);
 
-        return new ApiResponseDto<PlayerDto>(HttpStatusCode.OK);
+        return new ApiResult<PlayerDto>(HttpStatusCode.OK);
     }
 
     [HttpGet]
@@ -119,12 +118,12 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<PlayerDto>> IPlayersApi.GetPlayerByGameType(GameType gameType, string guid, PlayerEntityOptions playerEntityOptions)
+    async Task<ApiResult<PlayerDto>> IPlayersApi.GetPlayerByGameType(GameType gameType, string guid, PlayerEntityOptions playerEntityOptions)
     {
         var player = await context.Players.SingleOrDefaultAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid);
 
         if (player == null)
-            return new ApiResponseDto<PlayerDto>(HttpStatusCode.NotFound);
+            return new ApiResult<PlayerDto>(HttpStatusCode.NotFound);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
             player.PlayerAliases = await context.PlayerAliases.OrderByDescending(pa => pa.LastUsed).Where(pa => pa.PlayerId == player.PlayerId).ToListAsync();
@@ -151,7 +150,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
             result.Tags = player.PlayerTags?.Select(mapper.Map<PlayerTagDto>).ToList() ?? new List<PlayerTagDto>();
 
-        return new ApiResponseDto<PlayerDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<PlayerDto>(result).ToApiResult();
     }
 
     [HttpGet]
@@ -168,7 +167,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         return response.ToHttpResult();
     }
-    async Task<ApiResponseDto<PlayersCollectionDto>> IPlayersApi.GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
+    async Task<ApiResult<CollectionModel<PlayerDto>>> IPlayersApi.GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
     {
         // Only count the total records once every 10 minutes by using a cached counter
         // This approach avoids counting the entire table for every search
@@ -326,14 +325,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         var entries = results.Select(p => mapper.Map<PlayerDto>(p)).ToList();
 
         // Create the result collection
-        var result = new PlayersCollectionDto
-        {
-            TotalRecords = totalCount,
-            FilteredRecords = filteredCount,
-            Entries = entries
-        };
+        var result = new CollectionModel<PlayerDto>(entries, totalCount, filteredCount);
 
-        return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<CollectionModel<PlayerDto>>(result).ToApiResult();
     }
 
     [HttpPost]
@@ -349,28 +343,28 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+            return BadRequest();
         }
 
         if (createPlayerDtos == null || !createPlayerDtos.Any())
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
+            return BadRequest();
 
         var response = await ((IPlayersApi)this).CreatePlayers(createPlayerDtos);
 
         return response.ToHttpResult();
     }
 
-    Task<ApiResponseDto> IPlayersApi.CreatePlayer(CreatePlayerDto createPlayerDto)
+    Task<ApiResult> IPlayersApi.CreatePlayer(CreatePlayerDto createPlayerDto)
     {
         throw new NotImplementedException();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.CreatePlayers(List<CreatePlayerDto> createPlayerDtos)
+    async Task<ApiResult> IPlayersApi.CreatePlayers(List<CreatePlayerDto> createPlayerDtos)
     {
         foreach (var createPlayerDto in createPlayerDtos)
         {
             if (await context.Players.AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
-                return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { $"Player with gameType '{createPlayerDto.GameType}' and guid '{createPlayerDto.Guid}' already exists" });
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
             var player = mapper.Map<Player>(createPlayerDto);
             player.FirstSeen = DateTime.UtcNow;
@@ -408,7 +402,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
 
     [HttpPatch]
@@ -424,21 +418,21 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+            return BadRequest();
         }
 
         if (editPlayerDto == null)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+            return BadRequest();
 
         if (editPlayerDto.PlayerId != playerId)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage)).ToBadRequestResult().ToHttpResult();
 
         var response = await ((IPlayersApi)this).UpdatePlayer(editPlayerDto);
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.UpdatePlayer(EditPlayerDto editPlayerDto)
+    async Task<ApiResult> IPlayersApi.UpdatePlayer(EditPlayerDto editPlayerDto)
     {
         var player = await context.Players
                 .Include(p => p.PlayerAliases)
@@ -446,7 +440,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .SingleOrDefaultAsync(p => p.PlayerId == editPlayerDto.PlayerId);
 
         if (player == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound);
+            return new ApiResult(HttpStatusCode.NotFound);
 
         player.Username = editPlayerDto.Username;
         player.IpAddress = editPlayerDto.IpAddress ?? null;
@@ -489,7 +483,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
     private IQueryable<Player> ApplyFilter(IQueryable<Player> query, GameType? gameType, PlayersFilter? filter, string? filterString)
     {
@@ -630,7 +624,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<ProtectedNamesCollectionDto>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
+    async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
     {
         var query = context.ProtectedNames.Include(pn => pn.Player).Include(pn => pn.CreatedByUserProfile).AsQueryable();
         var totalCount = await query.CountAsync();
@@ -640,13 +634,9 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var entries = results.Select(pn => mapper.Map<ProtectedNameDto>(pn)).ToList();
 
-        var result = new ProtectedNamesCollectionDto
-        {
-            TotalRecords = totalCount,
-            Entries = entries
-        };
+        var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
 
-        return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result).ToApiResult();
     }
 
     [HttpGet]
@@ -658,7 +648,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<ProtectedNameDto>> IPlayersApi.GetProtectedName(Guid protectedNameId)
+    async Task<ApiResult<ProtectedNameDto>> IPlayersApi.GetProtectedName(Guid protectedNameId)
     {
         var protectedName = await context.ProtectedNames
             .Include(pn => pn.Player)
@@ -666,11 +656,11 @@ public class PlayersController : ControllerBase, IPlayersApi
             .SingleOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
 
         if (protectedName == null)
-            return new ApiResponseDto<ProtectedNameDto>(HttpStatusCode.NotFound);
+            return new ApiResult<ProtectedNameDto>(HttpStatusCode.NotFound);
 
         var result = mapper.Map<ProtectedNameDto>(protectedName);
 
-        return new ApiResponseDto<ProtectedNameDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<ProtectedNameDto>(result).ToApiResult();
     }
 
     [HttpGet]
@@ -682,10 +672,10 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<ProtectedNamesCollectionDto>> IPlayersApi.GetProtectedNamesForPlayer(Guid playerId)
+    async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNamesForPlayer(Guid playerId)
     {
         if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
-            return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.NotFound);
+            return new ApiResult<CollectionModel<ProtectedNameDto>>(HttpStatusCode.NotFound);
 
         var query = context.ProtectedNames.Include(pn => pn.Player).Include(pn => pn.CreatedByUserProfile).Where(pn => pn.PlayerId == playerId).AsQueryable();
         var totalCount = await query.CountAsync();
@@ -695,13 +685,9 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var entries = results.Select(pn => mapper.Map<ProtectedNameDto>(pn)).ToList();
 
-        var result = new ProtectedNamesCollectionDto
-        {
-            TotalRecords = totalCount,
-            Entries = entries
-        };
+        var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
 
-        return new ApiResponseDto<ProtectedNamesCollectionDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result).ToApiResult();
     }
 
     [HttpPost]
@@ -717,26 +703,26 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+            return BadRequest();
         }
 
         if (createProtectedNameDto == null)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+            return BadRequest();
 
         var response = await ((IPlayersApi)this).CreateProtectedName(createProtectedNameDto);
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
+    async Task<ApiResult> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
     {
         // Check if player exists
         if (!await context.Players.AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId))
-            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player not found" });
+            return new ApiResponse().ToNotFoundResult();
 
         // Check if the name is already protected
         if (await context.ProtectedNames.AnyAsync(pn => pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()))
-            return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { "This name is already protected" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)).ToConflictResult();
 
         var protectedName = new ProtectedName
         {
@@ -752,7 +738,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         await context.ProtectedNames.AddAsync(protectedName);
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
 
     [HttpDelete]
@@ -765,18 +751,18 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto)
+    async Task<ApiResult> IPlayersApi.DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto)
     {
         var protectedName = await context.ProtectedNames
             .SingleOrDefaultAsync(pn => pn.ProtectedNameId == deleteProtectedNameDto.ProtectedNameId);
 
         if (protectedName == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound);
+            return new ApiResult(HttpStatusCode.NotFound);
 
         context.ProtectedNames.Remove(protectedName);
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
 
     [HttpGet]
@@ -788,7 +774,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<ProtectedNameUsageReportDto>> IPlayersApi.GetProtectedNameUsageReport(Guid protectedNameId)
+    async Task<ApiResult<ProtectedNameUsageReportDto>> IPlayersApi.GetProtectedNameUsageReport(Guid protectedNameId)
     {
         var protectedName = await context.ProtectedNames
             .Include(pn => pn.Player)
@@ -796,13 +782,13 @@ public class PlayersController : ControllerBase, IPlayersApi
             .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
 
         if (protectedName == null)
-            return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
+            return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
 
         var owningPlayer = await context.Players
             .FirstOrDefaultAsync(p => p.PlayerId == protectedName.PlayerId);
 
         if (owningPlayer == null)
-            return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
+            return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
 
         // Find all player aliases that match this protected name
         var matchingAliases = await context.PlayerAliases
@@ -836,7 +822,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             UsageInstances = usageInstances
         };
 
-        return new ApiResponseDto<ProtectedNameUsageReportDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<ProtectedNameUsageReportDto>(result).ToApiResult();
     }
 
     #endregion
@@ -850,13 +836,11 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<PlayerTagsCollectionDto>> IPlayersApi.GetPlayerTags(Guid playerId)
+    async Task<ApiResult<CollectionModel<PlayerTagDto>>> IPlayersApi.GetPlayerTags(Guid playerId)
     {        // Check if the player exists
         if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
         {
-            var response = new ApiResponseDto<PlayerTagsCollectionDto>(HttpStatusCode.NotFound);
-            response.Errors = new List<string> { "Player not found" };
-            return response;
+            return new ApiResponse<CollectionModel<PlayerTagDto>>().ToNotFoundResult();
         }
 
         var playerTags = await context.PlayerTags
@@ -865,9 +849,11 @@ public class PlayersController : ControllerBase, IPlayersApi
             .Where(pt => pt.PlayerId == playerId)
             .ToListAsync();
 
-        var result = new PlayerTagsCollectionDto { Entries = playerTags.Select(mapper.Map<PlayerTagDto>).ToList() };
+        var entries = playerTags.Select(mapper.Map<PlayerTagDto>).ToList();
 
-        return new ApiResponseDto<PlayerTagsCollectionDto>(HttpStatusCode.OK, result);
+        var result = new CollectionModel<PlayerTagDto>(entries, entries.Count, entries.Count);
+
+        return new ApiResponse<CollectionModel<PlayerTagDto>>(result).ToApiResult();
     }
     [HttpPost]
     [Route("players/{playerId}/tags")]
@@ -876,7 +862,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Ensure the path playerId and body playerId match
         if (playerTagDto.PlayerId != null && playerTagDto.PlayerId.Value != playerId)
         {
-            return BadRequest(new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "PlayerId in the URL must match PlayerId in the request body" }));
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.PlayerIdMismatchMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
         }
 
         // Set the playerId in the DTO to match the URL
@@ -887,24 +875,24 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto)
+    async Task<ApiResult> IPlayersApi.AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto)
     {
         if (playerTagDto.TagId == null)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "TagId is required" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.MissingEntityId, ApiErrorMessages.TagIdRequiredMessage)).ToBadRequestResult();
 
         // Check if the player exists
         if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
-            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player not found" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
 
         // Check if the tag exists
         var tagExists = await context.Tags.AnyAsync(t => t.TagId == playerTagDto.TagId);
         if (!tagExists)
-            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Tag not found" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
 
         // Check if player already has this tag
         var exists = await context.PlayerTags.AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId);
         if (exists)
-            return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { "Player already has this tag" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerTagConflictMessage)).ToConflictResult();
 
         var playerTag = mapper.Map<PlayerTag>(playerTagDto);
         playerTag.PlayerId = playerId;
@@ -914,11 +902,11 @@ public class PlayersController : ControllerBase, IPlayersApi
         {
             context.PlayerTags.Add(playerTag);
             await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResult(HttpStatusCode.OK);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new ApiResponseDto(HttpStatusCode.InternalServerError, new List<string> { $"Error adding player tag: {ex.Message}" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.InternalServerError, ApiErrorMessages.InternalServerErrorMessage)).ToApiResult(HttpStatusCode.InternalServerError);
         }
     }
     [HttpDelete]
@@ -930,28 +918,30 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.RemovePlayerTag(Guid playerId, Guid playerTagId)
+    async Task<ApiResult> IPlayersApi.RemovePlayerTag(Guid playerId, Guid playerTagId)
     {
         // Check if the player exists
         if (!await context.Players.AnyAsync(p => p.PlayerId == playerId))
-            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player not found" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
 
         var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId);
 
         if (playerTag == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player tag not found" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
 
         try
         {
             context.PlayerTags.Remove(playerTag);
             await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResult(HttpStatusCode.OK);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new ApiResponseDto(HttpStatusCode.InternalServerError, new List<string> { $"Error removing player tag: {ex.Message}" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.InternalServerError, ApiErrorMessages.InternalServerErrorMessage)).ToApiResult(HttpStatusCode.InternalServerError);
         }
-    }    // Helper endpoint to get a player tag by ID
+    }
+
+    // Helper endpoint to get a player tag by ID
     [HttpGet]
     [Route("players/tags/{playerTagId}")]
     public async Task<IActionResult> GetPlayerTagById(Guid playerTagId)
@@ -961,22 +951,21 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<PlayerTagDto>> IPlayersApi.GetPlayerTagById(Guid playerTagId)
+    async Task<ApiResult<PlayerTagDto>> IPlayersApi.GetPlayerTagById(Guid playerTagId)
     {
         var playerTag = await context.PlayerTags
             .Include(pt => pt.Player)
             .Include(pt => pt.Tag)
             .Include(pt => pt.UserProfile)
             .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId);
+
         if (playerTag == null)
         {
-            var response = new ApiResponseDto<PlayerTagDto>(HttpStatusCode.NotFound);
-            response.Errors = new List<string> { "Player tag not found" };
-            return response;
+            return new ApiResponse<PlayerTagDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
         }
 
         var result = mapper.Map<PlayerTagDto>(playerTag);
-        return new ApiResponseDto<PlayerTagDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<PlayerTagDto>(result).ToApiResult();
     }
     [HttpDelete]
     [Route("players/tags/{playerTagId}")]
@@ -987,23 +976,23 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.RemovePlayerTagById(Guid playerTagId)
+    async Task<ApiResult> IPlayersApi.RemovePlayerTagById(Guid playerTagId)
     {
         var playerTag = await context.PlayerTags
             .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId);
 
         if (playerTag == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound, new List<string> { "Player tag not found" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
 
         try
         {
             context.PlayerTags.Remove(playerTag);
             await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResult(HttpStatusCode.OK);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new ApiResponseDto(HttpStatusCode.InternalServerError, new List<string> { $"Error removing player tag: {ex.Message}" });
+            return new ApiResponse(new ApiError(ApiErrorCodes.InternalServerError, ApiErrorMessages.InternalServerErrorMessage)).ToApiResult(HttpStatusCode.InternalServerError);
         }
     }
 
@@ -1018,12 +1007,13 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         return response.ToHttpResult();
     }
-    async Task<ApiResponseDto<PlayersCollectionDto>> IPlayersApi.GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
+
+    async Task<ApiResult<CollectionModel<PlayerDto>>> IPlayersApi.GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(ipAddress))
-                return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.BadRequest);
+                return new ApiResult<CollectionModel<PlayerDto>>(HttpStatusCode.BadRequest);
 
             // Filter players related to this IP address 
             var query = context.Players
@@ -1078,18 +1068,13 @@ public class PlayersController : ControllerBase, IPlayersApi
             var playerDtos = mapper.Map<List<PlayerDto>>(players);
 
             // Create result
-            var result = new PlayersCollectionDto
-            {
-                TotalRecords = totalCount,
-                FilteredRecords = totalCount,
-                Entries = playerDtos
-            };
+            var result = new CollectionModel<PlayerDto>(playerDtos, totalCount, totalCount);
 
-            return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<PlayerDto>>(result).ToApiResult();
         }
         catch
         {
-            return new ApiResponseDto<PlayersCollectionDto>(HttpStatusCode.InternalServerError);
+            return new ApiResponse<CollectionModel<PlayerDto>>().ToApiResult(HttpStatusCode.InternalServerError);
         }
     }
     #endregion
@@ -1105,12 +1090,12 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<IpAddressesCollectionDto>> IPlayersApi.GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
+    async Task<ApiResult<CollectionModel<IpAddressDto>>> IPlayersApi.GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
     {
         var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
 
         if (player == null)
-            return new ApiResponseDto<IpAddressesCollectionDto>(HttpStatusCode.NotFound);
+            return new ApiResult<CollectionModel<IpAddressDto>>(HttpStatusCode.NotFound);
 
         var query = context.PlayerIpAddresses
             .Where(pip => pip.PlayerId == playerId)
@@ -1163,14 +1148,12 @@ public class PlayersController : ControllerBase, IPlayersApi
             .ToListAsync();
 
         // Map to DTOs
-        var dtos = items.Select(mapper.Map<IpAddressDto>).ToList();        // Create and return the response
-        var result = new IpAddressesCollectionDto
-        {
-            TotalCount = totalCount,
-            Entries = dtos
-        };
+        var dtos = items.Select(mapper.Map<IpAddressDto>).ToList();
 
-        return new ApiResponseDto<IpAddressesCollectionDto>(HttpStatusCode.OK, result);
+        // Create and return the response
+        var result = new CollectionModel<IpAddressDto>(dtos, totalCount, totalCount);
+
+        return new ApiResponse<CollectionModel<IpAddressDto>>(result).ToApiResult();
     }
 
     #endregion
@@ -1186,12 +1169,12 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<PlayerAliasesCollectionDto>> IPlayersApi.GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries)
+    async Task<ApiResult<CollectionModel<PlayerAliasDto>>> IPlayersApi.GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries)
     {
         // Check if the player exists
         var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
         if (player == null)
-            return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.NotFound);
+            return new ApiResult<CollectionModel<PlayerAliasDto>>(HttpStatusCode.NotFound);
 
         // Get the aliases for the player
         var query = context.PlayerAliases
@@ -1208,13 +1191,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Map the aliases to DTOs
         var aliasesDto = mapper.Map<List<PlayerAliasDto>>(aliases);
 
-        var result = new PlayerAliasesCollectionDto
-        {
-            Entries = aliasesDto,
-            TotalRecords = totalCount,
-        };
+        var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
 
-        return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result).ToApiResult();
     }
 
     [HttpPost]
@@ -1226,12 +1205,12 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.AddPlayerAlias(Guid playerId, CreatePlayerAliasDto createPlayerAliasDto)
+    async Task<ApiResult> IPlayersApi.AddPlayerAlias(Guid playerId, CreatePlayerAliasDto createPlayerAliasDto)
     {
         // Check if the player exists
         var player = await context.Players.SingleOrDefaultAsync(p => p.PlayerId == playerId);
         if (player == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound);
+            return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if the alias already exists
         var existingAlias = await context.PlayerAliases
@@ -1260,7 +1239,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
 
     [HttpPut]
@@ -1272,14 +1251,14 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.UpdatePlayerAlias(Guid playerId, Guid aliasId, CreatePlayerAliasDto updatePlayerAliasDto)
+    async Task<ApiResult> IPlayersApi.UpdatePlayerAlias(Guid playerId, Guid aliasId, CreatePlayerAliasDto updatePlayerAliasDto)
     {
         // Check if the alias exists and belongs to the player
         var alias = await context.PlayerAliases
             .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId);
 
         if (alias == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound);
+            return new ApiResult(HttpStatusCode.NotFound);
 
         // Update the alias
         alias.Name = updatePlayerAliasDto.Name;
@@ -1287,7 +1266,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
 
     [HttpDelete]
@@ -1299,20 +1278,20 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IPlayersApi.DeletePlayerAlias(Guid playerId, Guid aliasId)
+    async Task<ApiResult> IPlayersApi.DeletePlayerAlias(Guid playerId, Guid aliasId)
     {
         // Check if the alias exists and belongs to the player
         var alias = await context.PlayerAliases
             .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId);
 
         if (alias == null)
-            return new ApiResponseDto(HttpStatusCode.NotFound);
+            return new ApiResult(HttpStatusCode.NotFound);
 
         // Remove the alias
         context.PlayerAliases.Remove(alias);
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult(HttpStatusCode.OK);
     }
 
     [HttpGet]
@@ -1324,10 +1303,10 @@ public class PlayersController : ControllerBase, IPlayersApi
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto<PlayerAliasesCollectionDto>> IPlayersApi.SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries)
+    async Task<ApiResult<CollectionModel<PlayerAliasDto>>> IPlayersApi.SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries)
     {
         if (string.IsNullOrWhiteSpace(aliasSearch) || aliasSearch.Length < 3)
-            return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.BadRequest, null, new List<string> { "Search term must be at least 3 characters long" });
+            return new ApiResponse<CollectionModel<PlayerAliasDto>>(new ApiError("INVALID_SEARCH_TERM", "Search term must be at least 3 characters long")).ToBadRequestResult();
 
         var trimmedSearch = aliasSearch.Trim();
 
@@ -1346,13 +1325,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Map the aliases to DTOs
         var aliasesDto = mapper.Map<List<PlayerAliasDto>>(aliases);
 
-        var result = new PlayerAliasesCollectionDto
-        {
-            Entries = aliasesDto,
-            TotalRecords = totalCount,
-        };
+        var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
 
-        return new ApiResponseDto<PlayerAliasesCollectionDto>(HttpStatusCode.OK, result);
+        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result).ToApiResult();
     }
 }
 

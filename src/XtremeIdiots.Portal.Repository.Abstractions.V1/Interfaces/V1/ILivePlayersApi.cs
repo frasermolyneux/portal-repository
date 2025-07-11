@@ -1,4 +1,4 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
@@ -7,8 +7,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface ILivePlayersApi
     {
-        Task<ApiResponseDto<LivePlayersCollectionDto>> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order);
+        Task<ApiResult<CollectionModel<LivePlayerDto>>> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos);
+        Task<ApiResult> SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos, CancellationToken cancellationToken = default);
     }
 }

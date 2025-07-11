@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -12,30 +14,32 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class GameServersEventsApi : BaseApi, IGameServersEventsApi
+    public class GameServersEventsApi : BaseApi<RepositoryApiClientOptions>, IGameServersEventsApi
     {
-        public GameServersEventsApi(ILogger<GameServersEventsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public GameServersEventsApi(ILogger<GameServersEventsApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto> CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto)
+        public async Task<ApiResult> CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-server-events", Method.Post);
             request.AddJsonBody(new List<CreateGameServerEventDto> { createGameServerEventDto });
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos)
+        public async Task<ApiResult> CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-server-events", Method.Post);
             request.AddJsonBody(createGameServerEventDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

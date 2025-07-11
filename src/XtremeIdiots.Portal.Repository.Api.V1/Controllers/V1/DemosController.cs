@@ -8,8 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -44,29 +44,29 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         [HttpGet]
         [Route("demos/{demoId}")]
-        public async Task<IActionResult> GetDemo(Guid demoId)
+        public async Task<IActionResult> GetDemo(Guid demoId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IDemosApi)this).GetDemo(demoId);
+            var response = await ((IDemosApi)this).GetDemo(demoId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<DemoDto>> IDemosApi.GetDemo(Guid demoId)
+        async Task<ApiResult<DemoDto>> IDemosApi.GetDemo(Guid demoId, CancellationToken cancellationToken)
         {
             var demo = await context.Demos.Include(d => d.UserProfile)
-                .SingleOrDefaultAsync(d => d.DemoId == demoId);
+                .SingleOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
-                return new ApiResponseDto<DemoDto>(HttpStatusCode.NotFound);
+                return new ApiResult<DemoDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<DemoDto>(demo);
 
-            return new ApiResponseDto<DemoDto>(HttpStatusCode.OK, result);
+            return new ApiResult<DemoDto>(HttpStatusCode.OK, new ApiResponse<DemoDto>(result));
         }
 
         [HttpGet]
         [Route("demos")]
-        public async Task<IActionResult> GetDemos(string? gameTypes, string? userId, string? filterString, int? skipEntries, int? takeEntries, DemoOrder? order)
+        public async Task<IActionResult> GetDemos(string? gameTypes, string? userId, string? filterString, int? skipEntries, int? takeEntries, DemoOrder? order, CancellationToken cancellationToken = default)
         {
             if (!skipEntries.HasValue)
                 skipEntries = 0;
@@ -83,38 +83,38 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 gameTypesFilter = split.Select(gt => Enum.Parse<GameType>(gt)).ToArray();
             }
 
-            var response = await ((IDemosApi)this).GetDemos(gameTypesFilter, userId, filterString, skipEntries.Value, takeEntries.Value, order);
+            var response = await ((IDemosApi)this).GetDemos(gameTypesFilter, userId, filterString, skipEntries.Value, takeEntries.Value, order, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<DemosCollectionDto>> IDemosApi.GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order)
+        async Task<ApiResult<CollectionModel<DemoDto>>> IDemosApi.GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order, CancellationToken cancellationToken)
         {
             var query = context.Demos.Include(d => d.UserProfile).AsQueryable();
             query = ApplyFilter(query, gameTypes, null, null);
-            var totalCount = await query.CountAsync();
+            var totalCount = await query.CountAsync(cancellationToken);
 
             query = ApplyFilter(query, gameTypes, userId, filterString);
-            var filteredCount = await query.CountAsync();
+            var filteredCount = await query.CountAsync(cancellationToken);
 
             query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            var results = await query.ToListAsync(cancellationToken);
 
             var entries = results.Select(d => mapper.Map<DemoDto>(d)).ToList();
 
-            var result = new DemosCollectionDto
+            var result = new CollectionModel<DemoDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                TotalCount = totalCount,
+                FilteredCount = filteredCount,
+                Items = entries
             };
 
-            return new ApiResponseDto<DemosCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResult<CollectionModel<DemoDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<DemoDto>>(result));
         }
 
         [HttpPost]
         [Route("demos")]
-        public async Task<IActionResult> CreateDemo()
+        public async Task<IActionResult> CreateDemo(CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -125,18 +125,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
             }
 
             if (createDemoDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
 
-            var response = await ((IDemosApi)this).CreateDemo(createDemoDto);
+            var response = await ((IDemosApi)this).CreateDemo(createDemoDto, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<DemoDto>> IDemosApi.CreateDemo(CreateDemoDto createDemoDto)
+        async Task<ApiResult<DemoDto>> IDemosApi.CreateDemo(CreateDemoDto createDemoDto, CancellationToken cancellationToken)
         {
             var demo = new Demo
             {
@@ -146,48 +146,48 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             };
 
             context.Demos.Add(demo);
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
             var result = mapper.Map<DemoDto>(demo);
 
-            return new ApiResponseDto<DemoDto>(HttpStatusCode.OK, result);
+            return new ApiResult<DemoDto>(HttpStatusCode.OK, new ApiResponse<DemoDto>(result));
         }
 
         [HttpPost]
         [Route("demos/{demoId}/file")]
-        public async Task<IActionResult> SetDemoFile(Guid demoId)
+        public async Task<IActionResult> SetDemoFile(Guid demoId, CancellationToken cancellationToken = default)
         {
             if (Request.Form.Files.Count == 0)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request did not contain any files" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage))).ToHttpResult();
 
             var whitelistedExtensions = new List<string> { ".dm_1", ".dm_6" };
 
             var file = Request.Form.Files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Invalid file type extension" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             using (var stream = System.IO.File.Create(filePath))
-                await file.CopyToAsync(stream);
+                await file.CopyToAsync(stream, cancellationToken);
 
-            var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath);
+            var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IDemosApi.SetDemoFile(Guid demoId, string fileName, string filePath)
+        async Task<ApiResult> IDemosApi.SetDemoFile(Guid demoId, string fileName, string filePath, CancellationToken cancellationToken)
         {
             var demo = context.Demos.SingleOrDefault(d => d.DemoId == demoId);
 
             if (demo == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]), new DefaultAzureCredential());
+            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]!), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("demos");
 
             var blobKey = $"{Guid.NewGuid()}.{demo.GameType.ToGameType().DemoExtension()}";
             var blobClient = containerClient.GetBlobClient(blobKey);
-            await blobClient.UploadAsync(filePath);
+            await blobClient.UploadAsync(filePath, cancellationToken);
 
             var localDemo = new LocalDemo(filePath, demo.GameType.ToCodDemoReaderGameVersion());
 
@@ -201,32 +201,32 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             demo.FileSize = localDemo.FileSize;
             demo.FileUri = blobClient.Uri.ToString();
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResult(HttpStatusCode.OK, new ApiResponse());
         }
 
         [HttpDelete]
         [Route("demos/{demoId}")]
-        public async Task<IActionResult> DeleteDemo(Guid demoId)
+        public async Task<IActionResult> DeleteDemo(Guid demoId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IDemosApi)this).DeleteDemo(demoId);
+            var response = await ((IDemosApi)this).DeleteDemo(demoId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IDemosApi.DeleteDemo(Guid demoId)
+        async Task<ApiResult> IDemosApi.DeleteDemo(Guid demoId, CancellationToken cancellationToken)
         {
-            var demo = await context.Demos.SingleOrDefaultAsync(d => d.DemoId == demoId);
+            var demo = await context.Demos.SingleOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
             context.Remove(demo);
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResult(HttpStatusCode.OK, new ApiResponse());
         }
 
         private IQueryable<Demo> ApplyFilter(IQueryable<Demo> query, GameType[]? gameTypes, string? userId, string? filterString)
@@ -287,3 +287,4 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
+

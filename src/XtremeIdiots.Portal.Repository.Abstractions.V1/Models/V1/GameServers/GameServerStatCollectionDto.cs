@@ -1,7 +1,10 @@
-using MxIO.ApiClient.Abstractions;
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
+using MX.Api.Abstractions;
+
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
+
+[Obsolete("Use CollectionModel<GameServerStatDto> from MX.Api.Abstractions instead")]
+public record GameServerStatCollectionDto
 {
-    public record GameServerStatCollectionDto : CollectionDto<GameServerStatDto>
-    {
-    }
+    public List<GameServerStatDto> Entries { get; set; } = new List<GameServerStatDto>();
+    public int TotalRecords { get; set; }
 }

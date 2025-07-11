@@ -1,4 +1,4 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
@@ -7,14 +7,14 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IGameServersApi
     {
-        Task<ApiResponseDto<GameServerDto>> GetGameServer(Guid gameServerId);
-        Task<ApiResponseDto<GameServersCollectionDto>> GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order);
+        Task<ApiResult<GameServerDto>> GetGameServer(Guid gameServerId, CancellationToken cancellationToken = default);
+        Task<ApiResult<CollectionModel<GameServerDto>>> GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> CreateGameServer(CreateGameServerDto createGameServerDto);
-        Task<ApiResponseDto> CreateGameServers(List<CreateGameServerDto> createGameServerDtos);
+        Task<ApiResult> CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> UpdateGameServer(EditGameServerDto editGameServerDto);
+        Task<ApiResult> UpdateGameServer(EditGameServerDto editGameServerDto, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> DeleteGameServer(Guid gameServerId);
+        Task<ApiResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default);
     }
 }

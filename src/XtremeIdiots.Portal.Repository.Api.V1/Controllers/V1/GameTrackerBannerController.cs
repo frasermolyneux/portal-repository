@@ -6,8 +6,8 @@ using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameTracker;
@@ -32,14 +32,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         [HttpGet]
         [Route("gametracker/{ipAddress}:{queryPort}/{imageName}")]
-        public async Task<IActionResult> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
+        public async Task<IActionResult> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName, CancellationToken cancellationToken = default)
         {
-            var response = await ((IGameTrackerBannerApi)this).GetGameTrackerBanner(ipAddress, queryPort, imageName);
+            var response = await ((IGameTrackerBannerApi)this).GetGameTrackerBanner(ipAddress, queryPort, imageName, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<GameTrackerBannerDto>> IGameTrackerBannerApi.GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
+        async Task<ApiResult<GameTrackerBannerDto>> IGameTrackerBannerApi.GetGameTrackerBanner(string ipAddress, string queryPort, string imageName, CancellationToken cancellationToken)
         {
             var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("gametracker");
@@ -52,10 +52,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
                 if (foo.Value.LastModified > DateTime.UtcNow.AddMinutes(-10))
                 {
-                    return new ApiResponseDto<GameTrackerBannerDto>(HttpStatusCode.OK, new GameTrackerBannerDto()
+                    var result = new GameTrackerBannerDto()
                     {
                         BannerUrl = blobClient.Uri.ToString()
-                    });
+                    };
+
+                    return new ApiResponse<GameTrackerBannerDto>(result).ToApiResult();
                 }
                 else
                 {
@@ -68,7 +70,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
         }
 
-        private async Task<ApiResponseDto<GameTrackerBannerDto>> UpdateBannerImageAndRedirect(string ipAddress, string queryPort, string imageName, BlobClient blobClient, bool gametrackerFallback)
+        private async Task<ApiResult<GameTrackerBannerDto>> UpdateBannerImageAndRedirect(string ipAddress, string queryPort, string imageName, BlobClient blobClient, bool gametrackerFallback)
         {
             var gameTrackerImageUrl = $"https://cache.gametracker.com/server_info/{ipAddress}:{queryPort}/{imageName}";
 
@@ -90,26 +92,37 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     await blobClient.UploadAsync(filePath);
                 }
 
-                return new ApiResponseDto<GameTrackerBannerDto>(HttpStatusCode.OK, new GameTrackerBannerDto()
+                var result = new GameTrackerBannerDto()
                 {
                     BannerUrl = blobClient.Uri.ToString()
-                });
+                };
+
+                return new ApiResponse<GameTrackerBannerDto>(result).ToApiResult();
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to update banner image");
 
                 if (gametrackerFallback)
-                    return new ApiResponseDto<GameTrackerBannerDto>(HttpStatusCode.OK, new GameTrackerBannerDto()
+                {
+                    var result = new GameTrackerBannerDto()
                     {
                         BannerUrl = gameTrackerImageUrl
-                    });
+                    };
+
+                    return new ApiResponse<GameTrackerBannerDto>(result).ToApiResult();
+                }
                 else
-                    return new ApiResponseDto<GameTrackerBannerDto>(HttpStatusCode.OK, new GameTrackerBannerDto()
+                {
+                    var result = new GameTrackerBannerDto()
                     {
                         BannerUrl = blobClient.Uri.ToString()
-                    });
+                    };
+
+                    return new ApiResponse<GameTrackerBannerDto>(result).ToApiResult();
+                }
             }
         }
     }
 }
+

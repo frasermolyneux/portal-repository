@@ -1,7 +1,10 @@
-using MxIO.ApiClient.Abstractions;
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
+using MX.Api.Abstractions;
+
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
+
+[Obsolete("Use CollectionModel<UserProfileClaimDto> from MX.Api.Abstractions instead")]
+public record UserProfileClaimsCollectionDto
 {
-    public record UserProfileClaimsCollectionDto : CollectionDto<UserProfileClaimDto>
-    {
-    }
+    public List<UserProfileClaimDto> Entries { get; set; } = new List<UserProfileClaimDto>();
+    public int TotalRecords { get; set; }
 }

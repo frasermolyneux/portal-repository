@@ -1,4 +1,4 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
@@ -7,11 +7,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IReportsApi
     {
-        Task<ApiResponseDto<ReportDto>> GetReport(Guid reportId);
-        Task<ApiResponseDto<ReportsCollectionDto>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order);
+        Task<ApiResult<ReportDto>> GetReport(Guid reportId, CancellationToken cancellationToken = default);
+        Task<ApiResult<CollectionModel<ReportDto>>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> CreateReports(List<CreateReportDto> createReportDtos);
+        Task<ApiResult> CreateReports(List<CreateReportDto> createReportDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> CloseReport(Guid reportId, CloseReportDto closeReportDto);
+        Task<ApiResult> CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken = default);
     }
 }

@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -38,7 +38,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         [HttpGet]
         [Route("live-players")]
-        public async Task<IActionResult> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int? skipEntries, int? takeEntries, LivePlayersOrder? order)
+        public async Task<IActionResult> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int? skipEntries, int? takeEntries, LivePlayersOrder? order, CancellationToken cancellationToken = default)
         {
             if (!skipEntries.HasValue)
                 skipEntries = 0;
@@ -46,38 +46,39 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (!takeEntries.HasValue)
                 takeEntries = 20;
 
-            var response = await ((ILivePlayersApi)this).GetLivePlayers(gameType, gameServerId, filter, skipEntries.Value, takeEntries.Value, order);
+            var response = await ((ILivePlayersApi)this).GetLivePlayers(gameType, gameServerId, filter, skipEntries.Value, takeEntries.Value, order, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<LivePlayersCollectionDto>> ILivePlayersApi.GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order)
+        async Task<ApiResult<CollectionModel<LivePlayerDto>>> ILivePlayersApi.GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order, CancellationToken cancellationToken)
         {
             var query = context.LivePlayers.Include(lp => lp.Player).AsQueryable();
             query = ApplyFilter(query, gameType, null, null);
-            var totalCount = await query.CountAsync();
+            var totalCount = await query.CountAsync(cancellationToken);
 
             query = ApplyFilter(query, gameType, gameServerId, filter);
-            var filteredCount = await query.CountAsync();
+            var filteredCount = await query.CountAsync(cancellationToken);
 
             query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            var results = await query.ToListAsync(cancellationToken);
 
             var entries = results.Select(lp => mapper.Map<LivePlayerDto>(lp)).ToList();
 
-            var result = new LivePlayersCollectionDto
+            var result = new CollectionModel<LivePlayerDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                TotalCount = totalCount,
+                FilteredCount = filteredCount,
+                Items = entries
             };
 
-            return new ApiResponseDto<LivePlayersCollectionDto>(HttpStatusCode.OK, result);
+            var apiResponse = new ApiResponse<CollectionModel<LivePlayerDto>>(result);
+            return new ApiResult<CollectionModel<LivePlayerDto>>(HttpStatusCode.OK, apiResponse);
         }
 
         [HttpPost]
         [Route("live-players/{gameServerId}")]
-        public async Task<IActionResult> SetLivePlayersForGameServer(Guid gameServerId)
+        public async Task<IActionResult> SetLivePlayersForGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -88,27 +89,29 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
             }
 
             if (createLivePlayerDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+            {
+                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+            }
 
-            var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos);
+            var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> ILivePlayersApi.SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos)
+        async Task<ApiResult> ILivePlayersApi.SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos, CancellationToken cancellationToken)
         {
-            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}");
+            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}", cancellationToken);
 
             var livePlayers = createLivePlayerDtos.Select(lp => mapper.Map<LivePlayer>(lp)).ToList();
 
-            await context.LivePlayers.AddRangeAsync(livePlayers);
-            await context.SaveChangesAsync();
+            await context.LivePlayers.AddRangeAsync(livePlayers, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResult(HttpStatusCode.OK, new ApiResponse());
         }
 
         private IQueryable<LivePlayer> ApplyFilter(IQueryable<LivePlayer> query, GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter)
@@ -154,3 +157,4 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
+

@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,21 +15,21 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class ReportsApi : BaseApi, IReportsApi
+    public class ReportsApi : BaseApi<RepositoryApiClientOptions>, IReportsApi
     {
-        public ReportsApi(ILogger<ReportsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public ReportsApi(ILogger<ReportsApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<ReportDto>> GetReport(Guid reportId)
+        public async Task<ApiResult<ReportDto>> GetReport(Guid reportId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/reports/{reportId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<ReportDto>();
+            return response.ToApiResult<ReportDto>();
         }
 
-        public async Task<ApiResponseDto<ReportsCollectionDto>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order)
+        public async Task<ApiResult<CollectionModel<ReportDto>>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/reports", Method.Get);
 
@@ -49,29 +51,31 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<ReportsCollectionDto>();
+            return response.ToApiResult<CollectionModel<ReportDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateReports(List<CreateReportDto> createReportDtos)
+        public async Task<ApiResult> CreateReports(List<CreateReportDto> createReportDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/reports", Method.Post);
             request.AddJsonBody(createReportDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> CloseReport(Guid reportId, CloseReportDto closeReportDto)
+        public async Task<ApiResult> CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/reports/{reportId}/close", Method.Post);
             request.AddJsonBody(closeReportDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

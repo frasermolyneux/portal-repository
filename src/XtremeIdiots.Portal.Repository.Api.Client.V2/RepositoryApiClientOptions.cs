@@ -1,12 +1,31 @@
-using MxIO.ApiClient;
+using MX.Api.Client.Configuration;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V2
 {
-    public class RepositoryApiClientOptions : ApiClientOptions
+    /// <summary>
+    /// Custom options for the Repository API client
+    /// </summary>
+    public class RepositoryApiClientOptions : ApiClientOptionsBase
     {
-        public RepositoryApiClientOptions()
+        /// <summary>
+        /// Gets or sets whether to enable caching for repository operations
+        /// </summary>
+        public bool EnableCaching { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the default page size for collection operations
+        /// </summary>
+        public int DefaultPageSize { get; set; } = 25;
+
+        /// <summary>
+        /// Validates the options
+        /// </summary>
+        public override void Validate()
         {
-            // Empty constructor to avoid https://rules.sonarsource.com/csharp/RSPEC-2094
+            base.Validate();
+
+            if (DefaultPageSize <= 0)
+                throw new InvalidOperationException("DefaultPageSize must be greater than 0");
         }
     }
 }

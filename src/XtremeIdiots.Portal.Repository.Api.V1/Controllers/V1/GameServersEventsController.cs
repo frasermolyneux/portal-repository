@@ -1,4 +1,3 @@
-
 using System.Net;
 using Asp.Versioning;
 using AutoMapper;
@@ -6,8 +5,8 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -35,14 +34,14 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
-    Task<ApiResponseDto> IGameServersEventsApi.CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto)
+    Task<ApiResult> IGameServersEventsApi.CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }
 
     [HttpPost]
     [Route("game-server-events")]
-    public async Task<IActionResult> CreateGameServerEvents()
+    public async Task<IActionResult> CreateGameServerEvents(CancellationToken cancellationToken = default)
     {
         var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -53,18 +52,18 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         }
         catch
         {
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
         }
 
         if (createGameServerEventDto == null)
-            return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
 
-        var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDto);
+        var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDto, cancellationToken);
 
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IGameServersEventsApi.CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos)
+    async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken)
     {
         var gameServerEvents = createGameServerEventDtos.Select(gse => mapper.Map<GameServerEvent>(gse)).ToList();
 
@@ -76,6 +75,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         await context.GameServerEvents.AddRangeAsync(gameServerEvents);
         await context.SaveChangesAsync();
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResult();
     }
 }
+

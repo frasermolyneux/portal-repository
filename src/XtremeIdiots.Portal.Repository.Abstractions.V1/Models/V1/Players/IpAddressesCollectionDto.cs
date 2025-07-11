@@ -1,17 +1,10 @@
-using System.Collections.Generic;
-using Newtonsoft.Json;
+using MX.Api.Abstractions;
 
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
+
+[Obsolete("Use CollectionModel<IpAddressDto> from MX.Api.Abstractions instead")]
+public record IpAddressesCollectionDto
 {
-    /// <summary>
-    /// Collection DTO for IpAddresses.
-    /// </summary>
-    public class IpAddressesCollectionDto
-    {
-        [JsonProperty]
-        public List<IpAddressDto> Entries { get; set; } = new List<IpAddressDto>();
-
-        [JsonProperty]
-        public int TotalCount { get; set; }
-    }
+    public List<IpAddressDto> Entries { get; set; } = new List<IpAddressDto>();
+    public int TotalRecords { get; set; }
 }

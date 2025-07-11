@@ -1,4 +1,4 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
@@ -7,13 +7,13 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IDemosApi
     {
-        Task<ApiResponseDto<DemoDto>> GetDemo(Guid demoId);
-        Task<ApiResponseDto<DemosCollectionDto>> GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order);
+        Task<ApiResult<DemoDto>> GetDemo(Guid demoId, CancellationToken cancellationToken = default);
+        Task<ApiResult<CollectionModel<DemoDto>>> GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto<DemoDto>> CreateDemo(CreateDemoDto createDemoDto);
+        Task<ApiResult<DemoDto>> CreateDemo(CreateDemoDto createDemoDto, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> SetDemoFile(Guid demoId, string fileName, string filePath);
+        Task<ApiResult> SetDemoFile(Guid demoId, string fileName, string filePath, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> DeleteDemo(Guid demoId);
+        Task<ApiResult> DeleteDemo(Guid demoId, CancellationToken cancellationToken = default);
     }
 }

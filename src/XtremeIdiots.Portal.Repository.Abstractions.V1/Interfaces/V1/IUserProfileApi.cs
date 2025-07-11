@@ -1,4 +1,4 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
@@ -7,21 +7,21 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IUserProfileApi
     {
-        Task<ApiResponseDto<UserProfileDto>> GetUserProfile(Guid userProfileId);
-        Task<ApiResponseDto<UserProfileDto>> GetUserProfileByIdentityId(string identityId);
-        Task<ApiResponseDto<UserProfileDto>> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId);
-        Task<ApiResponseDto<UserProfileDto>> GetUserProfileByDemoAuthKey(string demoAuthKey);
-        Task<ApiResponseDto<UserProfileCollectionDto>> GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order);
+        Task<ApiResult<UserProfileDto>> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default);
+        Task<ApiResult<UserProfileDto>> GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken = default);
+        Task<ApiResult<UserProfileDto>> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken = default);
+        Task<ApiResult<UserProfileDto>> GetUserProfileByDemoAuthKey(string demoAuthKey, CancellationToken cancellationToken = default);
+        Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> CreateUserProfile(CreateUserProfileDto createUserProfileDto);
-        Task<ApiResponseDto> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos);
+        Task<ApiResult> CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> UpdateUserProfile(EditUserProfileDto editUserProfileDto);
-        Task<ApiResponseDto> UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos);
+        Task<ApiResult> UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto);
-        Task<ApiResponseDto> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto);
+        Task<ApiResult> CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId);
+        Task<ApiResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken = default);
     }
 }

@@ -28,27 +28,6 @@
           }
         }
       },
-      "patch": {
-        "tags": [
-          "AdminActions"
-        ],
-        "parameters": [
-          {
-            "name": "adminActionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
       "delete": {
         "tags": [
           "AdminActions"
@@ -111,7 +90,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 0
             }
           },
           {
@@ -119,7 +99,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 20
             }
           },
           {
@@ -140,6 +121,64 @@
         "tags": [
           "AdminActions"
         ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminActionDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminActionDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminActionDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AdminActions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAdminActionDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAdminActionDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAdminActionDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAdminActionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -2354,24 +2393,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       },
@@ -2381,24 +2403,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       },
@@ -2408,24 +2413,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
@@ -2595,6 +2583,27 @@
             "description": "OK"
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "UserProfile"
+        ],
+        "parameters": [
+          {
+            "name": "userProfileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/user-profile/by-identity-id/{identityId}": {
@@ -2663,7 +2672,7 @@
         }
       }
     },
-    "/user-profile": {
+    "/user-profiles": {
       "get": {
         "tags": [
           "UserProfile"
@@ -2681,7 +2690,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 0
             }
           },
           {
@@ -2689,7 +2699,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 50
             }
           },
           {
@@ -2716,7 +2727,19 @@
           }
         }
       },
-      "put": {
+      "patch": {
+        "tags": [
+          "UserProfile"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/user-profile": {
+      "post": {
         "tags": [
           "UserProfile"
         ],
@@ -2728,7 +2751,7 @@
       }
     },
     "/user-profile/{userProfileId}/claims": {
-      "patch": {
+      "post": {
         "tags": [
           "UserProfile"
         ],
@@ -2749,7 +2772,7 @@
           }
         }
       },
-      "post": {
+      "put": {
         "tags": [
           "UserProfile"
         ],
@@ -2928,34 +2951,6 @@
         },
         "additionalProperties": false
       },
-      "ApiResponseDto": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "$ref": "#/components/schemas/HttpStatusCode"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true
-          },
-          "isSuccess": {
-            "type": "boolean",
-            "readOnly": true
-          },
-          "isNotFound": {
-            "type": "boolean",
-            "readOnly": true
-          },
-          "isConflict": {
-            "type": "boolean",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false
-      },
       "BanFileMonitorOrder": {
         "enum": [
           "BannerServerListPosition",
@@ -2971,6 +2966,45 @@
         ],
         "type": "string",
         "format": "int32"
+      },
+      "CreateAdminActionDto": {
+        "type": "object",
+        "properties": {
+          "playerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AdminActionType"
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "forumTopicId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "adminId": {
+            "type": "string",
+            "nullable": true
+          },
+          "telemetryProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
       },
       "CreatePlayerAliasDto": {
         "type": "object",
@@ -3003,6 +3037,42 @@
         ],
         "type": "string",
         "format": "int32"
+      },
+      "EditAdminActionDto": {
+        "type": "object",
+        "properties": {
+          "adminActionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "forumTopicId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "adminId": {
+            "type": "string",
+            "nullable": true
+          },
+          "telemetryProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
       },
       "GameServerFilter": {
         "enum": [
@@ -3048,79 +3118,6 @@
           "Arma",
           "Arma2",
           "Arma3"
-        ],
-        "type": "string",
-        "format": "int32"
-      },
-      "HttpStatusCode": {
-        "enum": [
-          "Continue",
-          "SwitchingProtocols",
-          "Processing",
-          "EarlyHints",
-          "OK",
-          "Created",
-          "Accepted",
-          "NonAuthoritativeInformation",
-          "NoContent",
-          "ResetContent",
-          "PartialContent",
-          "MultiStatus",
-          "AlreadyReported",
-          "IMUsed",
-          "MultipleChoices",
-          "Ambiguous",
-          "MovedPermanently",
-          "Moved",
-          "Found",
-          "Redirect",
-          "SeeOther",
-          "RedirectMethod",
-          "NotModified",
-          "UseProxy",
-          "Unused",
-          "TemporaryRedirect",
-          "RedirectKeepVerb",
-          "PermanentRedirect",
-          "BadRequest",
-          "Unauthorized",
-          "PaymentRequired",
-          "Forbidden",
-          "NotFound",
-          "MethodNotAllowed",
-          "NotAcceptable",
-          "ProxyAuthenticationRequired",
-          "RequestTimeout",
-          "Conflict",
-          "Gone",
-          "LengthRequired",
-          "PreconditionFailed",
-          "RequestEntityTooLarge",
-          "RequestUriTooLong",
-          "UnsupportedMediaType",
-          "RequestedRangeNotSatisfiable",
-          "ExpectationFailed",
-          "MisdirectedRequest",
-          "UnprocessableEntity",
-          "UnprocessableContent",
-          "Locked",
-          "FailedDependency",
-          "UpgradeRequired",
-          "PreconditionRequired",
-          "TooManyRequests",
-          "RequestHeaderFieldsTooLarge",
-          "UnavailableForLegalReasons",
-          "InternalServerError",
-          "NotImplemented",
-          "BadGateway",
-          "ServiceUnavailable",
-          "GatewayTimeout",
-          "HttpVersionNotSupported",
-          "VariantAlsoNegotiates",
-          "InsufficientStorage",
-          "LoopDetected",
-          "NotExtended",
-          "NetworkAuthenticationRequired"
         ],
         "type": "string",
         "format": "int32"

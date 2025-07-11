@@ -1,21 +1,17 @@
-using System.Net;
-using Asp.Versioning;
 using AutoMapper;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
-
-using Newtonsoft.Json;
-
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.DataLib;
+
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
-using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using Asp.Versioning;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -23,14 +19,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class AdminActionsController : Controller, IAdminActionsApi
+    public class AdminActionsController : ControllerBase, IAdminActionsApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
-        public AdminActionsController(
-            PortalDbContext context,
-            IMapper mapper)
+        public AdminActionsController(PortalDbContext context, IMapper mapper)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -38,217 +32,154 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         [HttpGet]
         [Route("admin-actions/{adminActionId}")]
-        public async Task<IActionResult> GetAdminAction(Guid adminActionId)
+        public async Task<IActionResult> GetAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IAdminActionsApi)this).GetAdminAction(adminActionId);
-
+            var response = await ((IAdminActionsApi)this).GetAdminAction(adminActionId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<AdminActionDto>> IAdminActionsApi.GetAdminAction(Guid adminActionId)
+        async Task<ApiResult<AdminActionDto>> IAdminActionsApi.GetAdminAction(Guid adminActionId, CancellationToken cancellationToken)
         {
-            var adminAction = await context.AdminActions
-                .Include(aa => aa.Player)
-                .Include(aa => aa.UserProfile)
-                .SingleOrDefaultAsync(aa => aa.AdminActionId == adminActionId);
-
+            var adminAction = await context.AdminActions.FindAsync(new object[] { adminActionId }, cancellationToken);
             if (adminAction == null)
-                return new ApiResponseDto<AdminActionDto>(HttpStatusCode.NotFound);
+                return new ApiResult<AdminActionDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<AdminActionDto>(adminAction);
-
-            return new ApiResponseDto<AdminActionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<AdminActionDto>(result).ToApiResult();
         }
 
         [HttpGet]
         [Route("admin-actions")]
-        public async Task<IActionResult> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int? skipEntries, int? takeEntries, AdminActionOrder? order)
+        public async Task<IActionResult> GetAdminActions(
+            [FromQuery] GameType? gameType = null,
+            [FromQuery] Guid? playerId = null,
+            [FromQuery] string? adminId = null,
+            [FromQuery] AdminActionFilter? filter = null,
+            [FromQuery] int skipEntries = 0,
+            [FromQuery] int takeEntries = 20,
+            [FromQuery] AdminActionOrder? order = null,
+            CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
-
-            var response = await ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries.Value, takeEntries.Value, order);
-
+            var response = await ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<AdminActionCollectionDto>> IAdminActionsApi.GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order)
+        async Task<ApiResult<CollectionModel<AdminActionDto>>> IAdminActionsApi.GetAdminActions(
+            GameType? gameType,
+            Guid? playerId,
+            string? adminId,
+            AdminActionFilter? filter,
+            int skipEntries,
+            int takeEntries,
+            AdminActionOrder? order,
+            CancellationToken cancellationToken)
         {
-            var query = context.AdminActions.Include(aa => aa.Player).Include(aa => aa.UserProfile).AsQueryable();
-            query = ApplyFilter(query, gameType, null, null, null);
-            var totalCount = await query.CountAsync();
+            var query = context.AdminActions.AsQueryable();
 
-            query = ApplyFilter(query, gameType, playerId, adminId, filter);
-            var filteredCount = await query.CountAsync();
+            if (playerId.HasValue)
+                query = query.Where(a => a.PlayerId == playerId.Value);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
-
-            var entries = results.Select(m => mapper.Map<AdminActionDto>(m)).ToList();
-
-            var result = new AdminActionCollectionDto
+            if (filter.HasValue)
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                switch (filter.Value)
+                {
+                    case AdminActionFilter.ActiveBans:
+                        query = query.Where(a => a.Expires == null || a.Expires > DateTime.UtcNow);
+                        break;
+                    case AdminActionFilter.UnclaimedBans:
+                        query = query.Where(a => a.Expires != null && a.Expires <= DateTime.UtcNow);
+                        break;
+                }
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply ordering
+            if (order.HasValue)
+            {
+                switch (order.Value)
+                {
+                    case AdminActionOrder.CreatedAsc:
+                        query = query.OrderBy(a => a.Created);
+                        break;
+                    case AdminActionOrder.CreatedDesc:
+                        query = query.OrderByDescending(a => a.Created);
+                        break;
+                    default:
+                        query = query.OrderByDescending(a => a.Created);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderByDescending(a => a.Created);
+            }
+
+            var filteredCount = await query.CountAsync(cancellationToken);
+            var adminActions = await query.Skip(skipEntries).Take(takeEntries).ToListAsync(cancellationToken);
+
+            var result = new CollectionModel<AdminActionDto>
+            {
+                Items = adminActions.Select(mapper.Map<AdminActionDto>).ToList(),
+                TotalCount = totalCount,
+                FilteredCount = filteredCount
             };
 
-            return new ApiResponseDto<AdminActionCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<AdminActionDto>>(result).ToApiResult();
         }
 
         [HttpPost]
         [Route("admin-actions")]
-        public async Task<IActionResult> CreateAdminAction()
+        public async Task<IActionResult> CreateAdminAction([FromBody] CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            CreateAdminActionDto? createAdminActionDto;
-            try
-            {
-                createAdminActionDto = JsonConvert.DeserializeObject<CreateAdminActionDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (createAdminActionDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
-            var response = await ((IAdminActionsApi)this).CreateAdminAction(createAdminActionDto);
-
+            var response = await ((IAdminActionsApi)this).CreateAdminAction(createAdminActionDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IAdminActionsApi.CreateAdminAction(CreateAdminActionDto createAdminActionDto)
+        async Task<ApiResult> IAdminActionsApi.CreateAdminAction(CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken)
         {
             var adminAction = mapper.Map<AdminAction>(createAdminActionDto);
-
-            if (!string.IsNullOrWhiteSpace(createAdminActionDto.AdminId))
-                adminAction.UserProfile = await context.UserProfiles.SingleOrDefaultAsync(u => u.XtremeIdiotsForumId == createAdminActionDto.AdminId);
-
-            adminAction.Created = DateTime.UtcNow;
-
             context.AdminActions.Add(adminAction);
-            await context.SaveChangesAsync();
-
-            return new ApiResponseDto(HttpStatusCode.OK);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        [HttpPatch]
-        [Route("admin-actions/{adminActionId}")]
-        public async Task<IActionResult> UpdateAdminAction(Guid adminActionId)
+        [HttpPut]
+        [Route("admin-actions")]
+        public async Task<IActionResult> UpdateAdminAction([FromBody] EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            EditAdminActionDto? editAdminActionDto;
-            try
-            {
-                editAdminActionDto = JsonConvert.DeserializeObject<EditAdminActionDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (editAdminActionDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
-            if (editAdminActionDto.AdminActionId != adminActionId)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
-
-            var response = await ((IAdminActionsApi)this).UpdateAdminAction(editAdminActionDto);
-
+            var response = await ((IAdminActionsApi)this).UpdateAdminAction(editAdminActionDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IAdminActionsApi.UpdateAdminAction(EditAdminActionDto editAdminActionDto)
+        async Task<ApiResult> IAdminActionsApi.UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken)
         {
-            var adminAction = await context.AdminActions
-                .Include(aa => aa.UserProfile)
-                .SingleOrDefaultAsync(aa => aa.AdminActionId == editAdminActionDto.AdminActionId);
-
+            var adminAction = await context.AdminActions.FindAsync(new object[] { editAdminActionDto.AdminActionId }, cancellationToken);
             if (adminAction == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
             mapper.Map(editAdminActionDto, adminAction);
-
-            if (!string.IsNullOrWhiteSpace(editAdminActionDto.AdminId) && editAdminActionDto.AdminId != adminAction.UserProfile?.XtremeIdiotsForumId)
-                adminAction.UserProfile = await context.UserProfiles.SingleOrDefaultAsync(u => u.XtremeIdiotsForumId == editAdminActionDto.AdminId);
-
-            await context.SaveChangesAsync();
-
-            return new ApiResponseDto(HttpStatusCode.OK);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult();
         }
-
 
         [HttpDelete]
         [Route("admin-actions/{adminActionId}")]
-        public async Task<IActionResult> DeleteAdminAction(Guid adminActionId)
+        public async Task<IActionResult> DeleteAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IAdminActionsApi)this).DeleteAdminAction(adminActionId);
-
+            var response = await ((IAdminActionsApi)this).DeleteAdminAction(adminActionId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IAdminActionsApi.DeleteAdminAction(Guid adminActionId)
+        async Task<ApiResult> IAdminActionsApi.DeleteAdminAction(Guid adminActionId, CancellationToken cancellationToken)
         {
-            var adminAction = await context.AdminActions
-                .SingleOrDefaultAsync(aa => aa.AdminActionId == adminActionId);
-
+            var adminAction = await context.AdminActions.FindAsync(new object[] { adminActionId }, cancellationToken);
             if (adminAction == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            context.Remove(adminAction);
-
-            await context.SaveChangesAsync();
-
-            return new ApiResponseDto(HttpStatusCode.OK);
-        }
-
-        private IQueryable<AdminAction> ApplyFilter(IQueryable<AdminAction> query, GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter)
-        {
-            if (gameType.HasValue)
-                query = query.Where(aa => aa.Player.GameType == ((GameType)gameType).ToGameTypeInt()).AsQueryable();
-
-            if (playerId.HasValue)
-                query = query.Where(aa => aa.PlayerId == playerId).AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(adminId))
-                query = query.Where(aa => aa.UserProfile.XtremeIdiotsForumId == adminId).AsQueryable();
-
-            switch (filter)
-            {
-                case AdminActionFilter.ActiveBans:
-                    query = query.Where(aa => aa.Type == AdminActionType.Ban.ToAdminActionTypeInt() && aa.Expires == null || aa.Type == AdminActionType.TempBan.ToAdminActionTypeInt() && aa.Expires > DateTime.UtcNow).AsQueryable();
-                    break;
-                case AdminActionFilter.UnclaimedBans:
-                    query = query.Where(aa => aa.Type == AdminActionType.Ban.ToAdminActionTypeInt() && aa.Expires == null && aa.UserProfile == null).AsQueryable();
-                    break;
-            }
-
-            return query;
-        }
-
-        private IQueryable<AdminAction> ApplyOrderAndLimits(IQueryable<AdminAction> query, int skipEntries, int takeEntries, AdminActionOrder? order)
-        {
-            switch (order)
-            {
-                case AdminActionOrder.CreatedAsc:
-                    query = query.OrderBy(aa => aa.Created).AsQueryable();
-                    break;
-                case AdminActionOrder.CreatedDesc:
-                    query = query.OrderByDescending(aa => aa.Created).AsQueryable();
-                    break;
-            }
-
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            context.AdminActions.Remove(adminAction);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult();
         }
     }
 }

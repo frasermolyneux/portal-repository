@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,24 +15,24 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class ChatMessagesApi : BaseApi, IChatMessagesApi
+    public class ChatMessagesApi : BaseApi<RepositoryApiClientOptions>, IChatMessagesApi
     {
-        public ChatMessagesApi(ILogger<ChatMessagesApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public ChatMessagesApi(ILogger<ChatMessagesApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
 
         }
 
-        public async Task<ApiResponseDto<ChatMessageDto>> GetChatMessage(Guid chatMessageId)
+        public async Task<ApiResult<ChatMessageDto>> GetChatMessage(Guid chatMessageId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}", Method.Get, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<ChatMessageDto>();
+            return response.ToApiResult<ChatMessageDto>();
         }
 
-        public async Task<ApiResponseDto<ChatMessagesCollectionDto>> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly = null)
+        public async Task<ApiResult<CollectionModel<ChatMessageDto>>> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly = null, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/chat-messages", Method.Get);
+            var request = await CreateRequestAsync("v1/chat-messages", Method.Get, cancellationToken);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -53,37 +55,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (lockedOnly.HasValue)
                 request.AddQueryParameter("lockedOnly", lockedOnly.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<ChatMessagesCollectionDto>();
+            return response.ToApiResult<CollectionModel<ChatMessageDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateChatMessage(CreateChatMessageDto createChatMessageDto)
+        public async Task<ApiResult> CreateChatMessage(CreateChatMessageDto createChatMessageDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/chat-messages", Method.Post);
+            var request = await CreateRequestAsync("v1/chat-messages", Method.Post, cancellationToken);
             request.AddJsonBody(new List<CreateChatMessageDto> { createChatMessageDto });
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos)
+        public async Task<ApiResult> CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/chat-messages", Method.Post);
+            var request = await CreateRequestAsync("v1/chat-messages", Method.Post, cancellationToken);
             request.AddJsonBody(createChatMessageDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> ToggleLockedStatus(Guid chatMessageId)
+        public async Task<ApiResult> ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}/toggle-locked", Method.Patch);
-            var response = await ExecuteAsync(request);
+            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}/toggle-locked", Method.Patch, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+
