@@ -19,6 +19,9 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
+/// <summary>
+/// Provides API endpoints for managing chat messages in the portal repository.
+/// </summary>
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
@@ -28,6 +31,12 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     private readonly PortalDbContext context;
     private readonly IMapper mapper;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChatMessagesController"/> class.
+    /// </summary>
+    /// <param name="context">The database context for accessing chat messages.</param>
+    /// <param name="mapper">The mapper for converting between entities and DTOs.</param>
+    /// <exception cref="ArgumentNullException">Thrown when any parameter is null.</exception>
     public ChatMessagesController(
         PortalDbContext context,
         IMapper mapper)
@@ -36,8 +45,15 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
-    [HttpGet]
-    [Route("chat-messages/{chatMessageId}")]
+    /// <summary>
+    /// Retrieves a specific chat message by its identifier.
+    /// </summary>
+    /// <param name="chatMessageId">The unique identifier of the chat message to retrieve.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>The chat message if found, otherwise a 404 Not Found response.</returns>
+    [HttpGet("chat-messages/{chatMessageId:guid}")]
+    [ProducesResponseType<ChatMessageDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetChatMessage(Guid chatMessageId, CancellationToken cancellationToken = default)
     {
         var response = await ((IChatMessagesApi)this).GetChatMessage(chatMessageId, cancellationToken);
@@ -45,72 +61,127 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Retrieves a specific chat message by its identifier.
+    /// </summary>
+    /// <param name="chatMessageId">The unique identifier of the chat message to retrieve.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing the chat message if found.</returns>
     async Task<ApiResult<ChatMessageDto>> IChatMessagesApi.GetChatMessage(Guid chatMessageId, CancellationToken cancellationToken)
     {
         var chatLog = await context.ChatMessages
             .Include(cl => cl.GameServer)
             .Include(cl => cl.Player)
-            .SingleOrDefaultAsync(cl => cl.ChatMessageId == chatMessageId, cancellationToken);
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cl => cl.ChatMessageId == chatMessageId, cancellationToken);
 
         if (chatLog == null)
             return new ApiResult<ChatMessageDto>(HttpStatusCode.NotFound);
 
         var result = mapper.Map<ChatMessageDto>(chatLog);
 
-        return new ApiResult<ChatMessageDto>(HttpStatusCode.OK, new ApiResponse<ChatMessageDto>(result));
+        return new ApiResponse<ChatMessageDto>(result).ToApiResult();
     }
 
-    [HttpGet]
-    [Route("chat-messages")]
-    public async Task<IActionResult> GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int? skipEntries, int? takeEntries, ChatMessageOrder? order, bool? lockedOnly = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Retrieves a paginated list of chat messages with optional filtering and ordering.
+    /// </summary>
+    /// <param name="gameType">Optional filter by game type.</param>
+    /// <param name="gameServerId">Optional filter by game server identifier.</param>
+    /// <param name="playerId">Optional filter by player identifier.</param>
+    /// <param name="filterString">Optional filter string for message content.</param>
+    /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+    /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+    /// <param name="order">Optional ordering for the results.</param>
+    /// <param name="lockedOnly">Optional filter to show only locked messages.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A paginated collection of chat messages.</returns>
+    [HttpGet("chat-messages")]
+    [ProducesResponseType<CollectionModel<ChatMessageDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChatMessages(
+        [FromQuery] GameType? gameType = null,
+        [FromQuery] Guid? gameServerId = null,
+        [FromQuery] Guid? playerId = null,
+        [FromQuery] string? filterString = null,
+        [FromQuery] int skipEntries = 0,
+        [FromQuery] int takeEntries = 20,
+        [FromQuery] ChatMessageOrder? order = null,
+        [FromQuery] bool? lockedOnly = null,
+        CancellationToken cancellationToken = default)
     {
-        if (!skipEntries.HasValue)
-            skipEntries = 0;
-
-        if (!takeEntries.HasValue)
-            takeEntries = 20;
-
-        var response = await ((IChatMessagesApi)this).GetChatMessages(gameType, gameServerId, playerId, filterString, skipEntries.Value, takeEntries.Value, order, lockedOnly, cancellationToken);
+        var response = await ((IChatMessagesApi)this).GetChatMessages(gameType, gameServerId, playerId, filterString, skipEntries, takeEntries, order, lockedOnly, cancellationToken);
 
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Retrieves a paginated list of chat messages with optional filtering and ordering.
+    /// </summary>
+    /// <param name="gameType">Optional filter by game type.</param>
+    /// <param name="gameServerId">Optional filter by game server identifier.</param>
+    /// <param name="playerId">Optional filter by player identifier.</param>
+    /// <param name="filterString">Optional filter string for message content.</param>
+    /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+    /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="order">Optional ordering for the results.</param>
+    /// <param name="lockedOnly">Optional filter to show only locked messages.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing a paginated collection of chat messages.</returns>
     async Task<ApiResult<CollectionModel<ChatMessageDto>>> IChatMessagesApi.GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly, CancellationToken cancellationToken)
     {
-        var query = context.ChatMessages.Include(cl => cl.GameServer).Include(cl => cl.Player).AsQueryable();
-        query = ApplyFilter(query, gameType, gameServerId, playerId, string.Empty, lockedOnly);
-        var totalCount = await query.CountAsync(cancellationToken);
+        var baseQuery = context.ChatMessages
+            .Include(cl => cl.GameServer)
+            .Include(cl => cl.Player)
+            .AsNoTracking()
+            .AsQueryable();
 
-        query = ApplyFilter(query, gameType, gameServerId, playerId, filterString, lockedOnly);
-        var filteredCount = await query.CountAsync(cancellationToken);
+        // Calculate total count before applying filtering
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-        query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-        var results = await query.ToListAsync(cancellationToken);
+        // Apply filtering
+        var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, playerId, filterString, lockedOnly);
+        var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+        // Apply ordering and pagination
+        var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+        var results = await orderedQuery.ToListAsync(cancellationToken);
 
         var entries = results.Select(cm => mapper.Map<ChatMessageDto>(cm)).ToList();
 
-        var result = new CollectionModel<ChatMessageDto>
+        var data = new CollectionModel<ChatMessageDto>
         {
             TotalCount = totalCount,
             FilteredCount = filteredCount,
             Items = entries
         };
 
-        return new ApiResult<CollectionModel<ChatMessageDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<ChatMessageDto>>(result));
+        return new ApiResponse<CollectionModel<ChatMessageDto>>(data).ToApiResult();
     }
 
+    /// <summary>
+    /// Creates a new chat message in the repository.
+    /// </summary>
+    /// <param name="createChatMessageDto">The chat message data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the success of the operation.</returns>
     async Task<ApiResult> IChatMessagesApi.CreateChatMessage(CreateChatMessageDto createChatMessageDto, CancellationToken cancellationToken)
     {
         var chatMessage = mapper.Map<ChatMessage>(createChatMessageDto);
 
-        await context.ChatMessages.AddAsync(chatMessage, cancellationToken);
+        context.ChatMessages.Add(chatMessage);
         await context.SaveChangesAsync(cancellationToken);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
 
-    [HttpPost]
-    [Route("chat-messages")]
+    /// <summary>
+    /// Creates multiple chat messages in the repository.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A result indicating the success of the operation.</returns>
+    [HttpPost("chat-messages")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateChatMessages(CancellationToken cancellationToken = default)
     {
         var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
@@ -133,8 +204,15 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return response.ToHttpResult();
     }
 
-    [HttpPost]
-    [Route("chat-messages/{chatMessageId}/toggle-lock")]
+    /// <summary>
+    /// Toggles the locked status of a chat message.
+    /// </summary>
+    /// <param name="chatMessageId">The unique identifier of the chat message to toggle.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A result indicating the success of the operation.</returns>
+    [HttpPost("chat-messages/{chatMessageId:guid}/toggle-lock")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken = default)
     {
         var response = await ((IChatMessagesApi)this).ToggleLockedStatus(chatMessageId, cancellationToken);
@@ -142,10 +220,16 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Toggles the locked status of a chat message.
+    /// </summary>
+    /// <param name="chatMessageId">The unique identifier of the chat message to toggle.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the success of the operation.</returns>
     async Task<ApiResult> IChatMessagesApi.ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken)
     {
         var chatMessage = await context.ChatMessages
-            .SingleOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId, cancellationToken);
+            .FirstOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId, cancellationToken);
 
         if (chatMessage == null)
             return new ApiResult(HttpStatusCode.NotFound);
@@ -158,16 +242,32 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return new ApiResponse().ToApiResult();
     }
 
+    /// <summary>
+    /// Creates multiple chat messages in the repository.
+    /// </summary>
+    /// <param name="createChatMessageDtos">The collection of chat message data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the success of the operation.</returns>
     async Task<ApiResult> IChatMessagesApi.CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos, CancellationToken cancellationToken)
     {
         var chatLogs = createChatMessageDtos.Select(cm => mapper.Map<ChatMessage>(cm)).ToList();
 
-        await context.ChatMessages.AddRangeAsync(chatLogs, cancellationToken);
+        context.ChatMessages.AddRange(chatLogs);
         await context.SaveChangesAsync(cancellationToken);
 
-        return new ApiResponse().ToApiResult();
+        return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
 
+    /// <summary>
+    /// Applies filtering criteria to the chat messages query.
+    /// </summary>
+    /// <param name="query">The base query to apply filters to.</param>
+    /// <param name="gameType">Optional filter by game type.</param>
+    /// <param name="gameServerId">Optional filter by game server identifier.</param>
+    /// <param name="playerId">Optional filter by player identifier.</param>
+    /// <param name="filterString">Optional filter string for message content.</param>
+    /// <param name="lockedOnly">Optional filter to show only locked messages.</param>
+    /// <returns>The filtered query.</returns>
     private IQueryable<ChatMessage> ApplyFilter(IQueryable<ChatMessage> query, GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, bool? lockedOnly = null)
     {
         if (gameType.HasValue)
@@ -188,22 +288,24 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         return query;
     }
 
+    /// <summary>
+    /// Applies ordering and pagination to the chat messages query.
+    /// </summary>
+    /// <param name="query">The query to apply ordering and pagination to.</param>
+    /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+    /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="order">Optional ordering for the results.</param>
+    /// <returns>The ordered and paginated query.</returns>
     private IQueryable<ChatMessage> ApplyOrderAndLimits(IQueryable<ChatMessage> query, int skipEntries, int takeEntries, ChatMessageOrder? order)
     {
-        switch (order)
+        var orderedQuery = order switch
         {
-            case ChatMessageOrder.TimestampAsc:
-                query = query.OrderBy(cl => cl.Timestamp).AsQueryable();
-                break;
-            case ChatMessageOrder.TimestampDesc:
-                query = query.OrderByDescending(cl => cl.Timestamp).AsQueryable();
-                break;
-        }
+            ChatMessageOrder.TimestampAsc => query.OrderBy(cl => cl.Timestamp),
+            ChatMessageOrder.TimestampDesc => query.OrderByDescending(cl => cl.Timestamp),
+            _ => query.OrderByDescending(cl => cl.Timestamp)
+        };
 
-        query = query.Skip(skipEntries).AsQueryable();
-        query = query.Take(takeEntries).AsQueryable();
-
-        return query;
+        return orderedQuery.Skip(skipEntries).Take(takeEntries);
     }
 }
 

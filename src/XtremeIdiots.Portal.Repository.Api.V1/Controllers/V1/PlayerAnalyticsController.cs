@@ -20,28 +20,43 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class PlayerAnalyticsController : Controller, IPlayerAnalyticsApi
+    public class PlayerAnalyticsController : ControllerBase, IPlayerAnalyticsApi
     {
         private readonly PortalDbContext context;
 
         public PlayerAnalyticsController(PortalDbContext context)
         {
-            this.context = context;
+            this.context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        [HttpGet]
-        [Route("player-analytics/cumulative-daily-players")]
+        /// <summary>
+        /// Retrieves cumulative daily player statistics based on a cutoff date.
+        /// </summary>
+        /// <param name="cutoff">The cutoff date to filter players who first connected after this date.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A collection of cumulative daily player statistics.</returns>
+        [HttpGet("player-analytics/cumulative-daily-players")]
+        [ProducesResponseType<CollectionModel<PlayerAnalyticEntryDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetCumulativeDailyPlayers(DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var response = await ((IPlayerAnalyticsApi)this).GetCumulativeDailyPlayers(cutoff, cancellationToken);
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Retrieves cumulative daily player statistics based on a cutoff date.
+        /// </summary>
+        /// <param name="cutoff">The cutoff date to filter players who first connected after this date.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a collection of cumulative daily player statistics.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticEntryDto>>> IPlayerAnalyticsApi.GetCumulativeDailyPlayers(DateTime cutoff, CancellationToken cancellationToken)
         {
-            var cumulative = await context.Players.CountAsync(p => p.FirstSeen < cutoff, cancellationToken);
+            var cumulative = await context.Players
+                .AsNoTracking()
+                .CountAsync(p => p.FirstSeen < cutoff, cancellationToken);
 
             var players = await context.Players
+                .AsNoTracking()
                 .Where(p => p.FirstSeen > cutoff)
                 .Select(p => p.FirstSeen)
                 .OrderBy(p => p)
@@ -62,20 +77,33 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = groupedPlayers
             };
 
-            return new ApiResult<CollectionModel<PlayerAnalyticEntryDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PlayerAnalyticEntryDto>>(result));
+            return new ApiResponse<CollectionModel<PlayerAnalyticEntryDto>>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("player-analytics/new-daily-players-per-game")]
+        /// <summary>
+        /// Retrieves new daily player statistics per game based on a cutoff date.
+        /// </summary>
+        /// <param name="cutoff">The cutoff date to filter players who first connected after this date.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A collection of new daily player statistics grouped by game type.</returns>
+        [HttpGet("player-analytics/new-daily-players-per-game")]
+        [ProducesResponseType<CollectionModel<PlayerAnalyticPerGameEntryDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetNewDailyPlayersPerGame(DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var response = await ((IPlayerAnalyticsApi)this).GetNewDailyPlayersPerGame(cutoff, cancellationToken);
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Retrieves new daily player statistics per game based on a cutoff date.
+        /// </summary>
+        /// <param name="cutoff">The cutoff date to filter players who first connected after this date.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a collection of new daily player statistics grouped by game type.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> IPlayerAnalyticsApi.GetNewDailyPlayersPerGame(DateTime cutoff, CancellationToken cancellationToken)
         {
             var players = await context.Players
+                .AsNoTracking()
                 .Where(p => p.FirstSeen > cutoff)
                 .Select(p => new { p.FirstSeen, p.GameType })
                 .OrderBy(p => p.FirstSeen)
@@ -97,20 +125,33 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = groupedPlayers
             };
 
-            return new ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result));
+            return new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("player-analytics/players-drop-off-per-game")]
+        /// <summary>
+        /// Retrieves player drop-off statistics per game based on a cutoff date.
+        /// </summary>
+        /// <param name="cutoff">The cutoff date to filter players who were last seen after this date.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A collection of player drop-off statistics grouped by game type.</returns>
+        [HttpGet("player-analytics/players-drop-off-per-game")]
+        [ProducesResponseType<CollectionModel<PlayerAnalyticPerGameEntryDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetPlayersDropOffPerGameJson(DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var response = await ((IPlayerAnalyticsApi)this).GetPlayersDropOffPerGameJson(cutoff, cancellationToken);
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Retrieves player drop-off statistics per game based on a cutoff date.
+        /// </summary>
+        /// <param name="cutoff">The cutoff date to filter players who were last seen after this date.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a collection of player drop-off statistics grouped by game type.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> IPlayerAnalyticsApi.GetPlayersDropOffPerGameJson(DateTime cutoff, CancellationToken cancellationToken)
         {
             var players = await context.Players
+                .AsNoTracking()
                 .Where(p => p.LastSeen > cutoff)
                 .Select(p => new { p.LastSeen, p.GameType })
                 .OrderBy(p => p.LastSeen)
@@ -132,7 +173,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = groupedPlayers
             };
 
-            return new ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result));
+            return new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result).ToApiResult();
         }
     }
 }

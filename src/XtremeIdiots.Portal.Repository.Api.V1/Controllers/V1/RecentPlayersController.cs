@@ -9,8 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
-using Newtonsoft.Json;
-
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -36,35 +34,70 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("recent-players")]
-        public async Task<IActionResult> GetRecentPlayers(GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter, int? skipEntries, int? takeEntries, RecentPlayersOrder? order, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Retrieves a paginated list of recent players with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="cutoff">Optional filter by timestamp cutoff (limited to last 48 hours).</param>
+        /// <param name="filter">Optional filter criteria for recent players.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of recent players.</returns>
+        [HttpGet("recent-players")]
+        [ProducesResponseType<CollectionModel<RecentPlayerDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetRecentPlayers(
+            [FromQuery] GameType? gameType = null,
+            [FromQuery] Guid? gameServerId = null,
+            [FromQuery] DateTime? cutoff = null,
+            [FromQuery] RecentPlayersFilter? filter = null,
+            [FromQuery] int? skipEntries = null,
+            [FromQuery] int? takeEntries = null,
+            [FromQuery] RecentPlayersOrder? order = null,
+            CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
+            var skip = skipEntries ?? 0;
+            var take = takeEntries ?? 20;
 
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddHours(-48))
                 cutoff = DateTime.UtcNow.AddHours(-48);
 
-            var response = await ((IRecentPlayersApi)this).GetRecentPlayers(gameType, gameServerId, cutoff, filter, skipEntries.Value, takeEntries.Value, order, cancellationToken);
+            var response = await ((IRecentPlayersApi)this).GetRecentPlayers(gameType, gameServerId, cutoff, filter, skip, take, order, cancellationToken);
 
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Retrieves a paginated list of recent players with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="cutoff">Optional filter by timestamp cutoff.</param>
+        /// <param name="filter">Optional filter criteria for recent players.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of recent players.</returns>
         async Task<ApiResult<CollectionModel<RecentPlayerDto>>> IRecentPlayersApi.GetRecentPlayers(GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter, int skipEntries, int takeEntries, RecentPlayersOrder? order, CancellationToken cancellationToken)
         {
-            var query = context.RecentPlayers.Include(rp => rp.Player).AsQueryable();
-            query = ApplyFilter(query, gameType, null, null, null);
-            var totalCount = await query.CountAsync(cancellationToken);
+            var baseQuery = context.RecentPlayers
+                .Include(rp => rp.Player)
+                .AsNoTracking()
+                .AsQueryable();
 
-            query = ApplyFilter(query, gameType, gameServerId, cutoff, filter);
-            var filteredCount = await query.CountAsync(cancellationToken);
+            // Calculate total count before applying filters
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync(cancellationToken);
+            // Apply filters
+            var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, cutoff, filter);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(rp => mapper.Map<RecentPlayerDto>(rp)).ToList();
 
@@ -75,25 +108,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = entries
             };
 
-            return new ApiResult<CollectionModel<RecentPlayerDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<RecentPlayerDto>>(result));
+            return new ApiResponse<CollectionModel<RecentPlayerDto>>(result).ToApiResult();
         }
 
-        [HttpPost]
-        [Route("recent-players")]
-        public async Task<IActionResult> CreateRecentPlayers(CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Creates or updates recent player records in bulk.
+        /// </summary>
+        /// <param name="createRecentPlayerDtos">List of recent player data to create or update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the recent players were processed.</returns>
+        [HttpPost("recent-players")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateRecentPlayers([FromBody] List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<CreateRecentPlayerDto>? createRecentPlayerDtos;
-            try
-            {
-                createRecentPlayerDtos = JsonConvert.DeserializeObject<List<CreateRecentPlayerDto>>(requestBody);
-            }
-            catch
-            {
-                return BadRequest();
-            }
-
             if (createRecentPlayerDtos == null || !createRecentPlayerDtos.Any())
                 return BadRequest();
 
@@ -102,11 +130,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Creates or updates recent player records in bulk.
+        /// </summary>
+        /// <param name="createRecentPlayerDtos">List of recent player data to create or update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the recent players were processed.</returns>
         async Task<ApiResult> IRecentPlayersApi.CreateRecentPlayers(List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken)
         {
             foreach (var createRecentPlayerDto in createRecentPlayerDtos)
             {
-                var recentPlayer = await context.RecentPlayers.SingleOrDefaultAsync(rp => rp.PlayerId == createRecentPlayerDto.PlayerId, cancellationToken);
+                var recentPlayer = await context.RecentPlayers
+                    .FirstOrDefaultAsync(rp => rp.PlayerId == createRecentPlayerDto.PlayerId, cancellationToken);
 
                 if (recentPlayer != null)
                 {
@@ -124,28 +159,27 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResult(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
         private static IQueryable<RecentPlayer> ApplyFilter(IQueryable<RecentPlayer> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter)
         {
             if (gameType.HasValue)
-                query = query.Where(rp => rp.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+                query = query.Where(rp => rp.GameType == gameType.Value.ToGameTypeInt());
 
             if (gameServerId.HasValue)
-                query = query.Where(rp => rp.GameServerId == gameServerId).AsQueryable();
+                query = query.Where(rp => rp.GameServerId == gameServerId);
 
             if (cutoff.HasValue)
-                query = query.Where(rp => rp.Timestamp > cutoff).AsQueryable();
+                query = query.Where(rp => rp.Timestamp > cutoff);
 
             if (filter.HasValue)
             {
-                switch (filter)
+                query = filter.Value switch
                 {
-                    case RecentPlayersFilter.GeoLocated:
-                        query = query.Where(rp => rp.Lat != 0 && rp.Long != 0).AsQueryable();
-                        break;
-                }
+                    RecentPlayersFilter.GeoLocated => query.Where(rp => rp.Lat != 0 && rp.Long != 0),
+                    _ => query
+                };
             }
 
             return query;
@@ -153,23 +187,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private static IQueryable<RecentPlayer> ApplyOrderAndLimits(IQueryable<RecentPlayer> query, int skipEntries, int takeEntries, RecentPlayersOrder? order)
         {
-            if (order.HasValue)
+            // Apply ordering
+            var orderedQuery = order switch
             {
-                switch (order)
-                {
-                    case RecentPlayersOrder.TimestampAsc:
-                        query = query.OrderBy(rp => rp.Timestamp).AsQueryable();
-                        break;
-                    case RecentPlayersOrder.TimestampDesc:
-                        query = query.OrderByDescending(rp => rp.Timestamp).AsQueryable();
-                        break;
-                }
-            }
+                RecentPlayersOrder.TimestampAsc => query.OrderBy(rp => rp.Timestamp),
+                RecentPlayersOrder.TimestampDesc => query.OrderByDescending(rp => rp.Timestamp),
+                _ => query.OrderByDescending(rp => rp.Timestamp)
+            };
 
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
         }
     }
 }

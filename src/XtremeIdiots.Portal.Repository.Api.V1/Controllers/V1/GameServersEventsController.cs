@@ -8,8 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
-using Newtonsoft.Json;
-
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -28,54 +26,78 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
 
     public GameServersEventsController(
         PortalDbContext context,
-            IMapper mapper)
+        IMapper mapper)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
         this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
-    Task<ApiResult> IGameServersEventsApi.CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken)
+    /// <summary>
+    /// Creates a single game server event.
+    /// </summary>
+    /// <param name="createGameServerEventDto">The game server event data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response indicating the game server event was created.</returns>
+    [HttpPost("game-server-events/single")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateGameServerEvent([FromBody] CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
-    }
-
-    [HttpPost]
-    [Route("game-server-events")]
-    public async Task<IActionResult> CreateGameServerEvents(CancellationToken cancellationToken = default)
-    {
-        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-        List<CreateGameServerEventDto>? createGameServerEventDto;
-        try
-        {
-            createGameServerEventDto = JsonConvert.DeserializeObject<List<CreateGameServerEventDto>>(requestBody);
-        }
-        catch
-        {
-            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-        }
-
-        if (createGameServerEventDto == null)
-            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-
-        var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDto, cancellationToken);
-
+        var response = await ((IGameServersEventsApi)this).CreateGameServerEvent(createGameServerEventDto, cancellationToken);
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Creates a single game server event.
+    /// </summary>
+    /// <param name="createGameServerEventDto">The game server event data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the game server event was created.</returns>
+    async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken)
+    {
+        var gameServerEvent = mapper.Map<GameServerEvent>(createGameServerEventDto);
+        gameServerEvent.Timestamp = DateTime.UtcNow;
+
+        context.GameServerEvents.Add(gameServerEvent);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+    }
+
+    /// <summary>
+    /// Creates multiple game server events in a batch operation.
+    /// </summary>
+    /// <param name="createGameServerEventDtos">The list of game server event data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response indicating the game server events were created.</returns>
+    [HttpPost("game-server-events")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateGameServerEvents([FromBody] List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDtos, cancellationToken);
+        return response.ToHttpResult();
+    }
+
+    /// <summary>
+    /// Creates multiple game server events in a batch operation.
+    /// </summary>
+    /// <param name="createGameServerEventDtos">The list of game server event data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the game server events were created.</returns>
     async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken)
     {
         var gameServerEvents = createGameServerEventDtos.Select(gse => mapper.Map<GameServerEvent>(gse)).ToList();
 
-        gameServerEvents.ForEach(gse =>
+        foreach (var gameServerEvent in gameServerEvents)
         {
-            gse.Timestamp = DateTime.UtcNow;
-        });
+            gameServerEvent.Timestamp = DateTime.UtcNow;
+        }
 
-        await context.GameServerEvents.AddRangeAsync(gameServerEvents);
-        await context.SaveChangesAsync();
+        await context.GameServerEvents.AddRangeAsync(gameServerEvents, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
-        return new ApiResult();
+        return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
 }
 

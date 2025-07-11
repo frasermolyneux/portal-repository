@@ -1,3 +1,34 @@
+---
+mode: agent
+---
+Modernize this ASP.NET Core controller to use current framework patterns and best practices. Apply these specific changes:
+
+## Framework Modernization:
+1. **Use AsNoTracking()**: Add `.AsNoTracking()` to all read-only Entity Framework queries for better performance
+2. **Modern route attributes**: Use specific HTTP verb attributes like `[HttpGet("route/{id:guid}")]` instead of generic `[Route]` attributes
+3. **Add route constraints**: Use route constraints like `:guid`, `:int` for type safety
+
+## Documentation & Attributes:
+1. **Add XML documentation**: Add comprehensive `/// <summary>` documentation for all public methods
+2. **Add ProducesResponseType attributes**: Add `[ProducesResponseType<T>(StatusCodes.Status200OK)]` and other appropriate status codes
+3. **Document parameters**: Add `/// <param name="paramName">Description</param>` for all parameters
+4. **Document return values**: Add `/// <returns>Description</returns>` for all methods
+
+## Query Optimization:
+1. **Replace FindAsync with FirstOrDefaultAsync**: Use `FirstOrDefaultAsync(x => x.Id == id)` instead of `FindAsync(id)` for better control
+2. **Optimize count queries**: Calculate total count before applying ordering and pagination
+3. **Use switch expressions**: Replace traditional switch statements with modern switch expressions where appropriate
+
+## HTTP Response Patterns:
+1. **Use ApiResponse and ApiResult models**: Use the `ApiResponse` and `ApiResult` models with concrete interfaces creating a `ApiResponse` and using extension methods to convert to `ApiResult` for the returns
+
+## Code Structure:
+1. **Retain self-delegation pattern**: Retain the pattern where HTTP endpoints call the concrete interface methods on the same controller instance
+2. **Separate concerns**: HTTP endpoints handle web concerns, interface implementations handle business logic
+3. **Constructor validation**: Keep null checks with `ArgumentNullException`
+
+## Example:
+```csharp
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -282,3 +313,4 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
+```

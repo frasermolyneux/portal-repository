@@ -16,16 +16,26 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 [Route("api/v{version:apiVersion}")]
 public class RootApiController : ControllerBase, IRootApi
 {
-    [HttpHead]
-    [HttpGet]
-    [HttpPost]
-    [Route("")]
-    public async Task<IActionResult> GetRoot()
+    /// <summary>
+    /// Gets the root API endpoint information.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>The root API information.</returns>
+    [HttpHead("")]
+    [HttpGet("")]
+    [HttpPost("")]
+    [ProducesResponseType<RootDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRoot(CancellationToken cancellationToken = default)
     {
-        var response = await ((IRootApi)this).GetRoot(CancellationToken.None);
+        var response = await ((IRootApi)this).GetRoot(cancellationToken);
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Gets the root API endpoint information.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing the root API information.</returns>
     Task<ApiResult<RootDto>> IRootApi.GetRoot(CancellationToken cancellationToken)
     {
         var rootDto = new RootDto();

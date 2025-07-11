@@ -23,7 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
 [Route("api/v{version:apiVersion}")]
-public class GameServersController : Controller, IGameServersApi
+public class GameServersController : ControllerBase, IGameServersApi
 {
     private readonly PortalDbContext context;
     private readonly IMapper mapper;
@@ -36,8 +36,15 @@ public class GameServersController : Controller, IGameServersApi
         this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
-    [HttpGet]
-    [Route("game-servers/{gameServerId}")]
+    /// <summary>
+    /// Retrieves a specific game server by its unique identifier.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server to retrieve.</param>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>The game server details if found; otherwise, a 404 Not Found response.</returns>
+    [HttpGet("game-servers/{gameServerId:guid}")]
+    [ProducesResponseType<GameServerDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
         var response = await ((IGameServersApi)this).GetGameServer(gameServerId, cancellationToken);
@@ -45,31 +52,50 @@ public class GameServersController : Controller, IGameServersApi
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Retrieves a specific game server by its unique identifier.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server to retrieve.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing the game server details if found; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult<GameServerDto>> IGameServersApi.GetGameServer(Guid gameServerId, CancellationToken cancellationToken)
     {
         var gameServer = await context.GameServers
             .Include(gs => gs.BanFileMonitors)
             .Include(gs => gs.LivePlayers)
-            .SingleOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken);
+            .AsNoTracking()
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken);
 
         if (gameServer == null)
-            return new ApiResult<GameServerDto>(HttpStatusCode.NotFound, new ApiResponse<GameServerDto>());
+            return new ApiResult<GameServerDto>(HttpStatusCode.NotFound);
 
         var result = mapper.Map<GameServerDto>(gameServer);
 
-        return new ApiResult<GameServerDto>(HttpStatusCode.OK, new ApiResponse<GameServerDto>(result));
+        return new ApiResponse<GameServerDto>(result).ToApiResult();
     }
 
-    [HttpGet]
-    [Route("game-servers")]
-    public async Task<IActionResult> GetGameServers(string? gameTypes, string? gameServerIds, GameServerFilter? filter, int? skipEntries, int? takeEntries, GameServerOrder? order, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Retrieves a paginated list of game servers with optional filtering and sorting.
+    /// </summary>
+    /// <param name="gameTypes">Optional comma-separated list of game types to filter by.</param>
+    /// <param name="gameServerIds">Optional comma-separated list of game server IDs to filter by.</param>
+    /// <param name="filter">Optional filter criteria for game servers.</param>
+    /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+    /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+    /// <param name="order">Optional ordering criteria for results.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A paginated collection of game servers.</returns>
+    [HttpGet("game-servers")]
+    [ProducesResponseType<CollectionModel<GameServerDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGameServers(
+        [FromQuery] string? gameTypes = null,
+        [FromQuery] string? gameServerIds = null,
+        [FromQuery] GameServerFilter? filter = null,
+        [FromQuery] int skipEntries = 0,
+        [FromQuery] int takeEntries = 20,
+        [FromQuery] GameServerOrder? order = null,
+        CancellationToken cancellationToken = default)
     {
-        if (!skipEntries.HasValue)
-            skipEntries = 0;
-
-        if (!takeEntries.HasValue)
-            takeEntries = 20;
-
         GameType[]? gameTypesFilter = null;
         if (!string.IsNullOrWhiteSpace(gameTypes))
         {
@@ -84,36 +110,66 @@ public class GameServersController : Controller, IGameServersApi
             gameServerIdsFilter = split.Select(id => Guid.Parse(id)).ToArray();
         }
 
-        var response = await ((IGameServersApi)this).GetGameServers(gameTypesFilter, gameServerIdsFilter, filter, skipEntries.Value, takeEntries.Value, order, cancellationToken);
+        var response = await ((IGameServersApi)this).GetGameServers(gameTypesFilter, gameServerIdsFilter, filter, skipEntries, takeEntries, order, cancellationToken);
 
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Retrieves a paginated list of game servers with optional filtering and sorting.
+    /// </summary>
+    /// <param name="gameTypes">Optional array of game types to filter by.</param>
+    /// <param name="gameServerIds">Optional array of game server IDs to filter by.</param>
+    /// <param name="filter">Optional filter criteria for game servers.</param>
+    /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+    /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="order">Optional ordering criteria for results.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing a paginated collection of game servers.</returns>
     async Task<ApiResult<CollectionModel<GameServerDto>>> IGameServersApi.GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order, CancellationToken cancellationToken)
     {
-        var query = context.GameServers.Include(gs => gs.BanFileMonitors).Include(gs => gs.LivePlayers).Where(gs => !gs.Deleted).AsQueryable();
-        query = ApplyFilter(query, gameTypes, null, null);
-        var totalCount = await query.CountAsync(cancellationToken);
+        var baseQuery = context.GameServers
+            .Include(gs => gs.BanFileMonitors)
+            .Include(gs => gs.LivePlayers)
+            .Where(gs => !gs.Deleted)
+            .AsNoTracking();
 
-        query = ApplyFilter(query, gameTypes, gameServerIds, filter);
-        var filteredCount = await query.CountAsync(cancellationToken);
+        // Calculate total count before applying filters
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-        query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-        var results = await query.ToListAsync(cancellationToken);
+        // Apply filters
+        var filteredQuery = ApplyFilter(baseQuery, gameTypes, gameServerIds, filter);
+        var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+        // Apply ordering and pagination
+        var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+        var results = await orderedQuery.ToListAsync(cancellationToken);
 
         var entries = results.Select(m => mapper.Map<GameServerDto>(m)).ToList();
         var result = new CollectionModel<GameServerDto>(entries, totalCount, filteredCount);
 
-        return new ApiResult<CollectionModel<GameServerDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<GameServerDto>>(result));
+        return new ApiResponse<CollectionModel<GameServerDto>>(result).ToApiResult();
     }
 
-    async Task<ApiResult> IGameServersApi.CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken)
+    /// <summary>
+    /// Creates a new game server.
+    /// </summary>
+    /// <param name="createGameServerDto">The game server data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response indicating the game server was created.</returns>
+    Task<ApiResult> IGameServersApi.CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }
 
-    [HttpPost]
-    [Route("game-servers")]
+    /// <summary>
+    /// Creates multiple game servers from a JSON array.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response if the game servers were created; otherwise, a 400 Bad Request response.</returns>
+    [HttpPost("game-servers")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateGameServers(CancellationToken cancellationToken = default)
     {
         var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
@@ -136,6 +192,12 @@ public class GameServersController : Controller, IGameServersApi
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Creates multiple game servers.
+    /// </summary>
+    /// <param name="createGameServerDtos">The list of game server data to create.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the game servers were created.</returns>
     async Task<ApiResult> IGameServersApi.CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken)
     {
         var gameServers = createGameServerDtos.Select(gs => mapper.Map<GameServer>(gs)).ToList();
@@ -143,11 +205,19 @@ public class GameServersController : Controller, IGameServersApi
         await context.GameServers.AddRangeAsync(gameServers, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
 
-        return new ApiResult(HttpStatusCode.OK, new ApiResponse());
+        return new ApiResponse().ToApiResult();
     }
 
-    [HttpPatch]
-    [Route("game-servers/{gameServerId}")]
+    /// <summary>
+    /// Updates an existing game server.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server to update.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response if the game server was updated; otherwise, a 400 Bad Request or 404 Not Found response.</returns>
+    [HttpPatch("game-servers/{gameServerId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
         var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
@@ -173,22 +243,35 @@ public class GameServersController : Controller, IGameServersApi
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Updates an existing game server.
+    /// </summary>
+    /// <param name="editGameServerDto">The game server data to update.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the game server was updated if successful; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult> IGameServersApi.UpdateGameServer(EditGameServerDto editGameServerDto, CancellationToken cancellationToken)
     {
-        var gameServer = await context.GameServers.SingleOrDefaultAsync(gs => gs.GameServerId == editGameServerDto.GameServerId, cancellationToken);
+        var gameServer = await context.GameServers.FirstOrDefaultAsync(gs => gs.GameServerId == editGameServerDto.GameServerId, cancellationToken);
 
         if (gameServer == null)
-            return new ApiResult(HttpStatusCode.NotFound, new ApiResponse());
+            return new ApiResult(HttpStatusCode.NotFound);
 
         mapper.Map(editGameServerDto, gameServer);
 
         await context.SaveChangesAsync(cancellationToken);
 
-        return new ApiResult(HttpStatusCode.OK, new ApiResponse());
+        return new ApiResponse().ToApiResult();
     }
 
-    [HttpDelete]
-    [Route("game-servers/{gameServerId}")]
+    /// <summary>
+    /// Deletes a game server by its unique identifier.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server to delete.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response if the game server was deleted; otherwise, a 404 Not Found response.</returns>
+    [HttpDelete("game-servers/{gameServerId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
         var response = await ((IGameServersApi)this).DeleteGameServer(gameServerId, cancellationToken);
@@ -196,12 +279,18 @@ public class GameServersController : Controller, IGameServersApi
         return response.ToHttpResult();
     }
 
+    /// <summary>
+    /// Deletes a game server by its unique identifier.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server to delete.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the game server was deleted if successful; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult> IGameServersApi.DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken)
     {
-        var gameServer = await context.GameServers.SingleOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
+        var gameServer = await context.GameServers.FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
         if (gameServer == null)
-            return new ApiResult(HttpStatusCode.NotFound, new ApiResponse());
+            return new ApiResult(HttpStatusCode.NotFound);
 
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken);
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken);
@@ -211,7 +300,7 @@ public class GameServersController : Controller, IGameServersApi
 
         await context.SaveChangesAsync(cancellationToken);
 
-        return new ApiResult(HttpStatusCode.OK, new ApiResponse());
+        return new ApiResponse().ToApiResult();
     }
 
     private IQueryable<GameServer> ApplyFilter(IQueryable<GameServer> query, GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter)
@@ -219,47 +308,35 @@ public class GameServersController : Controller, IGameServersApi
         if (gameTypes != null && gameTypes.Length > 0)
         {
             var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
-            query = query.Where(gs => gameTypeInts.Contains(gs.GameType)).AsQueryable();
+            query = query.Where(gs => gameTypeInts.Contains(gs.GameType));
         }
 
         if (gameServerIds != null && gameServerIds.Length > 0)
-            query = query.Where(gs => gameServerIds.Contains(gs.GameServerId)).AsQueryable();
+            query = query.Where(gs => gameServerIds.Contains(gs.GameServerId));
 
-        switch (filter)
+        query = filter switch
         {
-            case GameServerFilter.PortalServerListEnabled:
-                query = query.Where(s => s.PortalServerListEnabled).AsQueryable();
-                break;
-            case GameServerFilter.BannerServerListEnabled:
-                query = query.Where(s => s.BannerServerListEnabled && !string.IsNullOrWhiteSpace(s.HtmlBanner)).AsQueryable();
-                break;
-            case GameServerFilter.LiveTrackingEnabled:
-                query = query.Where(s => s.LiveTrackingEnabled).AsQueryable();
-                break;
-            case GameServerFilter.BotEnabled:
-                query = query.Where(s => s.BotEnabled).AsQueryable();
-                break;
-        }
+            GameServerFilter.PortalServerListEnabled => query.Where(s => s.PortalServerListEnabled),
+            GameServerFilter.BannerServerListEnabled => query.Where(s => s.BannerServerListEnabled && !string.IsNullOrWhiteSpace(s.HtmlBanner)),
+            GameServerFilter.LiveTrackingEnabled => query.Where(s => s.LiveTrackingEnabled),
+            GameServerFilter.BotEnabled => query.Where(s => s.BotEnabled),
+            _ => query
+        };
 
         return query;
     }
 
     private IQueryable<GameServer> ApplyOrderAndLimits(IQueryable<GameServer> query, int skipEntries, int takeEntries, GameServerOrder? order)
     {
-        switch (order)
+        // Apply ordering
+        var orderedQuery = order switch
         {
-            case GameServerOrder.BannerServerListPosition:
-                query = query.OrderBy(gs => gs.ServerListPosition).AsQueryable();
-                break;
-            case GameServerOrder.GameType:
-                query = query.OrderBy(gs => gs.GameType).AsQueryable();
-                break;
-        }
+            GameServerOrder.BannerServerListPosition => query.OrderBy(gs => gs.ServerListPosition),
+            GameServerOrder.GameType => query.OrderBy(gs => gs.GameType),
+            _ => query
+        };
 
-        query = query.Skip(skipEntries).AsQueryable();
-        query = query.Take(takeEntries).AsQueryable();
-
-        return query;
+        return orderedQuery.Skip(skipEntries).Take(takeEntries);
     }
 }
 

@@ -23,7 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class GameServersStatsController : Controller, IGameServersStatsApi
+    public class GameServersStatsController : ControllerBase, IGameServersStatsApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
@@ -36,37 +36,41 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpPost]
-        [Route("game-servers-stats")]
-        public async Task<IActionResult> CreateGameServerStats(CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Creates new game server statistics entries.
+        /// </summary>
+        /// <param name="createGameServerStatDtos">The game server statistics data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>A success response indicating the game server statistics were created.</returns>
+        [HttpPost("game-servers-stats")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateGameServerStats([FromBody] List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
-
-            List<CreateGameServerStatDto>? createGameServerStatDto;
-            try
-            {
-                createGameServerStatDto = JsonConvert.DeserializeObject<List<CreateGameServerStatDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-            }
-
-            if (createGameServerStatDto == null || !createGameServerStatDto.Any())
+            if (createGameServerStatDtos == null || !createGameServerStatDtos.Any())
                 return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
 
-            var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDto, cancellationToken);
-
+            var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDtos, cancellationToken);
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Creates new game server statistics entries.
+        /// </summary>
+        /// <param name="createGameServerStatDtos">The game server statistics data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the game server statistics were created.</returns>
         async Task<ApiResult> IGameServersStatsApi.CreateGameServerStats(List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken)
         {
             var gameServerStats = new List<GameServerStat>();
 
             foreach (var createGameServerStatDto in createGameServerStatDtos)
             {
-                var lastStat = await context.GameServerStats.Where(gss => gss.GameServerId == createGameServerStatDto.GameServerId).OrderBy(gss => gss.Timestamp).LastOrDefaultAsync(cancellationToken);
+                var lastStat = await context.GameServerStats
+                    .AsNoTracking()
+                    .Where(gss => gss.GameServerId == createGameServerStatDto.GameServerId)
+                    .OrderBy(gss => gss.Timestamp)
+                    .LastOrDefaultAsync(cancellationToken);
 
                 if (lastStat == null || lastStat.PlayerCount != createGameServerStatDto.PlayerCount || lastStat.MapName != createGameServerStatDto.MapName)
                 {
@@ -80,12 +84,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             await context.GameServerStats.AddRangeAsync(gameServerStats, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResult(HttpStatusCode.OK, new ApiResponse());
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpGet]
-        [Route("game-servers-stats/{gameServerId}")]
-        public async Task<IActionResult> GetGameServerStatusStats(Guid gameServerId, DateTime? cutoff, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Retrieves game server statistics for a specific game server.
+        /// </summary>
+        /// <param name="gameServerId">The unique identifier of the game server.</param>
+        /// <param name="cutoff">The cutoff date for statistics retrieval (optional, defaults to 2 days ago).</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>A collection of game server statistics for the specified period.</returns>
+        [HttpGet("game-servers-stats/{gameServerId:guid}")]
+        [ProducesResponseType<CollectionModel<GameServerStatDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetGameServerStatusStats(Guid gameServerId, [FromQuery] DateTime? cutoff = null, CancellationToken cancellationToken = default)
         {
             if (!cutoff.HasValue)
                 cutoff = DateTime.UtcNow.AddDays(-2);
@@ -97,9 +108,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return response.ToHttpResult();
         }
 
+        /// <summary>
+        /// Retrieves game server statistics for a specific game server.
+        /// </summary>
+        /// <param name="gameServerId">The unique identifier of the game server.</param>
+        /// <param name="cutoff">The cutoff date for statistics retrieval.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a collection of game server statistics for the specified period.</returns>
         async Task<ApiResult<CollectionModel<GameServerStatDto>>> IGameServersStatsApi.GetGameServerStatusStats(Guid gameServerId, DateTime cutoff, CancellationToken cancellationToken)
         {
             var gameServerStats = await context.GameServerStats
+                .AsNoTracking()
                 .Where(gss => gss.GameServerId == gameServerId && gss.Timestamp >= cutoff)
                 .OrderBy(gss => gss.Timestamp)
                 .ToListAsync(cancellationToken);
@@ -107,7 +126,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var entries = gameServerStats.Select(r => mapper.Map<GameServerStatDto>(r)).ToList();
             var result = new CollectionModel<GameServerStatDto>(entries, gameServerStats.Count, gameServerStats.Count);
 
-            return new ApiResult<CollectionModel<GameServerStatDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<GameServerStatDto>>(result));
+            return new ApiResponse<CollectionModel<GameServerStatDto>>(result).ToApiResult();
         }
     }
 }
