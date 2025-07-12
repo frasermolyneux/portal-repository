@@ -271,19 +271,19 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     private IQueryable<ChatMessage> ApplyFilter(IQueryable<ChatMessage> query, GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, bool? lockedOnly = null)
     {
         if (gameType.HasValue)
-            query = query.Where(cl => cl.GameServer.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+            query = query.Where(cl => cl.GameServer.GameType == gameType.Value.ToGameTypeInt());
 
         if (gameServerId.HasValue)
-            query = query.Where(cl => cl.GameServerId == gameServerId).AsQueryable();
+            query = query.Where(cl => cl.GameServerId == gameServerId);
 
         if (playerId.HasValue)
-            query = query.Where(cl => cl.PlayerId == playerId).AsQueryable();
+            query = query.Where(cl => cl.PlayerId == playerId);
 
         if (!string.IsNullOrWhiteSpace(filterString))
-            query = query.Where(m => m.Message.Contains(filterString)).AsQueryable();
+            query = query.Where(m => m.Message.Contains(filterString));
 
         if (lockedOnly.HasValue && lockedOnly.Value)
-            query = query.Where(m => m.Locked).AsQueryable();
+            query = query.Where(m => m.Locked);
 
         return query;
     }

@@ -238,7 +238,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var filter = filterString.Trim().ToLower();
                 query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLower().Contains(filter)) ||
                                          (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLower().Contains(filter)) ||
-                                         (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(filter)));
+                                         (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(filter)) ||
+                                         (up.DisplayName != null && up.DisplayName.ToLower().Contains(filter)) ||
+                                         (up.Email != null && up.Email.ToLower().Contains(filter)));
             }
 
             return query;
@@ -248,9 +250,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var orderedQuery = order switch
             {
-                UserProfilesOrder.DisplayNameAsc => query.OrderBy(up => up.IdentityOid),
-                UserProfilesOrder.DisplayNameDesc => query.OrderByDescending(up => up.IdentityOid),
-                _ => query.OrderBy(up => up.IdentityOid)
+                UserProfilesOrder.DisplayNameAsc => query.OrderBy(up => up.DisplayName),
+                UserProfilesOrder.DisplayNameDesc => query.OrderByDescending(up => up.DisplayName),
+                _ => query.OrderBy(up => up.DisplayName)
             };
 
             return orderedQuery.Skip(skipEntries).Take(takeEntries);
@@ -280,7 +282,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the user profile was created.</returns>
         async Task<ApiResult> IUserProfileApi.CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken)
         {
-            if (await context.UserProfiles.AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
+            if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
             var userProfile = mapper.Map<UserProfile>(createUserProfileDto);
@@ -316,7 +318,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             foreach (var createUserProfileDto in createUserProfileDtos)
             {
-                if (await context.UserProfiles.AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
+                if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
                     return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
                 var userProfile = mapper.Map<UserProfile>(createUserProfileDto);
@@ -531,7 +533,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId, cancellationToken);
 
             if (userProfileClaim == null)
-                return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)).ToNotFoundResult();
+                return new ApiResult(HttpStatusCode.NotFound);
 
             context.UserProfileClaims.Remove(userProfileClaim);
             await context.SaveChangesAsync(cancellationToken);

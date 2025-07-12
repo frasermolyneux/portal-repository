@@ -17,6 +17,9 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
+/// <summary>
+/// Manages game server secrets stored in Azure Key Vault.
+/// </summary>
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
@@ -26,6 +29,12 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     private readonly PortalDbContext context;
     private readonly IConfiguration configuration;
 
+    /// <summary>
+    /// Initializes a new instance of the GameServersSecretsController.
+    /// </summary>
+    /// <param name="context">The database context for accessing game server data.</param>
+    /// <param name="configuration">The configuration provider for accessing application settings.</param>
+    /// <exception cref="ArgumentNullException">Thrown when context or configuration is null.</exception>
     public GameServersSecretsController(PortalDbContext context, IConfiguration configuration)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
@@ -66,7 +75,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
         if (gameServer == null)
-            return new ApiResult<string>(HttpStatusCode.BadRequest);
+            return new ApiResult<string>(HttpStatusCode.NotFound);
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
         var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
@@ -95,6 +104,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     [HttpPost("game-servers/{gameServerId:guid}/secret/{secretId}")]
     [ProducesResponseType<string>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken = default)
     {
         var rawSecretValue = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
@@ -120,7 +130,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
         if (gameServer == null)
-            return new ApiResult<string>(HttpStatusCode.BadRequest);
+            return new ApiResult<string>(HttpStatusCode.NotFound);
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
         var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());

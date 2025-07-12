@@ -16,7 +16,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class MapPacksApi : BaseApi<RepositoryApiClientOptions>, IMapPacksApi
     {
-        public MapPacksApi(ILogger<MapPacksApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public MapPacksApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
 
         }

@@ -17,6 +17,9 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// API controller for managing ban file monitors.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
@@ -26,6 +29,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BanFileMonitorsController"/> class.
+        /// </summary>
+        /// <param name="context">The database context for data access.</param>
+        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public BanFileMonitorsController(
             PortalDbContext context,
             IMapper mapper)
@@ -35,18 +44,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Gets a specific ban file monitor by its ID.
+        /// Retrieves a specific ban file monitor by its unique identifier.
         /// </summary>
-        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor.</param>
+        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to retrieve.</param>
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>The requested ban file monitor.</returns>
+        /// <returns>The requested ban file monitor if found; otherwise, a 404 Not Found response.</returns>
         [HttpGet("ban-file-monitors/{banFileMonitorId:guid}")]
         [ProducesResponseType<BanFileMonitorDto>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
             var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitor(banFileMonitorId, cancellationToken);
-
             return response.ToHttpResult();
         }
 
@@ -72,7 +80,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Gets a collection of ban file monitors with optional filtering and pagination.
+        /// Retrieves a paginated collection of ban file monitors with optional filtering and sorting.
         /// </summary>
         /// <param name="gameTypes">Comma-separated list of game types to filter by.</param>
         /// <param name="banFileMonitorIds">Comma-separated list of ban file monitor IDs to filter by.</param>
@@ -81,7 +89,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
         /// <param name="order">The order to sort the results by.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
-        /// <returns>A collection of ban file monitors.</returns>
+        /// <returns>A paginated collection of ban file monitors.</returns>
         [HttpGet("ban-file-monitors")]
         [ProducesResponseType<CollectionModel<BanFileMonitorDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetBanFileMonitors(
@@ -130,27 +138,27 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsNoTracking()
                 .AsQueryable();
 
-            // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            // Apply filters first
+            var filteredQuery = ApplyFilters(baseQuery, gameTypes, banFileMonitorIds, gameServerId);
 
-            // Apply filters and calculate filtered count
-            var filteredQuery = ApplyFilter(baseQuery, gameTypes, banFileMonitorIds, gameServerId);
+            // Calculate counts after filtering but before pagination
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
             var filteredCount = await filteredQuery.CountAsync(cancellationToken);
 
             // Apply ordering and pagination
-            var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(bfm => mapper.Map<BanFileMonitorDto>(bfm)).ToList();
 
-            var result = new CollectionModel<BanFileMonitorDto>
+            var data = new CollectionModel<BanFileMonitorDto>
             {
                 Items = entries,
                 TotalCount = totalCount,
                 FilteredCount = filteredCount
             };
 
-            return new ApiResponse<CollectionModel<BanFileMonitorDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<BanFileMonitorDto>>(data).ToApiResult();
         }
 
         /// <summary>
@@ -256,33 +264,49 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (banFileMonitor == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            context.Remove(banFileMonitor);
+            context.BanFileMonitors.Remove(banFileMonitor);
 
             await context.SaveChangesAsync(cancellationToken);
 
             return new ApiResponse().ToApiResult();
         }
 
-        private IQueryable<BanFileMonitor> ApplyFilter(IQueryable<BanFileMonitor> query, GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId)
+        /// <summary>
+        /// Applies filtering criteria to the ban file monitors query.
+        /// </summary>
+        /// <param name="query">The base query to apply filters to.</param>
+        /// <param name="gameTypes">Optional filter by game types.</param>
+        /// <param name="banFileMonitorIds">Optional filter by ban file monitor identifiers.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <returns>The filtered query.</returns>
+        private static IQueryable<BanFileMonitor> ApplyFilters(IQueryable<BanFileMonitor> query, GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId)
         {
-            if (gameTypes != null && gameTypes.Length > 0)
+            if (gameTypes is { Length: > 0 })
             {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
-                query = query.Where(bfm => gameTypeInts.Contains(bfm.GameServer.GameType)).AsQueryable();
+                query = query.Where(bfm => gameTypeInts.Contains(bfm.GameServer.GameType));
             }
 
-            if (banFileMonitorIds != null && banFileMonitorIds.Length > 0)
-                query = query.Where(bfm => banFileMonitorIds.Contains(bfm.BanFileMonitorId)).AsQueryable();
+            if (banFileMonitorIds is { Length: > 0 })
+                query = query.Where(bfm => banFileMonitorIds.Contains(bfm.BanFileMonitorId));
 
             if (gameServerId.HasValue)
-                query = query.Where(bfm => bfm.GameServerId == gameServerId).AsQueryable();
+                query = query.Where(bfm => bfm.GameServerId == gameServerId.Value);
 
             return query;
         }
 
-        private IQueryable<BanFileMonitor> ApplyOrderAndLimits(IQueryable<BanFileMonitor> query, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
+        /// <summary>
+        /// Applies ordering and pagination to the ban file monitors query.
+        /// </summary>
+        /// <param name="query">The query to apply ordering and pagination to.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria.</param>
+        /// <returns>The ordered and paginated query.</returns>
+        private static IQueryable<BanFileMonitor> ApplyOrderingAndPagination(IQueryable<BanFileMonitor> query, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
         {
-            // Apply ordering
+            // Apply ordering using modern switch expression
             var orderedQuery = order switch
             {
                 BanFileMonitorOrder.BannerServerListPosition => query.OrderBy(bfm => bfm.GameServer.ServerListPosition),

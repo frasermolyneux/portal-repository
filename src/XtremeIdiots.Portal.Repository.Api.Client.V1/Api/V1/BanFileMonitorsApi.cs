@@ -17,7 +17,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class BanFileMonitorsApi : BaseApi<RepositoryApiClientOptions>, IBanFileMonitorsApi
     {
-        public BanFileMonitorsApi(ILogger<BanFileMonitorsApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public BanFileMonitorsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 

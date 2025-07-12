@@ -16,7 +16,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class GameTrackerBannerApi : BaseApi<RepositoryApiClientOptions>, IGameTrackerBannerApi
     {
-        public GameTrackerBannerApi(ILogger<GameTrackerBannerApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public GameTrackerBannerApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 

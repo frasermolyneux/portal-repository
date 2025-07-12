@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 
-
-
 using MX.Api.Abstractions;
 using MX.Api.Client;
 using MX.Api.Client.Auth;
@@ -17,7 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class AdminActionsApi : BaseApi<RepositoryApiClientOptions>, IAdminActionsApi
     {
-        public AdminActionsApi(ILogger<AdminActionsApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public AdminActionsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 

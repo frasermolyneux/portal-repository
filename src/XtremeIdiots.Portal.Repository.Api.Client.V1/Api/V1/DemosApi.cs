@@ -17,7 +17,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class DemosApi : BaseApi<RepositoryApiClientOptions>, IDemosApi
     {
-        public DemosApi(ILogger<DemosApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public DemosApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 

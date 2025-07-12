@@ -9,8 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
-using Newtonsoft.Json;
-
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -19,6 +17,9 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// Controller for managing reports - handles CRUD operations and querying of report data.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
@@ -28,6 +29,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the ReportsController.
+        /// </summary>
+        /// <param name="context">The portal database context.</param>
+        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public ReportsController(
             PortalDbContext context,
             IMapper mapper)
@@ -81,8 +88,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="gameServerId">Optional filter by game server identifier.</param>
         /// <param name="cutoff">Optional cutoff date for filtering reports (limited to 14 days ago).</param>
         /// <param name="filter">Optional filter criteria for reports.</param>
-        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
-        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
         /// <param name="order">Optional ordering criteria for results.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A paginated collection of reports.</returns>
@@ -93,18 +100,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] Guid? gameServerId = null,
             [FromQuery] DateTime? cutoff = null,
             [FromQuery] ReportsFilter? filter = null,
-            [FromQuery] int? skipEntries = null,
-            [FromQuery] int? takeEntries = null,
+            [FromQuery] int skipEntries = 0,
+            [FromQuery] int takeEntries = 20,
             [FromQuery] ReportsOrder? order = null,
             CancellationToken cancellationToken = default)
         {
-            skipEntries ??= 0;
-            takeEntries ??= 20;
-
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddDays(-14))
                 cutoff = DateTime.UtcNow.AddDays(-14);
 
-            var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries.Value, takeEntries.Value, order, cancellationToken);
+            var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries, takeEntries, order, cancellationToken);
 
             return response.ToHttpResult();
         }
@@ -141,11 +145,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var totalCount = await baseQuery.CountAsync(cancellationToken);
 
             // Apply filters
-            var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, cutoff, filter);
+            var filteredQuery = ApplyFilters(baseQuery, gameType, gameServerId, cutoff, filter);
             var filteredCount = await filteredQuery.CountAsync(cancellationToken);
 
             // Apply ordering and pagination
-            var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(r => mapper.Map<ReportDto>(r)).ToList();
@@ -237,7 +241,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the report was closed if successful; otherwise, a 404 Not Found or 400 Bad Request response.</returns>
         async Task<ApiResult> IReportsApi.CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken)
         {
-            var report = await context.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken);
+            var report = await context.Reports
+                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken);
 
             if (report == null)
                 return new ApiResult(HttpStatusCode.NotFound);
@@ -259,7 +264,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return new ApiResponse().ToApiResult();
         }
 
-        private static IQueryable<Report> ApplyFilter(IQueryable<Report> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter)
+        /// <summary>
+        /// Applies filters to the report query based on the specified criteria.
+        /// </summary>
+        /// <param name="query">The base query to apply filters to.</param>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="cutoff">Optional cutoff date for filtering reports.</param>
+        /// <param name="filter">Optional filter criteria for reports.</param>
+        /// <returns>The filtered query.</returns>
+        private static IQueryable<Report> ApplyFilters(IQueryable<Report> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter)
         {
             if (gameType.HasValue)
                 query = query.Where(r => r.GameType == ((GameType)gameType).ToGameTypeInt());
@@ -283,7 +297,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return query;
         }
 
-        private static IQueryable<Report> ApplyOrderAndLimits(IQueryable<Report> query, int skipEntries, int takeEntries, ReportsOrder? order)
+        /// <summary>
+        /// Applies ordering and pagination to the report query.
+        /// </summary>
+        /// <param name="query">The query to apply ordering and pagination to.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <returns>The ordered and paginated query.</returns>
+        private static IQueryable<Report> ApplyOrderingAndPagination(IQueryable<Report> query, int skipEntries, int takeEntries, ReportsOrder? order)
         {
             // Apply ordering
             var orderedQuery = order switch

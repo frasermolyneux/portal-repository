@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 using MX.Api.Abstractions;
 using MX.Api.Client;
@@ -17,7 +16,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class PlayersApi : BaseApi<RepositoryApiClientOptions>, IPlayersApi
     {
-        public PlayersApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientService restClientService) : base(logger, apiTokenProvider, restClientService, options)
+        public PlayersApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 

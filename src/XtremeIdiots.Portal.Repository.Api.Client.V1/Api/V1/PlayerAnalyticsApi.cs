@@ -16,7 +16,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class PlayerAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IPlayerAnalyticsApi
     {
-        public PlayerAnalyticsApi(ILogger<PlayerAnalyticsApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public PlayerAnalyticsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 

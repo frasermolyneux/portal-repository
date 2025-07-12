@@ -26,7 +26,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class DemosController : Controller, IDemosApi
+    public class DemosController : ControllerBase, IDemosApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
@@ -153,30 +153,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <summary>
         /// Creates a new demo record.
         /// </summary>
+        /// <param name="createDemoDto">The demo data to create.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>The created demo details.</returns>
         [HttpPost("demos")]
-        [ProducesResponseType<DemoDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<DemoDto>(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateDemo(CancellationToken cancellationToken = default)
+        public async Task<IActionResult> CreateDemo([FromBody] CreateDemoDto createDemoDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            CreateDemoDto? createDemoDto;
-            try
-            {
-                createDemoDto = JsonConvert.DeserializeObject<CreateDemoDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-            }
-
-            if (createDemoDto == null)
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-
             var response = await ((IDemosApi)this).CreateDemo(createDemoDto, cancellationToken);
-
             return response.ToHttpResult();
         }
 
@@ -200,7 +185,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var result = mapper.Map<DemoDto>(demo);
 
-            return new ApiResponse<DemoDto>(result).ToApiResult();
+            return new ApiResponse<DemoDto>(result).ToApiResult(HttpStatusCode.Created);
         }
 
         /// <summary>
@@ -243,7 +228,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the file was uploaded successfully.</returns>
         async Task<ApiResult> IDemosApi.SetDemoFile(Guid demoId, string fileName, string filePath, CancellationToken cancellationToken)
         {
-            var demo = await context.Demos.FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
+            var demo = await context.Demos
+                .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
                 return new ApiResult(HttpStatusCode.NotFound);
@@ -296,7 +282,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the demo was deleted if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IDemosApi.DeleteDemo(Guid demoId, CancellationToken cancellationToken)
         {
-            var demo = await context.Demos.FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
+            var demo = await context.Demos
+                .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
                 return new ApiResult(HttpStatusCode.NotFound);

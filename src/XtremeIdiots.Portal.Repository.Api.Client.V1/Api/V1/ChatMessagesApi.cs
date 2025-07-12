@@ -17,7 +17,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class ChatMessagesApi : BaseApi<RepositoryApiClientOptions>, IChatMessagesApi
     {
-        public ChatMessagesApi(ILogger<ChatMessagesApi> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public ChatMessagesApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
 
         }

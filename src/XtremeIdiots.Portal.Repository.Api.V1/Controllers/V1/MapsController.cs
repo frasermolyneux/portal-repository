@@ -186,6 +186,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Creates a new map.
         /// </summary>
         /// <param name="createMapDto">The map data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map was created; otherwise, appropriate error responses.</returns>
+        [HttpPost("map")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CreateMap([FromBody] CreateMapDto createMapDto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IMapsApi)this).CreateMap(createMapDto, cancellationToken);
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Creates a new map.
+        /// </summary>
+        /// <param name="createMapDto">The map data to create.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the map was created if successful; otherwise, a 409 Conflict response.</returns>
         async Task<ApiResult> IMapsApi.CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken)
@@ -261,6 +277,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             await context.SaveChangesAsync(cancellationToken);
 
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+        }
+
+        /// <summary>
+        /// Updates an existing map.
+        /// </summary>
+        /// <param name="editMapDto">The map data to update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map was updated; otherwise, appropriate error responses.</returns>
+        [HttpPut("map")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateMap([FromBody] EditMapDto editMapDto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IMapsApi)this).UpdateMap(editMapDto, cancellationToken);
+            return response.ToHttpResult();
         }
 
         /// <summary>
@@ -425,6 +457,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Creates or updates a map vote for a specific player and server.
         /// </summary>
         /// <param name="upsertMapVoteDto">The map vote data to create or update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map vote was processed; otherwise, appropriate error responses.</returns>
+        [HttpPost("maps/vote")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpsertMapVote([FromBody] UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IMapsApi)this).UpsertMapVote(upsertMapVoteDto, cancellationToken);
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Creates or updates a map vote for a specific player and server.
+        /// </summary>
+        /// <param name="upsertMapVoteDto">The map vote data to create or update.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the map vote was processed successfully.</returns>
         async Task<ApiResult> IMapsApi.UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken)
@@ -495,10 +542,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating all map votes were processed successfully.</returns>
         async Task<ApiResult> IMapsApi.UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken)
         {
+            // Get all existing votes for the maps/players/servers in the request
+            var mapIds = upsertMapVoteDtos.Select(x => x.MapId).ToList();
+            var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
+            var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
+
+            var existingVotes = await context.MapVotes
+                .Where(mv => mapIds.Contains(mv.MapId) && playerIds.Contains(mv.PlayerId) &&
+                            (mv.GameServerId == null || gameServerIds.Contains(mv.GameServerId.Value)))
+                .ToListAsync(cancellationToken);
+
             foreach (var upsertMapVote in upsertMapVoteDtos)
             {
-                var mapVote = await context.MapVotes
-                    .FirstOrDefaultAsync(mv => mv.MapId == upsertMapVote.MapId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId, cancellationToken);
+                var mapVote = existingVotes
+                    .FirstOrDefault(mv => mv.MapId == upsertMapVote.MapId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId);
 
                 if (mapVote == null)
                 {
@@ -609,9 +666,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (mapNames != null && mapNames.Length > 0)
                 query = query.Where(m => mapNames.Contains(m.MapName)).AsQueryable();
 
-            if (filterString?.Length > 0)
+            if (filterString is not null && filterString.Length > 0)
             {
-                query = query.Where(m => m.MapName.Contains(filterString));
+                string searchString = filterString;
+                query = query.Where(m => m.MapName.Contains(searchString!));
             }
 
             query = filter switch
@@ -640,7 +698,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 MapsOrder.GameTypeAsc => query.OrderBy(m => m.GameType),
                 MapsOrder.GameTypeDesc => query.OrderByDescending(m => m.GameType),
                 MapsOrder.PopularityAsc => query.OrderBy(m => m.TotalLikes),
-                MapsOrder.PopularityDesc => query.OrderByDescending(m => m.TotalDislikes),
+                MapsOrder.PopularityDesc => query.OrderByDescending(m => m.TotalLikes),
                 _ => query.OrderBy(m => m.MapName)
             };
 

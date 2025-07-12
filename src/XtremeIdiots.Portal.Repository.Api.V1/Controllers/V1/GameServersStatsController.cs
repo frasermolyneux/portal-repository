@@ -43,7 +43,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>A success response indicating the game server statistics were created.</returns>
         [HttpPost("game-servers-stats")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateGameServerStats([FromBody] List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken = default)
         {
@@ -84,7 +84,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             await context.GameServerStats.AddRangeAsync(gameServerStats, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponse().ToApiResult();
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
         /// <summary>
@@ -98,10 +98,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType<CollectionModel<GameServerStatDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetGameServerStatusStats(Guid gameServerId, [FromQuery] DateTime? cutoff = null, CancellationToken cancellationToken = default)
         {
-            if (!cutoff.HasValue)
-                cutoff = DateTime.UtcNow.AddDays(-2);
+            cutoff ??= DateTime.UtcNow.AddDays(-2);
 
-            if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddDays(-2))
+            if (cutoff.Value < DateTime.UtcNow.AddDays(-2))
                 cutoff = DateTime.UtcNow.AddDays(-2);
 
             var response = await ((IGameServersStatsApi)this).GetGameServerStatusStats(gameServerId, cutoff.Value, cancellationToken);

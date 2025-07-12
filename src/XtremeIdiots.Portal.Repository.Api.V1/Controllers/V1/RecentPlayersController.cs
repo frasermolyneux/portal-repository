@@ -41,8 +41,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="gameServerId">Optional filter by game server identifier.</param>
         /// <param name="cutoff">Optional filter by timestamp cutoff (limited to last 48 hours).</param>
         /// <param name="filter">Optional filter criteria for recent players.</param>
-        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
-        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
         /// <param name="order">Optional ordering criteria for results.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A paginated collection of recent players.</returns>
@@ -138,22 +138,32 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the recent players were processed.</returns>
         async Task<ApiResult> IRecentPlayersApi.CreateRecentPlayers(List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken)
         {
+            if (createRecentPlayerDtos == null || !createRecentPlayerDtos.Any())
+                return new ApiResult(HttpStatusCode.BadRequest);
+
+            var playerIds = createRecentPlayerDtos.Select(dto => dto.PlayerId).ToList();
+
+            // Fetch all existing recent players in one query for better performance
+            var existingPlayers = await context.RecentPlayers
+                .Where(rp => rp.PlayerId.HasValue && playerIds.Contains(rp.PlayerId.Value))
+                .ToListAsync(cancellationToken);
+
+            var existingPlayerDict = existingPlayers.ToDictionary(rp => rp.PlayerId!.Value);
+
             foreach (var createRecentPlayerDto in createRecentPlayerDtos)
             {
-                var recentPlayer = await context.RecentPlayers
-                    .FirstOrDefaultAsync(rp => rp.PlayerId == createRecentPlayerDto.PlayerId, cancellationToken);
-
-                if (recentPlayer != null)
+                if (existingPlayerDict.TryGetValue(createRecentPlayerDto.PlayerId, out var recentPlayer))
                 {
+                    // Update existing player
                     mapper.Map(createRecentPlayerDto, recentPlayer);
                     recentPlayer.Timestamp = DateTime.UtcNow;
                 }
                 else
                 {
+                    // Create new player
                     recentPlayer = mapper.Map<RecentPlayer>(createRecentPlayerDto);
                     recentPlayer.Timestamp = DateTime.UtcNow;
-
-                    await context.RecentPlayers.AddAsync(recentPlayer, cancellationToken);
+                    context.RecentPlayers.Add(recentPlayer);
                 }
             }
 

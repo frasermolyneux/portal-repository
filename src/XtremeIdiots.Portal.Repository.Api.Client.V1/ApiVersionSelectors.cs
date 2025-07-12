@@ -96,6 +96,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     public interface IVersionedRootApi
     {
         IRootApi V1 { get; }
-        IRootApi V1_1 { get; }
+        Abstractions.Interfaces.V1_1.IRootApi V1_1 { get; }
     }
 }

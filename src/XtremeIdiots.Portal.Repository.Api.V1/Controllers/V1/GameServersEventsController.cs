@@ -4,6 +4,7 @@ using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -15,6 +16,9 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
+/// <summary>
+/// Controller for managing game server events operations.
+/// </summary>
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
@@ -24,6 +28,12 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     private readonly PortalDbContext context;
     private readonly IMapper mapper;
 
+    /// <summary>
+    /// Initializes a new instance of the GameServersEventsController.
+    /// </summary>
+    /// <param name="context">The database context for portal operations.</param>
+    /// <param name="mapper">The AutoMapper instance for entity mapping.</param>
+    /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
     public GameServersEventsController(
         PortalDbContext context,
         IMapper mapper)
@@ -87,12 +97,13 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <returns>An API result indicating the game server events were created.</returns>
     async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken)
     {
-        var gameServerEvents = createGameServerEventDtos.Select(gse => mapper.Map<GameServerEvent>(gse)).ToList();
-
-        foreach (var gameServerEvent in gameServerEvents)
+        var currentTimestamp = DateTime.UtcNow;
+        var gameServerEvents = createGameServerEventDtos.Select(dto =>
         {
-            gameServerEvent.Timestamp = DateTime.UtcNow;
-        }
+            var gameServerEvent = mapper.Map<GameServerEvent>(dto);
+            gameServerEvent.Timestamp = currentTimestamp;
+            return gameServerEvent;
+        }).ToList();
 
         await context.GameServerEvents.AddRangeAsync(gameServerEvents, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);

@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
-using Newtonsoft.Json;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -57,7 +56,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<MapPackDto>> IMapPacksApi.GetMapPack(Guid mapPackId, CancellationToken cancellationToken)
         {
             var mapPack = await context.MapPacks
-                .Include(mp => mp.GameMode)
+                .Include(mp => mp.GameServer)
                 .Include(mp => mp.MapPackMaps)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(mp => mp.MapPackId == mapPackId && !mp.Deleted, cancellationToken);
@@ -130,7 +129,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             CancellationToken cancellationToken)
         {
             var baseQuery = context.MapPacks
-                .Include(mp => mp.MapPackMaps)
                 .AsNoTracking()
                 .Where(mp => !mp.Deleted);
 
@@ -138,12 +136,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var totalCount = await baseQuery.CountAsync(cancellationToken);
 
             // Apply filters
-            var filteredQuery = ApplyFilter(baseQuery, gameTypes, gameServerIds, filter);
+            var filteredQuery = ApplyFilters(baseQuery, gameTypes, gameServerIds, filter);
             var filteredCount = await filteredQuery.CountAsync(cancellationToken);
 
             // Apply ordering and pagination
-            var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
-            var results = await orderedQuery.ToListAsync(cancellationToken);
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery
+                .Include(mp => mp.MapPackMaps)
+                .ToListAsync(cancellationToken);
 
             var entries = results.Select(m => mapper.Map<MapPackDto>(m)).ToList();
 
@@ -155,6 +155,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             };
 
             return new ApiResponse<CollectionModel<MapPackDto>>(data).ToApiResult();
+        }
+
+        /// <summary>
+        /// Creates a new map pack.
+        /// </summary>
+        /// <param name="createMapPackDto">The map pack data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the map pack was created.</returns>
+        [HttpPost("maps/pack-single")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateMapPack([FromBody] CreateMapPackDto createMapPackDto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IMapPacksApi)this).CreateMapPack(createMapPackDto, cancellationToken);
+            return response.ToHttpResult();
         }
 
         /// <summary>
@@ -174,25 +189,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <summary>
         /// Creates multiple map packs in a single operation.
         /// </summary>
+        /// <param name="createMapPackDtos">The collection of map pack data to create.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A success response indicating the map packs were created.</returns>
         [HttpPost("maps/pack")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateMapPacks(CancellationToken cancellationToken = default)
+        public async Task<IActionResult> CreateMapPacks([FromBody] List<CreateMapPackDto> createMapPackDtos, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<CreateMapPackDto>? createMapPackDtos;
-            try
-            {
-                createMapPackDtos = JsonConvert.DeserializeObject<List<CreateMapPackDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-            }
-
             if (createMapPackDtos == null || !createMapPackDtos.Any())
                 return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
 
@@ -208,13 +212,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map packs were created.</returns>
         async Task<ApiResult> IMapPacksApi.CreateMapPacks(List<CreateMapPackDto> createMapPackDtos, CancellationToken cancellationToken)
         {
+            // Get all required map IDs at once to avoid N+1 queries
+            var allMapIds = createMapPackDtos.SelectMany(dto => dto.MapIds).Distinct().ToList();
+            var allMaps = await context.Maps
+                .AsNoTracking()
+                .Where(m => allMapIds.Contains(m.MapId))
+                .ToListAsync(cancellationToken);
+
+            var mapLookup = allMaps.ToDictionary(m => m.MapId, m => m);
+
             foreach (var createMapPackDto in createMapPackDtos)
             {
                 var mapPack = mapper.Map<MapPack>(createMapPackDto);
-                var maps = await context.Maps
-                    .AsNoTracking()
-                    .Where(m => createMapPackDto.MapIds.Contains(m.MapId))
-                    .ToListAsync(cancellationToken);
+                var maps = createMapPackDto.MapIds
+                    .Where(id => mapLookup.ContainsKey(id))
+                    .Select(id => mapLookup[id])
+                    .ToList();
                 mapPack.MapPackMaps = maps.Select(m => new MapPackMap { Map = m }).ToList();
 
                 await context.MapPacks.AddAsync(mapPack, cancellationToken);
@@ -228,26 +241,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Updates an existing map pack.
         /// </summary>
         /// <param name="mapPackId">The unique identifier of the map pack to update.</param>
+        /// <param name="updateMapPackDto">The map pack data to update.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A success response if the map pack was updated; otherwise, a 404 Not Found response.</returns>
         [HttpPatch("maps/pack/{mapPackId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> UpdateMapPack(Guid mapPackId, [FromBody] UpdateMapPackDto updateMapPackDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            UpdateMapPackDto? updateMapPackDto;
-            try
-            {
-                updateMapPackDto = JsonConvert.DeserializeObject<UpdateMapPackDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
-            }
-
             if (updateMapPackDto == null)
                 return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
 
@@ -321,18 +323,23 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return new ApiResponse().ToApiResult();
         }
 
-        private IQueryable<MapPack> ApplyFilter(IQueryable<MapPack> query, GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter)
+        private IQueryable<MapPack> ApplyFilters(IQueryable<MapPack> query, GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter)
         {
-            if (gameTypes != null && gameTypes.Length > 0)
+            var needsGameServerInclude = (gameTypes != null && gameTypes.Length > 0) || (gameServerIds != null && gameServerIds.Length > 0);
+
+            if (needsGameServerInclude)
             {
                 query = query.Include(mp => mp.GameServer);
+            }
+
+            if (gameTypes != null && gameTypes.Length > 0)
+            {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
                 query = query.Where(mp => mp.GameServer != null && gameTypeInts.Contains(mp.GameServer.GameType));
             }
 
             if (gameServerIds != null && gameServerIds.Length > 0)
             {
-                query = query.Include(mp => mp.GameServer);
                 query = query.Where(mp => mp.GameServer != null && gameServerIds.Contains(mp.GameServer.GameServerId));
             }
 
@@ -344,13 +351,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             };
         }
 
-        private IQueryable<MapPack> ApplyOrderAndLimits(IQueryable<MapPack> query, int skipEntries, int takeEntries, MapPacksOrder? order)
+        private IQueryable<MapPack> ApplyOrderingAndPagination(IQueryable<MapPack> query, int skipEntries, int takeEntries, MapPacksOrder? order)
         {
             var orderedQuery = order switch
             {
                 MapPacksOrder.Title => query.OrderBy(mp => mp.Title),
                 MapPacksOrder.GameMode => query.OrderBy(mp => mp.GameMode),
-                _ => query
+                _ => query.OrderBy(mp => mp.Title)
             };
 
             return orderedQuery.Skip(skipEntries).Take(takeEntries);

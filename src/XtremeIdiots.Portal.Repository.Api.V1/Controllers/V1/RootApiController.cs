@@ -10,6 +10,9 @@ using XtremeIdiots.Portal.Repository.Abstractions.V1.Models.Root;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
+/// <summary>
+/// Controller for handling root API endpoint requests, providing basic API information and health check capabilities.
+/// </summary>
 [ApiController]
 [AllowAnonymous]
 [ApiVersion(ApiVersions.V1)]
@@ -17,10 +20,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class RootApiController : ControllerBase, IRootApi
 {
     /// <summary>
-    /// Gets the root API endpoint information.
+    /// Gets the root API endpoint information. Supports HEAD, GET, and POST methods for compatibility with various clients.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
-    /// <returns>The root API information.</returns>
+    /// <returns>The root API information including version details and available endpoints.</returns>
     [HttpHead("")]
     [HttpGet("")]
     [HttpPost("")]
@@ -32,10 +35,10 @@ public class RootApiController : ControllerBase, IRootApi
     }
 
     /// <summary>
-    /// Gets the root API endpoint information.
+    /// Gets the root API endpoint information including version details and available endpoints.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
-    /// <returns>An API result containing the root API information.</returns>
+    /// <returns>An API result containing the root API information with version details and endpoint metadata.</returns>
     Task<ApiResult<RootDto>> IRootApi.GetRoot(CancellationToken cancellationToken)
     {
         var rootDto = new RootDto();

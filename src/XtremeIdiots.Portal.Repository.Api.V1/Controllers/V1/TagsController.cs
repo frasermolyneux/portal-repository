@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using XtremeIdiots.Portal.Repository.DataLib;
@@ -26,6 +28,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the TagsController class.
+        /// </summary>
+        /// <param name="context">The database context for accessing tag data.</param>
+        /// <param name="mapper">The AutoMapper instance for mapping between entities and DTOs.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public TagsController(PortalDbContext context, IMapper mapper)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
@@ -56,9 +64,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing a paginated collection of tags.</returns>
         async Task<ApiResult<CollectionModel<TagDto>>> ITagsApi.GetTags(int skipEntries, int takeEntries, CancellationToken cancellationToken)
         {
-            var totalCount = await context.Tags.AsNoTracking().CountAsync(cancellationToken);
-            var tags = await context.Tags
-                .AsNoTracking()
+            var baseQuery = context.Tags.AsNoTracking();
+
+            // Calculate total count before applying ordering and pagination
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+            var tags = await baseQuery
                 .OrderBy(t => t.Name)
                 .Skip(skipEntries)
                 .Take(takeEntries)

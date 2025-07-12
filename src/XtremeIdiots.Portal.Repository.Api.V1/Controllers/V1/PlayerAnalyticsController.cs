@@ -16,6 +16,9 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// Controller for player analytics operations providing statistical data about players.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
@@ -24,6 +27,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     {
         private readonly PortalDbContext context;
 
+        /// <summary>
+        /// Initializes a new instance of the PlayerAnalyticsController class.
+        /// </summary>
+        /// <param name="context">The database context for player data access.</param>
         public PlayerAnalyticsController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
@@ -37,7 +44,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>A collection of cumulative daily player statistics.</returns>
         [HttpGet("player-analytics/cumulative-daily-players")]
         [ProducesResponseType<CollectionModel<PlayerAnalyticEntryDto>>(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetCumulativeDailyPlayers(DateTime cutoff, CancellationToken cancellationToken = default)
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetCumulativeDailyPlayers([FromQuery] DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var response = await ((IPlayerAnalyticsApi)this).GetCumulativeDailyPlayers(cutoff, cancellationToken);
             return response.ToHttpResult();
@@ -88,7 +96,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>A collection of new daily player statistics grouped by game type.</returns>
         [HttpGet("player-analytics/new-daily-players-per-game")]
         [ProducesResponseType<CollectionModel<PlayerAnalyticPerGameEntryDto>>(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetNewDailyPlayersPerGame(DateTime cutoff, CancellationToken cancellationToken = default)
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetNewDailyPlayersPerGame([FromQuery] DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var response = await ((IPlayerAnalyticsApi)this).GetNewDailyPlayersPerGame(cutoff, cancellationToken);
             return response.ToHttpResult();
@@ -136,7 +145,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>A collection of player drop-off statistics grouped by game type.</returns>
         [HttpGet("player-analytics/players-drop-off-per-game")]
         [ProducesResponseType<CollectionModel<PlayerAnalyticPerGameEntryDto>>(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetPlayersDropOffPerGameJson(DateTime cutoff, CancellationToken cancellationToken = default)
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetPlayersDropOffPerGameJson([FromQuery] DateTime cutoff, CancellationToken cancellationToken = default)
         {
             var response = await ((IPlayerAnalyticsApi)this).GetPlayersDropOffPerGameJson(cutoff, cancellationToken);
             return response.ToHttpResult();
@@ -161,7 +171,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Select(g => new PlayerAnalyticPerGameEntryDto
                 {
                     Created = g.Key,
-                    GameCounts = g.GroupBy(i => i.GameType.ToString())
+                    GameCounts = g.GroupBy(i => i.GameType)
                         .Select(i => new { Type = i.Key, Count = i.Count() })
                         .ToDictionary(a => a.Type.ToGameType(), a => a.Count)
                 }).ToList();

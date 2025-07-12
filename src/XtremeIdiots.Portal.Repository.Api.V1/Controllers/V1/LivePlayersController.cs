@@ -19,6 +19,9 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// Controller for managing live players on game servers.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
@@ -28,6 +31,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the LivePlayersController.
+        /// </summary>
+        /// <param name="context">The database context for portal operations.</param>
+        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public LivePlayersController(
             PortalDbContext context,
             IMapper mapper)
@@ -49,6 +58,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>A paginated collection of live players.</returns>
         [HttpGet("live-players")]
         [ProducesResponseType<CollectionModel<LivePlayerDto>>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetLivePlayers(
             [FromQuery] GameType? gameType = null,
             [FromQuery] Guid? gameServerId = null,
@@ -112,6 +122,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [HttpPost("live-players/{gameServerId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> SetLivePlayersForGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
@@ -154,6 +165,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return new ApiResponse().ToApiResult();
         }
 
+        /// <summary>
+        /// Applies filtering criteria to the live players query.
+        /// </summary>
+        /// <param name="query">The base query to apply filters to.</param>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="filter">Optional filter criteria for live players.</param>
+        /// <returns>The filtered query.</returns>
         private IQueryable<LivePlayer> ApplyFilter(IQueryable<LivePlayer> query, GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter)
         {
             if (gameType.HasValue)
@@ -174,6 +193,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return query;
         }
 
+        /// <summary>
+        /// Applies ordering and pagination to the live players query.
+        /// </summary>
+        /// <param name="query">The query to apply ordering and pagination to.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <returns>The ordered and paginated query.</returns>
         private IQueryable<LivePlayer> ApplyOrderAndLimits(IQueryable<LivePlayer> query, int skipEntries, int takeEntries, LivePlayersOrder? order)
         {
             // Apply ordering
@@ -181,7 +208,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 LivePlayersOrder.ScoreAsc => query.OrderBy(lp => lp.Score),
                 LivePlayersOrder.ScoreDesc => query.OrderByDescending(lp => lp.Score),
-                _ => query
+                _ => query.OrderBy(lp => lp.PlayerId) // Default ordering for consistency
             };
 
             return orderedQuery.Skip(skipEntries).Take(takeEntries);
