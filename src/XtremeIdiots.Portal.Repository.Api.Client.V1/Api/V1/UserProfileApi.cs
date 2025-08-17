@@ -55,7 +55,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profile", Method.Get);
+            var request = await CreateRequestAsync("v1/user-profiles", Method.Get);
 
             if (!string.IsNullOrWhiteSpace(filterString))
                 request.AddQueryParameter("filterString", filterString.ToString());

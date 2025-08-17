@@ -161,8 +161,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 query = filter.Value switch
                 {
-                    AdminActionFilter.ActiveBans => query.Where(a => a.Expires == null || a.Expires > DateTime.UtcNow),
-                    AdminActionFilter.UnclaimedBans => query.Where(a => a.Expires != null && a.Expires <= DateTime.UtcNow),
+                    AdminActionFilter.ActiveBans => query.Where(a => a.Type == (int)AdminActionType.Ban || a.Type == (int)AdminActionType.TempBan && (a.Expires == null || a.Expires > DateTime.UtcNow)),
+                    AdminActionFilter.UnclaimedBans => query.Where(a => a.Type == (int)AdminActionType.Ban && a.UserProfile == null),
                     _ => query
                 };
             }
