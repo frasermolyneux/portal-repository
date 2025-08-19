@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - "integration/*"
+    branches-ignore:
+      - 'copilot/**'
 
 permissions:
   id-token: write # This is required for Az CLI Login

@@ -1,6 +1,9 @@
 name: Code Quality
 
-on: push
+on:
+  push:
+    branches-ignore:
+      - 'copilot/**'
 
 permissions:
   contents: read # This is required for actions/checkout

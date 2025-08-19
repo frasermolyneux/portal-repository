@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    branches-ignore:
+      - 'copilot/**'
   schedule:
     - cron: "0 3 * * 3" # Every Wednesday at 3am
 
