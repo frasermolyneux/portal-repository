@@ -35,7 +35,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 PlayerId = dto.PlayerId,
                 UserProfileId = dto.UserProfileId,
                 GameServerId = dto.GameServerId,
-                GameType = dto.GameType.ToGameTypeInt(),
                 Comments = dto.Comments,
                 Timestamp = DateTime.UtcNow,
                 Closed = false

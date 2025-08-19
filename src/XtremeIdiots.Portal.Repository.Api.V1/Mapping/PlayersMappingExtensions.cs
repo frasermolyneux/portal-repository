@@ -1,5 +1,8 @@
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
@@ -90,7 +93,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             return new PlayerAliasDto
             {
                 PlayerAliasId = entity.PlayerAliasId,
-                PlayerId = entity.PlayerId,
+                PlayerId = entity.PlayerId ?? Guid.Empty,
                 Name = entity.Name ?? string.Empty,
                 Added = entity.Added
             };

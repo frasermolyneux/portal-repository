@@ -12,11 +12,17 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             return new DemoDto
             {
                 DemoId = entity.DemoId,
-                GameServerId = entity.GameServerId,
+                UserProfileId = entity.UserProfileId ?? Guid.Empty,
+                GameType = entity.GameType.ToGameType(),
+                Title = entity.Title ?? string.Empty,
                 FileName = entity.FileName ?? string.Empty,
-                Size = entity.Size,
                 Created = entity.Created,
-                GameType = entity.GameType.ToGameType()
+                Map = entity.Map ?? string.Empty,
+                Mod = entity.Mod ?? string.Empty,
+                GameMode = entity.GameMode ?? string.Empty,
+                ServerName = entity.ServerName ?? string.Empty,
+                FileSize = entity.FileSize,
+                FileUri = entity.FileUri ?? string.Empty
             };
         }
     }

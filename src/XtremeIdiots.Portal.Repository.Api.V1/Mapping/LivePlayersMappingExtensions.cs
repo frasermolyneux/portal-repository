@@ -53,7 +53,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 PlayerId = dto.PlayerId,
                 GameServerId = dto.GameServerId,
-                Name = dto.Name,
+                Name = dto.Name ?? string.Empty,
                 Score = dto.Score,
                 Ping = dto.Ping,
                 Num = dto.Num,

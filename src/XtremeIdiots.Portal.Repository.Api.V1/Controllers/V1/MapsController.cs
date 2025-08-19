@@ -663,8 +663,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (filterString is not null && filterString.Length > 0)
             {
-                string searchString = filterString;
-                query = query.Where(m => m.MapName.Contains(searchString!));
+                query = query.Where(m => m.MapName.Contains(filterString));
             }
 
             query = filter switch

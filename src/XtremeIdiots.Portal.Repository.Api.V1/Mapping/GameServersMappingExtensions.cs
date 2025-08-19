@@ -22,14 +22,20 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 RconPassword = entity.RconPassword,
                 GameType = entity.GameType.ToGameType(),
                 HtmlBanner = entity.HtmlBanner,
-                BannerServerListPosition = entity.BannerServerListPosition,
+                ServerListPosition = entity.ServerListPosition,
+                BotEnabled = entity.BotEnabled,
+                BannerServerListEnabled = entity.BannerServerListEnabled,
+                PortalServerListEnabled = entity.PortalServerListEnabled,
+                ChatLogEnabled = entity.ChatLogEnabled,
+                LiveTrackingEnabled = entity.LiveTrackingEnabled,
                 LiveTitle = entity.LiveTitle,
                 LiveMod = entity.LiveMod,
                 LiveMap = entity.LiveMap,
+                LiveLogFile = entity.LiveLogFile,
                 LiveMaxPlayers = entity.LiveMaxPlayers,
                 LiveCurrentPlayers = entity.LiveCurrentPlayers,
                 LiveLastUpdated = entity.LiveLastUpdated,
-                LiveQueryFailed = entity.LiveQueryFailed
+                Deleted = entity.Deleted
             };
         }
 
@@ -56,11 +62,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             return new GameServerStatDto
             {
                 GameServerStatId = entity.GameServerStatId,
-                GameServerId = entity.GameServerId,
+                GameServerId = entity.GameServerId ?? Guid.Empty,
                 Timestamp = entity.Timestamp,
                 PlayerCount = entity.PlayerCount,
-                MapName = entity.MapName ?? string.Empty,
-                ModName = entity.ModName ?? string.Empty
+                MapName = entity.MapName ?? string.Empty
             };
         }
 
@@ -70,11 +75,40 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             return new GameServerStat
             {
                 GameServerId = dto.GameServerId,
-                Timestamp = dto.Timestamp,
                 PlayerCount = dto.PlayerCount,
                 MapName = dto.MapName,
-                ModName = dto.ModName
+                Timestamp = DateTime.UtcNow
             };
+        }
+
+        public static void ApplyTo(this EditGameServerDto dto, GameServer entity)
+        {
+            ArgumentNullException.ThrowIfNull(dto);
+            ArgumentNullException.ThrowIfNull(entity);
+
+            if (dto.Title is not null) entity.Title = dto.Title;
+            if (dto.Hostname is not null) entity.Hostname = dto.Hostname;
+            if (dto.QueryPort is not null) entity.QueryPort = dto.QueryPort.Value;
+            if (dto.FtpHostname is not null) entity.FtpHostname = dto.FtpHostname;
+            if (dto.FtpPort is not null) entity.FtpPort = dto.FtpPort;
+            if (dto.FtpUsername is not null) entity.FtpUsername = dto.FtpUsername;
+            if (dto.FtpPassword is not null) entity.FtpPassword = dto.FtpPassword;
+            if (dto.RconPassword is not null) entity.RconPassword = dto.RconPassword;
+            if (dto.ServerListPosition is not null) entity.ServerListPosition = dto.ServerListPosition.Value;
+            if (dto.HtmlBanner is not null) entity.HtmlBanner = dto.HtmlBanner;
+            if (dto.BotEnabled is not null) entity.BotEnabled = dto.BotEnabled.Value;
+            if (dto.BannerServerListEnabled is not null) entity.BannerServerListEnabled = dto.BannerServerListEnabled.Value;
+            if (dto.PortalServerListEnabled is not null) entity.PortalServerListEnabled = dto.PortalServerListEnabled.Value;
+            if (dto.ChatLogEnabled is not null) entity.ChatLogEnabled = dto.ChatLogEnabled.Value;
+            if (dto.LiveTrackingEnabled is not null) entity.LiveTrackingEnabled = dto.LiveTrackingEnabled.Value;
+            if (dto.LiveTitle is not null) entity.LiveTitle = dto.LiveTitle;
+            if (dto.LiveMap is not null) entity.LiveMap = dto.LiveMap;
+            if (dto.LiveMod is not null) entity.LiveMod = dto.LiveMod;
+            if (dto.LiveLogFile is not null) entity.LiveLogFile = dto.LiveLogFile;
+            if (dto.LiveMaxPlayers is not null) entity.LiveMaxPlayers = dto.LiveMaxPlayers;
+            if (dto.LiveCurrentPlayers is not null) entity.LiveCurrentPlayers = dto.LiveCurrentPlayers;
+            if (dto.LiveLastUpdated is not null) entity.LiveLastUpdated = dto.LiveLastUpdated;
+            if (dto.Deleted is not null) entity.Deleted = dto.Deleted.Value;
         }
     }
 }
