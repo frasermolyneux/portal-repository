@@ -34,14 +34,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Initializes a new instance of the ReportsController.
         /// </summary>
         /// <param name="context">The portal database context.</param>
-        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
         public ReportsController(
-            PortalDbContext context,
-            
+            PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            
         }
 
         /// <summary>

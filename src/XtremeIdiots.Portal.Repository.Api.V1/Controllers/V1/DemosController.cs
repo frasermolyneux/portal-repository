@@ -35,11 +35,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         public DemosController(
             PortalDbContext context,
-            
             IConfiguration configuration)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         }
 

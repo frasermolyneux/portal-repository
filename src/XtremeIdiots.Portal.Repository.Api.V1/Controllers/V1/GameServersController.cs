@@ -30,11 +30,9 @@ public class GameServersController : ControllerBase, IGameServersApi
     
 
     public GameServersController(
-        PortalDbContext context,
-        
+        PortalDbContext context)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
-        
     }
 
     /// <summary>
@@ -204,7 +202,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     /// <returns>An API result indicating the game servers were created.</returns>
     async Task<ApiResult> IGameServersApi.CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken)
     {
-        var gameServers = createGameServerDtos.Select(gs => mapper.Map<GameServer>(gs)).ToList();
+        var gameServers = createGameServerDtos.Select(gs => gs.ToEntity()).ToList();
 
         await context.GameServers.AddRangeAsync(gameServers, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);

@@ -16,6 +16,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -29,11 +30,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         
 
         public GameServersStatsController(
-            PortalDbContext context,
-            
+            PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            
         }
 
         /// <summary>
