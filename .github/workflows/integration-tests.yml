@@ -99,38 +99,13 @@ jobs:
         echo "int_test_client_tenant_id=$client_tenant_id" >> $GITHUB_ENV
         echo "int_test_api_key=$api_key" >> $GITHUB_ENV
 
-    # Set up .NET
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - uses: frasermolyneux/actions/run-api-integration-tests@main
       with:
         dotnet-version: 9.0.x
-    
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    # Run legacy integration tests
-    - name: Run Legacy Integration Tests
-      shell: bash
-      run: |
-        dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy/XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy.csproj -c Release
-      env:
-        api_base_url: ${{ needs.terraform-get-outputs-dev.outputs.apim_base_url }}
-        api_key: ${{ env.int_test_api_key }}
-        api_audience: ${{ needs.terraform-get-outputs-dev.outputs.api_audience }}
-        AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
-        AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
-        AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}
-    
-    # Run v1 integration tests
-    - name: Run V1 Integration Tests
-      shell: bash
-      run: |
-        dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1.csproj -c Release
-      env:
-        api_base_url: ${{ needs.terraform-get-outputs-dev.outputs.apim_base_url }}
-        api_key: ${{ env.int_test_api_key }}
-        api_audience: ${{ needs.terraform-get-outputs-dev.outputs.api_audience }}
+        src-folder: "src"
+        api-base-url: ${{ needs.terraform-get-outputs-dev.outputs.apim_base_url }}
+        api-key: ${{ env.int_test_api_key }}
+        api-audience: ${{ needs.terraform-get-outputs-dev.outputs.api_audience }}
         AZURE_CLIENT_ID: ${{ env.int_test_client_id }}
         AZURE_CLIENT_SECRET: ${{ env.int_test_client_secret }}
         AZURE_TENANT_ID: ${{ env.int_test_client_tenant_id }}
