@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -26,18 +26,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class TagsController : ControllerBase, ITagsApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
         /// <summary>
         /// Initializes a new instance of the TagsController class.
         /// </summary>
         /// <param name="context">The database context for accessing tag data.</param>
-        /// <param name="mapper">The AutoMapper instance for mapping between entities and DTOs.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
-        public TagsController(PortalDbContext context, IMapper mapper)
+        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+        public TagsController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -79,7 +76,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 TotalCount = totalCount,
                 FilteredCount = totalCount, // No filtering for tags
-                Items = tags.Select(mapper.Map<TagDto>).ToList()
+                Items = tags.Select(tag => tag.ToDto()).ToList()
             };
 
             return new ApiResponse<CollectionModel<TagDto>>(result).ToApiResult();
@@ -115,7 +112,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (tag == null)
                 return new ApiResult<TagDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<TagDto>(tag);
+            var result = tag.ToDto();
             return new ApiResponse<TagDto>(result).ToApiResult();
         }
 
@@ -142,7 +139,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the tag was created.</returns>
         async Task<ApiResult> ITagsApi.CreateTag(TagDto tagDto, CancellationToken cancellationToken)
         {
-            var tag = mapper.Map<Tag>(tagDto);
+            var tag = tagDto.ToEntity();
             context.Tags.Add(tag);
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
@@ -178,7 +175,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (tag == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            mapper.Map(tagDto, tag);
+            tagDto.ApplyTo(tag);
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult();
         }
