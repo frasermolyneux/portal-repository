@@ -4,9 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "integration/*"
-    branches-ignore:
-      - 'copilot/**'
+      - 'integration/**'
 
 permissions:
   id-token: write # This is required for Az CLI Login

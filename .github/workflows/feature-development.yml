@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "feature/*"
-    branches-ignore:
-      - 'copilot/**'
+      - 'main'
+      - 'feature/**'
 
 permissions:
   id-token: write # This is required for Az CLI Login

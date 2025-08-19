@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-    branches-ignore:
-      - 'copilot/**'
+      - 'main'
+      
   schedule:
     - cron: "0 3 * * 3" # Every Wednesday at 3am
 

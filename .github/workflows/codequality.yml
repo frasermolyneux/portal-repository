@@ -1,9 +1,15 @@
 name: Code Quality
 
 on:
-  push:
-    branches-ignore:
+  pull_request:
+      branches:
+      - 'main'
+      - 'feature/**'
       - 'copilot/**'
+  push:
+    branches:
+      - 'main'
+      - 'feature/**'
 
 permissions:
   contents: read # This is required for actions/checkout

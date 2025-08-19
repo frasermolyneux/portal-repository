@@ -4,10 +4,13 @@ on:
   workflow_dispatch:
   pull_request:
       branches:
-      - main
+      - 'main'
+      - 'feature/**'
+      - 'copilot/**'
   push:
     branches:
-      - main
+      - 'main'
+      - 'feature/**'
 
 permissions:
   contents: read # This is required for actions/checkout
