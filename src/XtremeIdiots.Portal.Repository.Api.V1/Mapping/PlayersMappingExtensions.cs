@@ -11,7 +11,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
     {
         /// <summary>
         /// Maps a Player entity to a PlayerDto (without navigation properties).
-        /// Call the overload with navigation properties if you need them populated.
+        /// Navigation properties will need to be populated separately after mapping.
         /// </summary>
         /// <param name="entity">The Player entity to map from.</param>
         /// <returns>The mapped PlayerDto without navigation properties.</returns>
