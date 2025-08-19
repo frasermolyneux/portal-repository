@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,13 +15,13 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class LivePlayersApi : BaseApi, ILivePlayersApi
+    public class LivePlayersApi : BaseApi<RepositoryApiClientOptions>, ILivePlayersApi
     {
-        public LivePlayersApi(ILogger<LivePlayersApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public LivePlayersApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<LivePlayersCollectionDto>> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order)
+        public async Task<ApiResult<CollectionModel<LivePlayerDto>>> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/live-players", Method.Get);
 
@@ -38,19 +40,21 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<LivePlayersCollectionDto>();
+            return response.ToApiResult<CollectionModel<LivePlayerDto>>();
         }
 
-        public async Task<ApiResponseDto> SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos)
+        public async Task<ApiResult> SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/live-players/{gameServerId}", Method.Post);
             request.AddJsonBody(createLivePlayerDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

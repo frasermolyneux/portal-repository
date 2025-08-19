@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -12,18 +14,20 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameTracker;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class GameTrackerBannerApi : BaseApi, IGameTrackerBannerApi
+    public class GameTrackerBannerApi : BaseApi<RepositoryApiClientOptions>, IGameTrackerBannerApi
     {
-        public GameTrackerBannerApi(ILogger<GameTrackerBannerApi> logger, IApiTokenProvider apiTokenProvider, IRestClientSingleton restClientSingleton, IOptions<RepositoryApiClientOptions> options) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public GameTrackerBannerApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<GameTrackerBannerDto>> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName)
+        public async Task<ApiResult<GameTrackerBannerDto>> GetGameTrackerBanner(string ipAddress, string queryPort, string imageName, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/gametracker/{ipAddress}:{queryPort}/{imageName}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<GameTrackerBannerDto>();
+            return response.ToApiResult<GameTrackerBannerDto>();
         }
     }
 }
+
+

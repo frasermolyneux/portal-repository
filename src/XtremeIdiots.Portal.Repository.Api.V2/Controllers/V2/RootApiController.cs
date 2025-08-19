@@ -1,7 +1,7 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V2;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V2;
 
@@ -17,9 +17,9 @@ public class RootApiController : ControllerBase, IRootApi
     [HttpGet]
     [HttpPost]
     [Route("")]
-    public Task<ApiResponseDto> GetRoot()
+    public Task<ApiResult> GetRoot()
     {
-        return Task.FromResult(new ApiResponseDto
+        return Task.FromResult(new ApiResult
         {
             StatusCode = System.Net.HttpStatusCode.OK
         });

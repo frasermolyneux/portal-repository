@@ -8,8 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -26,7 +26,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class DemosController : Controller, IDemosApi
+    public class DemosController : ControllerBase, IDemosApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
@@ -42,40 +42,64 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         }
 
-        [HttpGet]
-        [Route("demos/{demoId}")]
-        public async Task<IActionResult> GetDemo(Guid demoId)
+        /// <summary>
+        /// Retrieves a specific demo by its unique identifier.
+        /// </summary>
+        /// <param name="demoId">The unique identifier of the demo to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The demo details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("demos/{demoId:guid}")]
+        [ProducesResponseType<DemoDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetDemo(Guid demoId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IDemosApi)this).GetDemo(demoId);
+            var response = await ((IDemosApi)this).GetDemo(demoId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<DemoDto>> IDemosApi.GetDemo(Guid demoId)
+        /// <summary>
+        /// Retrieves a specific demo by its unique identifier.
+        /// </summary>
+        /// <param name="demoId">The unique identifier of the demo to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the demo details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<DemoDto>> IDemosApi.GetDemo(Guid demoId, CancellationToken cancellationToken)
         {
             var demo = await context.Demos.Include(d => d.UserProfile)
-                .SingleOrDefaultAsync(d => d.DemoId == demoId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
-                return new ApiResponseDto<DemoDto>(HttpStatusCode.NotFound);
+                return new ApiResult<DemoDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<DemoDto>(demo);
 
-            return new ApiResponseDto<DemoDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<DemoDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("demos")]
-        public async Task<IActionResult> GetDemos(string? gameTypes, string? userId, string? filterString, int? skipEntries, int? takeEntries, DemoOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of demos with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameTypes">Comma-separated list of game types to filter by.</param>
+        /// <param name="userId">Optional filter by user identifier.</param>
+        /// <param name="filterString">Optional filter string to search in titles and display names.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of demos.</returns>
+        [HttpGet("demos")]
+        [ProducesResponseType<CollectionModel<DemoDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetDemos(
+            [FromQuery] string? gameTypes = null,
+            [FromQuery] string? userId = null,
+            [FromQuery] string? filterString = null,
+            [FromQuery] int skipEntries = 0,
+            [FromQuery] int takeEntries = 20,
+            [FromQuery] DemoOrder? order = null,
+            CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
-
-            var demos = context.Demos.Include(d => d.UserProfile).AsQueryable();
-
             GameType[]? gameTypesFilter = null;
             if (!string.IsNullOrWhiteSpace(gameTypes))
             {
@@ -83,60 +107,71 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 gameTypesFilter = split.Select(gt => Enum.Parse<GameType>(gt)).ToArray();
             }
 
-            var response = await ((IDemosApi)this).GetDemos(gameTypesFilter, userId, filterString, skipEntries.Value, takeEntries.Value, order);
+            var response = await ((IDemosApi)this).GetDemos(gameTypesFilter, userId, filterString, skipEntries, takeEntries, order, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<DemosCollectionDto>> IDemosApi.GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of demos with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameTypes">Array of game types to filter by.</param>
+        /// <param name="userId">Optional filter by user identifier.</param>
+        /// <param name="filterString">Optional filter string to search in titles and display names.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of demos.</returns>
+        async Task<ApiResult<CollectionModel<DemoDto>>> IDemosApi.GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order, CancellationToken cancellationToken)
         {
-            var query = context.Demos.Include(d => d.UserProfile).AsQueryable();
-            query = ApplyFilter(query, gameTypes, null, null);
-            var totalCount = await query.CountAsync();
+            var baseQuery = context.Demos.Include(d => d.UserProfile).AsNoTracking().AsQueryable();
 
-            query = ApplyFilter(query, gameTypes, userId, filterString);
-            var filteredCount = await query.CountAsync();
+            // Calculate total count before applying filters
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            // Apply filters
+            var filteredQuery = ApplyFilters(baseQuery, gameTypes, userId, filterString);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(d => mapper.Map<DemoDto>(d)).ToList();
 
-            var result = new DemosCollectionDto
+            var result = new CollectionModel<DemoDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                TotalCount = totalCount,
+                FilteredCount = filteredCount,
+                Items = entries
             };
 
-            return new ApiResponseDto<DemosCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<DemoDto>>(result).ToApiResult();
         }
 
-        [HttpPost]
-        [Route("demos")]
-        public async Task<IActionResult> CreateDemo()
+        /// <summary>
+        /// Creates a new demo record.
+        /// </summary>
+        /// <param name="createDemoDto">The demo data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The created demo details.</returns>
+        [HttpPost("demos")]
+        [ProducesResponseType<DemoDto>(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateDemo([FromBody] CreateDemoDto createDemoDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            CreateDemoDto? createDemoDto;
-            try
-            {
-                createDemoDto = JsonConvert.DeserializeObject<CreateDemoDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (createDemoDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
-            var response = await ((IDemosApi)this).CreateDemo(createDemoDto);
-
+            var response = await ((IDemosApi)this).CreateDemo(createDemoDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<DemoDto>> IDemosApi.CreateDemo(CreateDemoDto createDemoDto)
+        /// <summary>
+        /// Creates a new demo record.
+        /// </summary>
+        /// <param name="createDemoDto">The demo data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the created demo details.</returns>
+        async Task<ApiResult<DemoDto>> IDemosApi.CreateDemo(CreateDemoDto createDemoDto, CancellationToken cancellationToken)
         {
             var demo = new Demo
             {
@@ -146,48 +181,65 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             };
 
             context.Demos.Add(demo);
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
             var result = mapper.Map<DemoDto>(demo);
 
-            return new ApiResponseDto<DemoDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<DemoDto>(result).ToApiResult(HttpStatusCode.Created);
         }
 
-        [HttpPost]
-        [Route("demos/{demoId}/file")]
-        public async Task<IActionResult> SetDemoFile(Guid demoId)
+        /// <summary>
+        /// Uploads a demo file to the specified demo record.
+        /// </summary>
+        /// <param name="demoId">The unique identifier of the demo to upload the file to.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the file was uploaded successfully.</returns>
+        [HttpPost("demos/{demoId:guid}/file")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SetDemoFile(Guid demoId, CancellationToken cancellationToken = default)
         {
             if (Request.Form.Files.Count == 0)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request did not contain any files" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage))).ToHttpResult();
 
             var whitelistedExtensions = new List<string> { ".dm_1", ".dm_6" };
 
             var file = Request.Form.Files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Invalid file type extension" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             using (var stream = System.IO.File.Create(filePath))
-                await file.CopyToAsync(stream);
+                await file.CopyToAsync(stream, cancellationToken);
 
-            var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath);
+            var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IDemosApi.SetDemoFile(Guid demoId, string fileName, string filePath)
+        /// <summary>
+        /// Uploads a demo file to the specified demo record.
+        /// </summary>
+        /// <param name="demoId">The unique identifier of the demo to upload the file to.</param>
+        /// <param name="fileName">The name of the file being uploaded.</param>
+        /// <param name="filePath">The local path to the file to upload.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the file was uploaded successfully.</returns>
+        async Task<ApiResult> IDemosApi.SetDemoFile(Guid demoId, string fileName, string filePath, CancellationToken cancellationToken)
         {
-            var demo = context.Demos.SingleOrDefault(d => d.DemoId == demoId);
+            var demo = await context.Demos
+                .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]), new DefaultAzureCredential());
+            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]!), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("demos");
 
             var blobKey = $"{Guid.NewGuid()}.{demo.GameType.ToGameType().DemoExtension()}";
             var blobClient = containerClient.GetBlobClient(blobKey);
-            await blobClient.UploadAsync(filePath);
+            await blobClient.UploadAsync(filePath, cancellationToken);
 
             var localDemo = new LocalDemo(filePath, demo.GameType.ToCodDemoReaderGameVersion());
 
@@ -201,89 +253,88 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             demo.FileSize = localDemo.FileSize;
             demo.FileUri = blobClient.Uri.ToString();
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpDelete]
-        [Route("demos/{demoId}")]
-        public async Task<IActionResult> DeleteDemo(Guid demoId)
+        /// <summary>
+        /// Deletes a demo by its unique identifier.
+        /// </summary>
+        /// <param name="demoId">The unique identifier of the demo to delete.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the demo was deleted; otherwise, a 404 Not Found response.</returns>
+        [HttpDelete("demos/{demoId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteDemo(Guid demoId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IDemosApi)this).DeleteDemo(demoId);
+            var response = await ((IDemosApi)this).DeleteDemo(demoId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IDemosApi.DeleteDemo(Guid demoId)
+        /// <summary>
+        /// Deletes a demo by its unique identifier.
+        /// </summary>
+        /// <param name="demoId">The unique identifier of the demo to delete.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the demo was deleted if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IDemosApi.DeleteDemo(Guid demoId, CancellationToken cancellationToken)
         {
-            var demo = await context.Demos.SingleOrDefaultAsync(d => d.DemoId == demoId);
+            var demo = await context.Demos
+                .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken);
 
             if (demo == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
             context.Remove(demo);
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        private IQueryable<Demo> ApplyFilter(IQueryable<Demo> query, GameType[]? gameTypes, string? userId, string? filterString)
+        private IQueryable<Demo> ApplyFilters(IQueryable<Demo> query, GameType[]? gameTypes, string? userId, string? filterString)
         {
             if (gameTypes != null && gameTypes.Length > 0)
             {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
-                query = query.Where(d => gameTypeInts.Contains(d.GameType)).AsQueryable();
+                query = query.Where(d => gameTypeInts.Contains(d.GameType));
             }
 
             if (!string.IsNullOrWhiteSpace(userId))
             {
-                query = query.Where(d => d.UserProfile.XtremeIdiotsForumId == userId).AsQueryable();
+                query = query.Where(d => d.UserProfile != null && d.UserProfile.XtremeIdiotsForumId == userId);
             }
 
             if (!string.IsNullOrWhiteSpace(filterString))
             {
-                query = query.Where(d => d.Title.Contains(filterString) || d.UserProfile.DisplayName.Contains(filterString)).AsQueryable();
+                query = query.Where(d => (d.Title != null && d.Title.Contains(filterString)) ||
+                                       (d.UserProfile != null && d.UserProfile.DisplayName != null && d.UserProfile.DisplayName.Contains(filterString)));
             }
 
             return query;
         }
 
-        private IQueryable<Demo> ApplyOrderAndLimits(IQueryable<Demo> query, int skipEntries, int takeEntries, DemoOrder? order)
+        private IQueryable<Demo> ApplyOrderingAndPagination(IQueryable<Demo> query, int skipEntries, int takeEntries, DemoOrder? order)
         {
-            switch (order)
+            // Apply ordering
+            var orderedQuery = order switch
             {
-                case DemoOrder.GameTypeAsc:
-                    query = query.OrderBy(d => d.GameType).AsQueryable();
-                    break;
-                case DemoOrder.GameTypeDesc:
-                    query = query.OrderByDescending(d => d.GameType).AsQueryable();
-                    break;
-                case DemoOrder.TitleAsc:
-                    query = query.OrderBy(d => d.Title).AsQueryable();
-                    break;
-                case DemoOrder.TitleDesc:
-                    query = query.OrderByDescending(d => d.Title).AsQueryable();
-                    break;
-                case DemoOrder.CreatedAsc:
-                    query = query.OrderBy(d => d.Created).AsQueryable();
-                    break;
-                case DemoOrder.CreatedDesc:
-                    query = query.OrderByDescending(d => d.Created).AsQueryable();
-                    break;
-                case DemoOrder.UploadedByAsc:
-                    query = query.OrderBy(d => d.UserProfile.DisplayName).AsQueryable();
-                    break;
-                case DemoOrder.UploadedByDesc:
-                    query = query.OrderByDescending(d => d.UserProfile.DisplayName).AsQueryable();
-                    break;
-            }
+                DemoOrder.GameTypeAsc => query.OrderBy(d => d.GameType),
+                DemoOrder.GameTypeDesc => query.OrderByDescending(d => d.GameType),
+                DemoOrder.TitleAsc => query.OrderBy(d => d.Title),
+                DemoOrder.TitleDesc => query.OrderByDescending(d => d.Title),
+                DemoOrder.CreatedAsc => query.OrderBy(d => d.Created),
+                DemoOrder.CreatedDesc => query.OrderByDescending(d => d.Created),
+                DemoOrder.UploadedByAsc => query.OrderBy(d => d.UserProfile != null ? d.UserProfile.DisplayName : string.Empty),
+                DemoOrder.UploadedByDesc => query.OrderByDescending(d => d.UserProfile != null ? d.UserProfile.DisplayName : string.Empty),
+                _ => query.OrderByDescending(d => d.Created)
+            };
 
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
         }
     }
 }
+

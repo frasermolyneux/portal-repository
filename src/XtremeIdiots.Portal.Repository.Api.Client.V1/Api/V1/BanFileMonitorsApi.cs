@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,21 +15,21 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class BanFileMonitorsApi : BaseApi, IBanFileMonitorsApi
+    public class BanFileMonitorsApi : BaseApi<RepositoryApiClientOptions>, IBanFileMonitorsApi
     {
-        public BanFileMonitorsApi(ILogger<BanFileMonitorsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public BanFileMonitorsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<BanFileMonitorDto>> GetBanFileMonitor(Guid banFileMonitorId)
+        public async Task<ApiResult<BanFileMonitorDto>> GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<BanFileMonitorDto>();
+            return response.ToApiResult<BanFileMonitorDto>();
         }
 
-        public async Task<ApiResponseDto<BanFileMonitorCollectionDto>> GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
+        public async Task<ApiResult<CollectionModel<BanFileMonitorDto>>> GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/ban-file-monitors", Method.Get);
 
@@ -46,37 +48,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<BanFileMonitorCollectionDto>();
+            return response.ToApiResult<CollectionModel<BanFileMonitorDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto)
+        public async Task<ApiResult> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors", Method.Post);
             request.AddJsonBody(createBanFileMonitorDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto)
+        public async Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch);
             request.AddJsonBody(editBanFileMonitorDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> DeleteBanFileMonitor(Guid banFileMonitorId)
+        public async Task<ApiResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Delete);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

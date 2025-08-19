@@ -1,4 +1,4 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
@@ -7,22 +7,22 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IMapsApi
     {
-        Task<ApiResponseDto<MapDto>> GetMap(Guid mapId);
-        Task<ApiResponseDto<MapDto>> GetMap(GameType gameType, string mapName);
-        Task<ApiResponseDto<MapsCollectionDto>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order);
+        Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default);
+        Task<ApiResult<MapDto>> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default);
+        Task<ApiResult<CollectionModel<MapDto>>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> CreateMap(CreateMapDto createMapDto);
-        Task<ApiResponseDto> CreateMaps(List<CreateMapDto> createMapDtos);
+        Task<ApiResult> CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> CreateMaps(List<CreateMapDto> createMapDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> UpdateMap(EditMapDto editMapDto);
-        Task<ApiResponseDto> UpdateMaps(List<EditMapDto> editMapDtos);
+        Task<ApiResult> UpdateMap(EditMapDto editMapDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> UpdateMaps(List<EditMapDto> editMapDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> DeleteMap(Guid mapId);
-        Task<ApiResponseDto> RebuildMapPopularity();
+        Task<ApiResult> DeleteMap(Guid mapId, CancellationToken cancellationToken = default);
+        Task<ApiResult> RebuildMapPopularity(CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto);
-        Task<ApiResponseDto> UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos);
+        Task<ApiResult> UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken = default);
 
-        Task<ApiResponseDto> UpdateMapImage(Guid mapId, string filePath);
+        Task<ApiResult> UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken = default);
     }
 }

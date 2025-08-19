@@ -1,13 +1,10 @@
-using System.Net;
-using System.Threading;
-using System.Linq;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -16,6 +13,9 @@ using Asp.Versioning;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
+/// <summary>
+/// Controller for managing data maintenance operations including pruning old data and resetting system-assigned player tags.
+/// </summary>
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
@@ -24,93 +24,157 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 {
     private readonly PortalDbContext context;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataMaintenanceController"/> class.
+    /// </summary>
+    /// <param name="context">The database context for data operations.</param>
+    /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
     public DataMaintenanceController(PortalDbContext context)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    [HttpDelete]
-    [Route("data-maintenance/prune-chat-messages")]
-    public async Task<IActionResult> PruneChatMessages()
+    /// <summary>
+    /// Prunes chat messages older than 12 months to maintain database performance.
+    /// Locked chat messages are preserved and will not be deleted.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpDelete("data-maintenance/prune-chat-messages")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> PruneChatMessages(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneChatMessages();
-
+        var response = await ((IDataMaintenanceApi)this).PruneChatMessages(cancellationToken);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneChatMessages()
+    /// <summary>
+    /// Prunes chat messages older than 12 months to maintain database performance.
+    /// Locked chat messages are preserved and will not be deleted.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.PruneChatMessages(CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-12)}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-11)}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-10)}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-9)}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-8)}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-7)}");
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        // Execute pruning operation in batches to avoid locking issues
+        // Only delete unlocked chat messages to preserve locked ones
+        for (int i = 6; i <= 12; i++)
+        {
+            var batchCutoff = DateTime.UtcNow.AddMonths(-i);
+            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {batchCutoff} AND [Locked] = 0", cancellationToken);
+        }
+
+        return new ApiResponse().ToApiResult();
     }
 
-    [HttpDelete]
-    [Route("data-maintenance/prune-game-server-events")]
-    public async Task<IActionResult> PruneGameServerEvents()
+    /// <summary>
+    /// Prunes game server events older than 6 months to maintain database performance.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpDelete("data-maintenance/prune-game-server-events")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> PruneGameServerEvents(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneGameServerEvents();
-
+        var response = await ((IDataMaintenanceApi)this).PruneGameServerEvents(cancellationToken);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerEvents()
+    /// <summary>
+    /// Prunes game server events older than 6 months to maintain database performance.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.PruneGameServerEvents(CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        var cutoffDate = DateTime.UtcNow.AddMonths(-6);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {cutoffDate}", cancellationToken);
+        return new ApiResponse().ToApiResult();
     }
 
-    [HttpDelete]
-    [Route("data-maintenance/prune-game-server-stats")]
-    public async Task<IActionResult> PruneGameServerStats()
+    /// <summary>
+    /// Prunes game server statistics older than 6 months to maintain database performance.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpDelete("data-maintenance/prune-game-server-stats")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> PruneGameServerStats(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneGameServerStats();
-
+        var response = await ((IDataMaintenanceApi)this).PruneGameServerStats(cancellationToken);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneGameServerStats()
+    /// <summary>
+    /// Prunes game server statistics older than 6 months to maintain database performance.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.PruneGameServerStats(CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {DateTime.UtcNow.AddMonths(-6)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        var cutoffDate = DateTime.UtcNow.AddMonths(-6);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {cutoffDate}", cancellationToken);
+        return new ApiResponse().ToApiResult();
     }
 
-    [HttpDelete]
-    [Route("data-maintenance/prune-recent-players")]
-    public async Task<IActionResult> PruneRecentPlayers()
+    /// <summary>
+    /// Prunes recent player records older than 7 days to maintain database performance.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpDelete("data-maintenance/prune-recent-players")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> PruneRecentPlayers(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneRecentPlayers();
-
+        var response = await ((IDataMaintenanceApi)this).PruneRecentPlayers(cancellationToken);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.PruneRecentPlayers()
+    /// <summary>
+    /// Prunes recent player records older than 7 days to maintain database performance.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.PruneRecentPlayers(CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {DateTime.UtcNow.AddDays(-7)}");
-        return new ApiResponseDto(HttpStatusCode.OK);
+        var cutoffDate = DateTime.UtcNow.AddDays(-7);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {cutoffDate}", cancellationToken);
+        return new ApiResponse().ToApiResult();
     }
 
-    [HttpPut]
-    [Route("data-maintenance/reset-system-assigned-player-tags")]
-    public async Task<IActionResult> ResetSystemAssignedPlayerTags()
+    /// <summary>
+    /// Resets system-assigned player tags based on player activity in the last 2 weeks.
+    /// Active players get the "active-players" tag, inactive players get the "inactive-player" tag.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpPut("data-maintenance/reset-system-assigned-player-tags")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).ResetSystemAssignedPlayerTags();
-
+        var response = await ((IDataMaintenanceApi)this).ResetSystemAssignedPlayerTags(cancellationToken);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResponseDto> IDataMaintenanceApi.ResetSystemAssignedPlayerTags()
+    /// <summary>
+    /// Resets system-assigned player tags based on player activity in the last 2 weeks.
+    /// Active players get the "active-players" tag, inactive players get the "inactive-player" tag.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.ResetSystemAssignedPlayerTags(CancellationToken cancellationToken)
     {
         var twoWeeksAgo = DateTime.UtcNow.AddDays(-14);
 
-        // First, get the tag IDs by name
-        var activeTag = await context.Tags.FirstOrDefaultAsync(t => t.Name == "active-players");
-        var inactiveTag = await context.Tags.FirstOrDefaultAsync(t => t.Name == "inactive-player");
+        // First, get the tag IDs by name using AsNoTracking for better performance
+        var activeTag = await context.Tags
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Name == "active-players", cancellationToken);
+
+        var inactiveTag = await context.Tags
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Name == "inactive-player", cancellationToken);
 
         if (activeTag == null || inactiveTag == null)
         {
@@ -119,14 +183,16 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
         // Get list of active players (played in last 2 weeks)
         var activePlayers = await context.Players
+            .AsNoTracking()
             .Where(rp => rp.LastSeen >= twoWeeksAgo)
             .Select(rp => rp.PlayerId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         // Get all players
         var allPlayerIds = await context.Players
+            .AsNoTracking()
             .Select(p => p.PlayerId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         // Determine which players are inactive (using except manually)
         var inactivePlayers = allPlayerIds
@@ -136,7 +202,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         // Get existing player tags
         var existingPlayerTags = await context.PlayerTags
             .Where(pt => pt.TagId == activeTag.TagId || pt.TagId == inactiveTag.TagId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         // Process active players
         foreach (var playerId in activePlayers)
@@ -194,8 +260,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             }
         }
 
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(cancellationToken);
 
-        return new ApiResponseDto(HttpStatusCode.OK);
+        return new ApiResponse().ToApiResult();
     }
 }

@@ -185,13 +185,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
     public class VersionedRootApi : IVersionedRootApi
     {
-        public VersionedRootApi(IRootApi v1Api, XtremeIdiots.Portal.Repository.Api.Client.V1_1.RootApi v1_1Api)
+        public VersionedRootApi(IRootApi v1Api, Abstractions.Interfaces.V1_1.IRootApi v1_1Api)
         {
             V1 = v1Api;
             V1_1 = v1_1Api;
         }
 
         public IRootApi V1 { get; }
-        public IRootApi V1_1 { get; }
+        public Abstractions.Interfaces.V1_1.IRootApi V1_1 { get; }
     }
 }

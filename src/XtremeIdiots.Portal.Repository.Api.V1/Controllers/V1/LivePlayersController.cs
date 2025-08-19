@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -19,15 +19,24 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// Controller for managing live players on game servers.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class LivePlayersController : Controller, ILivePlayersApi
+    public class LivePlayersController : ControllerBase, ILivePlayersApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the LivePlayersController.
+        /// </summary>
+        /// <param name="context">The database context for portal operations.</param>
+        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public LivePlayersController(
             PortalDbContext context,
             IMapper mapper)
@@ -36,48 +45,85 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("live-players")]
-        public async Task<IActionResult> GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int? skipEntries, int? takeEntries, LivePlayersOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of live players with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="filter">Optional filter criteria for live players.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>A paginated collection of live players.</returns>
+        [HttpGet("live-players")]
+        [ProducesResponseType<CollectionModel<LivePlayerDto>>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetLivePlayers(
+            [FromQuery] GameType? gameType = null,
+            [FromQuery] Guid? gameServerId = null,
+            [FromQuery] LivePlayerFilter? filter = null,
+            [FromQuery] int skipEntries = 0,
+            [FromQuery] int takeEntries = 20,
+            [FromQuery] LivePlayersOrder? order = null,
+            CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
-
-            var response = await ((ILivePlayersApi)this).GetLivePlayers(gameType, gameServerId, filter, skipEntries.Value, takeEntries.Value, order);
-
+            var response = await ((ILivePlayersApi)this).GetLivePlayers(gameType, gameServerId, filter, skipEntries, takeEntries, order, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<LivePlayersCollectionDto>> ILivePlayersApi.GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of live players with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="filter">Optional filter criteria for live players.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of live players.</returns>
+        async Task<ApiResult<CollectionModel<LivePlayerDto>>> ILivePlayersApi.GetLivePlayers(GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter, int skipEntries, int takeEntries, LivePlayersOrder? order, CancellationToken cancellationToken)
         {
-            var query = context.LivePlayers.Include(lp => lp.Player).AsQueryable();
-            query = ApplyFilter(query, gameType, null, null);
-            var totalCount = await query.CountAsync();
+            var baseQuery = context.LivePlayers
+                .Include(lp => lp.Player)
+                .AsNoTracking()
+                .AsQueryable();
 
-            query = ApplyFilter(query, gameType, gameServerId, filter);
-            var filteredCount = await query.CountAsync();
+            // Calculate total count before applying filters
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            // Apply filters
+            var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, filter);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
 
-            var entries = results.Select(lp => mapper.Map<LivePlayerDto>(lp)).ToList();
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+            var livePlayers = await orderedQuery.ToListAsync(cancellationToken);
 
-            var result = new LivePlayersCollectionDto
+            var entries = livePlayers.Select(lp => mapper.Map<LivePlayerDto>(lp)).ToList();
+
+            var data = new CollectionModel<LivePlayerDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                TotalCount = totalCount,
+                FilteredCount = filteredCount,
+                Items = entries
             };
 
-            return new ApiResponseDto<LivePlayersCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<LivePlayerDto>>(data).ToApiResult();
         }
 
-        [HttpPost]
-        [Route("live-players/{gameServerId}")]
-        public async Task<IActionResult> SetLivePlayersForGameServer(Guid gameServerId)
+        /// <summary>
+        /// Sets the live players for a specific game server, replacing any existing data.
+        /// </summary>
+        /// <param name="gameServerId">The unique identifier of the game server.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>A success response if the operation completed successfully.</returns>
+        [HttpPost("live-players/{gameServerId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SetLivePlayersForGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -88,69 +134,85 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
             }
 
             if (createLivePlayerDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+            {
+                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+            }
 
-            var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos);
-
+            var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> ILivePlayersApi.SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos)
+        /// <summary>
+        /// Sets the live players for a specific game server, replacing any existing data.
+        /// </summary>
+        /// <param name="gameServerId">The unique identifier of the game server.</param>
+        /// <param name="createLivePlayerDtos">The list of live players to set for the game server.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the operation was successful.</returns>
+        async Task<ApiResult> ILivePlayersApi.SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos, CancellationToken cancellationToken)
         {
-            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}");
+            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}", cancellationToken);
 
             var livePlayers = createLivePlayerDtos.Select(lp => mapper.Map<LivePlayer>(lp)).ToList();
 
-            await context.LivePlayers.AddRangeAsync(livePlayers);
-            await context.SaveChangesAsync();
+            await context.LivePlayers.AddRangeAsync(livePlayers, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
+        /// <summary>
+        /// Applies filtering criteria to the live players query.
+        /// </summary>
+        /// <param name="query">The base query to apply filters to.</param>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="filter">Optional filter criteria for live players.</param>
+        /// <returns>The filtered query.</returns>
         private IQueryable<LivePlayer> ApplyFilter(IQueryable<LivePlayer> query, GameType? gameType, Guid? gameServerId, LivePlayerFilter? filter)
         {
             if (gameType.HasValue)
-                query = query.Where(lp => lp.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+                query = query.Where(lp => lp.GameType == gameType.Value.ToGameTypeInt());
 
             if (gameServerId.HasValue)
-                query = query.Where(lp => lp.GameServerId == gameServerId).AsQueryable();
+                query = query.Where(lp => lp.GameServerId == gameServerId);
 
-            if (filter != null)
+            if (filter.HasValue)
             {
-                switch (filter)
+                query = filter.Value switch
                 {
-                    case LivePlayerFilter.GeoLocated:
-                        query = query.Where(lp => lp.Lat != null && lp.Long != null).AsQueryable();
-                        break;
-                }
+                    LivePlayerFilter.GeoLocated => query.Where(lp => lp.Lat != null && lp.Long != null),
+                    _ => query
+                };
             }
 
             return query;
         }
 
+        /// <summary>
+        /// Applies ordering and pagination to the live players query.
+        /// </summary>
+        /// <param name="query">The query to apply ordering and pagination to.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <returns>The ordered and paginated query.</returns>
         private IQueryable<LivePlayer> ApplyOrderAndLimits(IQueryable<LivePlayer> query, int skipEntries, int takeEntries, LivePlayersOrder? order)
         {
-            if (order.HasValue)
+            // Apply ordering
+            var orderedQuery = order switch
             {
-                switch (order)
-                {
-                    case LivePlayersOrder.ScoreAsc:
-                        query = query.OrderBy(rp => rp.Score).AsQueryable();
-                        break;
-                    case LivePlayersOrder.ScoreDesc:
-                        query = query.OrderByDescending(rp => rp.Score).AsQueryable();
-                        break;
-                }
-            }
+                LivePlayersOrder.ScoreAsc => query.OrderBy(lp => lp.Score),
+                LivePlayersOrder.ScoreDesc => query.OrderByDescending(lp => lp.Score),
+                _ => query.OrderBy(lp => lp.PlayerId) // Default ordering for consistency
+            };
 
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
         }
     }
 }
+

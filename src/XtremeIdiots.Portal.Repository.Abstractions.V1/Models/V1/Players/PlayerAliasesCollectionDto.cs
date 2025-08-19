@@ -1,32 +1,10 @@
-using Newtonsoft.Json;
-using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
+using MX.Api.Abstractions;
 
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
+
+[Obsolete("Use CollectionModel<PlayerAliasDto> from MX.Api.Abstractions instead")]
+public record PlayerAliasesCollectionDto
 {
-    public record PlayerAliasesCollectionDto : IDto
-    {
-        [JsonProperty]
-        public IEnumerable<PlayerAliasDto> Entries { get; internal set; } = Enumerable.Empty<PlayerAliasDto>();
-
-        [JsonProperty]
-        public int TotalRecords { get; internal set; }
-
-        [JsonProperty]
-        public string ContinuationToken { get; internal set; } = string.Empty;
-
-        [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
-        {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { "TotalRecords", TotalRecords.ToString() },
-                    { "EntriesCount", Entries.Count().ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
-    }
+    public List<PlayerAliasDto> Entries { get; set; } = new List<PlayerAliasDto>();
+    public int TotalRecords { get; set; }
 }

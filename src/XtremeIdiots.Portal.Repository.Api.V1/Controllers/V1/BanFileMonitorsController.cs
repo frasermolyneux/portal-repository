@@ -6,10 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
-
-using Newtonsoft.Json;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -19,15 +17,24 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// API controller for managing ban file monitors.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class BanFileMonitorsController : Controller, IBanFileMonitorsApi
+    public class BanFileMonitorsController : ControllerBase, IBanFileMonitorsApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BanFileMonitorsController"/> class.
+        /// </summary>
+        /// <param name="context">The database context for data access.</param>
+        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public BanFileMonitorsController(
             PortalDbContext context,
             IMapper mapper)
@@ -36,40 +43,64 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("ban-file-monitors/{banFileMonitorId}")]
-        public async Task<IActionResult> GetBanFileMonitor(Guid banFileMonitorId)
+        /// <summary>
+        /// Retrieves a specific ban file monitor by its unique identifier.
+        /// </summary>
+        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to retrieve.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <returns>The requested ban file monitor if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("ban-file-monitors/{banFileMonitorId:guid}")]
+        [ProducesResponseType<BanFileMonitorDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitor(banFileMonitorId);
-
+            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitor(banFileMonitorId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<BanFileMonitorDto>> IBanFileMonitorsApi.GetBanFileMonitor(Guid banFileMonitorId)
+        /// <summary>
+        /// Retrieves a specific ban file monitor by its unique identifier.
+        /// </summary>
+        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the ban file monitor details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<BanFileMonitorDto>> IBanFileMonitorsApi.GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken)
         {
             var banFileMonitor = await context.BanFileMonitors
                 .Include(bfm => bfm.GameServer)
                 .Where(bfm => !bfm.GameServer.Deleted)
-                .SingleOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken);
 
             if (banFileMonitor == null)
-                return new ApiResponseDto<BanFileMonitorDto>(HttpStatusCode.NotFound);
+                return new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<BanFileMonitorDto>(banFileMonitor);
-
-            return new ApiResponseDto<BanFileMonitorDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<BanFileMonitorDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("ban-file-monitors")]
-        public async Task<IActionResult> GetBanFileMonitors(string? gameTypes, string? banFileMonitorIds, Guid? gameServerId, int? skipEntries, int? takeEntries, BanFileMonitorOrder? order)
+        /// <summary>
+        /// Retrieves a paginated collection of ban file monitors with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameTypes">Comma-separated list of game types to filter by.</param>
+        /// <param name="banFileMonitorIds">Comma-separated list of ban file monitor IDs to filter by.</param>
+        /// <param name="gameServerId">The game server ID to filter by.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+        /// <param name="order">The order to sort the results by.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>A paginated collection of ban file monitors.</returns>
+        [HttpGet("ban-file-monitors")]
+        [ProducesResponseType<CollectionModel<BanFileMonitorDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetBanFileMonitors(
+            [FromQuery] string? gameTypes = null,
+            [FromQuery] string? banFileMonitorIds = null,
+            [FromQuery] Guid? gameServerId = null,
+            [FromQuery] int skipEntries = 0,
+            [FromQuery] int takeEntries = 20,
+            [FromQuery] BanFileMonitorOrder? order = null,
+            CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
-
             GameType[]? gameTypesFilter = null;
             if (!string.IsNullOrWhiteSpace(gameTypes))
             {
@@ -84,169 +115,207 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 banFileMonitorsIdFilter = split.Select(id => Guid.Parse(id)).ToArray();
             }
 
-            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitors(gameTypesFilter, banFileMonitorsIdFilter, gameServerId, skipEntries.Value, takeEntries.Value, order);
-
+            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitors(gameTypesFilter, banFileMonitorsIdFilter, gameServerId, skipEntries, takeEntries, order, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<BanFileMonitorCollectionDto>> IBanFileMonitorsApi.GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
+        /// <summary>
+        /// Retrieves a paginated collection of ban file monitors with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameTypes">Optional filter by game types.</param>
+        /// <param name="banFileMonitorIds">Optional filter by ban file monitor identifiers.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of ban file monitors.</returns>
+        async Task<ApiResult<CollectionModel<BanFileMonitorDto>>> IBanFileMonitorsApi.GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order, CancellationToken cancellationToken)
         {
-            var query = context.BanFileMonitors.Include(bfm => bfm.GameServer).Where(bfm => !bfm.GameServer.Deleted).AsQueryable();
-            query = ApplyFilter(query, gameTypes, null, null);
-            var totalCount = await query.CountAsync();
+            var baseQuery = context.BanFileMonitors
+                .Include(bfm => bfm.GameServer)
+                .Where(bfm => !bfm.GameServer.Deleted)
+                .AsNoTracking()
+                .AsQueryable();
 
-            query = ApplyFilter(query, gameTypes, banFileMonitorIds, gameServerId);
-            var filteredCount = await query.CountAsync();
+            // Apply filters first
+            var filteredQuery = ApplyFilters(baseQuery, gameTypes, banFileMonitorIds, gameServerId);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            // Calculate counts after filtering but before pagination
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(bfm => mapper.Map<BanFileMonitorDto>(bfm)).ToList();
 
-            var result = new BanFileMonitorCollectionDto
+            var data = new CollectionModel<BanFileMonitorDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                Items = entries,
+                TotalCount = totalCount,
+                FilteredCount = filteredCount
             };
 
-            return new ApiResponseDto<BanFileMonitorCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<BanFileMonitorDto>>(data).ToApiResult();
         }
 
-        [HttpPost]
-        [Route("ban-file-monitors")]
-        public async Task<IActionResult> CreateBanFileMonitor()
+        /// <summary>
+        /// Creates a new ban file monitor.
+        /// </summary>
+        /// <param name="createBanFileMonitorDto">The ban file monitor data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>The result of the creation operation.</returns>
+        [HttpPost("ban-file-monitors")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateBanFileMonitor([FromBody] CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            CreateBanFileMonitorDto? createBanFileMonitorDto;
-            try
-            {
-                createBanFileMonitorDto = JsonConvert.DeserializeObject<CreateBanFileMonitorDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (createBanFileMonitorDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
-            var response = await ((IBanFileMonitorsApi)this).CreateBanFileMonitor(createBanFileMonitorDto);
-
+            var response = await ((IBanFileMonitorsApi)this).CreateBanFileMonitor(createBanFileMonitorDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IBanFileMonitorsApi.CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto)
+        /// <summary>
+        /// Creates a new ban file monitor.
+        /// </summary>
+        /// <param name="createBanFileMonitorDto">The ban file monitor creation data.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the success or failure of the creation operation.</returns>
+        async Task<ApiResult> IBanFileMonitorsApi.CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken)
         {
             var banFileMonitor = mapper.Map<BanFileMonitor>(createBanFileMonitorDto);
             banFileMonitor.LastSync = DateTime.UtcNow.AddHours(-4);
 
-            await context.BanFileMonitors.AddRangeAsync(banFileMonitor);
-            await context.SaveChangesAsync();
+            context.BanFileMonitors.Add(banFileMonitor);
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        [HttpPatch]
-        [Route("ban-file-monitors/{banFileMonitorId}")]
-        public async Task<IActionResult> UpdateBanFileMonitor(Guid banFileMonitorId)
+        /// <summary>
+        /// Updates an existing ban file monitor.
+        /// </summary>
+        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to update.</param>
+        /// <param name="editBanFileMonitorDto">The ban file monitor update data.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <returns>The result of the update operation.</returns>
+        [HttpPut("ban-file-monitors/{banFileMonitorId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateBanFileMonitor(Guid banFileMonitorId, [FromBody] EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            EditBanFileMonitorDto? editBanFileMonitorDto;
-            try
-            {
-                editBanFileMonitorDto = JsonConvert.DeserializeObject<EditBanFileMonitorDto>(requestBody);
-            }
-            catch (Exception)
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (editBanFileMonitorDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
             if (editBanFileMonitorDto.BanFileMonitorId != banFileMonitorId)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request entity identifiers did not match" }).ToHttpResult();
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.BanFileMonitorIdMismatchMessage))).ToHttpResult();
 
-            var response = await ((IBanFileMonitorsApi)this).UpdateBanFileMonitor(editBanFileMonitorDto);
-
+            var response = await ((IBanFileMonitorsApi)this).UpdateBanFileMonitor(editBanFileMonitorDto, cancellationToken);
             return response.ToHttpResult();
-
         }
 
-        async Task<ApiResponseDto> IBanFileMonitorsApi.UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto)
+        /// <summary>
+        /// Updates an existing ban file monitor.
+        /// </summary>
+        /// <param name="editBanFileMonitorDto">The ban file monitor update data.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the success or failure of the update operation.</returns>
+        async Task<ApiResult> IBanFileMonitorsApi.UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken)
         {
-            var banFileMonitor = await context.BanFileMonitors.SingleOrDefaultAsync(bfm => bfm.BanFileMonitorId == editBanFileMonitorDto.BanFileMonitorId);
+            var banFileMonitor = await context.BanFileMonitors
+                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == editBanFileMonitorDto.BanFileMonitorId, cancellationToken);
 
             if (banFileMonitor == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
             mapper.Map(editBanFileMonitorDto, banFileMonitor);
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpDelete]
-        [Route("ban-file-monitors/{banFileMonitorId}")]
-        public async Task<IActionResult> DeleteBanFileMonitor(Guid banFileMonitorId)
+        /// <summary>
+        /// Deletes a ban file monitor.
+        /// </summary>
+        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to delete.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <returns>The result of the deletion operation.</returns>
+        [HttpDelete("ban-file-monitors/{banFileMonitorId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IBanFileMonitorsApi)this).DeleteBanFileMonitor(banFileMonitorId);
+            var response = await ((IBanFileMonitorsApi)this).DeleteBanFileMonitor(banFileMonitorId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IBanFileMonitorsApi.DeleteBanFileMonitor(Guid banFileMonitorId)
+        /// <summary>
+        /// Deletes a ban file monitor.
+        /// </summary>
+        /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to delete.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the success or failure of the deletion operation.</returns>
+        async Task<ApiResult> IBanFileMonitorsApi.DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken)
         {
             var banFileMonitor = await context.BanFileMonitors
-                .SingleOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId);
+                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken);
 
             if (banFileMonitor == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            context.Remove(banFileMonitor);
+            context.BanFileMonitors.Remove(banFileMonitor);
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        private IQueryable<BanFileMonitor> ApplyFilter(IQueryable<BanFileMonitor> query, GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId)
+        /// <summary>
+        /// Applies filtering criteria to the ban file monitors query.
+        /// </summary>
+        /// <param name="query">The base query to apply filters to.</param>
+        /// <param name="gameTypes">Optional filter by game types.</param>
+        /// <param name="banFileMonitorIds">Optional filter by ban file monitor identifiers.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <returns>The filtered query.</returns>
+        private static IQueryable<BanFileMonitor> ApplyFilters(IQueryable<BanFileMonitor> query, GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId)
         {
-            if (gameTypes != null && gameTypes.Length > 0)
+            if (gameTypes is { Length: > 0 })
             {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
-                query = query.Where(bfm => gameTypeInts.Contains(bfm.GameServer.GameType)).AsQueryable();
+                query = query.Where(bfm => gameTypeInts.Contains(bfm.GameServer.GameType));
             }
 
-            if (banFileMonitorIds != null && banFileMonitorIds.Length > 0)
-                query = query.Where(bfm => banFileMonitorIds.Contains(bfm.BanFileMonitorId)).AsQueryable();
+            if (banFileMonitorIds is { Length: > 0 })
+                query = query.Where(bfm => banFileMonitorIds.Contains(bfm.BanFileMonitorId));
 
             if (gameServerId.HasValue)
-                query = query.Where(bfm => bfm.GameServerId == gameServerId).AsQueryable();
+                query = query.Where(bfm => bfm.GameServerId == gameServerId.Value);
 
             return query;
         }
 
-        private IQueryable<BanFileMonitor> ApplyOrderAndLimits(IQueryable<BanFileMonitor> query, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
+        /// <summary>
+        /// Applies ordering and pagination to the ban file monitors query.
+        /// </summary>
+        /// <param name="query">The query to apply ordering and pagination to.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria.</param>
+        /// <returns>The ordered and paginated query.</returns>
+        private static IQueryable<BanFileMonitor> ApplyOrderingAndPagination(IQueryable<BanFileMonitor> query, int skipEntries, int takeEntries, BanFileMonitorOrder? order)
         {
-            switch (order)
+            // Apply ordering using modern switch expression
+            var orderedQuery = order switch
             {
-                case BanFileMonitorOrder.BannerServerListPosition:
-                    query = query.OrderBy(bfm => bfm.GameServer.ServerListPosition).AsQueryable();
-                    break;
-                case BanFileMonitorOrder.GameType:
-                    query = query.OrderBy(bfm => bfm.GameServer.GameType).AsQueryable();
-                    break;
-            }
+                BanFileMonitorOrder.BannerServerListPosition => query.OrderBy(bfm => bfm.GameServer.ServerListPosition),
+                BanFileMonitorOrder.GameType => query.OrderBy(bfm => bfm.GameServer.GameType),
+                _ => query.OrderBy(bfm => bfm.BanFileMonitorId)
+            };
 
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
         }
     }
 }
+

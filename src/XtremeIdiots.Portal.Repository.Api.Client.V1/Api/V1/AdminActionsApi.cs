@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,21 +13,21 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class AdminActionsApi : BaseApi, IAdminActionsApi
+    public class AdminActionsApi : BaseApi<RepositoryApiClientOptions>, IAdminActionsApi
     {
-        public AdminActionsApi(ILogger<AdminActionsApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public AdminActionsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<AdminActionDto>> GetAdminAction(Guid adminActionId)
+        public async Task<ApiResult<AdminActionDto>> GetAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions/{adminActionId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<AdminActionDto>();
+            return response.ToApiResult<AdminActionDto>();
         }
 
-        public async Task<ApiResponseDto<AdminActionCollectionDto>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order)
+        public async Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions", Method.Get);
 
@@ -49,37 +49,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<AdminActionCollectionDto>();
+            return response.ToApiResult<CollectionModel<AdminActionDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateAdminAction(CreateAdminActionDto createAdminActionDto)
+        public async Task<ApiResult> CreateAdminAction(CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions", Method.Post);
             request.AddJsonBody(createAdminActionDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> UpdateAdminAction(EditAdminActionDto editAdminActionDto)
+        public async Task<ApiResult> UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions/{editAdminActionDto.AdminActionId}", Method.Patch);
             request.AddJsonBody(editAdminActionDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> DeleteAdminAction(Guid adminActionId)
+        public async Task<ApiResult> DeleteAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions/{adminActionId}", Method.Delete);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,13 +15,13 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RecentPlayers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class RecentPlayersApi : BaseApi, IRecentPlayersApi
+    public class RecentPlayersApi : BaseApi<RepositoryApiClientOptions>, IRecentPlayersApi
     {
-        public RecentPlayersApi(ILogger<RecentPlayersApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public RecentPlayersApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<RecentPlayersCollectionDto>> GetRecentPlayers(GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter, int skipEntries, int takeEntries, RecentPlayersOrder? order)
+        public async Task<ApiResult<CollectionModel<RecentPlayerDto>>> GetRecentPlayers(GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter, int skipEntries, int takeEntries, RecentPlayersOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/recent-players", Method.Get);
 
@@ -41,19 +43,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<RecentPlayersCollectionDto>();
+            return response.ToApiResult<CollectionModel<RecentPlayerDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateRecentPlayers(List<CreateRecentPlayerDto> createRecentPlayerDtos)
+        public async Task<ApiResult> CreateRecentPlayers(List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/recent-players", Method.Post);
             request.AddJsonBody(createRecentPlayerDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
@@ -14,10 +14,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
     /// </remarks>
     public interface ITagsApi
     {
-        Task<ApiResponseDto<TagsCollectionDto>> GetTags(int skipEntries, int takeEntries);
-        Task<ApiResponseDto<TagDto>> GetTag(Guid tagId);
-        Task<ApiResponseDto> CreateTag(TagDto tagDto);
-        Task<ApiResponseDto> UpdateTag(TagDto tagDto);
-        Task<ApiResponseDto> DeleteTag(Guid tagId);
+        Task<ApiResult<CollectionModel<TagDto>>> GetTags(int skipEntries, int takeEntries, CancellationToken cancellationToken = default);
+        Task<ApiResult<TagDto>> GetTag(Guid tagId, CancellationToken cancellationToken = default);
+        Task<ApiResult> CreateTag(TagDto tagDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> UpdateTag(TagDto tagDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> DeleteTag(Guid tagId, CancellationToken cancellationToken = default);
     }
 }

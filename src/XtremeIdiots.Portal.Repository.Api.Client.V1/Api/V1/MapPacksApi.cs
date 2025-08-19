@@ -1,10 +1,12 @@
 using System;
-using Microsoft.Extensions.Caching.Memory;
+
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -12,22 +14,22 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class MapPacksApi : BaseApi, IMapPacksApi
+    public class MapPacksApi : BaseApi<RepositoryApiClientOptions>, IMapPacksApi
     {
-        public MapPacksApi(ILogger<MapsApi> logger, IApiTokenProvider apiTokenProvider, IMemoryCache memoryCache, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public MapPacksApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
 
         }
 
-        public async Task<ApiResponseDto<MapPackDto>> GetMapPack(Guid mapPackId)
+        public async Task<ApiResult<MapPackDto>> GetMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/maps/pack/{mapPackId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<MapPackDto>();
+            return response.ToApiResult<MapPackDto>();
         }
 
-        public async Task<ApiResponseDto<MapPackCollectionDto>> GetMapPacks(GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter, int skipEntries, int takeEntries, MapPacksOrder? order)
+        public async Task<ApiResult<CollectionModel<MapPackDto>>> GetMapPacks(GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter, int skipEntries, int takeEntries, MapPacksOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/maps/pack", Method.Get);
 
@@ -46,47 +48,49 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<MapPackCollectionDto>();
+            return response.ToApiResult<CollectionModel<MapPackDto>>();
         }
 
-        public async Task<ApiResponseDto> CreateMapPack(CreateMapPackDto createMapPackDto)
+        public async Task<ApiResult> CreateMapPack(CreateMapPackDto createMapPackDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/maps/pack", Method.Post);
             request.AddJsonBody(new List<CreateMapPackDto> { createMapPackDto });
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> CreateMapPacks(List<CreateMapPackDto> createMapPackDtos)
+        public async Task<ApiResult> CreateMapPacks(List<CreateMapPackDto> createMapPackDtos, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/maps/pack", Method.Post);
             request.AddJsonBody(createMapPackDtos);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> UpdateMapPack(UpdateMapPackDto updateMapPackDto)
+        public async Task<ApiResult> UpdateMapPack(UpdateMapPackDto updateMapPackDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/maps/pack/{updateMapPackDto.MapPackId}", Method.Patch);
             request.AddJsonBody(updateMapPackDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> DeleteMapPack(Guid mapPackId)
+        public async Task<ApiResult> DeleteMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/maps/pack/{mapPackId}", Method.Delete);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

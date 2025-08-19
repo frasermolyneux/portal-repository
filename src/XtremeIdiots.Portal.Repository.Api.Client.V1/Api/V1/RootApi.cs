@@ -1,28 +1,41 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
-
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 using RestSharp;
-
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.V1.Models.Root;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class RootApi : BaseApi, IRootApi
+    public class RootApi : BaseApi<RepositoryApiClientOptions>, IRootApi
     {
-        public RootApi(ILogger<RootApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public RootApi(
+            ILogger<BaseApi<RepositoryApiClientOptions>> logger,
+            IApiTokenProvider? apiTokenProvider,
+            IRestClientService restClientService,
+            RepositoryApiClientOptions options)
+            : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto> GetRoot()
+        public async Task<ApiResult<RootDto>> GetRoot(CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/", Method.Post);
-            var response = await ExecuteAsync(request);
-
-            return response.ToApiResponse();
+            try
+            {
+                var request = await CreateRequestAsync($"v1/", Method.Get, cancellationToken);
+                var response = await ExecuteAsync(request, cancellationToken);
+                return response.ToApiResult<RootDto>();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                var errorResponse = new ApiResponse<RootDto>(
+                    new ApiError("CLIENT_ERROR", "Failed to retrieve root information"));
+                return new ApiResult<RootDto>(System.Net.HttpStatusCode.InternalServerError, errorResponse);
+            }
         }
     }
 }
+
+

@@ -1,7 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-
-using MxIO.ApiClient.Extensions;
-
+using MX.Api.Client.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
@@ -9,60 +7,40 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     public static class ServiceCollectionExtensions
     {
         /// <summary>
-        /// Registers the unified repository API client with version selectors.
-        /// This provides access to all APIs like: client.Players.V1 or client.Root.V1_1
+        /// Registers the Repository API client services with custom configuration
         /// </summary>
-        public static void AddRepositoryApiClient(this IServiceCollection serviceCollection, Action<RepositoryApiClientOptions> configure)
+        /// <param name="serviceCollection">The service collection</param>
+        /// <param name="configureOptions">Action to configure the Repository API options</param>
+        /// <returns>The service collection for chaining</returns>
+        public static IServiceCollection AddRepositoryApiClient(
+            this IServiceCollection serviceCollection,
+            Action<RepositoryApiOptionsBuilder> configureOptions)
         {
-            serviceCollection.AddApiClient();
-            serviceCollection.Configure(configure);
+            // Register V1 API implementations using the new typed pattern
+            serviceCollection.AddTypedApiClient<IAdminActionsApi, AdminActionsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IBanFileMonitorsApi, BanFileMonitorsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IChatMessagesApi, ChatMessagesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IDataMaintenanceApi, DataMaintenanceApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IDemosApi, DemosApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGameServersApi, GameServersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGameServersEventsApi, GameServersEventsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGameServersStatsApi, GameServersStatsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGameTrackerBannerApi, GameTrackerBannerApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<ILivePlayersApi, LivePlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IMapsApi, MapsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IMapPacksApi, MapPacksApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IPlayerAnalyticsApi, PlayerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IPlayersApi, PlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IRecentPlayersApi, RecentPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IReportsApi, ReportsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IRootApi, RootApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<ITagsApi, TagsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IUserProfileApi, UserProfileApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
-            // Register V1 API implementations as scoped to match IRestClientService lifetime
-            serviceCollection.AddScoped<AdminActionsApi>();
-            serviceCollection.AddScoped<BanFileMonitorsApi>();
-            serviceCollection.AddScoped<ChatMessagesApi>();
-            serviceCollection.AddScoped<DataMaintenanceApi>();
-            serviceCollection.AddScoped<DemosApi>();
-            serviceCollection.AddScoped<GameServersApi>();
-            serviceCollection.AddScoped<GameServersEventsApi>();
-            serviceCollection.AddScoped<GameServersStatsApi>();
-            serviceCollection.AddScoped<GameTrackerBannerApi>();
-            serviceCollection.AddScoped<LivePlayersApi>();
-            serviceCollection.AddScoped<MapsApi>();
-            serviceCollection.AddScoped<MapPacksApi>();
-            serviceCollection.AddScoped<PlayerAnalyticsApi>();
-            serviceCollection.AddScoped<PlayersApi>();
-            serviceCollection.AddScoped<RecentPlayersApi>();
-            serviceCollection.AddScoped<ReportsApi>();
-            serviceCollection.AddScoped<RootApi>();
-            serviceCollection.AddScoped<TagsApi>();
-            serviceCollection.AddScoped<UserProfileApi>();
+            // Register V1.1 API implementations
+            serviceCollection.AddTypedApiClient<XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1.IRootApi, XtremeIdiots.Portal.Repository.Api.Client.V1_1.RootApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
-            // Register V1.1 API implementations as scoped to match IRestClientService lifetime
-            serviceCollection.AddScoped<XtremeIdiots.Portal.Repository.Api.Client.V1_1.RootApi>();
-
-            // Register V1 API interfaces using concrete implementations as scoped
-            serviceCollection.AddScoped<IAdminActionsApi>(provider => provider.GetRequiredService<AdminActionsApi>());
-            serviceCollection.AddScoped<IBanFileMonitorsApi>(provider => provider.GetRequiredService<BanFileMonitorsApi>());
-            serviceCollection.AddScoped<IChatMessagesApi>(provider => provider.GetRequiredService<ChatMessagesApi>());
-            serviceCollection.AddScoped<IDataMaintenanceApi>(provider => provider.GetRequiredService<DataMaintenanceApi>());
-            serviceCollection.AddScoped<IDemosApi>(provider => provider.GetRequiredService<DemosApi>());
-            serviceCollection.AddScoped<IGameServersApi>(provider => provider.GetRequiredService<GameServersApi>());
-            serviceCollection.AddScoped<IGameServersEventsApi>(provider => provider.GetRequiredService<GameServersEventsApi>());
-            serviceCollection.AddScoped<IGameServersStatsApi>(provider => provider.GetRequiredService<GameServersStatsApi>());
-            serviceCollection.AddScoped<IGameTrackerBannerApi>(provider => provider.GetRequiredService<GameTrackerBannerApi>());
-            serviceCollection.AddScoped<ILivePlayersApi>(provider => provider.GetRequiredService<LivePlayersApi>());
-            serviceCollection.AddScoped<IMapsApi>(provider => provider.GetRequiredService<MapsApi>());
-            serviceCollection.AddScoped<IMapPacksApi>(provider => provider.GetRequiredService<MapPacksApi>());
-            serviceCollection.AddScoped<IPlayerAnalyticsApi>(provider => provider.GetRequiredService<PlayerAnalyticsApi>());
-            serviceCollection.AddScoped<IPlayersApi>(provider => provider.GetRequiredService<PlayersApi>());
-            serviceCollection.AddScoped<IRecentPlayersApi>(provider => provider.GetRequiredService<RecentPlayersApi>());
-            serviceCollection.AddScoped<IReportsApi>(provider => provider.GetRequiredService<ReportsApi>());
-            serviceCollection.AddScoped<IRootApi>(provider => provider.GetRequiredService<RootApi>());
-            serviceCollection.AddScoped<ITagsApi>(provider => provider.GetRequiredService<TagsApi>());
-            serviceCollection.AddScoped<IUserProfileApi>(provider => provider.GetRequiredService<UserProfileApi>());
-
-            // Register version selectors as scoped to match V1 API lifetime
+            // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
             serviceCollection.AddScoped<IVersionedBanFileMonitorsApi, VersionedBanFileMonitorsApi>();
             serviceCollection.AddScoped<IVersionedChatMessagesApi, VersionedChatMessagesApi>();
@@ -81,14 +59,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedReportsApi, VersionedReportsApi>();
             serviceCollection.AddScoped<IVersionedTagsApi, VersionedTagsApi>();
             serviceCollection.AddScoped<IVersionedUserProfileApi, VersionedUserProfileApi>();
-            serviceCollection.AddScoped<IVersionedRootApi>(provider =>
-                new VersionedRootApi(
-                    provider.GetRequiredService<RootApi>(),
-                    provider.GetRequiredService<XtremeIdiots.Portal.Repository.Api.Client.V1_1.RootApi>()
-                ));
+            serviceCollection.AddScoped<IVersionedRootApi, VersionedRootApi>();
 
-            // Register the unified client as scoped to match versioned API lifetime
+            // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();
+
+            return serviceCollection;
         }
     }
 }

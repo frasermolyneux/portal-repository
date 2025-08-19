@@ -8,8 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -38,55 +38,97 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("maps/{mapId}")]
-        public async Task<IActionResult> GetMap(Guid mapId)
+        /// <summary>
+        /// Retrieves a specific map by its unique identifier.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The map details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("maps/{mapId:guid}")]
+        [ProducesResponseType<MapDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetMap(Guid mapId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapsApi)this).GetMap(mapId);
+            var response = await ((IMapsApi)this).GetMap(mapId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        [HttpGet]
-        [Route("maps/{gameType}/{mapName}")]
-        public async Task<IActionResult> GetMap(GameType gameType, string mapName)
+        /// <summary>
+        /// Retrieves a specific map by game type and map name.
+        /// </summary>
+        /// <param name="gameType">The game type of the map to retrieve.</param>
+        /// <param name="mapName">The name of the map to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The map details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("maps/{gameType:int}/{mapName}")]
+        [ProducesResponseType<MapDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapsApi)this).GetMap(gameType, mapName);
+            var response = await ((IMapsApi)this).GetMap(gameType, mapName, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<MapDto>> IMapsApi.GetMap(Guid mapId)
+        /// <summary>
+        /// Retrieves a specific map by its unique identifier.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the map details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<MapDto>> IMapsApi.GetMap(Guid mapId, CancellationToken cancellationToken)
         {
             var map = await context.Maps
                 .Include(m => m.MapVotes)
-                .SingleOrDefaultAsync(m => m.MapId == mapId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken);
 
             if (map == null)
-                return new ApiResponseDto<MapDto>(HttpStatusCode.NotFound);
+                return new ApiResult<MapDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<MapDto>(map);
 
-            return new ApiResponseDto<MapDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<MapDto>(result).ToApiResult();
         }
 
-        async Task<ApiResponseDto<MapDto>> IMapsApi.GetMap(GameType gameType, string mapName)
+        /// <summary>
+        /// Retrieves a specific map by game type and map name.
+        /// </summary>
+        /// <param name="gameType">The game type of the map to retrieve.</param>
+        /// <param name="mapName">The name of the map to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the map details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<MapDto>> IMapsApi.GetMap(GameType gameType, string mapName, CancellationToken cancellationToken)
         {
             var map = await context.Maps
                 .Include(m => m.MapVotes)
-                .SingleOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName, cancellationToken);
 
             if (map == null)
-                return new ApiResponseDto<MapDto>(HttpStatusCode.NotFound);
+                return new ApiResult<MapDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<MapDto>(map);
 
-            return new ApiResponseDto<MapDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<MapDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("maps")]
-        public async Task<IActionResult> GetMaps(GameType? gameType, string? mapNames, MapsFilter? filter, string? filterString, int? skipEntries, int? takeEntries, MapsOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of maps with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="mapNames">Optional comma-separated list of map names to filter by.</param>
+        /// <param name="filter">Optional filter criteria for maps.</param>
+        /// <param name="filterString">Optional string to filter map names by.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of maps.</returns>
+        [HttpGet("maps")]
+        [ProducesResponseType<CollectionModel<MapDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMaps(GameType? gameType, string? mapNames, MapsFilter? filter, string? filterString, int? skipEntries, int? takeEntries, MapsOrder? order, CancellationToken cancellationToken = default)
         {
             if (!skipEntries.HasValue)
                 skipEntries = 0;
@@ -101,43 +143,92 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 mapNamesFilter = split.Select(mn => mn.Trim()).ToArray();
             }
 
-            var response = await ((IMapsApi)this).GetMaps(gameType, mapNamesFilter, filter, filterString, skipEntries.Value, takeEntries.Value, order);
+            var response = await ((IMapsApi)this).GetMaps(gameType, mapNamesFilter, filter, filterString, skipEntries.Value, takeEntries.Value, order, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<MapsCollectionDto>> IMapsApi.GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of maps with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="mapNames">Optional array of map names to filter by.</param>
+        /// <param name="filter">Optional filter criteria for maps.</param>
+        /// <param name="filterString">Optional string to filter map names by.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of maps.</returns>
+        async Task<ApiResult<CollectionModel<MapDto>>> IMapsApi.GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken)
         {
-            var query = context.Maps.AsQueryable();
-            query = ApplyFilter(query, gameType, null, null, null);
-            var totalCount = await query.CountAsync();
+            var baseQuery = context.Maps.AsNoTracking().AsQueryable();
 
-            query = ApplyFilter(query, gameType, mapNames, filter, filterString);
-            var filteredCount = await query.CountAsync();
+            // Calculate total count before applying filters
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            // Apply filters
+            var filteredQuery = ApplyFilter(baseQuery, gameType, mapNames, filter, filterString);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(m => mapper.Map<MapDto>(m)).ToList();
 
-            var result = new MapsCollectionDto
-            {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
-            };
+            var result = new CollectionModel<MapDto>(entries, totalCount, filteredCount);
 
-            return new ApiResponseDto<MapsCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<MapDto>>(result).ToApiResult();
         }
 
-        Task<ApiResponseDto> IMapsApi.CreateMap(CreateMapDto createMapDto)
+        /// <summary>
+        /// Creates a new map.
+        /// </summary>
+        /// <param name="createMapDto">The map data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map was created; otherwise, appropriate error responses.</returns>
+        [HttpPost("map")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CreateMap([FromBody] CreateMapDto createMapDto, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            var response = await ((IMapsApi)this).CreateMap(createMapDto, cancellationToken);
+            return response.ToHttpResult();
         }
 
-        [HttpPost]
-        [Route("maps")]
-        public async Task<IActionResult> CreateMaps()
+        /// <summary>
+        /// Creates a new map.
+        /// </summary>
+        /// <param name="createMapDto">The map data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the map was created if successful; otherwise, a 409 Conflict response.</returns>
+        async Task<ApiResult> IMapsApi.CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken)
+        {
+            if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken))
+            {
+                var response = new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapConflictMessage));
+                return response.ToApiResult(HttpStatusCode.Conflict);
+            }
+
+            var map = mapper.Map<Map>(createMapDto);
+            await context.Maps.AddAsync(map, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+        }
+
+        /// <summary>
+        /// Creates multiple maps in a single operation.
+        /// </summary>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if all maps were created; otherwise, appropriate error responses.</returns>
+        [HttpPost("maps")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CreateMaps(CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -148,41 +239,90 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.DeserializationError, ApiErrorMessages.InvalidRequestBodyMessage));
+                return err.ToBadRequestResult().ToHttpResult();
             }
 
             if (createMapDtos == null || !createMapDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
 
-            var response = await ((IMapsApi)this).CreateMaps(createMapDtos);
+            var response = await ((IMapsApi)this).CreateMaps(createMapDtos, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IMapsApi.CreateMaps(List<CreateMapDto> createMapDtos)
+        /// <summary>
+        /// Creates multiple maps in a single operation.
+        /// </summary>
+        /// <param name="createMapDtos">The list of map data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating all maps were created if successful; otherwise, a 409 Conflict response.</returns>
+        async Task<ApiResult> IMapsApi.CreateMaps(List<CreateMapDto> createMapDtos, CancellationToken cancellationToken)
         {
             foreach (var createMapDto in createMapDtos)
             {
-                if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName))
-                    return new ApiResponseDto(HttpStatusCode.Conflict, new List<string> { $"Map with gameType '{createMapDto.GameType}' and name '{createMapDto.MapName}' already exists" });
+                if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken))
+                {
+                    var response = new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapConflictMessage));
+                    return response.ToApiResult(HttpStatusCode.Conflict);
+                }
 
                 var map = mapper.Map<Map>(createMapDto);
-                await context.Maps.AddAsync(map);
+                await context.Maps.AddAsync(map, cancellationToken);
             }
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        Task<ApiResponseDto> IMapsApi.UpdateMap(EditMapDto editMapDto)
+        /// <summary>
+        /// Updates an existing map.
+        /// </summary>
+        /// <param name="editMapDto">The map data to update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map was updated; otherwise, appropriate error responses.</returns>
+        [HttpPut("map")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateMap([FromBody] EditMapDto editMapDto, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            var response = await ((IMapsApi)this).UpdateMap(editMapDto, cancellationToken);
+            return response.ToHttpResult();
         }
 
-        [HttpPut]
-        [Route("maps")]
-        public async Task<IActionResult> UpdateMaps()
+        /// <summary>
+        /// Updates an existing map.
+        /// </summary>
+        /// <param name="editMapDto">The map data to update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the map was updated if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IMapsApi.UpdateMap(EditMapDto editMapDto, CancellationToken cancellationToken)
+        {
+            var map = await context.Maps.FirstOrDefaultAsync(m => m.MapId == editMapDto.MapId, cancellationToken);
+            if (map == null)
+                return new ApiResult(HttpStatusCode.NotFound);
+
+            mapper.Map(editMapDto, map);
+            await context.SaveChangesAsync(cancellationToken);
+
+            return new ApiResponse().ToApiResult();
+        }
+
+        /// <summary>
+        /// Updates multiple maps in a single operation.
+        /// </summary>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if all maps were updated; otherwise, appropriate error responses.</returns>
+        [HttpPut("maps")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateMaps(CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -193,66 +333,102 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.DeserializationError, ApiErrorMessages.InvalidRequestBodyMessage));
+                return err.ToBadRequestResult().ToHttpResult();
             }
 
             if (editMapDtos == null || !editMapDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
 
-            var response = await ((IMapsApi)this).UpdateMaps(editMapDtos);
+            var response = await ((IMapsApi)this).UpdateMaps(editMapDtos, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IMapsApi.UpdateMaps(List<EditMapDto> editMapDtos)
+        /// <summary>
+        /// Updates multiple maps in a single operation.
+        /// </summary>
+        /// <param name="editMapDtos">The list of map data to update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating all maps were updated if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IMapsApi.UpdateMaps(List<EditMapDto> editMapDtos, CancellationToken cancellationToken)
         {
             foreach (var editMapDto in editMapDtos)
             {
-                var map = await context.Maps.SingleAsync(m => m.MapId == editMapDto.MapId);
+                var map = await context.Maps.FirstOrDefaultAsync(m => m.MapId == editMapDto.MapId, cancellationToken);
+                if (map == null)
+                    return new ApiResult(HttpStatusCode.NotFound);
+
                 mapper.Map(editMapDto, map);
             }
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpDelete]
-        [Route("maps/{mapId}")]
-        public async Task<IActionResult> DeleteMap(Guid mapId)
+        /// <summary>
+        /// Deletes a map by its unique identifier.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map to delete.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map was deleted; otherwise, a 404 Not Found response.</returns>
+        [HttpDelete("maps/{mapId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteMap(Guid mapId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapsApi)this).DeleteMap(mapId);
+            var response = await ((IMapsApi)this).DeleteMap(mapId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IMapsApi.DeleteMap(Guid mapId)
+        /// <summary>
+        /// Deletes a map by its unique identifier.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map to delete.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the map was deleted if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IMapsApi.DeleteMap(Guid mapId, CancellationToken cancellationToken)
         {
             var map = await context.Maps
-                .SingleOrDefaultAsync(m => m.MapId == mapId);
+                .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken);
 
             if (map == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
             context.Remove(map);
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpPost]
-        [Route("maps/popularity")]
-        public async Task<IActionResult> RebuildMapPopularity()
+        /// <summary>
+        /// Rebuilds the popularity statistics for all maps based on vote data.
+        /// </summary>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the map popularity was rebuilt.</returns>
+        [HttpPost("maps/popularity")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> RebuildMapPopularity(CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapsApi)this).RebuildMapPopularity();
+            var response = await ((IMapsApi)this).RebuildMapPopularity(cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IMapsApi.RebuildMapPopularity()
+        /// <summary>
+        /// Rebuilds the popularity statistics for all maps based on vote data.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the map popularity was rebuilt.</returns>
+        async Task<ApiResult> IMapsApi.RebuildMapPopularity(CancellationToken cancellationToken)
         {
-            var maps = await context.Maps.Include(m => m.MapVotes).ToListAsync();
+            var maps = await context.Maps.Include(m => m.MapVotes).ToListAsync(cancellationToken);
 
             foreach (var map in maps)
             {
@@ -272,19 +448,67 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
             }
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        Task<ApiResponseDto> IMapsApi.UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto)
+        /// <summary>
+        /// Creates or updates a map vote for a specific player and server.
+        /// </summary>
+        /// <param name="upsertMapVoteDto">The map vote data to create or update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map vote was processed; otherwise, appropriate error responses.</returns>
+        [HttpPost("maps/vote")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpsertMapVote([FromBody] UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            var response = await ((IMapsApi)this).UpsertMapVote(upsertMapVoteDto, cancellationToken);
+            return response.ToHttpResult();
         }
 
-        [HttpPost]
-        [Route("maps/votes")]
-        public async Task<IActionResult> UpsertMapVotes()
+        /// <summary>
+        /// Creates or updates a map vote for a specific player and server.
+        /// </summary>
+        /// <param name="upsertMapVoteDto">The map vote data to create or update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the map vote was processed successfully.</returns>
+        async Task<ApiResult> IMapsApi.UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken)
+        {
+            var mapVote = await context.MapVotes
+                .FirstOrDefaultAsync(mv => mv.MapId == upsertMapVoteDto.MapId && mv.PlayerId == upsertMapVoteDto.PlayerId && mv.GameServerId == upsertMapVoteDto.GameServerId, cancellationToken);
+
+            if (mapVote == null)
+            {
+                var newMapVote = mapper.Map<MapVote>(upsertMapVoteDto);
+                newMapVote.Timestamp = DateTime.UtcNow;
+
+                context.MapVotes.Add(newMapVote);
+            }
+            else
+            {
+                if (mapVote.Like != upsertMapVoteDto.Like)
+                {
+                    mapVote.Like = upsertMapVoteDto.Like;
+                    mapVote.Timestamp = DateTime.UtcNow;
+                }
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+
+            return new ApiResponse().ToApiResult();
+        }
+
+        /// <summary>
+        /// Creates or updates multiple map votes in a single operation.
+        /// </summary>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if all map votes were processed; otherwise, appropriate error responses.</returns>
+        [HttpPost("maps/votes")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpsertMapVotes(CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
 
@@ -295,22 +519,43 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.DeserializationError, ApiErrorMessages.InvalidRequestBodyMessage));
+                return err.ToBadRequestResult().ToHttpResult();
             }
 
             if (upsertMapVoteDtos == null || !upsertMapVoteDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
 
-            var response = await ((IMapsApi)this).UpsertMapVotes(upsertMapVoteDtos);
+            var response = await ((IMapsApi)this).UpsertMapVotes(upsertMapVoteDtos, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IMapsApi.UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos)
+        /// <summary>
+        /// Creates or updates multiple map votes in a single operation.
+        /// </summary>
+        /// <param name="upsertMapVoteDtos">The list of map vote data to create or update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating all map votes were processed successfully.</returns>
+        async Task<ApiResult> IMapsApi.UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken)
         {
+            // Get all existing votes for the maps/players/servers in the request
+            var mapIds = upsertMapVoteDtos.Select(x => x.MapId).ToList();
+            var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
+            var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
+
+            var existingVotes = await context.MapVotes
+                .Where(mv => mapIds.Contains(mv.MapId) && playerIds.Contains(mv.PlayerId) &&
+                            (mv.GameServerId == null || gameServerIds.Contains(mv.GameServerId.Value)))
+                .ToListAsync(cancellationToken);
+
             foreach (var upsertMapVote in upsertMapVoteDtos)
             {
-                var mapVote = await context.MapVotes.SingleOrDefaultAsync(mv => mv.MapId == upsertMapVote.MapId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId);
+                var mapVote = existingVotes
+                    .FirstOrDefault(mv => mv.MapId == upsertMapVote.MapId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId);
 
                 if (mapVote == null)
                 {
@@ -329,58 +574,90 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
             }
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpPost]
-        [Route("maps/{mapId}/image")]
-        public async Task<IActionResult> UpdateMapImage(Guid mapId)
+        /// <summary>
+        /// Updates a map image by uploading a new image file.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map to update the image for.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map image was updated; otherwise, appropriate error responses.</returns>
+        [HttpPost("maps/{mapId:guid}/image")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateMapImage(Guid mapId, CancellationToken cancellationToken = default)
         {
             if (Request.Form.Files.Count == 0)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request does not contain any files" }).ToHttpResult();
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
 
             var file = Request.Form.Files.First();
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             using (var stream = System.IO.File.Create(filePath))
             {
-                await file.CopyToAsync(stream);
+                await file.CopyToAsync(stream, cancellationToken);
             }
 
-            var response = await ((IMapsApi)this).UpdateMapImage(mapId, filePath);
+            var response = await ((IMapsApi)this).UpdateMapImage(mapId, filePath, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IMapsApi.UpdateMapImage(Guid mapId, string filePath)
+        /// <summary>
+        /// Updates a map image by uploading a new image file.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map to update the image for.</param>
+        /// <param name="filePath">The path to the temporary image file to upload.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the map image was updated if successful; otherwise, appropriate error responses.</returns>
+        async Task<ApiResult> IMapsApi.UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken)
         {
             var map = await context.Maps
-                .SingleOrDefaultAsync(m => m.MapId == mapId);
+                .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken);
 
             if (map == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            var blobServiceClient = new BlobServiceClient(new Uri(Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint")), new DefaultAzureCredential());
+            var blobEndpoint = Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint");
+            if (string.IsNullOrEmpty(blobEndpoint))
+                return new ApiResult(HttpStatusCode.InternalServerError);
+
+            var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
 
             var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg";
             var blobClient = containerClient.GetBlobClient(blobKey);
-            if (await blobClient.ExistsAsync())
+            if (await blobClient.ExistsAsync(cancellationToken))
             {
-                await blobClient.DeleteAsync();
+                await blobClient.DeleteAsync(cancellationToken: cancellationToken);
             }
 
-            await blobClient.UploadAsync(filePath);
+            await blobClient.UploadAsync(filePath, cancellationToken);
 
             map.MapImageUri = blobClient.Uri.ToString();
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
+        /// <summary>
+        /// Applies filtering criteria to the map query.
+        /// </summary>
+        /// <param name="query">The base query to filter.</param>
+        /// <param name="gameType">Optional game type filter.</param>
+        /// <param name="mapNames">Optional map names filter.</param>
+        /// <param name="filter">Optional maps filter.</param>
+        /// <param name="filterString">Optional string filter for map names.</param>
+        /// <returns>The filtered query.</returns>
         private IQueryable<Map> ApplyFilter(IQueryable<Map> query, GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString)
         {
             if (gameType.HasValue)
@@ -389,47 +666,44 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (mapNames != null && mapNames.Length > 0)
                 query = query.Where(m => mapNames.Contains(m.MapName)).AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(filterString))
-                query = query.Where(m => m.MapName.Contains(filterString)).AsQueryable();
-
-            switch (filter)
+            if (filterString is not null && filterString.Length > 0)
             {
-                case MapsFilter.EmptyMapImage:
-                    query = query.Where(m => m.MapImageUri == null).AsQueryable();
-                    break;
+                string searchString = filterString;
+                query = query.Where(m => m.MapName.Contains(searchString!));
             }
+
+            query = filter switch
+            {
+                MapsFilter.EmptyMapImage => query.Where(m => m.MapImageUri == null),
+                _ => query
+            };
 
             return query;
         }
 
+        /// <summary>
+        /// Applies ordering and pagination to the map query.
+        /// </summary>
+        /// <param name="query">The base query to order and paginate.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria.</param>
+        /// <returns>The ordered and paginated query.</returns>
         private IQueryable<Map> ApplyOrderAndLimits(IQueryable<Map> query, int skipEntries, int takeEntries, MapsOrder? order)
         {
-            switch (order)
+            var orderedQuery = order switch
             {
-                case MapsOrder.MapNameAsc:
-                    query = query.OrderBy(m => m.MapName).AsQueryable();
-                    break;
-                case MapsOrder.MapNameDesc:
-                    query = query.OrderByDescending(m => m.MapName).AsQueryable();
-                    break;
-                case MapsOrder.GameTypeAsc:
-                    query = query.OrderBy(m => m.GameType).AsQueryable();
-                    break;
-                case MapsOrder.GameTypeDesc:
-                    query = query.OrderByDescending(m => m.GameType).AsQueryable();
-                    break;
-                case MapsOrder.PopularityAsc:
-                    query = query.OrderByDescending(m => m.TotalLikes).AsQueryable();
-                    break;
-                case MapsOrder.PopularityDesc:
-                    query = query.OrderByDescending(m => m.TotalDislikes).AsQueryable();
-                    break;
-            }
+                MapsOrder.MapNameAsc => query.OrderBy(m => m.MapName),
+                MapsOrder.MapNameDesc => query.OrderByDescending(m => m.MapName),
+                MapsOrder.GameTypeAsc => query.OrderBy(m => m.GameType),
+                MapsOrder.GameTypeDesc => query.OrderByDescending(m => m.GameType),
+                MapsOrder.PopularityAsc => query.OrderBy(m => m.TotalLikes),
+                MapsOrder.PopularityDesc => query.OrderByDescending(m => m.TotalLikes),
+                _ => query.OrderBy(m => m.MapName)
+            };
 
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
         }
     }
 }
+

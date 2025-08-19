@@ -1,3 +1,4 @@
+using System.Net;
 using Asp.Versioning;
 using Azure;
 using Azure.Identity;
@@ -7,75 +8,141 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
+
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
+/// <summary>
+/// Manages game server secrets stored in Azure Key Vault.
+/// </summary>
 [ApiController]
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
 [Route("api/v{version:apiVersion}")]
-public class GameServersSecretsController : ControllerBase
+public class GameServersSecretsController : ControllerBase, IGameServersSecretsApi
 {
-    private readonly IConfiguration _configuration;
+    private readonly PortalDbContext context;
+    private readonly IConfiguration configuration;
 
+    /// <summary>
+    /// Initializes a new instance of the GameServersSecretsController.
+    /// </summary>
+    /// <param name="context">The database context for accessing game server data.</param>
+    /// <param name="configuration">The configuration provider for accessing application settings.</param>
+    /// <exception cref="ArgumentNullException">Thrown when context or configuration is null.</exception>
     public GameServersSecretsController(PortalDbContext context, IConfiguration configuration)
     {
-        _configuration = configuration;
-        Context = context ?? throw new ArgumentNullException(nameof(context));
+        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     }
 
-    public PortalDbContext Context { get; }
-
-    [HttpGet]
-    [Route("game-servers/{gameServerId}/secret/{secretId}")]
-    public async Task<IActionResult> GetGameServerSecret(string gameServerId, string secretId)
+    /// <summary>
+    /// Retrieves a secret value from Azure Key Vault for a specific game server.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server.</param>
+    /// <param name="secretId">The identifier of the secret to retrieve.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>The secret value if found; otherwise, a 404 Not Found response.</returns>
+    [HttpGet("game-servers/{gameServerId:guid}/secret/{secretId}")]
+    [ProducesResponseType<string>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(gameServerId)) return new BadRequestResult();
+        var response = await ((IGameServersSecretsApi)this).GetGameServerSecret(gameServerId, secretId, cancellationToken);
+        return response.ToHttpResult();
+    }
 
-        var gameServer = await Context.GameServers.SingleOrDefaultAsync(gs => gs.GameServerId.ToString() == gameServerId);
-        if (gameServer == null) return new BadRequestResult();
+    /// <summary>
+    /// Retrieves a secret value from Azure Key Vault for a specific game server.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server.</param>
+    /// <param name="secretId">The identifier of the secret to retrieve.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing the secret value if found; otherwise, a 404 Not Found response.</returns>
+    async Task<ApiResult<string>> IGameServersSecretsApi.GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(secretId))
+            return new ApiResult<string>(HttpStatusCode.BadRequest);
 
-        var keyVaultEndpoint = _configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
+        var gameServer = await context.GameServers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
+
+        if (gameServer == null)
+            return new ApiResult<string>(HttpStatusCode.NotFound);
+
+        var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
         var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
 
         try
         {
-            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}");
-            return new OkObjectResult(keyVaultResponse.Value);
+            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken);
+            return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
         }
         catch (RequestFailedException ex)
         {
             if (ex.Status == 404)
-                return new NotFoundResult();
+                return new ApiResult<string>(HttpStatusCode.NotFound);
 
             throw;
         }
     }
 
-    [HttpPost]
-    [Route("game-servers/{gameServerId}/secret/{secretId}")]
-    public async Task<IActionResult> SetGameServerSecret(string gameServerId, string secretId)
+    /// <summary>
+    /// Sets or updates a secret value in Azure Key Vault for a specific game server.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server.</param>
+    /// <param name="secretId">The identifier of the secret to set or update.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>The secret value that was set.</returns>
+    [HttpPost("game-servers/{gameServerId:guid}/secret/{secretId}")]
+    [ProducesResponseType<string>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(gameServerId)) return new BadRequestResult();
+        var rawSecretValue = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
+        var response = await ((IGameServersSecretsApi)this).SetGameServerSecret(gameServerId, secretId, rawSecretValue, cancellationToken);
+        return response.ToHttpResult();
+    }
 
-        var gameServer = await Context.GameServers.SingleOrDefaultAsync(gs => gs.GameServerId.ToString() == gameServerId);
-        if (gameServer == null) return new BadRequestResult();
+    /// <summary>
+    /// Sets or updates a secret value in Azure Key Vault for a specific game server.
+    /// </summary>
+    /// <param name="gameServerId">The unique identifier of the game server.</param>
+    /// <param name="secretId">The identifier of the secret to set or update.</param>
+    /// <param name="secretValue">The secret value to store.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result containing the secret value that was set.</returns>
+    async Task<ApiResult<string>> IGameServersSecretsApi.SetGameServerSecret(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(secretId))
+            return new ApiResult<string>(HttpStatusCode.BadRequest);
 
-        var keyVaultEndpoint = _configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
+        var gameServer = await context.GameServers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
+
+        if (gameServer == null)
+            return new ApiResult<string>(HttpStatusCode.NotFound);
+
+        var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
         var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
-
-        var rawSecretValue = await new StreamReader(Request.Body).ReadToEndAsync();
 
         try
         {
-            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}");
+            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken);
 
-            if (keyVaultResponse.Value.Value != rawSecretValue)
-                keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", rawSecretValue);
+            if (keyVaultResponse.Value.Value != secretValue)
+                keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken);
 
-            return new OkObjectResult(keyVaultResponse.Value);
+            return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
         }
         catch (RequestFailedException ex)
         {
@@ -83,7 +150,7 @@ public class GameServersSecretsController : ControllerBase
                 throw;
         }
 
-        var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", rawSecretValue);
-        return new OkObjectResult(newSecretKeyVaultResponse.Value);
+        var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken);
+        return new ApiResponse<string>(newSecretKeyVaultResponse.Value.Value).ToApiResult();
     }
 }

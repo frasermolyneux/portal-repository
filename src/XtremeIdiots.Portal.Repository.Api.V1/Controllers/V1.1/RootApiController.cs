@@ -1,9 +1,12 @@
+using System.Net;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.V1.Models.Root;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1_1;
 
@@ -17,11 +20,15 @@ public class RootApiController : ControllerBase, IRootApi
     [HttpGet]
     [HttpPost]
     [Route("")]
-    public Task<ApiResponseDto> GetRoot()
+    public async Task<IActionResult> GetRoot()
     {
-        return Task.FromResult(new ApiResponseDto
-        {
-            StatusCode = System.Net.HttpStatusCode.OK
-        });
+        var response = await ((IRootApi)this).GetRoot(CancellationToken.None);
+        return response.ToHttpResult();
+    }
+
+    Task<ApiResult<RootDto>> IRootApi.GetRoot(CancellationToken cancellationToken)
+    {
+        var rootDto = new RootDto();
+        return Task.FromResult(new ApiResponse<RootDto>(rootDto).ToApiResult());
     }
 }

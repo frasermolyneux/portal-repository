@@ -2,16 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using Asp.Versioning;
 
@@ -26,92 +28,194 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the TagsController class.
+        /// </summary>
+        /// <param name="context">The database context for accessing tag data.</param>
+        /// <param name="mapper">The AutoMapper instance for mapping between entities and DTOs.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public TagsController(PortalDbContext context, IMapper mapper)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("tags")]
-        public async Task<IActionResult> GetTags([FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50)
+        /// <summary>
+        /// Retrieves a paginated list of tags.
+        /// </summary>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 50).</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of tags.</returns>
+        [HttpGet("tags")]
+        [ProducesResponseType<CollectionModel<TagDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetTags([FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).GetTags(skipEntries, takeEntries);
+            var response = await ((ITagsApi)this).GetTags(skipEntries, takeEntries, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<TagsCollectionDto>> ITagsApi.GetTags(int skipEntries, int takeEntries)
+        /// <summary>
+        /// Retrieves a paginated list of tags.
+        /// </summary>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of tags.</returns>
+        async Task<ApiResult<CollectionModel<TagDto>>> ITagsApi.GetTags(int skipEntries, int takeEntries, CancellationToken cancellationToken)
         {
-            var tags = await context.Tags.OrderBy(t => t.Name).Skip(skipEntries).Take(takeEntries).ToListAsync();
-            var result = new TagsCollectionDto { Entries = tags.Select(mapper.Map<TagDto>).ToList() };
-            return new ApiResponseDto<TagsCollectionDto>(HttpStatusCode.OK, result);
+            var baseQuery = context.Tags.AsNoTracking();
+
+            // Calculate total count before applying ordering and pagination
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+            var tags = await baseQuery
+                .OrderBy(t => t.Name)
+                .Skip(skipEntries)
+                .Take(takeEntries)
+                .ToListAsync(cancellationToken);
+
+            var result = new CollectionModel<TagDto>
+            {
+                TotalCount = totalCount,
+                FilteredCount = totalCount, // No filtering for tags
+                Items = tags.Select(mapper.Map<TagDto>).ToList()
+            };
+
+            return new ApiResponse<CollectionModel<TagDto>>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("tags/{tagId}")]
-        public async Task<IActionResult> GetTag(Guid tagId)
+        /// <summary>
+        /// Retrieves a specific tag by its unique identifier.
+        /// </summary>
+        /// <param name="tagId">The unique identifier of the tag to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The tag details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("tags/{tagId:guid}")]
+        [ProducesResponseType<TagDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetTag(Guid tagId, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).GetTag(tagId);
+            var response = await ((ITagsApi)this).GetTag(tagId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<TagDto>> ITagsApi.GetTag(Guid tagId)
+        /// <summary>
+        /// Retrieves a specific tag by its unique identifier.
+        /// </summary>
+        /// <param name="tagId">The unique identifier of the tag to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the tag details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<TagDto>> ITagsApi.GetTag(Guid tagId, CancellationToken cancellationToken)
         {
-            var tag = await context.Tags.FindAsync(tagId);
+            var tag = await context.Tags
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.TagId == tagId, cancellationToken);
+
             if (tag == null)
-                return new ApiResponseDto<TagDto>(HttpStatusCode.NotFound);
-            return new ApiResponseDto<TagDto>(HttpStatusCode.OK, mapper.Map<TagDto>(tag));
+                return new ApiResult<TagDto>(HttpStatusCode.NotFound);
+
+            var result = mapper.Map<TagDto>(tag);
+            return new ApiResponse<TagDto>(result).ToApiResult();
         }
 
-        [HttpPost]
-        [Route("tags")]
-        public async Task<IActionResult> CreateTag([FromBody] TagDto tagDto)
+        /// <summary>
+        /// Creates a new tag.
+        /// </summary>
+        /// <param name="tagDto">The tag data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the tag was created.</returns>
+        [HttpPost("tags")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateTag([FromBody] TagDto tagDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).CreateTag(tagDto);
+            var response = await ((ITagsApi)this).CreateTag(tagDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> ITagsApi.CreateTag(TagDto tagDto)
+        /// <summary>
+        /// Creates a new tag.
+        /// </summary>
+        /// <param name="tagDto">The tag data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the tag was created.</returns>
+        async Task<ApiResult> ITagsApi.CreateTag(TagDto tagDto, CancellationToken cancellationToken)
         {
             var tag = mapper.Map<Tag>(tagDto);
             context.Tags.Add(tag);
-            await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        [HttpPut]
-        [Route("tags")]
-        public async Task<IActionResult> UpdateTag([FromBody] TagDto tagDto)
+        /// <summary>
+        /// Updates an existing tag.
+        /// </summary>
+        /// <param name="tagDto">The tag data to update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the tag was updated; otherwise, a 404 Not Found response.</returns>
+        [HttpPut("tags")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpdateTag([FromBody] TagDto tagDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).UpdateTag(tagDto);
+            var response = await ((ITagsApi)this).UpdateTag(tagDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> ITagsApi.UpdateTag(TagDto tagDto)
+        /// <summary>
+        /// Updates an existing tag.
+        /// </summary>
+        /// <param name="tagDto">The tag data to update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the tag was updated if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> ITagsApi.UpdateTag(TagDto tagDto, CancellationToken cancellationToken)
         {
-            var tag = await context.Tags.FindAsync(tagDto.TagId);
+            var tag = await context.Tags
+                .FirstOrDefaultAsync(t => t.TagId == tagDto.TagId, cancellationToken);
+
             if (tag == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
+
             mapper.Map(tagDto, tag);
-            await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpDelete]
-        [Route("tags/{tagId}")]
-        public async Task<IActionResult> DeleteTag(Guid tagId)
+        /// <summary>
+        /// Deletes a tag by its unique identifier.
+        /// </summary>
+        /// <param name="tagId">The unique identifier of the tag to delete.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the tag was deleted; otherwise, a 404 Not Found response.</returns>
+        [HttpDelete("tags/{tagId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteTag(Guid tagId, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).DeleteTag(tagId);
+            var response = await ((ITagsApi)this).DeleteTag(tagId, cancellationToken);
             return response.ToHttpResult();
         }
-        async Task<ApiResponseDto> ITagsApi.DeleteTag(Guid tagId)
+
+        /// <summary>
+        /// Deletes a tag by its unique identifier.
+        /// </summary>
+        /// <param name="tagId">The unique identifier of the tag to delete.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the tag was deleted if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> ITagsApi.DeleteTag(Guid tagId, CancellationToken cancellationToken)
         {
-            var tag = await context.Tags.FindAsync(tagId);
+            var tag = await context.Tags
+                .FirstOrDefaultAsync(t => t.TagId == tagId, cancellationToken);
+
             if (tag == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
+
             context.Tags.Remove(tag);
-            await context.SaveChangesAsync();
-            return new ApiResponseDto(HttpStatusCode.OK);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult();
         }
     }
 }
+

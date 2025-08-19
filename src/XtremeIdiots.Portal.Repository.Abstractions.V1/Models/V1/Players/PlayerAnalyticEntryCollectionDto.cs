@@ -1,8 +1,10 @@
-using MxIO.ApiClient.Abstractions;
+using MX.Api.Abstractions;
 
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
+
+[Obsolete("Use CollectionModel<PlayerAnalyticEntryDto> from MX.Api.Abstractions instead")]
+public record PlayerAnalyticEntryCollectionDto
 {
-    public record PlayerAnalyticEntryCollectionDto : CollectionDto<PlayerAnalyticEntryDto>
-    {
-    }
+    public List<PlayerAnalyticEntryDto> Entries { get; set; } = new List<PlayerAnalyticEntryDto>();
+    public int TotalRecords { get; set; }
 }

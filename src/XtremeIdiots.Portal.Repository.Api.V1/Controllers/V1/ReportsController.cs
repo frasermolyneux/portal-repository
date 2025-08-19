@@ -6,10 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
-
-using Newtonsoft.Json;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -19,6 +17,9 @@ using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
+    /// <summary>
+    /// Controller for managing reports - handles CRUD operations and querying of report data.
+    /// </summary>
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
@@ -28,6 +29,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
 
+        /// <summary>
+        /// Initializes a new instance of the ReportsController.
+        /// </summary>
+        /// <param name="context">The portal database context.</param>
+        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
+        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
         public ReportsController(
             PortalDbContext context,
             IMapper mapper)
@@ -36,204 +43,280 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("reports/{reportId}")]
-        public async Task<IActionResult> GetReport(Guid reportId)
+        /// <summary>
+        /// Retrieves a specific report by its unique identifier.
+        /// </summary>
+        /// <param name="reportId">The unique identifier of the report to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The report details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("reports/{reportId:guid}")]
+        [ProducesResponseType<ReportDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetReport(Guid reportId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IReportsApi)this).GetReport(reportId);
+            var response = await ((IReportsApi)this).GetReport(reportId, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<ReportDto>> IReportsApi.GetReport(Guid reportId)
+        /// <summary>
+        /// Retrieves a specific report by its unique identifier.
+        /// </summary>
+        /// <param name="reportId">The unique identifier of the report to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the report details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<ReportDto>> IReportsApi.GetReport(Guid reportId, CancellationToken cancellationToken)
         {
             var report = await context.Reports
                 .Include(r => r.UserProfile)
                 .Include(r => r.AdminUserProfile)
-                .SingleOrDefaultAsync(r => r.ReportId == reportId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken);
 
             if (report == null)
-                return new ApiResponseDto<ReportDto>(HttpStatusCode.NotFound);
+                return new ApiResult<ReportDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<ReportDto>(report);
 
-            return new ApiResponseDto<ReportDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<ReportDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("reports")]
-        public async Task<IActionResult> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int? skipEntries, int? takeEntries, ReportsOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of reports with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="cutoff">Optional cutoff date for filtering reports (limited to 14 days ago).</param>
+        /// <param name="filter">Optional filter criteria for reports.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of reports.</returns>
+        [HttpGet("reports")]
+        [ProducesResponseType<CollectionModel<ReportDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetReports(
+            [FromQuery] GameType? gameType = null,
+            [FromQuery] Guid? gameServerId = null,
+            [FromQuery] DateTime? cutoff = null,
+            [FromQuery] ReportsFilter? filter = null,
+            [FromQuery] int skipEntries = 0,
+            [FromQuery] int takeEntries = 20,
+            [FromQuery] ReportsOrder? order = null,
+            CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
-
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddDays(-14))
                 cutoff = DateTime.UtcNow.AddDays(-14);
 
-            var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries.Value, takeEntries.Value, order);
+            var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries, takeEntries, order, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<ReportsCollectionDto>> IReportsApi.GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of reports with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="cutoff">Optional cutoff date for filtering reports.</param>
+        /// <param name="filter">Optional filter criteria for reports.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of reports.</returns>
+        async Task<ApiResult<CollectionModel<ReportDto>>> IReportsApi.GetReports(
+            GameType? gameType,
+            Guid? gameServerId,
+            DateTime? cutoff,
+            ReportsFilter? filter,
+            int skipEntries,
+            int takeEntries,
+            ReportsOrder? order,
+            CancellationToken cancellationToken)
         {
-            var query = context.Reports.Include(r => r.UserProfile).Include(r => r.AdminUserProfile).AsQueryable();
-            query = ApplyFilter(query, gameType, null, null, null);
-            var totalCount = await query.CountAsync();
+            var baseQuery = context.Reports
+                .Include(r => r.UserProfile)
+                .Include(r => r.AdminUserProfile)
+                .AsNoTracking()
+                .AsQueryable();
 
-            query = ApplyFilter(query, gameType, gameServerId, cutoff, filter);
-            var filteredCount = await query.CountAsync();
+            // Calculate total count before applying filters
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            // Apply filters
+            var filteredQuery = ApplyFilters(baseQuery, gameType, gameServerId, cutoff, filter);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery.ToListAsync(cancellationToken);
 
             var entries = results.Select(r => mapper.Map<ReportDto>(r)).ToList();
 
-            var result = new ReportsCollectionDto
+            var result = new CollectionModel<ReportDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                TotalCount = totalCount,
+                FilteredCount = filteredCount,
+                Items = entries
             };
 
-            return new ApiResponseDto<ReportsCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<ReportDto>>(result).ToApiResult();
         }
 
-        [HttpPost]
-        [Route("reports")]
-        public async Task<IActionResult> CreateReports()
+        /// <summary>
+        /// Creates multiple new reports.
+        /// </summary>
+        /// <param name="createReportDtos">The list of report data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the reports were created.</returns>
+        [HttpPost("reports")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateReports([FromBody] List<CreateReportDto> createReportDtos, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<CreateReportDto>? createReportDtos;
-            try
-            {
-                createReportDtos = JsonConvert.DeserializeObject<List<CreateReportDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
             if (createReportDtos == null || !createReportDtos.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
+                return BadRequest();
 
-            var response = await ((IReportsApi)this).CreateReports(createReportDtos);
+            var response = await ((IReportsApi)this).CreateReports(createReportDtos, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IReportsApi.CreateReports(List<CreateReportDto> createReportDtos)
+        /// <summary>
+        /// Creates multiple new reports.
+        /// </summary>
+        /// <param name="createReportDtos">The list of report data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the reports were created.</returns>
+        async Task<ApiResult> IReportsApi.CreateReports(List<CreateReportDto> createReportDtos, CancellationToken cancellationToken)
         {
             var reports = createReportDtos.Select(r => mapper.Map<Report>(r)).ToList();
 
             foreach (var report in reports)
             {
-                var gameServer = context.GameServers.Single(gs => gs.GameServerId == report.GameServerId);
+                var gameServer = await context.GameServers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(gs => gs.GameServerId == report.GameServerId, cancellationToken);
+
+                if (gameServer == null)
+                    return new ApiResult(HttpStatusCode.BadRequest);
+
                 report.GameType = gameServer.GameType;
             }
 
-            await context.Reports.AddRangeAsync(reports);
-            await context.SaveChangesAsync();
+            await context.Reports.AddRangeAsync(reports, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        [HttpPatch]
-        [Route("reports/{reportId}/close")]
-        public async Task<IActionResult> CloseReport(Guid reportId)
+        /// <summary>
+        /// Closes a specific report.
+        /// </summary>
+        /// <param name="reportId">The unique identifier of the report to close.</param>
+        /// <param name="closeReportDto">The data required to close the report.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the report was closed; otherwise, a 404 Not Found or 400 Bad Request response.</returns>
+        [HttpPatch("reports/{reportId:guid}/close")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CloseReport(Guid reportId, [FromBody] CloseReportDto closeReportDto, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            CloseReportDto? closeReportDto;
-            try
-            {
-                closeReportDto = JsonConvert.DeserializeObject<CloseReportDto>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
             if (closeReportDto == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
+                return BadRequest();
 
-            var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto);
+            var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto, cancellationToken);
 
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IReportsApi.CloseReport(Guid reportId, CloseReportDto closeReportDto)
+        /// <summary>
+        /// Closes a specific report.
+        /// </summary>
+        /// <param name="reportId">The unique identifier of the report to close.</param>
+        /// <param name="closeReportDto">The data required to close the report.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the report was closed if successful; otherwise, a 404 Not Found or 400 Bad Request response.</returns>
+        async Task<ApiResult> IReportsApi.CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken)
         {
-            var report = await context.Reports.SingleOrDefaultAsync(r => r.ReportId == reportId);
+            var report = await context.Reports
+                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken);
 
             if (report == null)
-                return new ApiResponseDto(HttpStatusCode.NotFound);
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            var userProfile = await context.UserProfiles.SingleOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId);
+            var userProfile = await context.UserProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId, cancellationToken);
 
             if (userProfile == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not user profile with specified user profile id" });
+                return new ApiResult(HttpStatusCode.BadRequest);
 
             mapper.Map(closeReportDto, report);
 
             report.Closed = true;
             report.ClosedTimestamp = DateTime.UtcNow;
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult();
         }
 
-        private static IQueryable<Report> ApplyFilter(IQueryable<Report> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter)
+        /// <summary>
+        /// Applies filters to the report query based on the specified criteria.
+        /// </summary>
+        /// <param name="query">The base query to apply filters to.</param>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="gameServerId">Optional filter by game server identifier.</param>
+        /// <param name="cutoff">Optional cutoff date for filtering reports.</param>
+        /// <param name="filter">Optional filter criteria for reports.</param>
+        /// <returns>The filtered query.</returns>
+        private static IQueryable<Report> ApplyFilters(IQueryable<Report> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter)
         {
             if (gameType.HasValue)
-                query = query.Where(r => r.GameType == ((GameType)gameType).ToGameTypeInt()).AsQueryable();
+                query = query.Where(r => r.GameType == ((GameType)gameType).ToGameTypeInt());
 
             if (gameServerId.HasValue)
-                query = query.Where(r => r.GameServerId == gameServerId).AsQueryable();
+                query = query.Where(r => r.GameServerId == gameServerId);
 
             if (cutoff.HasValue)
-                query = query.Where(r => r.Timestamp > cutoff).AsQueryable();
+                query = query.Where(r => r.Timestamp > cutoff);
 
             if (filter.HasValue)
             {
-                switch (filter)
+                query = filter.Value switch
                 {
-                    case ReportsFilter.OpenReports:
-                        query = query.Where(r => !r.Closed).AsQueryable();
-                        break;
-                    case ReportsFilter.ClosedReports:
-                        query = query.Where(r => r.Closed).AsQueryable();
-                        break;
-                }
+                    ReportsFilter.OpenReports => query.Where(r => !r.Closed),
+                    ReportsFilter.ClosedReports => query.Where(r => r.Closed),
+                    _ => query
+                };
             }
 
             return query;
         }
 
-        private static IQueryable<Report> ApplyOrderAndLimits(IQueryable<Report> query, int skipEntries, int takeEntries, ReportsOrder? order)
+        /// <summary>
+        /// Applies ordering and pagination to the report query.
+        /// </summary>
+        /// <param name="query">The query to apply ordering and pagination to.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <returns>The ordered and paginated query.</returns>
+        private static IQueryable<Report> ApplyOrderingAndPagination(IQueryable<Report> query, int skipEntries, int takeEntries, ReportsOrder? order)
         {
-            if (order.HasValue)
+            // Apply ordering
+            var orderedQuery = order switch
             {
-                switch (order)
-                {
-                    case ReportsOrder.TimestampAsc:
-                        query = query.OrderBy(r => r.Timestamp).AsQueryable();
-                        break;
-                    case ReportsOrder.TimestampDesc:
-                        query = query.OrderByDescending(r => r.Timestamp).AsQueryable();
-                        break;
-                }
-            }
+                ReportsOrder.TimestampAsc => query.OrderBy(r => r.Timestamp),
+                ReportsOrder.TimestampDesc => query.OrderByDescending(r => r.Timestamp),
+                _ => query.OrderByDescending(r => r.Timestamp)
+            };
 
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
         }
     }
 }
+

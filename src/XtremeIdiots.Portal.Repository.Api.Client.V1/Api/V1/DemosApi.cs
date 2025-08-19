@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using MxIO.ApiClient;
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.Extensions;
+
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
 
 using RestSharp;
 
@@ -13,21 +15,21 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
-    public class DemosApi : BaseApi, IDemosApi
+    public class DemosApi : BaseApi<RepositoryApiClientOptions>, IDemosApi
     {
-        public DemosApi(ILogger<DemosApi> logger, IApiTokenProvider apiTokenProvider, IOptions<RepositoryApiClientOptions> options, IRestClientSingleton restClientSingleton) : base(logger, apiTokenProvider, restClientSingleton, options)
+        public DemosApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
-        public async Task<ApiResponseDto<DemoDto>> GetDemo(Guid demoId)
+        public async Task<ApiResult<DemoDto>> GetDemo(Guid demoId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/demos/{demoId}", Method.Get);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<DemoDto>();
+            return response.ToApiResult<DemoDto>();
         }
 
-        public async Task<ApiResponseDto<DemosCollectionDto>> GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order)
+        public async Task<ApiResult<CollectionModel<DemoDto>>> GetDemos(GameType[]? gameTypes, string? userId, string? filterString, int skipEntries, int takeEntries, DemoOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/demos", Method.Get);
 
@@ -46,37 +48,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<DemosCollectionDto>();
+            return response.ToApiResult<CollectionModel<DemoDto>>();
         }
 
-        public async Task<ApiResponseDto<DemoDto>> CreateDemo(CreateDemoDto createDemoDto)
+        public async Task<ApiResult<DemoDto>> CreateDemo(CreateDemoDto createDemoDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/demos", Method.Post);
             request.AddJsonBody(createDemoDto);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse<DemoDto>();
+            return response.ToApiResult<DemoDto>();
         }
 
-        public async Task<ApiResponseDto> SetDemoFile(Guid demoId, string fileName, string filePath)
+        public async Task<ApiResult> SetDemoFile(Guid demoId, string fileName, string filePath, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/demos/{demoId}/file", Method.Post);
             request.AddFile(fileName, filePath);
 
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
 
-        public async Task<ApiResponseDto> DeleteDemo(Guid demoId)
+        public async Task<ApiResult> DeleteDemo(Guid demoId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/demos/{demoId}", Method.Delete);
-            var response = await ExecuteAsync(request);
+            var response = await ExecuteAsync(request, cancellationToken);
 
-            return response.ToApiResponse();
+            return response.ToApiResult();
         }
     }
 }
+
+

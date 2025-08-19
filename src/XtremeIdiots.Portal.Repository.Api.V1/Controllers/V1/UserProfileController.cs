@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using MxIO.ApiClient.Abstractions;
-using MxIO.ApiClient.WebExtensions;
+using MX.Api.Abstractions;
+using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
@@ -22,7 +22,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("api/v{version:apiVersion}")]
-    public class UserProfileController : Controller, IUserProfileApi
+    public class UserProfileController : ControllerBase, IUserProfileApi
     {
         private readonly PortalDbContext context;
         private readonly IMapper mapper;
@@ -35,332 +35,511 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
-        [Route("user-profile/{userProfileId}")]
-        public async Task<IActionResult> GetUserProfile(Guid userProfileId)
+        /// <summary>
+        /// Retrieves a user profile by its unique identifier.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The user profile details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("user-profile/{userProfileId:guid}")]
+        [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfile(userProfileId);
-
+            var response = await ((IUserProfileApi)this).GetUserProfile(userProfileId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<UserProfileDto>> IUserProfileApi.GetUserProfile(Guid userProfileId)
+        /// <summary>
+        /// Retrieves a user profile by its unique identifier.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the user profile details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfile(Guid userProfileId, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
-                .SingleOrDefaultAsync(up => up.UserProfileId == userProfileId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken);
 
             if (userProfile == null)
-                return new ApiResponseDto<UserProfileDto>(HttpStatusCode.NotFound);
+                return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<UserProfileDto>(userProfile);
-
-            return new ApiResponseDto<UserProfileDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("user-profile/by-identity-id/{identityId}")]
-        public async Task<IActionResult> GetUserProfileByIdentityId(string identityId)
+        /// <summary>
+        /// Retrieves a user profile by its identity identifier.
+        /// </summary>
+        /// <param name="identityId">The identity identifier of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The user profile details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("user-profile/by-identity-id/{identityId}")]
+        [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfileByIdentityId(identityId);
-
+            var response = await ((IUserProfileApi)this).GetUserProfileByIdentityId(identityId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<UserProfileDto>> IUserProfileApi.GetUserProfileByIdentityId(string identityId)
+        /// <summary>
+        /// Retrieves a user profile by its identity identifier.
+        /// </summary>
+        /// <param name="identityId">The identity identifier of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the user profile details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
-                .SingleOrDefaultAsync(up => up.IdentityOid == identityId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(up => up.IdentityOid == identityId, cancellationToken);
 
             if (userProfile == null)
-                return new ApiResponseDto<UserProfileDto>(HttpStatusCode.NotFound);
+                return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<UserProfileDto>(userProfile);
-
-            return new ApiResponseDto<UserProfileDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("user-profile/by-xtremeidiots-id/{xtremeIdiotsId}")]
-        public async Task<IActionResult> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId)
+        /// <summary>
+        /// Retrieves a user profile by its XtremeIdiots forum identifier.
+        /// </summary>
+        /// <param name="xtremeIdiotsId">The XtremeIdiots forum identifier of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The user profile details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("user-profile/by-xtremeidiots-id/{xtremeIdiotsId}")]
+        [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfileByXtremeIdiotsId(xtremeIdiotsId);
-
+            var response = await ((IUserProfileApi)this).GetUserProfileByXtremeIdiotsId(xtremeIdiotsId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<UserProfileDto>> IUserProfileApi.GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId)
+        /// <summary>
+        /// Retrieves a user profile by its XtremeIdiots forum identifier.
+        /// </summary>
+        /// <param name="xtremeIdiotsId">The XtremeIdiots forum identifier of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the user profile details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
-                .SingleOrDefaultAsync(up => up.XtremeIdiotsForumId == xtremeIdiotsId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(up => up.XtremeIdiotsForumId == xtremeIdiotsId, cancellationToken);
 
             if (userProfile == null)
-                return new ApiResponseDto<UserProfileDto>(HttpStatusCode.NotFound);
+                return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<UserProfileDto>(userProfile);
-
-            return new ApiResponseDto<UserProfileDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
-
-        [HttpGet]
-        [Route("user-profile/by-demo-auth-key/{demoAuthKey}")]
-        public async Task<IActionResult> GetUserProfileByDemoAuthKey(string demoAuthKey)
+        /// <summary>
+        /// Retrieves a user profile by its demo authentication key.
+        /// </summary>
+        /// <param name="demoAuthKey">The demo authentication key of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>The user profile details if found; otherwise, a 404 Not Found response.</returns>
+        [HttpGet("user-profile/by-demo-auth-key/{demoAuthKey}")]
+        [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetUserProfileByDemoAuthKey(string demoAuthKey, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfileByDemoAuthKey(demoAuthKey);
-
+            var response = await ((IUserProfileApi)this).GetUserProfileByDemoAuthKey(demoAuthKey, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<UserProfileDto>> IUserProfileApi.GetUserProfileByDemoAuthKey(string demoAuthKey)
+        /// <summary>
+        /// Retrieves a user profile by its demo authentication key.
+        /// </summary>
+        /// <param name="demoAuthKey">The demo authentication key of the user profile to retrieve.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing the user profile details if found; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileByDemoAuthKey(string demoAuthKey, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
-                .SingleOrDefaultAsync(up => up.DemoAuthKey == demoAuthKey);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(up => up.DemoAuthKey == demoAuthKey, cancellationToken);
 
             if (userProfile == null)
-                return new ApiResponseDto<UserProfileDto>(HttpStatusCode.NotFound);
+                return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
             var result = mapper.Map<UserProfileDto>(userProfile);
-
-            return new ApiResponseDto<UserProfileDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
-        [HttpGet]
-        [Route("user-profile")]
-        public async Task<IActionResult> GetUserProfiles(string? filterString, int? skipEntries, int? takeEntries, UserProfilesOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of user profiles with optional filtering and sorting.
+        /// </summary>
+        /// <param name="filterString">Optional filter string to search for user profiles.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 50).</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of user profiles.</returns>
+        [HttpGet("user-profiles")]
+        [ProducesResponseType<CollectionModel<UserProfileDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetUserProfiles([FromQuery] string? filterString, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, [FromQuery] UserProfilesOrder? order = null, CancellationToken cancellationToken = default)
         {
-            if (!skipEntries.HasValue)
-                skipEntries = 0;
-
-            if (!takeEntries.HasValue)
-                takeEntries = 20;
-
-            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, skipEntries.Value, takeEntries.Value, order);
-
+            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, skipEntries, takeEntries, order, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto<UserProfileCollectionDto>> IUserProfileApi.GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order)
+        /// <summary>
+        /// Retrieves a paginated list of user profiles with optional filtering and sorting.
+        /// </summary>
+        /// <param name="filterString">Optional filter string to search for user profiles.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of user profiles.</returns>
+        async Task<ApiResult<CollectionModel<UserProfileDto>>> IUserProfileApi.GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken)
         {
-            var query = context.UserProfiles.Include(up => up.UserProfileClaims).AsQueryable();
-            query = ApplyFilter(query, filterString);
-            var totalCount = await query.CountAsync();
+            var baseQuery = context.UserProfiles
+                .Include(up => up.UserProfileClaims)
+                .AsNoTracking()
+                .AsQueryable();
 
-            query = ApplyFilter(query, filterString);
-            var filteredCount = await query.CountAsync();
+            // Calculate total count before applying filters
+            var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-            query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
-            var results = await query.ToListAsync();
+            // Apply filtering
+            var filteredQuery = ApplyFilters(baseQuery, filterString);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
 
-            var entries = results.Select(up => mapper.Map<UserProfileDto>(up)).ToList();
+            // Apply ordering and pagination
+            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var result = new UserProfileCollectionDto
+            var items = results.Select(up => mapper.Map<UserProfileDto>(up)).ToList();
+
+            var result = new CollectionModel<UserProfileDto>
             {
-                TotalRecords = totalCount,
-                FilteredRecords = filteredCount,
-                Entries = entries
+                Items = items,
+                TotalCount = totalCount,
+                FilteredCount = filteredCount
             };
 
-            return new ApiResponseDto<UserProfileCollectionDto>(HttpStatusCode.OK, result);
+            return new ApiResponse<CollectionModel<UserProfileDto>>(result).ToApiResult();
         }
 
-        Task<ApiResponseDto> IUserProfileApi.CreateUserProfile(CreateUserProfileDto createUserProfileDto)
+        private static IQueryable<UserProfile> ApplyFilters(IQueryable<UserProfile> query, string? filterString)
         {
-            throw new NotImplementedException();
+            if (!string.IsNullOrWhiteSpace(filterString))
+            {
+                var filter = filterString.Trim().ToLower();
+                query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLower().Contains(filter)) ||
+                                         (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLower().Contains(filter)) ||
+                                         (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(filter)) ||
+                                         (up.DisplayName != null && up.DisplayName.ToLower().Contains(filter)) ||
+                                         (up.Email != null && up.Email.ToLower().Contains(filter)));
+            }
+
+            return query;
         }
 
-        [HttpPost]
-        [Route("user-profile")]
-        public async Task<IActionResult> CreateUserProfiles()
+        private static IQueryable<UserProfile> ApplyOrderingAndPagination(IQueryable<UserProfile> query, int skipEntries, int takeEntries, UserProfilesOrder? order)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<CreateUserProfileDto>? createUserProfileDto;
-            try
+            var orderedQuery = order switch
             {
-                createUserProfileDto = JsonConvert.DeserializeObject<List<CreateUserProfileDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
+                UserProfilesOrder.DisplayNameAsc => query.OrderBy(up => up.DisplayName),
+                UserProfilesOrder.DisplayNameDesc => query.OrderByDescending(up => up.DisplayName),
+                _ => query.OrderBy(up => up.DisplayName)
+            };
 
-            if (createUserProfileDto == null || !createUserProfileDto.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
+            return orderedQuery.Skip(skipEntries).Take(takeEntries);
+        }
 
-            var response = await ((IUserProfileApi)this).CreateUserProfiles(createUserProfileDto);
-
+        /// <summary>
+        /// Creates a new user profile.
+        /// </summary>
+        /// <param name="createUserProfileDto">The user profile data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the user profile was created.</returns>
+        [HttpPost("user-profile")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CreateUserProfile([FromBody] CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IUserProfileApi)this).CreateUserProfile(createUserProfileDto, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IUserProfileApi.CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos)
+        /// <summary>
+        /// Creates a new user profile.
+        /// </summary>
+        /// <param name="createUserProfileDto">The user profile data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the user profile was created.</returns>
+        async Task<ApiResult> IUserProfileApi.CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken)
         {
-            var userProfiles = createUserProfileDtos.Select(up => mapper.Map<UserProfile>(up)).ToList();
+            if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
-            await context.UserProfiles.AddRangeAsync(userProfiles);
-            await context.SaveChangesAsync();
+            var userProfile = mapper.Map<UserProfile>(createUserProfileDto);
+            await context.UserProfiles.AddAsync(userProfile, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        Task<ApiResponseDto> IUserProfileApi.UpdateUserProfile(EditUserProfileDto editUserProfileDto)
+        /// <summary>
+        /// Creates multiple user profiles.
+        /// </summary>
+        /// <param name="createUserProfileDtos">The user profile data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response indicating the user profiles were created.</returns>
+        [HttpPost("user-profiles")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CreateUserProfiles([FromBody] List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
-        }
-
-        [HttpPut]
-        [Route("user-profile")]
-        public async Task<IActionResult> UpdateUserProfiles()
-        {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<EditUserProfileDto>? editUserProfileDto;
-            try
-            {
-                editUserProfileDto = JsonConvert.DeserializeObject<List<EditUserProfileDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (editUserProfileDto == null || !editUserProfileDto.Any())
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null or did not contain any entries" }).ToHttpResult();
-
-            var response = await ((IUserProfileApi)this).UpdateUserProfiles(editUserProfileDto);
-
+            var response = await ((IUserProfileApi)this).CreateUserProfiles(createUserProfileDtos, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IUserProfileApi.UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos)
+        /// <summary>
+        /// Creates multiple user profiles.
+        /// </summary>
+        /// <param name="createUserProfileDtos">The user profile data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the user profiles were created.</returns>
+        async Task<ApiResult> IUserProfileApi.CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken)
+        {
+            foreach (var createUserProfileDto in createUserProfileDtos)
+            {
+                if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
+                    return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
+
+                var userProfile = mapper.Map<UserProfile>(createUserProfileDto);
+                await context.UserProfiles.AddAsync(userProfile, cancellationToken);
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+        }
+
+        /// <summary>
+        /// Updates an existing user profile.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to update.</param>
+        /// <param name="editUserProfileDto">The user profile data to update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the user profile was updated; otherwise, a 404 Not Found response.</returns>
+        [HttpPatch("user-profile/{userProfileId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpdateUserProfile(Guid userProfileId, [FromBody] EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken = default)
+        {
+            if (editUserProfileDto.UserProfileId != userProfileId)
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.UserProfileIdMismatchMessage)).ToBadRequestResult().ToHttpResult();
+
+            var response = await ((IUserProfileApi)this).UpdateUserProfile(editUserProfileDto, cancellationToken);
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Updates an existing user profile.
+        /// </summary>
+        /// <param name="editUserProfileDto">The user profile data to update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the user profile was updated if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IUserProfileApi.UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken)
+        {
+            var userProfile = await context.UserProfiles
+                .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken);
+
+            if (userProfile == null)
+                return new ApiResult(HttpStatusCode.NotFound);
+
+            mapper.Map(editUserProfileDto, userProfile);
+            await context.SaveChangesAsync(cancellationToken);
+
+            return new ApiResponse().ToApiResult();
+        }
+
+        /// <summary>
+        /// Updates multiple user profiles.
+        /// </summary>
+        /// <param name="editUserProfileDtos">The user profile data to update.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if all user profiles were updated; otherwise, a 404 Not Found response.</returns>
+        [HttpPatch("user-profiles")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpdateUserProfiles([FromBody] List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IUserProfileApi)this).UpdateUserProfiles(editUserProfileDtos, cancellationToken);
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Updates multiple user profiles.
+        /// </summary>
+        /// <param name="editUserProfileDtos">The user profile data to update.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the user profiles were updated if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IUserProfileApi.UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken)
         {
             foreach (var editUserProfileDto in editUserProfileDtos)
             {
-                var userProfile = await context.UserProfiles.SingleAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId);
+                var userProfile = await context.UserProfiles
+                    .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken);
+
+                if (userProfile == null)
+                    return new ApiResult(HttpStatusCode.NotFound);
+
                 mapper.Map(editUserProfileDto, userProfile);
             }
 
-            await context.SaveChangesAsync();
-
-            return new ApiResponseDto(HttpStatusCode.OK);
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpPatch]
-        [Route("user-profile/{userProfileId}/claims")]
-        public async Task<IActionResult> CreateUserProfileClaim(Guid userProfileId)
+        /// <summary>
+        /// Creates user profile claims for a specific user profile.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to add claims to.</param>
+        /// <param name="createUserProfileClaimDtos">The claim data to create.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the claims were created; otherwise, a 404 Not Found response.</returns>
+        [HttpPost("user-profile/{userProfileId:guid}/claims")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateUserProfileClaim(Guid userProfileId, [FromBody] List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<CreateUserProfileClaimDto>? createUserProfileClaimDtos;
-            try
-            {
-                createUserProfileClaimDtos = JsonConvert.DeserializeObject<List<CreateUserProfileClaimDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (createUserProfileClaimDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
-            var response = await ((IUserProfileApi)this).CreateUserProfileClaim(userProfileId, createUserProfileClaimDtos);
-
+            var response = await ((IUserProfileApi)this).CreateUserProfileClaim(userProfileId, createUserProfileClaimDtos, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IUserProfileApi.CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto)
+        /// <summary>
+        /// Creates user profile claims for a specific user profile.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to add claims to.</param>
+        /// <param name="createUserProfileClaimDtos">The claim data to create.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the claims were created if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IUserProfileApi.CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
         {
-            var userProfileClaims = createUserProfileClaimDto.Select(upc => mapper.Map<UserProfileClaim>(upc)).ToList();
+            var userProfile = await context.UserProfiles
+                .Include(up => up.UserProfileClaims)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken);
 
-            await context.UserProfileClaims.AddRangeAsync(userProfileClaims);
-            await context.SaveChangesAsync();
+            if (userProfile == null)
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            foreach (var createUserProfileClaimDto in createUserProfileClaimDtos)
+            {
+                if (userProfile.UserProfileClaims.Any(upc => upc.ClaimType == createUserProfileClaimDto.ClaimType))
+                    continue;
+
+                var userProfileClaim = mapper.Map<UserProfileClaim>(createUserProfileClaimDto);
+                userProfileClaim.UserProfileId = userProfileId;
+                await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken);
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
-        [HttpPost]
-        [Route("user-profile/{userProfileId}/claims")]
-        public async Task<IActionResult> SetUserProfileClaims(Guid userProfileId)
+        /// <summary>
+        /// Sets (replaces) all user profile claims for a specific user profile.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to set claims for.</param>
+        /// <param name="createUserProfileClaimDtos">The claim data to set.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the claims were set; otherwise, a 404 Not Found response.</returns>
+        [HttpPut("user-profile/{userProfileId:guid}/claims")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SetUserProfileClaims(Guid userProfileId, [FromBody] List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-            List<CreateUserProfileClaimDto>? createUserProfileClaimDtos;
-            try
-            {
-                createUserProfileClaimDtos = JsonConvert.DeserializeObject<List<CreateUserProfileClaimDto>>(requestBody);
-            }
-            catch
-            {
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Could not deserialize request body" }).ToHttpResult();
-            }
-
-            if (createUserProfileClaimDtos == null)
-                return new ApiResponseDto(HttpStatusCode.BadRequest, new List<string> { "Request body was null" }).ToHttpResult();
-
-            var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos);
-
+            var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IUserProfileApi.SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto)
+        /// <summary>
+        /// Sets (replaces) all user profile claims for a specific user profile.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile to set claims for.</param>
+        /// <param name="createUserProfileClaimDtos">The claim data to set.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the claims were set if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IUserProfileApi.SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
         {
-            var userProfileClaims = createUserProfileClaimDto.Select(upc => mapper.Map<UserProfileClaim>(upc)).ToList();
+            var userProfile = await context.UserProfiles
+                .Include(up => up.UserProfileClaims)
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken);
 
-            await context.UserProfileClaims.Where(upc => upc.UserProfileId == userProfileId).ExecuteDeleteAsync();
-            await context.UserProfileClaims.AddRangeAsync(userProfileClaims);
-            await context.SaveChangesAsync();
+            if (userProfile == null)
+                return new ApiResult(HttpStatusCode.NotFound);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
+            // Remove existing claims
+            context.UserProfileClaims.RemoveRange(userProfile.UserProfileClaims);
+
+            // Add new claims
+            foreach (var createUserProfileClaimDto in createUserProfileClaimDtos)
+            {
+                var userProfileClaim = mapper.Map<UserProfileClaim>(createUserProfileClaimDto);
+                userProfileClaim.UserProfileId = userProfileId;
+                await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken);
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            return new ApiResponse().ToApiResult();
         }
 
-        [HttpDelete]
-        [Route("user-profile/{userProfileId}/claims/{userProfileClaimId}")]
-        public async Task<IActionResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId)
+        /// <summary>
+        /// Deletes a user profile claim by its unique identifier.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile.</param>
+        /// <param name="userProfileClaimId">The unique identifier of the user profile claim to delete.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the claim was deleted; otherwise, a 404 Not Found response.</returns>
+        [HttpDelete("user-profile/{userProfileId:guid}/claims/{userProfileClaimId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).DeleteUserProfileClaim(userProfileId, userProfileClaimId);
-
+            var response = await ((IUserProfileApi)this).DeleteUserProfileClaim(userProfileId, userProfileClaimId, cancellationToken);
             return response.ToHttpResult();
         }
 
-        async Task<ApiResponseDto> IUserProfileApi.DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId)
+        /// <summary>
+        /// Deletes a user profile claim by its unique identifier.
+        /// </summary>
+        /// <param name="userProfileId">The unique identifier of the user profile.</param>
+        /// <param name="userProfileClaimId">The unique identifier of the user profile claim to delete.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result indicating the claim was deleted if successful; otherwise, a 404 Not Found response.</returns>
+        async Task<ApiResult> IUserProfileApi.DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken)
         {
-            await context.UserProfileClaims.Where(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId).ExecuteDeleteAsync();
-            await context.SaveChangesAsync();
+            var userProfileClaim = await context.UserProfileClaims
+                .FirstOrDefaultAsync(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId, cancellationToken);
 
-            return new ApiResponseDto(HttpStatusCode.OK);
-        }
+            if (userProfileClaim == null)
+                return new ApiResult(HttpStatusCode.NotFound);
 
-        private IQueryable<UserProfile> ApplyFilter(IQueryable<UserProfile> query, string? filterString)
-        {
-            if (!string.IsNullOrEmpty(filterString))
-                query = query.Where(up => up.DisplayName.Contains(filterString) || up.Email.Contains(filterString)).AsQueryable();
+            context.UserProfileClaims.Remove(userProfileClaim);
+            await context.SaveChangesAsync(cancellationToken);
 
-            return query;
-        }
-
-        private IQueryable<UserProfile> ApplyOrderAndLimits(IQueryable<UserProfile> query, int skipEntries, int takeEntries, UserProfilesOrder? order)
-        {
-            if (order.HasValue)
-            {
-                switch (order)
-                {
-                    case UserProfilesOrder.DisplayNameAsc:
-                        query = query.OrderBy(up => up.DisplayName).AsQueryable();
-                        break;
-                    case UserProfilesOrder.DisplayNameDesc:
-                        query = query.OrderByDescending(up => up.DisplayName).AsQueryable();
-                        break;
-                }
-            }
-
-            query = query.Skip(skipEntries).AsQueryable();
-            query = query.Take(takeEntries).AsQueryable();
-
-            return query;
+            return new ApiResponse().ToApiResult();
         }
     }
 }
+

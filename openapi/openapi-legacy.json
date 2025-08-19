@@ -2358,17 +2358,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               }
             }
@@ -2385,17 +2385,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               }
             }
@@ -2412,17 +2412,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/ApiResult"
                 }
               }
             }
@@ -2928,7 +2928,7 @@
         },
         "additionalProperties": false
       },
-      "ApiResponseDto": {
+      "ApiResult": {
         "type": "object",
         "properties": {
           "statusCode": {
