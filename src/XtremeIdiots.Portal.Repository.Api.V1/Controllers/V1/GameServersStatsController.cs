@@ -1,7 +1,7 @@
 
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
+
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,14 +26,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class GameServersStatsController : ControllerBase, IGameServersStatsApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
+        
 
         public GameServersStatsController(
             PortalDbContext context,
-            IMapper mapper)
+            
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            
         }
 
         /// <summary>
@@ -74,7 +74,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
                 if (lastStat == null || lastStat.PlayerCount != createGameServerStatDto.PlayerCount || lastStat.MapName != createGameServerStatDto.MapName)
                 {
-                    var gameServerStat = mapper.Map<GameServerStat>(createGameServerStatDto);
+                    var gameServerStat = createGameServerStatDto.ToEntity();
                     gameServerStat.Timestamp = DateTime.UtcNow;
 
                     gameServerStats.Add(gameServerStat);
@@ -122,7 +122,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .OrderBy(gss => gss.Timestamp)
                 .ToListAsync(cancellationToken);
 
-            var entries = gameServerStats.Select(r => mapper.Map<GameServerStatDto>(r)).ToList();
+            var entries = gameServerStats.Select(r => r.ToDto()).ToList();
             var result = new CollectionModel<GameServerStatDto>(entries, gameServerStats.Count, gameServerStats.Count);
 
             return new ApiResponse<CollectionModel<GameServerStatDto>>(result).ToApiResult();

@@ -1,6 +1,6 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
+
 using Azure.Identity;
 using Azure.Storage.Blobs;
 
@@ -19,6 +19,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -29,16 +30,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class DemosController : ControllerBase, IDemosApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
+        
         private readonly IConfiguration configuration;
 
         public DemosController(
             PortalDbContext context,
-            IMapper mapper,
+            
             IConfiguration configuration)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         }
 
@@ -73,7 +74,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (demo == null)
                 return new ApiResult<DemoDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<DemoDto>(demo);
+            var result = demo.ToDto();
 
             return new ApiResponse<DemoDto>(result).ToApiResult();
         }
@@ -138,7 +139,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = results.Select(d => mapper.Map<DemoDto>(d)).ToList();
+            var entries = results.Select(d => d.ToDto()).ToList();
 
             var result = new CollectionModel<DemoDto>
             {
@@ -183,7 +184,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             context.Demos.Add(demo);
             await context.SaveChangesAsync(cancellationToken);
 
-            var result = mapper.Map<DemoDto>(demo);
+            var result = demo.ToDto();
 
             return new ApiResponse<DemoDto>(result).ToApiResult(HttpStatusCode.Created);
         }

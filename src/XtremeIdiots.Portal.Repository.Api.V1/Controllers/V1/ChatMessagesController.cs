@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +15,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -29,20 +29,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class ChatMessagesController : ControllerBase, IChatMessagesApi
 {
     private readonly PortalDbContext context;
-    private readonly IMapper mapper;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ChatMessagesController"/> class.
     /// </summary>
     /// <param name="context">The database context for accessing chat messages.</param>
-    /// <param name="mapper">The mapper for converting between entities and DTOs.</param>
-    /// <exception cref="ArgumentNullException">Thrown when any parameter is null.</exception>
-    public ChatMessagesController(
-        PortalDbContext context,
-        IMapper mapper)
+    /// <exception cref="ArgumentNullException">Thrown when context parameter is null.</exception>
+    public ChatMessagesController(PortalDbContext context)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
-        this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
     /// <summary>
@@ -78,7 +73,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         if (chatLog == null)
             return new ApiResult<ChatMessageDto>(HttpStatusCode.NotFound);
 
-        var result = mapper.Map<ChatMessageDto>(chatLog);
+        var result = chatLog.ToDto();
 
         return new ApiResponse<ChatMessageDto>(result).ToApiResult();
     }
@@ -146,7 +141,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
         var results = await orderedQuery.ToListAsync(cancellationToken);
 
-        var entries = results.Select(cm => mapper.Map<ChatMessageDto>(cm)).ToList();
+        var entries = results.Select(cm => cm.ToDto()).ToList();
 
         var data = new CollectionModel<ChatMessageDto>
         {
@@ -166,7 +161,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     /// <returns>An API result indicating the success of the operation.</returns>
     async Task<ApiResult> IChatMessagesApi.CreateChatMessage(CreateChatMessageDto createChatMessageDto, CancellationToken cancellationToken)
     {
-        var chatMessage = mapper.Map<ChatMessage>(createChatMessageDto);
+        var chatMessage = createChatMessageDto.ToEntity();
 
         context.ChatMessages.Add(chatMessage);
         await context.SaveChangesAsync(cancellationToken);
@@ -250,7 +245,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     /// <returns>An API result indicating the success of the operation.</returns>
     async Task<ApiResult> IChatMessagesApi.CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos, CancellationToken cancellationToken)
     {
-        var chatLogs = createChatMessageDtos.Select(cm => mapper.Map<ChatMessage>(cm)).ToList();
+        var chatLogs = createChatMessageDtos.Select(cm => cm.ToEntity()).ToList();
 
         context.ChatMessages.AddRange(chatLogs);
         await context.SaveChangesAsync(cancellationToken);

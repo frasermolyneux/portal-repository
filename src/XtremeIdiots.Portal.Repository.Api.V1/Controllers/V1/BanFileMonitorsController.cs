@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -27,20 +27,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class BanFileMonitorsController : ControllerBase, IBanFileMonitorsApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BanFileMonitorsController"/> class.
         /// </summary>
         /// <param name="context">The database context for data access.</param>
-        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
-        public BanFileMonitorsController(
-            PortalDbContext context,
-            IMapper mapper)
+        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+        public BanFileMonitorsController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -75,7 +70,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (banFileMonitor == null)
                 return new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<BanFileMonitorDto>(banFileMonitor);
+            var result = banFileMonitor.ToDto();
             return new ApiResponse<BanFileMonitorDto>(result).ToApiResult();
         }
 
@@ -149,7 +144,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = results.Select(bfm => mapper.Map<BanFileMonitorDto>(bfm)).ToList();
+            var entries = results.Select(bfm => bfm.ToDto()).ToList();
 
             var data = new CollectionModel<BanFileMonitorDto>
             {
@@ -184,7 +179,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the success or failure of the creation operation.</returns>
         async Task<ApiResult> IBanFileMonitorsApi.CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken)
         {
-            var banFileMonitor = mapper.Map<BanFileMonitor>(createBanFileMonitorDto);
+            var banFileMonitor = createBanFileMonitorDto.ToEntity();
             banFileMonitor.LastSync = DateTime.UtcNow.AddHours(-4);
 
             context.BanFileMonitors.Add(banFileMonitor);
@@ -227,7 +222,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (banFileMonitor == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            mapper.Map(editBanFileMonitorDto, banFileMonitor);
+            editBanFileMonitorDto.ApplyTo(banFileMonitor);
 
             await context.SaveChangesAsync(cancellationToken);
 
