@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +14,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -25,14 +25,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class UserProfileController : ControllerBase, IUserProfileApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
         public UserProfileController(
-            PortalDbContext context,
-            IMapper mapper)
+            PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -66,7 +63,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<UserProfileDto>(userProfile);
+            var result = userProfile.ToDto();
             return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
@@ -101,7 +98,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<UserProfileDto>(userProfile);
+            var result = userProfile.ToDto();
             return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
@@ -136,7 +133,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<UserProfileDto>(userProfile);
+            var result = userProfile.ToDto();
             return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
@@ -171,7 +168,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<UserProfileDto>(userProfile);
+            var result = userProfile.ToDto();
             return new ApiResponse<UserProfileDto>(result).ToApiResult();
         }
 
@@ -219,7 +216,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var items = results.Select(up => mapper.Map<UserProfileDto>(up)).ToList();
+            var items = results.Select(up => up.ToDto()).ToList();
 
             var result = new CollectionModel<UserProfileDto>
             {
@@ -285,7 +282,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
-            var userProfile = mapper.Map<UserProfile>(createUserProfileDto);
+            var userProfile = createUserProfileDto.ToEntity();
             await context.UserProfiles.AddAsync(userProfile, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
@@ -321,7 +318,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
                     return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
-                var userProfile = mapper.Map<UserProfile>(createUserProfileDto);
+                var userProfile = createUserProfileDto.ToEntity();
                 await context.UserProfiles.AddAsync(userProfile, cancellationToken);
             }
 
@@ -363,7 +360,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfile == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            mapper.Map(editUserProfileDto, userProfile);
+            editUserProfileDto.ApplyTo(userProfile);
             await context.SaveChangesAsync(cancellationToken);
 
             return new ApiResponse().ToApiResult();
@@ -401,7 +398,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 if (userProfile == null)
                     return new ApiResult(HttpStatusCode.NotFound);
 
-                mapper.Map(editUserProfileDto, userProfile);
+                editUserProfileDto.ApplyTo(userProfile);
             }
 
             await context.SaveChangesAsync(cancellationToken);
@@ -447,7 +444,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 if (userProfile.UserProfileClaims.Any(upc => upc.ClaimType == createUserProfileClaimDto.ClaimType))
                     continue;
 
-                var userProfileClaim = mapper.Map<UserProfileClaim>(createUserProfileClaimDto);
+                var userProfileClaim = createUserProfileClaimDto.ToEntity();
                 userProfileClaim.UserProfileId = userProfileId;
                 await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken);
             }
@@ -495,7 +492,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             // Add new claims
             foreach (var createUserProfileClaimDto in createUserProfileClaimDtos)
             {
-                var userProfileClaim = mapper.Map<UserProfileClaim>(createUserProfileClaimDto);
+                var userProfileClaim = createUserProfileClaimDto.ToEntity();
                 userProfileClaim.UserProfileId = userProfileId;
                 await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken);
             }

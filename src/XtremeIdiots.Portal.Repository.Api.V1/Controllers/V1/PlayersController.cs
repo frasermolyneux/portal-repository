@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +14,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
@@ -27,16 +27,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class PlayersController : ControllerBase, IPlayersApi
 {
     private readonly PortalDbContext context;
-    private readonly IMapper mapper;
     private readonly IMemoryCache _memoryCache;
 
     public PlayersController(
         PortalDbContext context,
-        IMapper mapper,
         IMemoryCache memoryCache)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
-        this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 

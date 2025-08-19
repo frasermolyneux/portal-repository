@@ -134,5 +134,43 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 IpAddress = entity.Address ?? string.Empty
             };
         }
+
+        /// <summary>
+        /// Maps a ProtectedName entity to a ProtectedNameDto.
+        /// </summary>
+        /// <param name="entity">The ProtectedName entity to map from.</param>
+        /// <returns>The mapped ProtectedNameDto.</returns>
+        public static ProtectedNameDto ToProtectedNameDto(this ProtectedName entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            return new ProtectedNameDto
+            {
+                ProtectedNameId = entity.ProtectedNameId,
+                PlayerId = entity.PlayerId ?? Guid.Empty,
+                Name = entity.Name ?? string.Empty,
+                CreatedOn = entity.CreatedOn,
+                CreatedByUserProfileId = entity.CreatedByUserProfileId ?? Guid.Empty
+                // Note: CreatedByUserProfile will be null to avoid circular dependency
+            };
+        }
+
+        /// <summary>
+        /// Maps a CreateProtectedNameDto to a ProtectedName entity.
+        /// </summary>
+        /// <param name="dto">The CreateProtectedNameDto to map from.</param>
+        /// <returns>The mapped ProtectedName entity.</returns>
+        public static ProtectedName ToEntity(this CreateProtectedNameDto dto)
+        {
+            ArgumentNullException.ThrowIfNull(dto);
+
+            return new ProtectedName
+            {
+                PlayerId = dto.PlayerId,
+                Name = dto.Name,
+                CreatedOn = DateTime.UtcNow
+                // Note: CreatedByUserProfileId will need to be set separately based on AdminId lookup
+            };
+        }
     }
 }

@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +10,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using Asp.Versioning;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
@@ -22,12 +22,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class AdminActionsController : ControllerBase, IAdminActionsApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
-        public AdminActionsController(PortalDbContext context, IMapper mapper)
+        public AdminActionsController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -60,7 +58,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (adminAction == null)
                 return new ApiResult<AdminActionDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<AdminActionDto>(adminAction);
+            var result = adminAction.ToDto();
             return new ApiResponse<AdminActionDto>(result).ToApiResult();
         }
 
@@ -131,7 +129,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var adminActions = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = adminActions.Select(aa => mapper.Map<AdminActionDto>(aa)).ToList();
+            var entries = adminActions.Select(aa => aa.ToDto()).ToList();
 
             var data = new CollectionModel<AdminActionDto>
             {
@@ -206,7 +204,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the admin action was created.</returns>
         async Task<ApiResult> IAdminActionsApi.CreateAdminAction(CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken)
         {
-            var adminAction = mapper.Map<AdminAction>(createAdminActionDto);
+            var adminAction = createAdminActionDto.ToEntity();
             context.AdminActions.Add(adminAction);
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
@@ -242,7 +240,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (adminAction == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            mapper.Map(editAdminActionDto, adminAction);
+            editAdminActionDto.ApplyTo(adminAction);
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult();
         }
