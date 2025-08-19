@@ -106,8 +106,6 @@ builder.Services.AddSwaggerGen(options =>
 // Configure Swagger options for versioning
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
