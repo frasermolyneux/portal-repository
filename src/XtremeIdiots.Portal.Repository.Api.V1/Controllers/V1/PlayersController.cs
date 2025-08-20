@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +14,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
@@ -27,16 +27,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class PlayersController : ControllerBase, IPlayersApi
 {
     private readonly PortalDbContext context;
-    private readonly IMapper mapper;
     private readonly IMemoryCache _memoryCache;
 
     public PlayersController(
         PortalDbContext context,
-        IMapper mapper,
         IMemoryCache memoryCache)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
-        this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
@@ -109,7 +106,23 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Where(pt => pt.PlayerId == player.PlayerId)
                 .ToListAsync();
 
-        var result = mapper.Map<PlayerDto>(player);
+        var result = player.ToDto();
+
+        // Populate navigation properties based on what was loaded
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases) && player.PlayerAliases != null)
+            result.PlayerAliases = player.PlayerAliases.Select(pa => pa.ToAliasDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses) && player.PlayerIpAddresses != null)
+            result.PlayerIpAddresses = player.PlayerIpAddresses.Select(pip => pip.ToIpAddressDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames) && player.ProtectedNames != null)
+            result.ProtectedNames = player.ProtectedNames.Select(pn => pn.ToProtectedNameDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags) && player.PlayerTags != null)
+            result.Tags = player.PlayerTags.Select(pt => pt.ToDto()).ToList();
+
+        // Note: AdminActions and Reports mappings are temporarily skipped to avoid circular dependencies
+        // TODO: Will need to implement these mappings separately
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.RelatedPlayers))
         {
@@ -119,12 +132,8 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
                 .ToListAsync();
 
-            result.RelatedPlayers = playerIpAddresses.Select(pip => mapper.Map<RelatedPlayerDto>(pip)).ToList();
+            result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
         }
-
-        // Map tags to DTO if requested
-        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
-            result.Tags = player.PlayerTags?.Select(mapper.Map<PlayerTagDto>).ToList() ?? new List<PlayerTagDto>();
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
     }
@@ -235,7 +244,23 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Where(pt => pt.PlayerId == player.PlayerId)
                 .ToListAsync();
 
-        var result = mapper.Map<PlayerDto>(player);
+        var result = player.ToDto();
+
+        // Populate navigation properties based on what was loaded
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases) && player.PlayerAliases != null)
+            result.PlayerAliases = player.PlayerAliases.Select(pa => pa.ToAliasDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses) && player.PlayerIpAddresses != null)
+            result.PlayerIpAddresses = player.PlayerIpAddresses.Select(pip => pip.ToIpAddressDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames) && player.ProtectedNames != null)
+            result.ProtectedNames = player.ProtectedNames.Select(pn => pn.ToProtectedNameDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags) && player.PlayerTags != null)
+            result.Tags = player.PlayerTags.Select(pt => pt.ToDto()).ToList();
+
+        // Note: AdminActions and Reports mappings are temporarily skipped to avoid circular dependencies
+        // TODO: Will need to implement these mappings separately
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.RelatedPlayers))
         {
@@ -245,12 +270,12 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
                 .ToListAsync();
 
-            result.RelatedPlayers = playerIpAddresses.Select(pip => mapper.Map<RelatedPlayerDto>(pip)).ToList();
+            result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
         }
 
-        // Map tags to DTO if requested
+        // Map tags to DTO if requested  
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
-            result.Tags = player.PlayerTags?.Select(mapper.Map<PlayerTagDto>).ToList() ?? new List<PlayerTagDto>();
+            result.Tags = player.PlayerTags?.Select(pt => pt.ToDto()).ToList() ?? new List<PlayerTagDto>();
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
     }
@@ -432,7 +457,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
 
         // Map to DTOs
-        var entries = results.Select(p => mapper.Map<PlayerDto>(p)).ToList();
+        var entries = results.Select(p => p.ToDto()).ToList();
 
         // Create the result collection
         var result = new CollectionModel<PlayerDto>(entries, totalCount, filteredCount);
@@ -472,7 +497,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
             return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
-        var player = mapper.Map<Player>(createPlayerDto);
+        var player = createPlayerDto.ToEntity();
         player.FirstSeen = DateTime.UtcNow;
         player.LastSeen = DateTime.UtcNow;
 
@@ -523,7 +548,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
-            var player = mapper.Map<Player>(createPlayerDto);
+            var player = createPlayerDto.ToEntity();
             player.FirstSeen = DateTime.UtcNow;
             player.LastSeen = DateTime.UtcNow;
 
@@ -798,7 +823,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var results = await query.ToListAsync();
 
-        var entries = results.Select(pn => mapper.Map<ProtectedNameDto>(pn)).ToList();
+        var entries = results.Select(pn => pn.ToProtectedNameDto()).ToList();
 
         var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
 
@@ -837,7 +862,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (protectedName == null)
             return new ApiResult<ProtectedNameDto>(HttpStatusCode.NotFound);
 
-        var result = mapper.Map<ProtectedNameDto>(protectedName);
+        var result = protectedName.ToProtectedNameDto();
 
         return new ApiResponse<ProtectedNameDto>(result).ToApiResult();
     }
@@ -878,7 +903,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var results = await query.OrderBy(pn => pn.Name).ToListAsync();
 
-        var entries = results.Select(pn => mapper.Map<ProtectedNameDto>(pn)).ToList();
+        var entries = results.Select(pn => pn.ToProtectedNameDto()).ToList();
 
         var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
 
@@ -1044,8 +1069,8 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var result = new ProtectedNameUsageReportDto
         {
-            ProtectedName = mapper.Map<ProtectedNameDto>(protectedName),
-            OwningPlayer = mapper.Map<PlayerDto>(owningPlayer),
+            ProtectedName = protectedName.ToProtectedNameDto(),
+            OwningPlayer = owningPlayer.ToDto(),
             UsageInstances = usageInstances
         };
 
@@ -1088,7 +1113,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             .Where(pt => pt.PlayerId == playerId)
             .ToListAsync();
 
-        var entries = playerTags.Select(mapper.Map<PlayerTagDto>).ToList();
+        var entries = playerTags.Select(pt => pt.ToDto()).ToList();
 
         var result = new CollectionModel<PlayerTagDto>(entries, entries.Count, entries.Count);
 
@@ -1149,7 +1174,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (exists)
             return new ApiResult(HttpStatusCode.Conflict);
 
-        var playerTag = mapper.Map<PlayerTag>(playerTagDto);
+        var playerTag = playerTagDto.ToEntity();
         playerTag.PlayerId = playerId;
         playerTag.Assigned = DateTime.UtcNow;
 
@@ -1229,7 +1254,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerTag == null)
             return new ApiResult<PlayerTagDto>(HttpStatusCode.NotFound);
 
-        var result = mapper.Map<PlayerTagDto>(playerTag);
+        var result = playerTag.ToDto();
         return new ApiResponse<PlayerTagDto>(result).ToApiResult();
     }
     /// <summary>
@@ -1353,7 +1378,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             players.ForEach(p => context.Entry(p).Collection(p => p.AdminActions).Load());
 
         // Map to DTOs
-        var playerDtos = mapper.Map<List<PlayerDto>>(players);
+        var playerDtos = players.Select(p => p.ToDto()).ToList();
 
         // Create result
         var result = new CollectionModel<PlayerDto>(playerDtos, totalCount, totalCount);
@@ -1432,7 +1457,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             .ToListAsync();
 
         // Map to DTOs
-        var dtos = items.Select(mapper.Map<IpAddressDto>).ToList();
+        var dtos = items.Select(item => item.ToIpAddressDto()).ToList();
 
         // Create and return the response
         var result = new CollectionModel<IpAddressDto>(dtos, totalCount, totalCount);
@@ -1499,7 +1524,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             .ToListAsync();
 
         // Map the aliases to DTOs
-        var aliasesDto = mapper.Map<List<PlayerAliasDto>>(aliases);
+        var aliasesDto = aliases.Select(a => a.ToPlayerAliasDto()).ToList();
 
         var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
 
@@ -1694,7 +1719,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             .ToListAsync();
 
         // Map the aliases to DTOs
-        var aliasesDto = mapper.Map<List<PlayerAliasDto>>(aliases);
+        var aliasesDto = aliases.Select(a => a.ToPlayerAliasDto()).ToList();
 
         var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
 

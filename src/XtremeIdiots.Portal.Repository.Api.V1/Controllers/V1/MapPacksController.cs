@@ -1,7 +1,6 @@
 using System.Linq;
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +11,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -22,14 +22,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class MapPacksController : ControllerBase, IMapPacksApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
-        public MapPacksController(
-            PortalDbContext context,
-            IMapper mapper)
+        public MapPacksController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -64,7 +60,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (mapPack == null)
                 return new ApiResult<MapPackDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<MapPackDto>(mapPack);
+            var result = mapPack.ToDto();
             return new ApiResponse<MapPackDto>(result).ToApiResult();
         }
 
@@ -145,7 +141,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(mp => mp.MapPackMaps)
                 .ToListAsync(cancellationToken);
 
-            var entries = results.Select(m => mapper.Map<MapPackDto>(m)).ToList();
+            var entries = results.Select(m => m.ToDto()).ToList();
 
             var data = new CollectionModel<MapPackDto>
             {
@@ -180,7 +176,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map pack was created.</returns>
         async Task<ApiResult> IMapPacksApi.CreateMapPack(CreateMapPackDto createMapPackDto, CancellationToken cancellationToken)
         {
-            var mapPack = mapper.Map<MapPack>(createMapPackDto);
+            var mapPack = createMapPackDto.ToEntity();
             context.MapPacks.Add(mapPack);
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
@@ -223,7 +219,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             foreach (var createMapPackDto in createMapPackDtos)
             {
-                var mapPack = mapper.Map<MapPack>(createMapPackDto);
+                var mapPack = createMapPackDto.ToEntity();
                 var maps = createMapPackDto.MapIds
                     .Where(id => mapLookup.ContainsKey(id))
                     .Select(id => mapLookup[id])
@@ -274,7 +270,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (mapPack == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            mapper.Map(updateMapPackDto, mapPack);
+            updateMapPackDto.ApplyTo(mapPack);
 
             if (updateMapPackDto.MapIds != null)
             {

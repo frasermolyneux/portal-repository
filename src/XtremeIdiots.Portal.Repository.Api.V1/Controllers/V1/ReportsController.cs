@@ -1,6 +1,6 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
+
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +14,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -27,20 +28,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class ReportsController : ControllerBase, IReportsApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
+        
 
         /// <summary>
         /// Initializes a new instance of the ReportsController.
         /// </summary>
         /// <param name="context">The portal database context.</param>
-        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
         public ReportsController(
-            PortalDbContext context,
-            IMapper mapper)
+            PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -76,7 +74,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (report == null)
                 return new ApiResult<ReportDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<ReportDto>(report);
+            var result = report.ToDto();
 
             return new ApiResponse<ReportDto>(result).ToApiResult();
         }
@@ -152,7 +150,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = results.Select(r => mapper.Map<ReportDto>(r)).ToList();
+            var entries = results.Select(r => r.ToDto()).ToList();
 
             var result = new CollectionModel<ReportDto>
             {
@@ -191,7 +189,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the reports were created.</returns>
         async Task<ApiResult> IReportsApi.CreateReports(List<CreateReportDto> createReportDtos, CancellationToken cancellationToken)
         {
-            var reports = createReportDtos.Select(r => mapper.Map<Report>(r)).ToList();
+            var reports = createReportDtos.Select(r => r.ToEntity()).ToList();
 
             foreach (var report in reports)
             {
@@ -254,7 +252,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfile == null)
                 return new ApiResult(HttpStatusCode.BadRequest);
 
-            mapper.Map(closeReportDto, report);
+            closeReportDto.ApplyTo(report);
 
             report.Closed = true;
             report.ClosedTimestamp = DateTime.UtcNow;

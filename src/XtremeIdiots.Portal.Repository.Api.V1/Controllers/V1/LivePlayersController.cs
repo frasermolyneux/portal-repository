@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +15,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -29,20 +29,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class LivePlayersController : ControllerBase, ILivePlayersApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
         /// <summary>
         /// Initializes a new instance of the LivePlayersController.
         /// </summary>
         /// <param name="context">The database context for portal operations.</param>
-        /// <param name="mapper">The AutoMapper instance for object mapping.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
-        public LivePlayersController(
-            PortalDbContext context,
-            IMapper mapper)
+        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+        public LivePlayersController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -101,7 +96,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
             var livePlayers = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = livePlayers.Select(lp => mapper.Map<LivePlayerDto>(lp)).ToList();
+            var entries = livePlayers.Select(lp => lp.ToDto()).ToList();
 
             var data = new CollectionModel<LivePlayerDto>
             {
@@ -157,7 +152,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}", cancellationToken);
 
-            var livePlayers = createLivePlayerDtos.Select(lp => mapper.Map<LivePlayer>(lp)).ToList();
+            var livePlayers = createLivePlayerDtos.Select(lp => lp.ToEntity()).ToList();
 
             await context.LivePlayers.AddRangeAsync(livePlayers, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);

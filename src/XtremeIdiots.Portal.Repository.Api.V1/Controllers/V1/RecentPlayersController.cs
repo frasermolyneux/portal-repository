@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RecentPlayers;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -24,14 +24,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class RecentPlayersController : ControllerBase, IRecentPlayersApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
-        public RecentPlayersController(
-            PortalDbContext context,
-            IMapper mapper)
+        public RecentPlayersController(PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -99,7 +95,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = results.Select(rp => mapper.Map<RecentPlayerDto>(rp)).ToList();
+            var entries = results.Select(rp => rp.ToDto()).ToList();
 
             var result = new CollectionModel<RecentPlayerDto>
             {
@@ -155,13 +151,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 if (existingPlayerDict.TryGetValue(createRecentPlayerDto.PlayerId, out var recentPlayer))
                 {
                     // Update existing player
-                    mapper.Map(createRecentPlayerDto, recentPlayer);
+                    createRecentPlayerDto.ApplyTo(recentPlayer);
                     recentPlayer.Timestamp = DateTime.UtcNow;
                 }
                 else
                 {
                     // Create new player
-                    recentPlayer = mapper.Map<RecentPlayer>(createRecentPlayerDto);
+                    recentPlayer = createRecentPlayerDto.ToEntity();
                     recentPlayer.Timestamp = DateTime.UtcNow;
                     context.RecentPlayers.Add(recentPlayer);
                 }

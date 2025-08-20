@@ -1,6 +1,6 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
+
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +16,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -26,14 +27,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class GameServersController : ControllerBase, IGameServersApi
 {
     private readonly PortalDbContext context;
-    private readonly IMapper mapper;
+    
 
     public GameServersController(
-        PortalDbContext context,
-        IMapper mapper)
+        PortalDbContext context)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
-        this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
     /// <summary>
@@ -69,7 +68,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         if (gameServer == null)
             return new ApiResult<GameServerDto>(HttpStatusCode.NotFound);
 
-        var result = mapper.Map<GameServerDto>(gameServer);
+        var result = gameServer.ToDto();
 
         return new ApiResponse<GameServerDto>(result).ToApiResult();
     }
@@ -145,7 +144,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
         var results = await orderedQuery.ToListAsync(cancellationToken);
 
-        var entries = results.Select(m => mapper.Map<GameServerDto>(m)).ToList();
+        var entries = results.Select(m => m.ToDto()).ToList();
         var result = new CollectionModel<GameServerDto>(entries, totalCount, filteredCount);
 
         return new ApiResponse<CollectionModel<GameServerDto>>(result).ToApiResult();
@@ -159,7 +158,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     /// <returns>A success response indicating the game server was created.</returns>
     async Task<ApiResult> IGameServersApi.CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken)
     {
-        var gameServer = mapper.Map<GameServer>(createGameServerDto);
+        var gameServer = createGameServerDto.ToEntity();
         context.GameServers.Add(gameServer);
         await context.SaveChangesAsync(cancellationToken);
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
@@ -203,7 +202,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     /// <returns>An API result indicating the game servers were created.</returns>
     async Task<ApiResult> IGameServersApi.CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken)
     {
-        var gameServers = createGameServerDtos.Select(gs => mapper.Map<GameServer>(gs)).ToList();
+        var gameServers = createGameServerDtos.Select(gs => gs.ToEntity()).ToList();
 
         await context.GameServers.AddRangeAsync(gameServers, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
@@ -260,7 +259,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         if (gameServer == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
-        mapper.Map(editGameServerDto, gameServer);
+        editGameServerDto.ApplyTo(gameServer);
         await context.SaveChangesAsync(cancellationToken);
         return new ApiResponse().ToApiResult();
     }

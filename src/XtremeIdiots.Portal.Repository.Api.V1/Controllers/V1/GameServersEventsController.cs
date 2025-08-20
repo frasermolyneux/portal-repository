@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +12,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -26,20 +26,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class GameServersEventsController : ControllerBase, IGameServersEventsApi
 {
     private readonly PortalDbContext context;
-    private readonly IMapper mapper;
 
     /// <summary>
     /// Initializes a new instance of the GameServersEventsController.
     /// </summary>
     /// <param name="context">The database context for portal operations.</param>
-    /// <param name="mapper">The AutoMapper instance for entity mapping.</param>
-    /// <exception cref="ArgumentNullException">Thrown when context or mapper is null.</exception>
-    public GameServersEventsController(
-        PortalDbContext context,
-        IMapper mapper)
+    /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+    public GameServersEventsController(PortalDbContext context)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
-        this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
     /// <summary>
@@ -65,7 +60,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <returns>An API result indicating the game server event was created.</returns>
     async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken)
     {
-        var gameServerEvent = mapper.Map<GameServerEvent>(createGameServerEventDto);
+        var gameServerEvent = createGameServerEventDto.ToEntity();
         gameServerEvent.Timestamp = DateTime.UtcNow;
 
         context.GameServerEvents.Add(gameServerEvent);
@@ -100,7 +95,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         var currentTimestamp = DateTime.UtcNow;
         var gameServerEvents = createGameServerEventDtos.Select(dto =>
         {
-            var gameServerEvent = mapper.Map<GameServerEvent>(dto);
+            var gameServerEvent = dto.ToEntity();
             gameServerEvent.Timestamp = currentTimestamp;
             return gameServerEvent;
         }).ToList();

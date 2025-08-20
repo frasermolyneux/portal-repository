@@ -1,6 +1,5 @@
 using System.Net;
 using Asp.Versioning;
-using AutoMapper;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 
@@ -18,6 +17,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -28,14 +28,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class MapsController : Controller, IMapsApi
     {
         private readonly PortalDbContext context;
-        private readonly IMapper mapper;
 
         public MapsController(
-            PortalDbContext context,
-            IMapper mapper)
+            PortalDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <summary>
@@ -87,7 +84,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (map == null)
                 return new ApiResult<MapDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<MapDto>(map);
+            var result = map.ToDto();
 
             return new ApiResponse<MapDto>(result).ToApiResult();
         }
@@ -109,7 +106,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (map == null)
                 return new ApiResult<MapDto>(HttpStatusCode.NotFound);
 
-            var result = mapper.Map<MapDto>(map);
+            var result = map.ToDto();
 
             return new ApiResponse<MapDto>(result).ToApiResult();
         }
@@ -175,7 +172,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var entries = results.Select(m => mapper.Map<MapDto>(m)).ToList();
+            var entries = results.Select(m => m.ToDto()).ToList();
 
             var result = new CollectionModel<MapDto>(entries, totalCount, filteredCount);
 
@@ -212,7 +209,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return response.ToApiResult(HttpStatusCode.Conflict);
             }
 
-            var map = mapper.Map<Map>(createMapDto);
+            var map = createMapDto.ToEntity();
             await context.Maps.AddAsync(map, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
 
@@ -270,7 +267,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     return response.ToApiResult(HttpStatusCode.Conflict);
                 }
 
-                var map = mapper.Map<Map>(createMapDto);
+                var map = createMapDto.ToEntity();
                 await context.Maps.AddAsync(map, cancellationToken);
             }
 
@@ -307,7 +304,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (map == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            mapper.Map(editMapDto, map);
+            editMapDto.ApplyTo(map);
             await context.SaveChangesAsync(cancellationToken);
 
             return new ApiResponse().ToApiResult();
@@ -362,7 +359,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 if (map == null)
                     return new ApiResult(HttpStatusCode.NotFound);
 
-                mapper.Map(editMapDto, map);
+                editMapDto.ApplyTo(map);
             }
 
             await context.SaveChangesAsync(cancellationToken);
@@ -481,8 +478,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (mapVote == null)
             {
-                var newMapVote = mapper.Map<MapVote>(upsertMapVoteDto);
-                newMapVote.Timestamp = DateTime.UtcNow;
+                var newMapVote = upsertMapVoteDto.ToEntity();
 
                 context.MapVotes.Add(newMapVote);
             }
@@ -559,8 +555,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
                 if (mapVote == null)
                 {
-                    var newMapVote = mapper.Map<MapVote>(upsertMapVote);
-                    newMapVote.Timestamp = DateTime.UtcNow;
+                    var newMapVote = upsertMapVote.ToEntity();
 
                     context.MapVotes.Add(newMapVote);
                 }
@@ -668,8 +663,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (filterString is not null && filterString.Length > 0)
             {
-                string searchString = filterString;
-                query = query.Where(m => m.MapName.Contains(searchString!));
+                query = query.Where(m => m.MapName.Contains(filterString));
             }
 
             query = filter switch
