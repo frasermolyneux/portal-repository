@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
@@ -45,7 +45,7 @@ jobs:
     needs: [dotnet-web-ci-v1, dotnet-web-ci-v2]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: frasermolyneux/actions/publish-nuget-packages@main
       with:
@@ -66,7 +66,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
@@ -119,7 +119,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
@@ -141,7 +141,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: frasermolyneux/actions/deploy-app-service@main
       with:
@@ -161,7 +161,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: frasermolyneux/actions/deploy-app-service@main
       with:
