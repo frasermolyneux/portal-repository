@@ -6,7 +6,7 @@
     "version": "1.0"
   },
   "paths": {
-    "/api/v1/admin-actions/{adminActionId}": {
+    "/admin-actions/{adminActionId}": {
       "get": {
         "tags": [
           "AdminActions"
@@ -107,7 +107,7 @@
         }
       }
     },
-    "/api/v1/admin-actions": {
+    "/admin-actions": {
       "get": {
         "tags": [
           "AdminActions"
@@ -320,7 +320,7 @@
         }
       }
     },
-    "/api/v1/ban-file-monitors/{banFileMonitorId}": {
+    "/ban-file-monitors/{banFileMonitorId}": {
       "get": {
         "tags": [
           "BanFileMonitors"
@@ -506,7 +506,7 @@
         }
       }
     },
-    "/api/v1/ban-file-monitors": {
+    "/ban-file-monitors": {
       "get": {
         "tags": [
           "BanFileMonitors"
@@ -638,7 +638,7 @@
         }
       }
     },
-    "/api/v1/chat-messages/{chatMessageId}": {
+    "/chat-messages/{chatMessageId}": {
       "get": {
         "tags": [
           "ChatMessages"
@@ -698,7 +698,7 @@
         }
       }
     },
-    "/api/v1/chat-messages": {
+    "/chat-messages": {
       "get": {
         "tags": [
           "ChatMessages"
@@ -821,7 +821,7 @@
         }
       }
     },
-    "/api/v1/chat-messages/{chatMessageId}/toggle-lock": {
+    "/chat-messages/{chatMessageId}/toggle-lock": {
       "post": {
         "tags": [
           "ChatMessages"
@@ -864,7 +864,7 @@
         }
       }
     },
-    "/api/v1/data-maintenance/prune-chat-messages": {
+    "/data-maintenance/prune-chat-messages": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -876,7 +876,7 @@
         }
       }
     },
-    "/api/v1/data-maintenance/prune-game-server-events": {
+    "/data-maintenance/prune-game-server-events": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -888,7 +888,7 @@
         }
       }
     },
-    "/api/v1/data-maintenance/prune-game-server-stats": {
+    "/data-maintenance/prune-game-server-stats": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -900,7 +900,7 @@
         }
       }
     },
-    "/api/v1/data-maintenance/prune-recent-players": {
+    "/data-maintenance/prune-recent-players": {
       "delete": {
         "tags": [
           "DataMaintenance"
@@ -912,7 +912,7 @@
         }
       }
     },
-    "/api/v1/data-maintenance/reset-system-assigned-player-tags": {
+    "/data-maintenance/reset-system-assigned-player-tags": {
       "put": {
         "tags": [
           "DataMaintenance"
@@ -927,7 +927,7 @@
         }
       }
     },
-    "/api/v1/demos/{demoId}": {
+    "/demos/{demoId}": {
       "get": {
         "tags": [
           "Demos"
@@ -1028,7 +1028,7 @@
         }
       }
     },
-    "/api/v1/demos": {
+    "/demos": {
       "get": {
         "tags": [
           "Demos"
@@ -1176,7 +1176,7 @@
         }
       }
     },
-    "/api/v1/demos/{demoId}/file": {
+    "/demos/{demoId}/file": {
       "post": {
         "tags": [
           "Demos"
@@ -1239,7 +1239,7 @@
         }
       }
     },
-    "/api/v1/game-servers/{gameServerId}": {
+    "/game-servers/{gameServerId}": {
       "get": {
         "tags": [
           "GameServers"
@@ -1401,7 +1401,7 @@
         }
       }
     },
-    "/api/v1/game-servers": {
+    "/game-servers": {
       "get": {
         "tags": [
           "GameServers"
@@ -1508,7 +1508,7 @@
         }
       }
     },
-    "/api/v1/game-server-events/single": {
+    "/game-server-events/single": {
       "post": {
         "tags": [
           "GameServersEvents"
@@ -1564,7 +1564,7 @@
         }
       }
     },
-    "/api/v1/game-server-events": {
+    "/game-server-events": {
       "post": {
         "tags": [
           "GameServersEvents"
@@ -1632,7 +1632,7 @@
         }
       }
     },
-    "/api/v1/game-servers/{gameServerId}/secret/{secretId}": {
+    "/game-servers/{gameServerId}/secret/{secretId}": {
       "get": {
         "tags": [
           "GameServersSecrets"
@@ -1806,7 +1806,7 @@
         }
       }
     },
-    "/api/v1/game-servers-stats": {
+    "/game-servers-stats": {
       "post": {
         "tags": [
           "GameServersStats"
@@ -1874,7 +1874,7 @@
         }
       }
     },
-    "/api/v1/game-servers-stats/{gameServerId}": {
+    "/game-servers-stats/{gameServerId}": {
       "get": {
         "tags": [
           "GameServersStats"
@@ -1922,7 +1922,7 @@
         }
       }
     },
-    "/api/v1/gametracker/{ipAddress}:{queryPort}/{imageName}": {
+    "/gametracker/{ipAddress}:{queryPort}/{imageName}": {
       "get": {
         "tags": [
           "GameTrackerBanner"
@@ -2001,7 +2001,7 @@
         }
       }
     },
-    "/api/v1/live-players": {
+    "/live-players": {
       "get": {
         "tags": [
           "LivePlayers"
@@ -2099,7 +2099,7 @@
         }
       }
     },
-    "/api/v1/live-players/{gameServerId}": {
+    "/live-players/{gameServerId}": {
       "post": {
         "tags": [
           "LivePlayers"
@@ -2162,7 +2162,7 @@
         }
       }
     },
-    "/api/v1/maps/pack/{mapPackId}": {
+    "/maps/pack/{mapPackId}": {
       "get": {
         "tags": [
           "MapPacks"
@@ -2348,7 +2348,7 @@
         }
       }
     },
-    "/api/v1/maps/pack": {
+    "/maps/pack": {
       "get": {
         "tags": [
           "MapPacks"
@@ -2491,7 +2491,7 @@
         }
       }
     },
-    "/api/v1/maps/pack-single": {
+    "/maps/pack-single": {
       "post": {
         "tags": [
           "MapPacks"
@@ -2547,7 +2547,7 @@
         }
       }
     },
-    "/api/v1/maps/{mapId}": {
+    "/maps/{mapId}": {
       "get": {
         "tags": [
           "Maps"
@@ -2648,7 +2648,7 @@
         }
       }
     },
-    "/api/v1/maps/{gameType}/{mapName}": {
+    "/maps/{gameType}/{mapName}": {
       "get": {
         "tags": [
           "Maps"
@@ -2715,7 +2715,7 @@
         }
       }
     },
-    "/api/v1/maps": {
+    "/maps": {
       "get": {
         "tags": [
           "Maps"
@@ -2897,7 +2897,7 @@
         }
       }
     },
-    "/api/v1/map": {
+    "/map": {
       "post": {
         "tags": [
           "Maps"
@@ -3047,7 +3047,7 @@
         }
       }
     },
-    "/api/v1/maps/popularity": {
+    "/maps/popularity": {
       "post": {
         "tags": [
           "Maps"
@@ -3059,7 +3059,7 @@
         }
       }
     },
-    "/api/v1/maps/vote": {
+    "/maps/vote": {
       "post": {
         "tags": [
           "Maps"
@@ -3115,7 +3115,7 @@
         }
       }
     },
-    "/api/v1/maps/votes": {
+    "/maps/votes": {
       "post": {
         "tags": [
           "Maps"
@@ -3147,7 +3147,7 @@
         }
       }
     },
-    "/api/v1/maps/{mapId}/image": {
+    "/maps/{mapId}/image": {
       "post": {
         "tags": [
           "Maps"
@@ -3213,7 +3213,7 @@
         }
       }
     },
-    "/api/v1/player-analytics/cumulative-daily-players": {
+    "/player-analytics/cumulative-daily-players": {
       "get": {
         "tags": [
           "PlayerAnalytics"
@@ -3272,7 +3272,7 @@
         }
       }
     },
-    "/api/v1/player-analytics/new-daily-players-per-game": {
+    "/player-analytics/new-daily-players-per-game": {
       "get": {
         "tags": [
           "PlayerAnalytics"
@@ -3331,7 +3331,7 @@
         }
       }
     },
-    "/api/v1/player-analytics/players-drop-off-per-game": {
+    "/player-analytics/players-drop-off-per-game": {
       "get": {
         "tags": [
           "PlayerAnalytics"
@@ -3390,7 +3390,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}": {
+    "/players/{playerId}": {
       "get": {
         "tags": [
           "Players"
@@ -3542,7 +3542,7 @@
         }
       }
     },
-    "/api/v1/players/by-game-type/{gameType}/{guid}": {
+    "/players/by-game-type/{gameType}/{guid}": {
       "head": {
         "tags": [
           "Players"
@@ -3664,7 +3664,7 @@
         }
       }
     },
-    "/api/v1/players": {
+    "/players": {
       "get": {
         "tags": [
           "Players"
@@ -3832,7 +3832,7 @@
         }
       }
     },
-    "/api/v1/players/protected-names": {
+    "/players/protected-names": {
       "get": {
         "tags": [
           "Players"
@@ -3973,7 +3973,7 @@
         }
       }
     },
-    "/api/v1/players/protected-names/{protectedNameId}": {
+    "/players/protected-names/{protectedNameId}": {
       "get": {
         "tags": [
           "Players"
@@ -4074,7 +4074,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}/protected-names": {
+    "/players/{playerId}/protected-names": {
       "get": {
         "tags": [
           "Players"
@@ -4134,7 +4134,7 @@
         }
       }
     },
-    "/api/v1/players/protected-names/{protectedNameId}/usage-report": {
+    "/players/protected-names/{protectedNameId}/usage-report": {
       "get": {
         "tags": [
           "Players"
@@ -4194,7 +4194,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}/tags": {
+    "/players/{playerId}/tags": {
       "get": {
         "tags": [
           "Players"
@@ -4359,7 +4359,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}/tags/{playerTagId}": {
+    "/players/{playerId}/tags/{playerTagId}": {
       "delete": {
         "tags": [
           "Players"
@@ -4411,7 +4411,7 @@
         }
       }
     },
-    "/api/v1/players/tags/{playerTagId}": {
+    "/players/tags/{playerTagId}": {
       "get": {
         "tags": [
           "Players"
@@ -4512,7 +4512,7 @@
         }
       }
     },
-    "/api/v1/players/with-ip-address/{ipAddress}": {
+    "/players/with-ip-address/{ipAddress}": {
       "get": {
         "tags": [
           "Players"
@@ -4601,7 +4601,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}/ip-addresses": {
+    "/players/{playerId}/ip-addresses": {
       "get": {
         "tags": [
           "Players"
@@ -4684,7 +4684,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}/aliases": {
+    "/players/{playerId}/aliases": {
       "get": {
         "tags": [
           "Players"
@@ -4825,7 +4825,7 @@
         }
       }
     },
-    "/api/v1/players/{playerId}/aliases/{aliasId}": {
+    "/players/{playerId}/aliases/{aliasId}": {
       "put": {
         "tags": [
           "Players"
@@ -4951,7 +4951,7 @@
         }
       }
     },
-    "/api/v1/aliases/search": {
+    "/aliases/search": {
       "get": {
         "tags": [
           "Players"
@@ -5025,7 +5025,7 @@
         }
       }
     },
-    "/api/v1/recent-players": {
+    "/recent-players": {
       "get": {
         "tags": [
           "RecentPlayers"
@@ -5175,7 +5175,7 @@
         }
       }
     },
-    "/api/v1/reports/{reportId}": {
+    "/reports/{reportId}": {
       "get": {
         "tags": [
           "Reports"
@@ -5235,7 +5235,7 @@
         }
       }
     },
-    "/api/v1/reports": {
+    "/reports": {
       "get": {
         "tags": [
           "Reports"
@@ -5387,7 +5387,7 @@
         }
       }
     },
-    "/api/v1/reports/{reportId}/close": {
+    "/reports/{reportId}/close": {
       "patch": {
         "tags": [
           "Reports"
@@ -5474,7 +5474,7 @@
         }
       }
     },
-    "/api/v1": {
+    "/": {
       "head": {
         "tags": [
           "RootApi"
@@ -5557,7 +5557,7 @@
         }
       }
     },
-    "/api/v1/tags": {
+    "/tags": {
       "get": {
         "tags": [
           "Tags"
@@ -5734,7 +5734,7 @@
         }
       }
     },
-    "/api/v1/tags/{tagId}": {
+    "/tags/{tagId}": {
       "get": {
         "tags": [
           "Tags"
@@ -5835,7 +5835,7 @@
         }
       }
     },
-    "/api/v1/user-profile/{userProfileId}": {
+    "/user-profile/{userProfileId}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -5980,7 +5980,7 @@
         }
       }
     },
-    "/api/v1/user-profile/by-identity-id/{identityId}": {
+    "/user-profile/by-identity-id/{identityId}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -6039,7 +6039,7 @@
         }
       }
     },
-    "/api/v1/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
+    "/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -6098,7 +6098,7 @@
         }
       }
     },
-    "/api/v1/user-profile/by-demo-auth-key/{demoAuthKey}": {
+    "/user-profile/by-demo-auth-key/{demoAuthKey}": {
       "get": {
         "tags": [
           "UserProfile"
@@ -6157,7 +6157,7 @@
         }
       }
     },
-    "/api/v1/user-profiles": {
+    "/user-profiles": {
       "get": {
         "tags": [
           "UserProfile"
@@ -6392,7 +6392,7 @@
         }
       }
     },
-    "/api/v1/user-profile": {
+    "/user-profile": {
       "post": {
         "tags": [
           "UserProfile"
@@ -6468,7 +6468,7 @@
         }
       }
     },
-    "/api/v1/user-profile/{userProfileId}/claims": {
+    "/user-profile/{userProfileId}/claims": {
       "post": {
         "tags": [
           "UserProfile"
@@ -6664,7 +6664,7 @@
         }
       }
     },
-    "/api/v1/user-profile/{userProfileId}/claims/{userProfileClaimId}": {
+    "/user-profile/{userProfileId}/claims/{userProfileClaimId}": {
       "delete": {
         "tags": [
           "UserProfile"
