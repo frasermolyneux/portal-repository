@@ -297,13 +297,17 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
         var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
 
-        // Step 1: Remove any blobs (including orphans) that match the target MD5 hash
-        var targetHash = Convert.FromBase64String("aJ39V4B09SgLKGEgsVkteA==");
+        // Step 1: Remove any blobs (including orphans) that match any target MD5 hash
+        var targetHashes = new[]
+        {
+            Convert.FromBase64String("aJ39V4B09SgLKGEgsVkteA=="),
+            Convert.FromBase64String("MRMoR2jCIgtFK2zpmGOPRQ==")
+        };
         var removedHashMatches = 0;
         await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken))
         {
             var contentHash = blobItem.Properties.ContentHash;
-            if (contentHash != null && contentHash.SequenceEqual(targetHash))
+            if (contentHash != null && targetHashes.Any(th => contentHash.SequenceEqual(th)))
             {
                 await containerClient.DeleteBlobIfExistsAsync(blobItem.Name, cancellationToken: cancellationToken);
                 removedHashMatches++;
