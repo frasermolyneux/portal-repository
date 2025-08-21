@@ -58,7 +58,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="mapName">The name of the map to retrieve.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>The map details if found; otherwise, a 404 Not Found response.</returns>
-        [HttpGet("maps/{gameType:int}/{mapName}")]
+        [HttpGet("maps/{gameType:string}/{mapName}")]
         [ProducesResponseType<MapDto>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default)
