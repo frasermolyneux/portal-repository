@@ -27,7 +27,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
     <PackageReference Include="System.ComponentModel.TypeConverter" Version="4.3.0" />
-    <PackageReference Include="XtremeIdiots.CallOfDuty.DemoReader" Version="1.1.46.1" />
+    <PackageReference Include="XtremeIdiots.CallOfDuty.DemoReader" Version="1.1.47.1" />
   </ItemGroup>
 
   <ItemGroup>
