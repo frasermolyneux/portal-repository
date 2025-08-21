@@ -24,5 +24,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult> UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken = default);
 
         Task<ApiResult> UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken = default);
+        Task<ApiResult> ClearMapImage(Guid mapId, CancellationToken cancellationToken = default);
     }
 }

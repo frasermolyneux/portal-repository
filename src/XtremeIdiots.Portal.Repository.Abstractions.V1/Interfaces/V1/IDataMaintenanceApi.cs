@@ -9,4 +9,5 @@ public interface IDataMaintenanceApi
     Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneRecentPlayers(CancellationToken cancellationToken = default);
     Task<ApiResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default);
+    Task<ApiResult> ValidateMapImages(CancellationToken cancellationToken = default);
 }

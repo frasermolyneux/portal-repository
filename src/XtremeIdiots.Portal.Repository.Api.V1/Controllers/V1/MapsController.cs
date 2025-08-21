@@ -6,6 +6,7 @@ using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -28,11 +29,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class MapsController : Controller, IMapsApi
     {
         private readonly PortalDbContext context;
+        private readonly ILogger<MapsController> logger;
 
         public MapsController(
-            PortalDbContext context)
+            PortalDbContext context,
+            ILogger<MapsController> logger)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
@@ -645,6 +649,66 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
+        /// Clears (deletes) the current map image if present from blob storage and updates the map entity.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map whose image will be cleared.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A success response if the map image was cleared (or did not exist); otherwise, appropriate error responses.</returns>
+        [HttpDelete("maps/{mapId:guid}/image")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ClearMapImage(Guid mapId, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IMapsApi)this).ClearMapImage(mapId, cancellationToken);
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Clears (deletes) the current map image if present from blob storage and updates the map entity.
+        /// </summary>
+        /// <param name="mapId">The unique identifier of the map whose image will be cleared.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>An ApiResult indicating success or failure.</returns>
+        async Task<ApiResult> IMapsApi.ClearMapImage(Guid mapId, CancellationToken cancellationToken)
+        {
+            var map = await context.Maps
+                .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken);
+
+            if (map == null)
+                return new ApiResult(HttpStatusCode.NotFound);
+
+            var blobEndpoint = Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint");
+            if (string.IsNullOrEmpty(blobEndpoint))
+                return new ApiResult(HttpStatusCode.InternalServerError);
+
+            try
+            {
+                var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
+                var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
+
+                // Determine blob name (same pattern used when uploading)
+                var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg";
+                var blobClient = containerClient.GetBlobClient(blobKey);
+
+                if (await blobClient.ExistsAsync(cancellationToken))
+                {
+                    await blobClient.DeleteAsync(cancellationToken: cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log but swallow storage exceptions so DB reference can still be cleared
+                logger.LogWarning(ex, "Failed to delete map image blob for MapId {MapId} while clearing image.", mapId);
+            }
+
+            map.MapImageUri = null;
+            await context.SaveChangesAsync(cancellationToken);
+
+            return new ApiResponse().ToApiResult();
+        }
+
+        /// <summary>
         /// Applies filtering criteria to the map query.
         /// </summary>
         /// <param name="query">The base query to filter.</param>
@@ -663,7 +727,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (filterString is not null && filterString.Length > 0)
             {
-                query = query.Where(m => m.MapName.Contains(filterString));
+                query = query.Where(m => m.MapName != null && m.MapName.Contains(filterString));
             }
 
             query = filter switch

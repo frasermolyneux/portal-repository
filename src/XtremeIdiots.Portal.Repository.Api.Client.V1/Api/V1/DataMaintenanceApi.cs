@@ -54,6 +54,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
             return response.ToApiResult();
         }
+
+        public async Task<ApiResult> ValidateMapImages(CancellationToken cancellationToken = default)
+        {
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/validate-map-images", Method.Put), cancellationToken);
+
+            return response.ToApiResult();
+        }
     }
 }
 

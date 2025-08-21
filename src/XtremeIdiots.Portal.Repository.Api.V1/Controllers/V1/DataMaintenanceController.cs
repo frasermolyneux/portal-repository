@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -10,6 +13,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using Asp.Versioning;
+using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -261,6 +265,71 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }
 
         await context.SaveChangesAsync(cancellationToken);
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
+    /// Validates map images: for each map with a stored image URI, checks if the backing blob exists; if missing, clears the URI.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response after validation completes.</returns>
+    [HttpPut("data-maintenance/validate-map-images")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ValidateMapImages(CancellationToken cancellationToken = default)
+    {
+        var response = await ((IDataMaintenanceApi)this).ValidateMapImages(cancellationToken);
+        return response.ToHttpResult();
+    }
+
+    /// <summary>
+    /// Validates map images: for each map with a stored image URI, checks if the backing blob exists; if missing, clears the URI.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>An API result indicating completion.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.ValidateMapImages(CancellationToken cancellationToken)
+    {
+        var blobEndpoint = Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint");
+        if (string.IsNullOrEmpty(blobEndpoint))
+            return new ApiResult(HttpStatusCode.InternalServerError);
+
+        var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
+        var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
+
+        // Step 1: Remove any blobs (including orphans) that match the target MD5 hash
+        var targetHash = Convert.FromBase64String("aJ39V4B09SgLKGEgsVkteA==");
+        var removedHashMatches = 0;
+        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken))
+        {
+            var contentHash = blobItem.Properties.ContentHash;
+            if (contentHash != null && contentHash.SequenceEqual(targetHash))
+            {
+                await containerClient.DeleteBlobIfExistsAsync(blobItem.Name, cancellationToken: cancellationToken);
+                removedHashMatches++;
+            }
+        }
+
+        // Step 2: Validate DB-referenced images; clear MapImageUri if blob missing
+        var mapsWithImages = await context.Maps
+            .Where(m => m.MapImageUri != null)
+            .ToListAsync(cancellationToken);
+
+        var cleared = 0;
+        foreach (var map in mapsWithImages)
+        {
+            var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg";
+            var blobClient = containerClient.GetBlobClient(blobKey);
+            var exists = await blobClient.ExistsAsync(cancellationToken);
+            if (!exists.Value)
+            {
+                map.MapImageUri = null;
+                cleared++;
+            }
+        }
+
+        if (cleared > 0)
+            await context.SaveChangesAsync(cancellationToken);
 
         return new ApiResponse().ToApiResult();
     }

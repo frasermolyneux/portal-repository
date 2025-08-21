@@ -151,6 +151,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
             return response.ToApiResult();
         }
+
+        public async Task<ApiResult> ClearMapImage(Guid mapId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/maps/{mapId}/image", Method.Delete);
+            var response = await ExecuteAsync(request, cancellationToken);
+
+            return response.ToApiResult();
+        }
     }
 }
 
