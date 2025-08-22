@@ -2,6 +2,7 @@ using System.Net;
 using Asp.Versioning;
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -632,14 +633,32 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
 
-            var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg";
+            var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg"; // Stored as .jpg regardless of original extension
             var blobClient = containerClient.GetBlobClient(blobKey);
             if (await blobClient.ExistsAsync(cancellationToken))
             {
                 await blobClient.DeleteAsync(cancellationToken: cancellationToken);
             }
 
-            await blobClient.UploadAsync(filePath, cancellationToken);
+            // Determine content type (default to jpeg as we enforce .jpg suffix)
+            var contentType = GetContentTypeFromExtension(Path.GetExtension(filePath));
+
+            await using var fileStream = System.IO.File.OpenRead(filePath);
+            var uploadOptions = new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = contentType
+                },
+                Metadata = new Dictionary<string, string>
+                {
+                    ["mapId"] = map.MapId.ToString(),
+                    ["gameType"] = map.GameType.ToString(),
+                    ["mapName"] = map.MapName ?? string.Empty
+                }
+            };
+
+            await blobClient.UploadAsync(fileStream, uploadOptions, cancellationToken);
 
             map.MapImageUri = blobClient.Uri.ToString();
 
@@ -761,6 +780,28 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             };
 
             return orderedQuery.Skip(skipEntries).Take(takeEntries);
+        }
+
+        /// <summary>
+        /// Attempts to infer the MIME content type from a file extension.
+        /// Falls back to image/jpeg (expected type) then application/octet-stream.
+        /// </summary>
+        /// <param name="extension">File extension including leading dot.</param>
+        /// <returns>Resolved MIME type string.</returns>
+        private static string GetContentTypeFromExtension(string? extension)
+        {
+            if (string.IsNullOrWhiteSpace(extension))
+                return "image/jpeg"; // default expected type
+
+            return extension.ToLowerInvariant() switch
+            {
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream"
+            };
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Net;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using System.Text;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -335,6 +336,130 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         if (cleared > 0)
             await context.SaveChangesAsync(cancellationToken);
 
+        // Step 3: Normalize blobs with incorrect content-type (application/octet-stream) and missing metadata
+        //   - If blob content appears to be HTML, delete it and clear any matching map reference
+        //   - Else, set proper image content type and metadata (mapId, gameType, mapName) if resolvable
+        var updatedMaps = 0;
+        var normalizedBlobs = 0;
+        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken))
+        {
+            if (!string.Equals(blobItem.Properties.ContentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+                continue; // only process unknown content types
+
+            var blobClient = containerClient.GetBlobClient(blobItem.Name);
+
+            // Download a small portion to inspect content (first 1KB)
+            try
+            {
+                var download = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+                using var mem = new MemoryStream();
+                await download.Value.Content.CopyToAsync(mem, 1024, cancellationToken);
+                var bytes = mem.ToArray();
+                var head = Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 512));
+                var looksHtml = head.TrimStart().StartsWith("<") && head.IndexOf("<html", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (looksHtml)
+                {
+                    // Delete blob and clear any map referencing it
+                    await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+
+                    // Attempt to parse map filename to clear DB reference (pattern: GameType_MapName.jpg)
+                    if (TryParseBlobName(blobItem.Name, out var gameTypeInt, out var mapName))
+                    {
+                        var mapsToClear = await context.Maps
+                            .Where(m => m.GameType == gameTypeInt && m.MapName == mapName && m.MapImageUri != null)
+                            .ToListAsync(cancellationToken);
+                        foreach (var m in mapsToClear)
+                        {
+                            m.MapImageUri = null;
+                            updatedMaps++;
+                        }
+                    }
+                    continue;
+                }
+
+                // Not HTML; treat as image and normalize headers/metadata
+                string contentType = GetContentTypeFromExtension(Path.GetExtension(blobItem.Name));
+
+                // Attempt to resolve map for metadata
+                Dictionary<string, string>? metadata = null;
+                if (TryParseBlobName(blobItem.Name, out var gti, out var mName))
+                {
+                    var mapEntity = await context.Maps.FirstOrDefaultAsync(m => m.GameType == gti && m.MapName == mName, cancellationToken);
+                    if (mapEntity != null)
+                    {
+                        metadata = new Dictionary<string, string>
+                        {
+                            ["mapId"] = mapEntity.MapId.ToString(),
+                            ["gameType"] = mapEntity.GameType.ToString(),
+                            ["mapName"] = mapEntity.MapName ?? string.Empty
+                        };
+
+                        // Ensure DB MapImageUri is set
+                        if (string.IsNullOrEmpty(mapEntity.MapImageUri))
+                        {
+                            mapEntity.MapImageUri = blobClient.Uri.ToString();
+                            updatedMaps++;
+                        }
+                    }
+                }
+
+                await blobClient.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = contentType }, cancellationToken: cancellationToken);
+                if (metadata != null)
+                {
+                    await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+                }
+                normalizedBlobs++;
+            }
+            catch
+            {
+                // Swallow errors for individual blobs to allow processing to continue
+            }
+        }
+
+        if (updatedMaps > 0)
+            await context.SaveChangesAsync(cancellationToken);
+
         return new ApiResponse().ToApiResult();
+    }
+
+    // Helpers
+    private static bool TryParseBlobName(string blobName, out int gameTypeInt, out string mapName)
+    {
+        gameTypeInt = 0;
+        mapName = string.Empty;
+        try
+        {
+            var noExt = Path.GetFileNameWithoutExtension(blobName);
+            var underscoreIndex = noExt.IndexOf('_');
+            if (underscoreIndex <= 0 || underscoreIndex >= noExt.Length - 1)
+                return false;
+
+            var gameTypeStr = noExt.Substring(0, underscoreIndex);
+            mapName = noExt.Substring(underscoreIndex + 1);
+
+            // Try parse enum by name (case-insensitive) using V1 GameType enum
+            if (Enum.TryParse(typeof(GameType), gameTypeStr, true, out var enumVal) && enumVal is GameType gt)
+            {
+                gameTypeInt = gt.ToGameTypeInt();
+                return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    private static string GetContentTypeFromExtension(string? extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension)) return "image/jpeg";
+        return extension.ToLowerInvariant() switch
+        {
+            ".jpg" => "image/jpeg",
+            ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
     }
 }
