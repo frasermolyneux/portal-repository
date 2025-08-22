@@ -7,7 +7,7 @@ on:
       - 'main'
       
   schedule:
-    - cron: "0 3 * * 3" # Every Wednesday at 3am
+    - cron: "0 3 * * 4" # Weekly Thursday at 3am UTC (standardized)
 
 permissions:
   id-token: write # This is required for Az CLI Login
