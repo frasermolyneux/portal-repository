@@ -6870,7 +6870,15 @@
       "AdminActionFilter": {
         "enum": [
           "ActiveBans",
-          "UnclaimedBans"
+          "UnclaimedBans",
+          "Observations",
+          "Warnings",
+          "Kicks",
+          "TempBans",
+          "PermanentBans",
+          "AllBans",
+          "Disciplinary",
+          "NonBan"
         ],
         "type": "string",
         "format": "int32"
