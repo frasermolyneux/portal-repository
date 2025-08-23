@@ -181,7 +181,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var result = new CollectionModel<MapDto>(entries, totalCount, filteredCount);
 
-            return new ApiResponse<CollectionModel<MapDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<MapDto>>(result)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         /// <summary>

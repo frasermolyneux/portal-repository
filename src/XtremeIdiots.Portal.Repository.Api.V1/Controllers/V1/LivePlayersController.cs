@@ -105,7 +105,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = entries
             };
 
-            return new ApiResponse<CollectionModel<LivePlayerDto>>(data).ToApiResult();
+            return new ApiResponse<CollectionModel<LivePlayerDto>>(data)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         /// <summary>

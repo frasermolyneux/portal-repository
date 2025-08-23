@@ -153,7 +153,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 FilteredCount = filteredCount
             };
 
-            return new ApiResponse<CollectionModel<BanFileMonitorDto>>(data).ToApiResult();
+            return new ApiResponse<CollectionModel<BanFileMonitorDto>>(data)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         /// <summary>

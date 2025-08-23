@@ -150,7 +150,10 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             Items = entries
         };
 
-        return new ApiResponse<CollectionModel<ChatMessageDto>>(data).ToApiResult();
+        return new ApiResponse<CollectionModel<ChatMessageDto>>(data)
+        {
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 
     /// <summary>

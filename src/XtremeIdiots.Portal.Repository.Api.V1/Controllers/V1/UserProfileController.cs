@@ -225,7 +225,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 FilteredCount = filteredCount
             };
 
-            return new ApiResponse<CollectionModel<UserProfileDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<UserProfileDto>>(result)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         private static IQueryable<UserProfile> ApplyFilters(IQueryable<UserProfile> query, string? filterString)

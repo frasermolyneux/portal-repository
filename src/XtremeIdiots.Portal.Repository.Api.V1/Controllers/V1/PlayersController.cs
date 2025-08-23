@@ -462,7 +462,10 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Create the result collection
         var result = new CollectionModel<PlayerDto>(entries, totalCount, filteredCount);
 
-        return new ApiResponse<CollectionModel<PlayerDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<PlayerDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 
     /// <summary>
@@ -827,7 +830,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
 
-        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 
     /// <summary>
@@ -907,7 +913,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
 
-        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, totalCount, 0, totalCount)
+        }.ToApiResult();
     }
 
     /// <summary>
@@ -1117,7 +1126,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var result = new CollectionModel<PlayerTagDto>(entries, entries.Count, entries.Count);
 
-        return new ApiResponse<CollectionModel<PlayerTagDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<PlayerTagDto>>(result)
+        {
+            Pagination = new ApiPagination(entries.Count, entries.Count, 0, entries.Count)
+        }.ToApiResult();
     }
     /// <summary>
     /// Adds a new tag to a player.
@@ -1383,7 +1395,10 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Create result
         var result = new CollectionModel<PlayerDto>(playerDtos, totalCount, totalCount);
 
-        return new ApiResponse<CollectionModel<PlayerDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<PlayerDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
     #endregion
 
@@ -1462,7 +1477,10 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Create and return the response
         var result = new CollectionModel<IpAddressDto>(dtos, totalCount, totalCount);
 
-        return new ApiResponse<CollectionModel<IpAddressDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<IpAddressDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 
     #endregion
@@ -1528,7 +1546,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
 
-        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 
     /// <summary>
@@ -1723,7 +1744,10 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
 
-        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result).ToApiResult();
+        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result)
+        {
+            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 }
 

@@ -85,7 +85,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = groupedPlayers
             };
 
-            return new ApiResponse<CollectionModel<PlayerAnalyticEntryDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<PlayerAnalyticEntryDto>>(result)
+            {
+                Pagination = new ApiPagination(groupedPlayers.Count, groupedPlayers.Count, 0, groupedPlayers.Count)
+            }.ToApiResult();
         }
 
         /// <summary>
@@ -134,7 +137,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = groupedPlayers
             };
 
-            return new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result)
+            {
+                Pagination = new ApiPagination(groupedPlayers.Count, groupedPlayers.Count, 0, groupedPlayers.Count)
+            }.ToApiResult();
         }
 
         /// <summary>
@@ -183,7 +189,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = groupedPlayers
             };
 
-            return new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<PlayerAnalyticPerGameEntryDto>>(result)
+            {
+                Pagination = new ApiPagination(groupedPlayers.Count, groupedPlayers.Count, 0, groupedPlayers.Count)
+            }.ToApiResult();
         }
     }
 }

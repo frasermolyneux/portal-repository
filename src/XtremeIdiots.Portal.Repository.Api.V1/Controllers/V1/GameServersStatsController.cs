@@ -27,7 +27,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class GameServersStatsController : ControllerBase, IGameServersStatsApi
     {
         private readonly PortalDbContext context;
-        
+
 
         public GameServersStatsController(
             PortalDbContext context)
@@ -124,7 +124,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var entries = gameServerStats.Select(r => r.ToDto()).ToList();
             var result = new CollectionModel<GameServerStatDto>(entries, gameServerStats.Count, gameServerStats.Count);
 
-            return new ApiResponse<CollectionModel<GameServerStatDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<GameServerStatDto>>(result)
+            {
+                Pagination = new ApiPagination(gameServerStats.Count, gameServerStats.Count, 0, gameServerStats.Count)
+            }.ToApiResult();
         }
     }
 }

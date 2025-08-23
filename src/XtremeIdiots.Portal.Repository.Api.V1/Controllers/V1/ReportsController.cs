@@ -28,7 +28,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class ReportsController : ControllerBase, IReportsApi
     {
         private readonly PortalDbContext context;
-        
+
 
         /// <summary>
         /// Initializes a new instance of the ReportsController.
@@ -159,7 +159,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = entries
             };
 
-            return new ApiResponse<CollectionModel<ReportDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<ReportDto>>(result)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         /// <summary>

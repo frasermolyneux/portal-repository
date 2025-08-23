@@ -79,7 +79,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = tags.Select(tag => tag.ToDto()).ToList()
             };
 
-            return new ApiResponse<CollectionModel<TagDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<TagDto>>(result)
+            {
+                Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         /// <summary>

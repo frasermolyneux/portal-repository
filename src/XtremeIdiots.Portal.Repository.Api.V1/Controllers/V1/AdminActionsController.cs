@@ -138,7 +138,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 FilteredCount = filteredCount
             };
 
-            return new ApiResponse<CollectionModel<AdminActionDto>>(data).ToApiResult();
+            return new ApiResponse<CollectionModel<AdminActionDto>>(data)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         private IQueryable<AdminAction> ApplyFilters(IQueryable<AdminAction> query, GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter)

@@ -30,7 +30,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class DemosController : ControllerBase, IDemosApi
     {
         private readonly PortalDbContext context;
-        
+
         private readonly IConfiguration configuration;
 
         public DemosController(
@@ -146,7 +146,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 Items = entries
             };
 
-            return new ApiResponse<CollectionModel<DemoDto>>(result).ToApiResult();
+            return new ApiResponse<CollectionModel<DemoDto>>(result)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         /// <summary>
