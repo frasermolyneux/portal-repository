@@ -6230,6 +6230,13 @@
             }
           },
           {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/UserProfileFilter"
+            }
+          },
+          {
             "name": "skipEntries",
             "in": "query",
             "schema": {
@@ -9882,6 +9889,18 @@
           }
         },
         "additionalProperties": false
+      },
+      "UserProfileFilter": {
+        "enum": [
+          "SeniorAdmins",
+          "HeadAdmins",
+          "GameAdmins",
+          "Moderators",
+          "AnyAdmin",
+          "HasCustomPermissions"
+        ],
+        "type": "string",
+        "format": "int32"
       },
       "UserProfilesOrder": {
         "enum": [

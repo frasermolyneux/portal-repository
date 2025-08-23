@@ -183,9 +183,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>A paginated collection of user profiles.</returns>
         [HttpGet("user-profiles")]
         [ProducesResponseType<CollectionModel<UserProfileDto>>(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetUserProfiles([FromQuery] string? filterString, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, [FromQuery] UserProfilesOrder? order = null, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> GetUserProfiles([FromQuery] string? filterString, [FromQuery] UserProfileFilter? filter = null, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, [FromQuery] UserProfilesOrder? order = null, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, filter, skipEntries, takeEntries, order, cancellationToken);
             return response.ToHttpResult();
         }
 
@@ -198,7 +198,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="order">Optional ordering criteria for results.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing a paginated collection of user profiles.</returns>
-        async Task<ApiResult<CollectionModel<UserProfileDto>>> IUserProfileApi.GetUserProfiles(string? filterString, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken)
+        async Task<ApiResult<CollectionModel<UserProfileDto>>> IUserProfileApi.GetUserProfiles(string? filterString, UserProfileFilter? filter, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken)
         {
             var baseQuery = context.UserProfiles
                 .Include(up => up.UserProfileClaims)
@@ -209,7 +209,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var totalCount = await baseQuery.CountAsync(cancellationToken);
 
             // Apply filtering
-            var filteredQuery = ApplyFilters(baseQuery, filterString);
+            var filteredQuery = ApplyFilters(baseQuery, filterString, filter);
             var filteredCount = await filteredQuery.CountAsync(cancellationToken);
 
             // Apply ordering and pagination
@@ -231,16 +231,30 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }.ToApiResult();
         }
 
-        private static IQueryable<UserProfile> ApplyFilters(IQueryable<UserProfile> query, string? filterString)
+        private static IQueryable<UserProfile> ApplyFilters(IQueryable<UserProfile> query, string? filterString, UserProfileFilter? filter)
         {
             if (!string.IsNullOrWhiteSpace(filterString))
             {
-                var filter = filterString.Trim().ToLower();
-                query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLower().Contains(filter)) ||
-                                         (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLower().Contains(filter)) ||
-                                         (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(filter)) ||
-                                         (up.DisplayName != null && up.DisplayName.ToLower().Contains(filter)) ||
-                                         (up.Email != null && up.Email.ToLower().Contains(filter)));
+                var textFilter = filterString.Trim().ToLower();
+                query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLower().Contains(textFilter)) ||
+                                         (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLower().Contains(textFilter)) ||
+                                         (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(textFilter)) ||
+                                         (up.DisplayName != null && up.DisplayName.ToLower().Contains(textFilter)) ||
+                                         (up.Email != null && up.Email.ToLower().Contains(textFilter)));
+            }
+
+            if (filter.HasValue)
+            {
+                query = filter.Value switch
+                {
+                    UserProfileFilter.SeniorAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin)),
+                    UserProfileFilter.HeadAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.HeadAdmin)),
+                    UserProfileFilter.GameAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.GameAdmin)),
+                    UserProfileFilter.Moderators => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Moderator)),
+                    UserProfileFilter.AnyAdmin => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator)),
+                    UserProfileFilter.HasCustomPermissions => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.FtpCredentials || c.ClaimType == UserProfileClaimType.RconCredentials || c.ClaimType == UserProfileClaimType.GameServer || c.ClaimType == UserProfileClaimType.BanFileMonitor || c.ClaimType == UserProfileClaimType.RconMonitor || c.ClaimType == UserProfileClaimType.ServerAdmin || c.ClaimType == UserProfileClaimType.LiveRcon)),
+                    _ => query
+                };
             }
 
             return query;
