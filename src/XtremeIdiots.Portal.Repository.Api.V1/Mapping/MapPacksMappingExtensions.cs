@@ -13,7 +13,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The MapPack entity to map from.</param>
         /// <returns>The mapped MapPackDto.</returns>
-        public static MapPackDto ToDto(this MapPack entity)
+        public static MapPackDto ToDto(this MapPack entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -26,7 +26,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.SyncToGameServer,
                 entity.SyncCompleted,
                 entity.Deleted,
-                entity.MapPackMaps?.Select(mpm => mpm.ToDto()).ToList() ?? new List<MapPackMapDto>()
+                (expand && entity.MapPackMaps != null)
+                    ? entity.MapPackMaps.Select(mpm => mpm.ToDto(false)).ToList()
+                    : new List<MapPackMapDto>()
             );
         }
 
@@ -76,7 +78,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The MapPackMap entity to map from.</param>
         /// <returns>The mapped MapPackMapDto.</returns>
-        public static MapPackMapDto ToDto(this MapPackMap entity)
+        public static MapPackMapDto ToDto(this MapPackMap entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 

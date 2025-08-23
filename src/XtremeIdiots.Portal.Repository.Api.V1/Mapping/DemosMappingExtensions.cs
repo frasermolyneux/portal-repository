@@ -6,7 +6,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 {
     public static class DemosMappingExtensions
     {
-        public static DemoDto ToDto(this Demo entity)
+        public static DemoDto ToDto(this Demo entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
             return new DemoDto

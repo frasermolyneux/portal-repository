@@ -69,7 +69,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The PlayerTag entity to map from.</param>
         /// <returns>The mapped PlayerTagDto.</returns>
-        public static PlayerTagDto ToDto(this PlayerTag entity)
+        public static PlayerTagDto ToDto(this PlayerTag entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -80,9 +80,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 TagId = entity.TagId,
                 UserProfileId = entity.UserProfileId,
                 Assigned = entity.Assigned,
-                Player = entity.Player?.ToDto(),
-                Tag = entity.Tag?.ToDto(),
-                UserProfile = entity.UserProfile?.ToDto()
+                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null,
+                Tag = expand && entity.Tag != null ? entity.Tag.ToDto() : null,
+                UserProfile = expand && entity.UserProfile != null ? entity.UserProfile.ToDto() : null
             };
         }
 

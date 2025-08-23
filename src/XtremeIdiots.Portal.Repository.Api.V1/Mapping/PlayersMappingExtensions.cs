@@ -1,8 +1,5 @@
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
-using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
-using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
-using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
@@ -18,7 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The Player entity to map from.</param>
         /// <returns>The mapped PlayerDto without navigation properties.</returns>
-        public static PlayerDto ToDto(this Player entity)
+        public static PlayerDto ToDto(this Player entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -31,13 +28,24 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 FirstSeen = entity.FirstSeen,
                 LastSeen = entity.LastSeen,
                 IpAddress = entity.IpAddress ?? string.Empty,
-                PlayerAliases = new List<AliasDto>(),
-                PlayerIpAddresses = new List<IpAddressDto>(),
-                AdminActions = new List<AdminActionDto>(),
-                Reports = new List<ReportDto>(),
-                RelatedPlayers = new List<RelatedPlayerDto>(),
-                ProtectedNames = new List<ProtectedNameDto>(),
-                Tags = new List<PlayerTagDto>()
+                PlayerAliases = expand && entity.PlayerAliases is { Count: > 0 }
+                    ? entity.PlayerAliases.Select(a => a.ToAliasDto(false)).ToList()
+                    : null!,
+                PlayerIpAddresses = expand && entity.PlayerIpAddresses is { Count: > 0 }
+                        ? entity.PlayerIpAddresses.Select(ip => ip.ToIpAddressDto(false)).ToList()
+                        : null!,
+                ProtectedNames = expand && entity.ProtectedNames is { Count: > 0 }
+                        ? entity.ProtectedNames.Select(pn => pn.ToProtectedNameDto(false)).ToList()
+                        : null!,
+                Tags = expand && entity.PlayerTags is { Count: > 0 }
+                    ? entity.PlayerTags.Select(pt => pt.ToDto(false)).ToList()
+                    : null!,
+                AdminActions = expand && entity.AdminActions is { Count: > 0 }
+                    ? entity.AdminActions.Select(a => a.ToDto(false)).ToList()
+                    : null!,
+                Reports = expand && entity.Reports is { Count: > 0 }
+                    ? entity.Reports.Select(r => r.ToDto(false)).ToList()
+                    : null!
             };
         }
 
@@ -68,7 +76,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The PlayerAlias entity to map from.</param>
         /// <returns>The mapped AliasDto.</returns>
-        public static AliasDto ToAliasDto(this PlayerAlias entity)
+        public static AliasDto ToAliasDto(this PlayerAlias entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -86,7 +94,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The PlayerAlias entity to map from.</param>
         /// <returns>The mapped PlayerAliasDto.</returns>
-        public static PlayerAliasDto ToPlayerAliasDto(this PlayerAlias entity)
+        public static PlayerAliasDto ToPlayerAliasDto(this PlayerAlias entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -104,7 +112,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The PlayerIpAddress entity to map from.</param>
         /// <returns>The mapped IpAddressDto.</returns>
-        public static IpAddressDto ToIpAddressDto(this PlayerIpAddress entity)
+        public static IpAddressDto ToIpAddressDto(this PlayerIpAddress entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -122,7 +130,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The PlayerIpAddress entity to map from.</param>
         /// <returns>The mapped RelatedPlayerDto.</returns>
-        public static RelatedPlayerDto ToRelatedPlayerDto(this PlayerIpAddress entity)
+        public static RelatedPlayerDto ToRelatedPlayerDto(this PlayerIpAddress entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -143,7 +151,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The ProtectedName entity to map from.</param>
         /// <returns>The mapped ProtectedNameDto.</returns>
-        public static ProtectedNameDto ToProtectedNameDto(this ProtectedName entity)
+        public static ProtectedNameDto ToProtectedNameDto(this ProtectedName entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -153,8 +161,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 PlayerId = entity.PlayerId ?? Guid.Empty,
                 Name = entity.Name ?? string.Empty,
                 CreatedOn = entity.CreatedOn,
-                CreatedByUserProfileId = entity.CreatedByUserProfileId ?? Guid.Empty
-                // Note: CreatedByUserProfile will be null to avoid circular dependency
+                CreatedByUserProfileId = entity.CreatedByUserProfileId ?? Guid.Empty,
+                CreatedByUserProfile = expand ? entity.CreatedByUserProfile?.ToDto() : null
             };
         }
 

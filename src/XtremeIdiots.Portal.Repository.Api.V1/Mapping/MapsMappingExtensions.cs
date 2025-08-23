@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The Map entity to map from.</param>
         /// <returns>The mapped MapDto.</returns>
-        public static MapDto ToDto(this Map entity)
+        public static MapDto ToDto(this Map entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -93,7 +93,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The MapVote entity to map from.</param>
         /// <returns>The mapped MapVoteDto.</returns>
-        public static MapVoteDto ToDto(this MapVote entity)
+        public static MapVoteDto ToDto(this MapVote entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -105,9 +105,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameServerId = entity.GameServerId,
                 Like = entity.Like,
                 Timestamp = entity.Timestamp,
-                Map = entity.Map?.ToDto(),
-                Player = entity.Player?.ToDto(),
-                GameServer = entity.GameServer?.ToDto()
+                Map = expand && entity.Map != null ? entity.Map.ToDto(false) : null,
+                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null,
+                GameServer = expand && entity.GameServer != null ? entity.GameServer.ToDto(false) : null
             };
         }
 

@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The LivePlayer entity to map from.</param>
         /// <returns>The mapped LivePlayerDto.</returns>
-        public static LivePlayerDto ToDto(this LivePlayer entity)
+        public static LivePlayerDto ToDto(this LivePlayer entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -36,7 +36,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameType = entity.GameType.ToGameType(),
                 PlayerId = entity.PlayerId,
                 GameServerServerId = entity.GameServerId,
-                Player = null // Set separately to avoid circular dependencies
+                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null
             };
         }
 

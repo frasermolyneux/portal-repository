@@ -6,7 +6,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 {
     public static class ReportsMappingExtensions
     {
-        public static ReportDto ToDto(this Report entity)
+        public static ReportDto ToDto(this Report entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
             return new ReportDto
@@ -22,8 +22,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 AdminClosingComments = entity.AdminClosingComments,
                 Closed = entity.Closed,
                 ClosedTimestamp = entity.ClosedTimestamp ?? DateTime.MinValue,
-                UserProfile = null,
-                AdminUserProfile = null
+                UserProfile = expand ? entity.UserProfile?.ToDto(false) : null,
+                AdminUserProfile = expand ? entity.AdminUserProfile?.ToDto(false) : null
             };
         }
 

@@ -14,7 +14,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The BanFileMonitor entity to map from.</param>
         /// <returns>The mapped BanFileMonitorDto.</returns>
-        public static BanFileMonitorDto ToDto(this BanFileMonitor entity)
+        public static BanFileMonitorDto ToDto(this BanFileMonitor entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -25,7 +25,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 FilePath = entity.FilePath ?? string.Empty,
                 RemoteFileSize = entity.RemoteFileSize,
                 LastSync = entity.LastSync,
-                GameServer = null! // Set separately to avoid circular dependencies
+                GameServer = expand && entity.GameServer != null ? entity.GameServer.ToDto(false) : null!
             };
         }
 

@@ -16,7 +16,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The AdminAction entity to map from.</param>
         /// <returns>The mapped AdminActionDto.</returns>
-        public static AdminActionDto ToDto(this AdminAction entity)
+        public static AdminActionDto ToDto(this AdminAction entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -30,14 +30,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Text = entity.Text,
                 Created = entity.Created,
                 Expires = entity.Expires,
-                Player = entity.Player?.ToDto() ?? new PlayerDto 
-                { 
-                    PlayerId = entity.PlayerId, 
-                    Username = "Unknown", 
-                    Guid = "Unknown",
-                    GameType = (entity.Player?.GameType ?? 0).ToGameType()
-                },
-                UserProfile = entity.UserProfile?.ToDto()
+                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null!,
+                UserProfile = expand && entity.UserProfile != null ? entity.UserProfile.ToDto(false) : null
             };
         }
 

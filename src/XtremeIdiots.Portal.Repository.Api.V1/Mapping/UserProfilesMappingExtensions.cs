@@ -13,7 +13,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The UserProfile entity to map from.</param>
         /// <returns>The mapped UserProfileDto.</returns>
-        public static UserProfileDto ToDto(this UserProfile entity)
+        public static UserProfileDto ToDto(this UserProfile entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -30,7 +30,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 PhotoUrl = entity.PhotoUrl,
                 ProfileUrl = entity.ProfileUrl,
                 TimeZone = entity.TimeZone,
-                UserProfileClaims = entity.UserProfileClaims?.Select(c => c.ToDto()).ToList() ?? new List<UserProfileClaimDto>()
+                UserProfileClaims = entity.UserProfileClaims?.Select(c => c.ToDto(false)).ToList() ?? new List<UserProfileClaimDto>()
             };
         }
 
@@ -86,7 +86,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The UserProfileClaim entity to map from.</param>
         /// <returns>The mapped UserProfileClaimDto.</returns>
-        public static UserProfileClaimDto ToDto(this UserProfileClaim entity)
+        public static UserProfileClaimDto ToDto(this UserProfileClaim entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 

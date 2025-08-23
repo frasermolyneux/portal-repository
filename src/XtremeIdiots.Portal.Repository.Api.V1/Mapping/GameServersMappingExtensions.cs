@@ -6,7 +6,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 {
     public static class GameServersMappingExtensions
     {
-        public static GameServerDto ToDto(this GameServer entity)
+        public static GameServerDto ToDto(this GameServer entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
             return new GameServerDto
@@ -56,7 +56,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             };
         }
 
-        public static GameServerStatDto ToDto(this GameServerStat entity)
+        public static GameServerStatDto ToDto(this GameServerStat entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
             return new GameServerStatDto

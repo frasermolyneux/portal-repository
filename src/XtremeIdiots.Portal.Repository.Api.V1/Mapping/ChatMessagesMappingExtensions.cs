@@ -11,11 +11,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
     {
         /// <summary>
         /// Maps a ChatMessage entity to a ChatMessageDto.
-        /// NOTE: Player and GameServer navigation properties will be null to avoid circular dependencies.
+        /// Uses expand parameter to optionally include shallow Player and GameServer DTOs.
         /// </summary>
         /// <param name="entity">The ChatMessage entity to map from.</param>
         /// <returns>The mapped ChatMessageDto.</returns>
-        public static ChatMessageDto ToDto(this ChatMessage entity)
+        public static ChatMessageDto ToDto(this ChatMessage entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -29,8 +29,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Message = entity.Message ?? string.Empty,
                 Timestamp = entity.Timestamp,
                 Locked = entity.Locked,
-                Player = null!, // Set separately to avoid circular dependencies
-                GameServer = null! // Set separately to avoid circular dependencies
+                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null!,
+                GameServer = expand && entity.GameServer != null ? entity.GameServer.ToDto(false) : null!
             };
         }
 

@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The RecentPlayer entity to map from.</param>
         /// <returns>The mapped RecentPlayerDto.</returns>
-        public static RecentPlayerDto ToDto(this RecentPlayer entity)
+        public static RecentPlayerDto ToDto(this RecentPlayer entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -31,7 +31,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 PlayerId = entity.PlayerId,
                 GameServerId = entity.GameServerId,
                 Timestamp = entity.Timestamp,
-                Player = null // Set separately to avoid circular dependencies
+                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null
             };
         }
 
