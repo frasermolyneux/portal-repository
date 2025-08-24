@@ -53,6 +53,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var adminAction = await context.AdminActions
                 .Include(a => a.Player)
+                .Include(a => a.UserProfile)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken);
 
