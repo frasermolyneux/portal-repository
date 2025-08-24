@@ -203,18 +203,38 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     }
 
     /// <summary>
-    /// Toggles the locked status of a chat message.
+    /// Sets the locked status of a chat message (idempotent).
     /// </summary>
-    /// <param name="chatMessageId">The unique identifier of the chat message to toggle.</param>
-    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <param name="chatMessageId">The unique identifier of the chat message.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A result indicating the success of the operation.</returns>
-    [HttpPost("chat-messages/{chatMessageId:guid}/toggle-lock")]
+    [HttpPatch("chat-messages/{chatMessageId:guid}/lock")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> SetLock(Guid chatMessageId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IChatMessagesApi)this).ToggleLockedStatus(chatMessageId, cancellationToken);
+        var body = await new StreamReader(Request.Body).ReadToEndAsync();
+        bool? locked = null;
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                var anon = JsonConvert.DeserializeObject<Dictionary<string, object>>(body);
+                if (anon != null && anon.TryGetValue("locked", out var v) && v != null)
+                {
+                    if (v is bool b)
+                        locked = b;
+                    else if (bool.TryParse(v.ToString(), out var parsed))
+                        locked = parsed;
+                }
+            }
+            catch { }
+        }
 
+        if (locked == null)
+            return new ApiResponse().ToBadRequestResult().ToHttpResult();
+
+        var response = await ((IChatMessagesApi)this).SetLock(chatMessageId, locked.Value, cancellationToken);
         return response.ToHttpResult();
     }
 
@@ -224,16 +244,14 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     /// <param name="chatMessageId">The unique identifier of the chat message to toggle.</param>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>An API result indicating the success of the operation.</returns>
-    async Task<ApiResult> IChatMessagesApi.ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken)
+    async Task<ApiResult> IChatMessagesApi.SetLock(Guid chatMessageId, bool locked, CancellationToken cancellationToken)
     {
         var chatMessage = await context.ChatMessages
             .FirstOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId, cancellationToken);
 
         if (chatMessage == null)
             return new ApiResult(HttpStatusCode.NotFound);
-
-        // Toggle the locked status
-        chatMessage.Locked = !chatMessage.Locked;
+        chatMessage.Locked = locked;
 
         await context.SaveChangesAsync(cancellationToken);
 

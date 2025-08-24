@@ -80,9 +80,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
-        public async Task<ApiResult> ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken = default)
+        public async Task<ApiResult> SetLock(Guid chatMessageId, bool locked, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}/toggle-lock", Method.Post, cancellationToken);
+            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}/lock", Method.Patch, cancellationToken);
+            request.AddJsonBody(new { locked });
             var response = await ExecuteAsync(request, cancellationToken);
 
             return response.ToApiResult();

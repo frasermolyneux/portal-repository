@@ -12,6 +12,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 
         Task<ApiResult> CreateChatMessage(CreateChatMessageDto createChatMessageDto, CancellationToken cancellationToken = default);
         Task<ApiResult> CreateChatMessages(List<CreateChatMessageDto> createChatMessageDtos, CancellationToken cancellationToken = default);
-        Task<ApiResult> ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken = default);
+        Task<ApiResult> SetLock(Guid chatMessageId, bool locked, CancellationToken cancellationToken = default);
     }
 }
