@@ -693,37 +693,44 @@ public class PlayersController : ControllerBase, IPlayersApi
 
     private IQueryable<Player> ApplyUsernameAndGuidFilter(IQueryable<Player> query, string trimmedFilter)
     {
-        if (trimmedFilter.Length == 32) // Search is for a player GUID
-        {
-            // Exact match on GUID is most efficient
+        // Exact GUID fast-path (32 hex chars) - skip full text for precision
+        if (trimmedFilter.Length == 32)
             return query.Where(p => p.Guid == trimmedFilter);
-        }
-        else if (trimmedFilter.Length >= 3)
+
+        // Minimal length guard: extremely short terms are noisy; still allow but use simple prefix to leverage indexes
+        if (trimmedFilter.Length < 3)
         {
-            // For search strings with at least 3 characters, use a more optimized approach
-            // First, get players matching username or GUID directly (leveraging indexes)
-            var directMatches = query.Where(p => (p.Username != null && p.Username.Contains(trimmedFilter)) ||
-                                              (p.Guid != null && p.Guid.Contains(trimmedFilter)));
-
-            // Then, get player IDs with matching aliases (as a separate efficient query)
-            var playerIdsWithMatchingAliases = context.PlayerAliases
-                .Where(a => a.Name != null && a.Name.Contains(trimmedFilter))
-                .Select(a => a.PlayerId)
-                .Distinct();
-
-            // Finally, get players matching those IDs
-            var aliasMatches = query.Where(p => playerIdsWithMatchingAliases.Contains(p.PlayerId));
-
-            // Union the results (removes duplicates)
-            return directMatches.Union(aliasMatches);
+            var prefix = trimmedFilter + "%"; // translates to LIKE 'xx%'
+            return query.Where(p =>
+                (p.Username != null && EF.Functions.Like(p.Username, prefix)) ||
+                (p.Guid != null && EF.Functions.Like(p.Guid, prefix)));
         }
-        else
-        {
-            // For very short search strings, fall back to the original approach but without alias search
-            // to avoid excessive matching and poor performance
-            return query.Where(p => (p.Username != null && p.Username.Contains(trimmedFilter)) ||
-                                  (p.Guid != null && p.Guid.Contains(trimmedFilter)));
-        }
+
+        // Full-text search path (Players.Username, Players.Guid, PlayerAlias.Name)
+        // Sanitize user input: wrap in quotes for phrase/prefix, escape embedded quotes
+        var sanitized = trimmedFilter.Replace("\"", "\"\"");
+        var ftSearch = $"\"{sanitized}*\""; // prefix match for term
+
+        // NOTE: Using FromSqlInterpolated with CONTAINSTABLE to retrieve PlayerIds by rank then join Players once.
+        // Using PK (PlayerId) so key index is valid for full-text index.
+
+        var playersFt = context.Players
+            .FromSqlInterpolated($@"SELECT p.*
+FROM CONTAINSTABLE(Players, (Username, Guid), {ftSearch}) ft
+JOIN Players p ON p.PlayerId = ft.[Key]")
+            .AsNoTracking();
+
+        var aliasFt = context.Players
+            .FromSqlInterpolated($@"SELECT DISTINCT p.*
+FROM CONTAINSTABLE(PlayerAlias, (Name), {ftSearch}) fta
+JOIN PlayerAlias a ON a.PlayerAliasId = fta.[Key]
+JOIN Players p ON p.PlayerId = a.PlayerId")
+            .AsNoTracking();
+
+        // UNION ALL then Distinct at EF level avoids duplicate elimination work inside SQL twice.
+        var combined = playersFt.Union(aliasFt);
+
+        return combined;
     }
 
     private IQueryable<Player> ApplyIpAddressFilter(IQueryable<Player> query, string trimmedFilter)

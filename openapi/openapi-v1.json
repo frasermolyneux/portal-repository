@@ -6858,11 +6858,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -6999,11 +7001,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -7092,11 +7096,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -7682,11 +7688,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8055,11 +8063,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8140,11 +8150,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8251,11 +8263,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8387,11 +8401,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8495,11 +8511,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8595,11 +8613,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8724,11 +8744,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8776,11 +8798,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8927,11 +8951,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9058,11 +9084,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9137,11 +9165,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9276,11 +9306,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9400,11 +9432,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9547,11 +9581,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9650,11 +9686,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9874,11 +9912,13 @@
           },
           "totalCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "filteredCount": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "deprecated": true
           },
           "metadata": {
             "type": "object",
