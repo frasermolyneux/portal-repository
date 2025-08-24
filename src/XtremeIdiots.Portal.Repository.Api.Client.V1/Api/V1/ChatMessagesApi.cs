@@ -82,7 +82,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> ToggleLockedStatus(Guid chatMessageId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}/toggle-locked", Method.Patch, cancellationToken);
+            var request = await CreateRequestAsync($"v1/chat-messages/{chatMessageId}/toggle-lock", Method.Post, cancellationToken);
             var response = await ExecuteAsync(request, cancellationToken);
 
             return response.ToApiResult();
