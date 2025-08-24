@@ -278,7 +278,43 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             query = query.Where(cl => cl.PlayerId == playerId);
 
         if (!string.IsNullOrWhiteSpace(filterString))
-            query = query.Where(m => m.Message.Contains(filterString));
+        {
+            var term = filterString.Trim();
+
+            // For extremely short terms, avoid full-text (likely ignored due to noise word / min length) and use prefix LIKE for some selectivity.
+            if (term.Length < 3)
+            {
+                var like = term + "%";
+                query = query.Where(m => (m.Message != null && EF.Functions.Like(m.Message, like)) || (m.Username != null && EF.Functions.Like(m.Username, like)));
+            }
+            else
+            {
+                // Full-text search over Username + Message (index created in FullTextIndexes.sql)
+                var sanitized = term.Replace("\"", "\"\"");
+                var ftSearch = $"\"{sanitized}*\""; // prefix search for term
+
+                // Use CONTAINSTABLE to get ranked matches, then join back to ChatMessages. We ignore rank for now (could project later).
+                var ftQuery = context.ChatMessages
+                    .FromSqlInterpolated($@"SELECT c.*
+FROM CONTAINSTABLE(ChatMessages, (Username, Message), {ftSearch}) ft
+JOIN ChatMessages c ON c.ChatMessageId = ft.[Key]")
+                    .AsNoTracking();
+
+                // Reapply includes (allowed after FromSql).
+                ftQuery = ftQuery
+                    .Include(cl => cl.GameServer)
+                    .Include(cl => cl.Player);
+
+                // Intersect existing filters (already applied above) with full-text result set via inner join semantics.
+                // We achieve this by applying any prior filters BEFORE this block (current code order ensures that) then replacing query.
+                // To ensure intersection, we filter ftQuery by the keys present in current 'query'. For most cases 'query' still refers to base with prior filters.
+                // Optimize: if no previous filters were applied (query == base), we can just take ftQuery directly.
+                // Detect if filters applied by comparing expression tree complexity isn't trivial; accept small overhead of Contains when prior filters exist.
+                // Simpler: project filtered IDs from current query then constrain ftQuery.
+                var currentIds = query.Select(q => q.ChatMessageId);
+                query = ftQuery.Where(cm => currentIds.Contains(cm.ChatMessageId));
+            }
+        }
 
         if (lockedOnly.HasValue && lockedOnly.Value)
             query = query.Where(m => m.Locked);
