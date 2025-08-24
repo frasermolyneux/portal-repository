@@ -266,9 +266,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             editAdminActionDto.ApplyTo(adminAction);
 
             // Match provided admin identifier (could be Identity OID or Forum Id) to a UserProfile
-            if (!string.IsNullOrEmpty(createAdminActionDto.AdminId))
+            if (!string.IsNullOrEmpty(editAdminActionDto.AdminId))
             {
-                var adminId = createAdminActionDto.AdminId;
+                var adminId = editAdminActionDto.AdminId;
                 var userProfileId = await context.UserProfiles
                     .Where(up => up.IdentityOid == adminId || up.XtremeIdiotsForumId == adminId)
                     .Select(up => up.UserProfileId)
