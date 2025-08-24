@@ -41,7 +41,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                     ? entity.PlayerTags.Select(pt => pt.ToDto(false)).ToList()
                     : null!,
                 AdminActions = expand && entity.AdminActions is { Count: > 0 }
-                    ? entity.AdminActions.Select(a => a.ToDto(false)).ToList()
+                    ? entity.AdminActions.Select(a => a.ToDto(true)).ToList()
                     : null!,
                 Reports = expand && entity.Reports is { Count: > 0 }
                     ? entity.Reports.Select(r => r.ToDto(false)).ToList()
