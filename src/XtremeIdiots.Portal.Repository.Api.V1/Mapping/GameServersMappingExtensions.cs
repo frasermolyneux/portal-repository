@@ -35,7 +35,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 LiveMaxPlayers = entity.LiveMaxPlayers,
                 LiveCurrentPlayers = entity.LiveCurrentPlayers,
                 LiveLastUpdated = entity.LiveLastUpdated,
-                Deleted = entity.Deleted
+                Deleted = entity.Deleted,
+                LivePlayers = expand && entity.LivePlayers is { Count: > 0 }
+                    ? entity.LivePlayers.Select(lp => lp.ToDto(false)).ToList()
+                    : null!
             };
         }
 
