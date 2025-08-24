@@ -52,6 +52,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<AdminActionDto>> IAdminActionsApi.GetAdminAction(Guid adminActionId, CancellationToken cancellationToken)
         {
             var adminAction = await context.AdminActions
+                .Include(a => a.Player)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken);
 
