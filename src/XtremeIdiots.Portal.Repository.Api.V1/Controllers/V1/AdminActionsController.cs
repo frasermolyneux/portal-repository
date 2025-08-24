@@ -216,6 +216,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IAdminActionsApi.CreateAdminAction(CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken)
         {
             var adminAction = createAdminActionDto.ToEntity();
+            // Match provided admin identifier (could be Identity OID or Forum Id) to a UserProfile
+            if (!string.IsNullOrEmpty(createAdminActionDto.AdminId))
+            {
+                var adminId = createAdminActionDto.AdminId;
+                var userProfileId = await context.UserProfiles
+                    .Where(up => up.IdentityOid == adminId || up.XtremeIdiotsForumId == adminId)
+                    .Select(up => up.UserProfileId)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (userProfileId != Guid.Empty)
+                    adminAction.UserProfileId = userProfileId;
+            }
             context.AdminActions.Add(adminAction);
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
@@ -252,6 +264,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
 
             editAdminActionDto.ApplyTo(adminAction);
+
+            // Match provided admin identifier (could be Identity OID or Forum Id) to a UserProfile
+            if (!string.IsNullOrEmpty(createAdminActionDto.AdminId))
+            {
+                var adminId = createAdminActionDto.AdminId;
+                var userProfileId = await context.UserProfiles
+                    .Where(up => up.IdentityOid == adminId || up.XtremeIdiotsForumId == adminId)
+                    .Select(up => up.UserProfileId)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (userProfileId != Guid.Empty)
+                    adminAction.UserProfileId = userProfileId;
+            }
+
             await context.SaveChangesAsync(cancellationToken);
             return new ApiResponse().ToApiResult();
         }
