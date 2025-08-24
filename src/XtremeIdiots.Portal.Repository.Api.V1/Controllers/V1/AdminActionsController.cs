@@ -133,9 +133,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var data = new CollectionModel<AdminActionDto>
             {
-                Items = entries,
-                TotalCount = totalCount,
-                FilteredCount = filteredCount
+                Items = entries
             };
 
             return new ApiResponse<CollectionModel<AdminActionDto>>(data)
@@ -162,7 +160,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 query = filter.Value switch
                 {
-                    AdminActionFilter.ActiveBans => query.Where(a => a.Type == (int)AdminActionType.Ban || a.Type == (int)AdminActionType.TempBan && (a.Expires == null || a.Expires > DateTime.UtcNow)),
+                    AdminActionFilter.ActiveBans => query.Where(a => (a.Type == (int)AdminActionType.Ban || a.Type == (int)AdminActionType.TempBan) && (a.Expires == null || a.Expires > DateTime.UtcNow)),
                     AdminActionFilter.UnclaimedBans => query.Where(a => a.Type == (int)AdminActionType.Ban && a.UserProfile == null),
                     AdminActionFilter.Observations => query.Where(a => a.Type == (int)AdminActionType.Observation),
                     AdminActionFilter.Warnings => query.Where(a => a.Type == (int)AdminActionType.Warning),
