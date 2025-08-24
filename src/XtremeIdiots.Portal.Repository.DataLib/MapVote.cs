@@ -11,6 +11,7 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 [Index("GameServerId", Name = "IX_GameServerId")]
 [Index("MapId", Name = "IX_MapId")]
 [Index("MapVoteId", Name = "IX_MapVoteId", IsUnique = true)]
+[Index("MapId", "Like", Name = "IX_MapVotes_MapId_Like")]
 [Index("PlayerId", Name = "IX_PlayerId")]
 public partial class MapVote
 {

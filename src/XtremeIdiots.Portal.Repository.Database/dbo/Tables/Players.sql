@@ -44,3 +44,18 @@ GO
 CREATE NONCLUSTERED INDEX [IX_Players_LastSeen]
     ON [dbo].[Players]([LastSeen] DESC)
     INCLUDE ([Username], [GameType]);
+
+GO
+
+-- Added for player search performance (prefix lookups on IP)
+CREATE NONCLUSTERED INDEX [IX_Players_IpAddress]
+    ON [dbo].[Players]([IpAddress] ASC);
+
+GO
+
+-- Cover common listing/search ordering (GameType, LastSeen DESC) and avoid key lookups
+CREATE NONCLUSTERED INDEX [IX_Players_GameType_LastSeen_Covering]
+    ON [dbo].[Players]([GameType] ASC, [LastSeen] DESC)
+    INCLUDE ([Username], [Guid], [IpAddress]);
+
+GO

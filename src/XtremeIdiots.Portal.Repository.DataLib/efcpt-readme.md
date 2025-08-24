@@ -26,7 +26,7 @@ Add these NuGet packages to your .csproj based on your selections:
     ```json
     {
         "ConnectionStrings": {
-            "DefaultConnection": "data source=(local);initial catalog=database;integrated security=true;encrypt=false"
+            "DefaultConnection": "data source=(local);initial catalog=XtremeIdiots.Portal.Repository.Database;integrated security=true;encrypt=false"
         }
     }
     ```

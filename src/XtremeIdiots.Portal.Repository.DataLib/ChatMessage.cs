@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("PlayerId", "GameServerId", Name = "IX_ChatMessages")]
+[Index("GameServerId", "Timestamp", Name = "IX_ChatMessages_GameServerId_Timestamp")]
+[Index("Timestamp", "Locked", Name = "IX_ChatMessages_Timestamp_Locked")]
 [Index("GameServerId", Name = "IX_GameServerId")]
 [Index("PlayerId", Name = "IX_PlayerId")]
 [Index("Timestamp", Name = "IX_Timestamp")]

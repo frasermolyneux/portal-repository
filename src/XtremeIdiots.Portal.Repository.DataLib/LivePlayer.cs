@@ -10,6 +10,7 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("GameServerId", Name = "IX_GameServer_GameServerId")]
 [Index("LivePlayerId", Name = "IX_LivePlayerId", IsUnique = true)]
+[Index("GameServerId", "Score", Name = "IX_LivePlayers_GameServerId_Score")]
 [Index("PlayerId", Name = "IX_Players_PlayerId")]
 public partial class LivePlayer
 {

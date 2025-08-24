@@ -195,6 +195,8 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.PlayerId).HasName("PK_dbo.Players");
 
+            entity.HasIndex(e => new { e.GameType, e.Guid }, "IX_Players_GameType_Guid").HasFilter("[Guid] IS NOT NULL");
+
             entity.Property(e => e.PlayerId).HasDefaultValueSql("newsequentialid()");
         });
 
@@ -254,6 +256,8 @@ public partial class PortalDbContext : DbContext
         modelBuilder.Entity<Report>(entity =>
         {
             entity.HasKey(e => e.ReportId).HasName("PK_dbo.Reports");
+
+            entity.HasIndex(e => new { e.GameType, e.Closed }, "IX_Reports_GameType_Closed").HasFilter("[Closed] = 0");
 
             entity.Property(e => e.ReportId).HasDefaultValueSql("newsequentialid()");
 

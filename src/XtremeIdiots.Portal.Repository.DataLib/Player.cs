@@ -11,6 +11,12 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 [Index("GameType", Name = "IX_GameType")]
 [Index("GameType", "LastSeen", Name = "IX_GameTypeAndLastSeen")]
 [Index("PlayerId", Name = "IX_PlayerId", IsUnique = true)]
+[Index("GameType", "LastSeen", Name = "IX_Players_GameType_LastSeen_Covering")]
+[Index("GameType", "Username", Name = "IX_Players_GameType_Username")]
+[Index("Guid", Name = "IX_Players_Guid")]
+[Index("IpAddress", Name = "IX_Players_IpAddress")]
+[Index("LastSeen", Name = "IX_Players_LastSeen")]
+[Index("Username", Name = "IX_Players_Username")]
 public partial class Player
 {
     [Key]
@@ -18,8 +24,10 @@ public partial class Player
 
     public int GameType { get; set; }
 
+    [StringLength(100)]
     public string? Username { get; set; }
 
+    [StringLength(50)]
     public string? Guid { get; set; }
 
     [Column(TypeName = "datetime")]
@@ -28,6 +36,7 @@ public partial class Player
     [Column(TypeName = "datetime")]
     public DateTime LastSeen { get; set; }
 
+    [StringLength(60)]
     public string? IpAddress { get; set; }
 
     [InverseProperty("Player")]
