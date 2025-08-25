@@ -177,7 +177,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateReports([FromBody] List<CreateReportDto> createReportDtos, CancellationToken cancellationToken = default)
         {
             if (createReportDtos == null || !createReportDtos.Any())
-                return BadRequest();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
 
             var response = await ((IReportsApi)this).CreateReports(createReportDtos, cancellationToken);
 
@@ -201,7 +203,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .FirstOrDefaultAsync(gs => gs.GameServerId == report.GameServerId, cancellationToken);
 
                 if (gameServer == null)
-                    return new ApiResult(HttpStatusCode.BadRequest);
+                    return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
 
                 report.GameType = gameServer.GameType;
             }
@@ -226,7 +228,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CloseReport(Guid reportId, [FromBody] CloseReportDto closeReportDto, CancellationToken cancellationToken = default)
         {
             if (closeReportDto == null)
-                return BadRequest();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
 
             var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto, cancellationToken);
 
@@ -253,7 +257,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId, cancellationToken);
 
             if (userProfile == null)
-                return new ApiResult(HttpStatusCode.BadRequest);
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
 
             closeReportDto.ApplyTo(report);
 

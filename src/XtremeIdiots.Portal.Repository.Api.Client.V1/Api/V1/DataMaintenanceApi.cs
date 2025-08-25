@@ -50,14 +50,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/reset-system-assigned-player-tags", Method.Put), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/reset-system-assigned-player-tags", Method.Post), cancellationToken);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> ValidateMapImages(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/validate-map-images", Method.Put), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/validate-map-images", Method.Post), cancellationToken);
 
             return response.ToApiResult();
         }

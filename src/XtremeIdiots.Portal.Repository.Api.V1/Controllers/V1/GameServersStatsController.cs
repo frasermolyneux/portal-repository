@@ -47,7 +47,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateGameServerStats([FromBody] List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken = default)
         {
             if (createGameServerStatDtos == null || !createGameServerStatDtos.Any())
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
 
             var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDtos, cancellationToken);
             return response.ToHttpResult();

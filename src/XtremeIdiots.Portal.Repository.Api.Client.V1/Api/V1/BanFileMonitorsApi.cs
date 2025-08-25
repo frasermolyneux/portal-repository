@@ -65,7 +65,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Put);
+            var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch);
             request.AddJsonBody(editBanFileMonitorDto);
 
             var response = await ExecuteAsync(request, cancellationToken);

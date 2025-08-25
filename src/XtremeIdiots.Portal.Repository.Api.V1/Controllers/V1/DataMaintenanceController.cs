@@ -153,7 +153,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response indicating the operation completed.</returns>
-    [HttpPut("data-maintenance/reset-system-assigned-player-tags")]
+    [HttpPost("data-maintenance/reset-system-assigned-player-tags")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default)
@@ -275,7 +275,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response after validation completes.</returns>
-    [HttpPut("data-maintenance/validate-map-images")]
+    [HttpPost("data-maintenance/validate-map-images")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ValidateMapImages(CancellationToken cancellationToken = default)

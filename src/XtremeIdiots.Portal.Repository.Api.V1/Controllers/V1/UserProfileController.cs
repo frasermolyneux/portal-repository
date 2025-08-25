@@ -483,6 +483,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SetUserProfileClaims(Guid userProfileId, [FromBody] List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken = default)
         {
+            if (createUserProfileClaimDtos == null)
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)).ToBadRequestResult().ToHttpResult();
+
+            // Reject duplicate claim types in request
+            var duplicateClaimTypes = createUserProfileClaimDtos
+                .GroupBy(c => c.ClaimType, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicateClaimTypes.Any())
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, $"Duplicate claim types: {string.Join(", ", duplicateClaimTypes)}"));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
             var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos, cancellationToken);
             return response.ToHttpResult();
         }

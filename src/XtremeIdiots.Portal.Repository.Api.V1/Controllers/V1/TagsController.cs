@@ -149,17 +149,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Updates an existing tag.
+        /// Partially updates an existing tag. Only non-null properties are applied.
         /// </summary>
+        /// <param name="tagId">The unique identifier of the tag.</param>
         /// <param name="tagDto">The tag data to update.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A success response if the tag was updated; otherwise, a 404 Not Found response.</returns>
-        [HttpPut("tags")]
+        [HttpPatch("tags/{tagId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateTag([FromBody] TagDto tagDto, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> UpdateTag([FromRoute] Guid tagId, [FromBody] TagDto tagDto, CancellationToken cancellationToken = default)
         {
+            if (tagDto.TagId != tagId)
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.RequestEntityMismatchMessage)).ToBadRequestResult().ToHttpResult();
+
             var response = await ((ITagsApi)this).UpdateTag(tagDto, cancellationToken);
             return response.ToHttpResult();
         }

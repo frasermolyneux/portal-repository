@@ -122,7 +122,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateRecentPlayers([FromBody] List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken = default)
         {
             if (createRecentPlayerDtos == null || !createRecentPlayerDtos.Any())
-                return BadRequest();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
 
             var response = await ((IRecentPlayersApi)this).CreateRecentPlayers(createRecentPlayerDtos, cancellationToken);
 
@@ -138,7 +140,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IRecentPlayersApi.CreateRecentPlayers(List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken)
         {
             if (createRecentPlayerDtos == null || !createRecentPlayerDtos.Any())
-                return new ApiResult(HttpStatusCode.BadRequest);
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
 
             var playerIds = createRecentPlayerDtos.Select(dto => dto.PlayerId).ToList();
 

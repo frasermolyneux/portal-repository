@@ -68,7 +68,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/reports/{reportId}/close", Method.Post);
+            var request = await CreateRequestAsync($"v1/reports/{reportId}/close", Method.Patch);
             request.AddJsonBody(closeReportDto);
 
             var response = await ExecuteAsync(request, cancellationToken);

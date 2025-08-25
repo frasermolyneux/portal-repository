@@ -234,17 +234,30 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Updates an existing admin action.
+        /// Partially updates an existing admin action. Uses PATCH semantics: only non-null properties in the payload are applied.
         /// </summary>
-        /// <param name="editAdminActionDto">The admin action data to update.</param>
+        /// <param name="adminActionId">The unique identifier of the admin action to update.</param>
+        /// <param name="editAdminActionDto">The partial admin action data to apply.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>A success response if the admin action was updated; otherwise, a 404 Not Found response.</returns>
-        [HttpPut("admin-actions")]
+        [HttpPatch("admin-actions/{adminActionId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateAdminAction([FromBody] EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> UpdateAdminAction([FromRoute] Guid adminActionId, [FromBody] EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)
         {
+            if (editAdminActionDto == null)
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
+
+            if (editAdminActionDto.AdminActionId == Guid.Empty || editAdminActionDto.AdminActionId != adminActionId)
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.RequestEntityMismatchMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
+
             var response = await ((IAdminActionsApi)this).UpdateAdminAction(editAdminActionDto, cancellationToken);
             return response.ToHttpResult();
         }

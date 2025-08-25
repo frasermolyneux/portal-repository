@@ -198,7 +198,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="editBanFileMonitorDto">The ban file monitor update data.</param>
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>The result of the update operation.</returns>
-        [HttpPut("ban-file-monitors/{banFileMonitorId:guid}")]
+        [HttpPatch("ban-file-monitors/{banFileMonitorId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

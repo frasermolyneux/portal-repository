@@ -186,11 +186,15 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
         catch
         {
-            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, ApiErrorMessages.InvalidRequestBodyMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
         }
 
         if (createGameServerDtos == null || !createGameServerDtos.Any())
-            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
 
         var response = await ((IGameServersApi)this).CreateGameServers(createGameServerDtos, cancellationToken);
 
@@ -234,11 +238,15 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
         catch
         {
-            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, ApiErrorMessages.InvalidRequestBodyMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
         }
 
         if (editGameServerDto == null)
-            return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
 
         if (editGameServerDto.GameServerId != gameServerId)
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();

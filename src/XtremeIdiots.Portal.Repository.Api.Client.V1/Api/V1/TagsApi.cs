@@ -80,7 +80,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/tags/{tagDto.TagId}", Method.Put, cancellationToken);
+                var request = await CreateRequestAsync($"v1/tags/{tagDto.TagId}", Method.Patch, cancellationToken);
                 request.AddJsonBody(tagDto);
                 var response = await ExecuteAsync(request, cancellationToken);
 

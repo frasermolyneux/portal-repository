@@ -267,7 +267,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> UpdatePlayerAlias(Guid playerId, Guid aliasId, CreatePlayerAliasDto updatePlayerAliasDto)
         {
-            var request = await CreateRequestAsync($"v1/players/{playerId}/aliases/{aliasId}", Method.Put);
+            var request = await CreateRequestAsync($"v1/players/{playerId}/aliases/{aliasId}", Method.Patch);
             request.AddJsonBody(updatePlayerAliasDto);
 
             var response = await ExecuteAsync(request);

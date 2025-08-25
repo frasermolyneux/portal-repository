@@ -481,7 +481,9 @@ public class PlayersController : ControllerBase, IPlayersApi
     public async Task<IActionResult> CreatePlayers([FromBody] List<CreatePlayerDto> createPlayerDtos, CancellationToken cancellationToken = default)
     {
         if (createPlayerDtos == null || !createPlayerDtos.Any())
-            return BadRequest();
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
 
         var response = await ((IPlayersApi)this).CreatePlayers(createPlayerDtos);
 
@@ -604,7 +606,9 @@ public class PlayersController : ControllerBase, IPlayersApi
     public async Task<IActionResult> UpdatePlayer(Guid playerId, [FromBody] EditPlayerDto editPlayerDto, CancellationToken cancellationToken = default)
     {
         if (editPlayerDto == null)
-            return BadRequest();
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
 
         if (editPlayerDto.PlayerId != playerId)
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage)).ToBadRequestResult().ToHttpResult();
@@ -940,7 +944,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     public async Task<IActionResult> CreateProtectedName([FromBody] CreateProtectedNameDto createProtectedNameDto, CancellationToken cancellationToken = default)
     {
         if (createProtectedNameDto == null)
-            return BadRequest();
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
 
         var response = await ((IPlayersApi)this).CreateProtectedName(createProtectedNameDto);
 
@@ -960,7 +966,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         // Check if the name is already protected
         if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()))
-            return new ApiResult(HttpStatusCode.Conflict);
+            return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)));
 
         var protectedName = new ProtectedName
         {
@@ -1177,7 +1183,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.AddPlayerTag(Guid playerId, PlayerTagDto playerTagDto)
     {
         if (playerTagDto.TagId == null)
-            return new ApiResult(HttpStatusCode.BadRequest);
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.MissingEntityId, ApiErrorMessages.TagIdRequiredMessage)));
 
         // Check if the player exists
         if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
@@ -1191,7 +1197,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         // Check if player already has this tag
         var exists = await context.PlayerTags.AsNoTracking().AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId);
         if (exists)
-            return new ApiResult(HttpStatusCode.Conflict);
+            return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerTagConflictMessage)));
 
         var playerTag = playerTagDto.ToEntity();
         playerTag.PlayerId = playerId;
@@ -1351,7 +1357,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult<CollectionModel<PlayerDto>>> IPlayersApi.GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
     {
         if (string.IsNullOrWhiteSpace(ipAddress))
-            return new ApiResult<CollectionModel<PlayerDto>>(HttpStatusCode.BadRequest);
+            return new ApiResult<CollectionModel<PlayerDto>>(HttpStatusCode.BadRequest, new ApiResponse<CollectionModel<PlayerDto>>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
 
         // Filter players related to this IP address 
         var query = context.Players
@@ -1627,11 +1633,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <param name="updatePlayerAliasDto">The updated alias details.</param>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A 200 OK response if successful; otherwise, a 404 Not Found response.</returns>
-    [HttpPut("players/{playerId:guid}/aliases/{aliasId:guid}")]
+    [HttpPatch("players/{playerId:guid}/aliases/{aliasId:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdatePlayerAlias(Guid playerId, Guid aliasId, [FromBody] CreatePlayerAliasDto updatePlayerAliasDto, CancellationToken cancellationToken = default)
     {
+        if (updatePlayerAliasDto == null || string.IsNullOrWhiteSpace(updatePlayerAliasDto.Name))
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)).ToBadRequestResult().ToHttpResult();
         var response = await ((IPlayersApi)this).UpdatePlayerAlias(playerId, aliasId, updatePlayerAliasDto);
 
         return response.ToHttpResult();
@@ -1653,8 +1661,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         if (alias == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
-        // Update the alias
-        alias.Name = updatePlayerAliasDto.Name;
+        // Partial update: only update name if different
+        if (!string.IsNullOrWhiteSpace(updatePlayerAliasDto.Name) && alias.Name != updatePlayerAliasDto.Name)
+            alias.Name = updatePlayerAliasDto.Name.Trim();
         alias.LastUsed = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
@@ -1729,7 +1738,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult<CollectionModel<PlayerAliasDto>>> IPlayersApi.SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries)
     {
         if (string.IsNullOrWhiteSpace(aliasSearch) || aliasSearch.Length < 3)
-            return new ApiResult<CollectionModel<PlayerAliasDto>>(HttpStatusCode.BadRequest);
+            return new ApiResult<CollectionModel<PlayerAliasDto>>(HttpStatusCode.BadRequest, new ApiResponse<CollectionModel<PlayerAliasDto>>(null, new ApiError(ApiErrorCodes.InvalidRequest, ApiErrorMessages.InvalidRequestBodyMessage)));
 
         var trimmedSearch = aliasSearch.Trim();
 

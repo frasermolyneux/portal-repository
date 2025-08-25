@@ -285,17 +285,23 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Updates an existing map.
+        /// Partially updates an existing map. Only non-null properties are applied.
         /// </summary>
+        /// <param name="mapId">The unique identifier of the map to update.</param>
         /// <param name="editMapDto">The map data to update.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A success response if the map was updated; otherwise, appropriate error responses.</returns>
-        [HttpPut("map")]
+        [HttpPatch("maps/{mapId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateMap([FromBody] EditMapDto editMapDto, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> UpdateMap([FromRoute] Guid mapId, [FromBody] EditMapDto editMapDto, CancellationToken cancellationToken = default)
         {
+            if (editMapDto.MapId != mapId)
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.RequestEntityMismatchMessage));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
             var response = await ((IMapsApi)this).UpdateMap(editMapDto, cancellationToken);
             return response.ToHttpResult();
         }
@@ -319,11 +325,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Updates multiple maps in a single operation.
+        /// Partially updates multiple maps in a single operation. Only non-null properties are applied for each map.
         /// </summary>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A success response if all maps were updated; otherwise, appropriate error responses.</returns>
-        [HttpPut("maps")]
+        [HttpPatch("maps")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

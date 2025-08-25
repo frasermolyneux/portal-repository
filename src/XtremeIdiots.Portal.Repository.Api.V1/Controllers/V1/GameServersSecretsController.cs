@@ -68,7 +68,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     async Task<ApiResult<string>> IGameServersSecretsApi.GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(secretId))
-            return new ApiResult<string>(HttpStatusCode.BadRequest);
+            return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
 
         var gameServer = await context.GameServers
             .AsNoTracking()
@@ -123,7 +123,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     async Task<ApiResult<string>> IGameServersSecretsApi.SetGameServerSecret(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(secretId))
-            return new ApiResult<string>(HttpStatusCode.BadRequest);
+            return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
 
         var gameServer = await context.GameServers
             .AsNoTracking()

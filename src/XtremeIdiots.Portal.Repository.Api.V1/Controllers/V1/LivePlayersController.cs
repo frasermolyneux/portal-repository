@@ -132,12 +132,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch
             {
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+                return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, ApiErrorMessages.InvalidRequestBodyMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
             }
 
             if (createLivePlayerDtos == null)
             {
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
             }
 
             var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos, cancellationToken);

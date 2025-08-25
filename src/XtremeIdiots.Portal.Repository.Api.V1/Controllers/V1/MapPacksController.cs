@@ -197,7 +197,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateMapPacks([FromBody] List<CreateMapPackDto> createMapPackDtos, CancellationToken cancellationToken = default)
         {
             if (createMapPackDtos == null || !createMapPackDtos.Any())
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
 
             var response = await ((IMapPacksApi)this).CreateMapPacks(createMapPackDtos, cancellationToken);
             return response.ToHttpResult();
@@ -250,7 +252,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> UpdateMapPack(Guid mapPackId, [FromBody] UpdateMapPackDto updateMapPackDto, CancellationToken cancellationToken = default)
         {
             if (updateMapPackDto == null)
-                return new ApiResult(HttpStatusCode.BadRequest).ToHttpResult();
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                    .ToBadRequestResult()
+                    .ToHttpResult();
 
             if (updateMapPackDto.MapPackId != mapPackId)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();

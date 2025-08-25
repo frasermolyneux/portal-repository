@@ -88,8 +88,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> UpdateMap(EditMapDto editMapDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps", Method.Put);
-            request.AddJsonBody(new List<EditMapDto> { editMapDto });
+            var request = await CreateRequestAsync($"v1/maps/{editMapDto.MapId}", Method.Patch);
+            request.AddJsonBody(editMapDto);
 
             var response = await ExecuteAsync(request, cancellationToken);
 
@@ -98,7 +98,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> UpdateMaps(List<EditMapDto> editMapDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps", Method.Put);
+            var request = await CreateRequestAsync("v1/maps", Method.Patch);
             request.AddJsonBody(editMapDtos);
 
             var response = await ExecuteAsync(request, cancellationToken);
