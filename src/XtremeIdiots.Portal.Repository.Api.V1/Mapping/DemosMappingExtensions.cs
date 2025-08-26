@@ -22,7 +22,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameMode = entity.GameMode ?? string.Empty,
                 ServerName = entity.ServerName ?? string.Empty,
                 FileSize = entity.FileSize,
-                FileUri = entity.FileUri ?? string.Empty
+                FileUri = entity.FileUri ?? string.Empty,
+                UserProfile = expand && entity.UserProfile != null ? entity.UserProfile.ToDto(false) : null
             };
         }
     }
