@@ -135,4 +135,9 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/api/health").AllowAnonymous();
 
+
+app.MapGet("/", () => Results.Ok("OK"))
+   .WithName("Root")
+   .AllowAnonymous();
+
 app.Run();

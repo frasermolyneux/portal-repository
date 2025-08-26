@@ -37,6 +37,19 @@
           }
         }
       }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "XtremeIdiots.Portal.Repository.Api.V1, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+        ],
+        "operationId": "Root",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
