@@ -216,16 +216,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken);
 
-            var items = results.Select(up => up.ToDto()).ToList();
+            var entries = results.Select(up => up.ToDto()).ToList();
 
-            var result = new CollectionModel<UserProfileDto>
-            {
-                Items = items,
-                TotalCount = totalCount,
-                FilteredCount = filteredCount
-            };
+            var data = new CollectionModel<UserProfileDto>(entries);
 
-            return new ApiResponse<CollectionModel<UserProfileDto>>(result)
+            return new ApiResponse<CollectionModel<UserProfileDto>>(data)
             {
                 Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
             }.ToApiResult();

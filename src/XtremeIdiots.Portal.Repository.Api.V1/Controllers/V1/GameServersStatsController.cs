@@ -124,7 +124,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .ToListAsync(cancellationToken);
 
             var entries = gameServerStats.Select(r => r.ToDto()).ToList();
-            var result = new CollectionModel<GameServerStatDto>(entries, gameServerStats.Count, gameServerStats.Count);
+            var result = new CollectionModel<GameServerStatDto>(entries);
 
             return new ApiResponse<CollectionModel<GameServerStatDto>>(result)
             {

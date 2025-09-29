@@ -98,12 +98,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var entries = livePlayers.Select(lp => lp.ToDto()).ToList();
 
-            var data = new CollectionModel<LivePlayerDto>
-            {
-                TotalCount = totalCount,
-                FilteredCount = filteredCount,
-                Items = entries
-            };
+            var data = new CollectionModel<LivePlayerDto>(entries);
 
             return new ApiResponse<CollectionModel<LivePlayerDto>>(data)
             {

@@ -143,12 +143,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var entries = results.Select(m => m.ToDto()).ToList();
 
-            var data = new CollectionModel<MapPackDto>
-            {
-                TotalCount = totalCount,
-                FilteredCount = filteredCount,
-                Items = entries
-            };
+            var data = new CollectionModel<MapPackDto>(entries);
 
             return new ApiResponse<CollectionModel<MapPackDto>>(data)
             {

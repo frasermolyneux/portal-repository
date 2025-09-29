@@ -146,12 +146,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var entries = results.Select(bfm => bfm.ToDto()).ToList();
 
-            var data = new CollectionModel<BanFileMonitorDto>
-            {
-                Items = entries,
-                TotalCount = totalCount,
-                FilteredCount = filteredCount
-            };
+            var data = new CollectionModel<BanFileMonitorDto>(entries);
 
             return new ApiResponse<CollectionModel<BanFileMonitorDto>>(data)
             {

@@ -133,10 +133,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var entries = adminActions.Select(aa => aa.ToDto()).ToList();
 
-            var data = new CollectionModel<AdminActionDto>
-            {
-                Items = entries
-            };
+            var data = new CollectionModel<AdminActionDto>(entries);
 
             return new ApiResponse<CollectionModel<AdminActionDto>>(data)
             {

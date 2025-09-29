@@ -6902,16 +6902,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -7045,16 +7035,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -7139,16 +7119,6 @@
               "$ref": "#/components/schemas/ChatMessageDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -7732,16 +7702,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -8107,16 +8067,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -8193,16 +8143,6 @@
               "$ref": "#/components/schemas/GameServerStatDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8306,16 +8246,6 @@
               "$ref": "#/components/schemas/IpAddressDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8445,16 +8375,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -8555,16 +8475,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -8656,16 +8566,6 @@
               "$ref": "#/components/schemas/MapPackDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8788,16 +8688,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -8841,16 +8731,6 @@
               "$ref": "#/components/schemas/PlayerAnalyticEntryDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -8995,16 +8875,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -9128,16 +8998,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -9208,16 +9068,6 @@
               "$ref": "#/components/schemas/PlayerTagDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9350,16 +9200,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -9475,16 +9315,6 @@
               "$ref": "#/components/schemas/RecentPlayerDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9625,16 +9455,6 @@
             },
             "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -9729,16 +9549,6 @@
               "$ref": "#/components/schemas/TagDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",
@@ -9955,16 +9765,6 @@
               "$ref": "#/components/schemas/UserProfileDto"
             },
             "nullable": true
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
-          },
-          "filteredCount": {
-            "type": "integer",
-            "format": "int32",
-            "deprecated": true
           },
           "metadata": {
             "type": "object",

@@ -143,12 +143,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
 
         var entries = results.Select(cm => cm.ToDto()).ToList();
 
-        var data = new CollectionModel<ChatMessageDto>
-        {
-            TotalCount = totalCount,
-            FilteredCount = filteredCount,
-            Items = entries
-        };
+        var data = new CollectionModel<ChatMessageDto>(entries);
 
         return new ApiResponse<CollectionModel<ChatMessageDto>>(data)
         {

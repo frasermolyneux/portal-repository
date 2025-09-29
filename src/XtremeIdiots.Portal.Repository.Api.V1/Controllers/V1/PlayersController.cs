@@ -460,9 +460,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         var entries = results.Select(p => p.ToDto()).ToList();
 
         // Create the result collection
-        var result = new CollectionModel<PlayerDto>(entries, totalCount, filteredCount);
+        var data = new CollectionModel<PlayerDto>(entries);
 
-        return new ApiResponse<CollectionModel<PlayerDto>>(result)
+        return new ApiResponse<CollectionModel<PlayerDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
         }.ToApiResult();
@@ -839,9 +839,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         var entries = results.Select(pn => pn.ToProtectedNameDto()).ToList();
 
-        var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
+        var data = new CollectionModel<ProtectedNameDto>(entries);
 
-        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result)
+        return new ApiResponse<CollectionModel<ProtectedNameDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
         }.ToApiResult();
@@ -922,9 +922,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         var entries = results.Select(pn => pn.ToProtectedNameDto()).ToList();
 
-        var result = new CollectionModel<ProtectedNameDto>(entries, totalCount, totalCount);
+        var data = new CollectionModel<ProtectedNameDto>(entries);
 
-        return new ApiResponse<CollectionModel<ProtectedNameDto>>(result)
+        return new ApiResponse<CollectionModel<ProtectedNameDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, totalCount, 0, totalCount)
         }.ToApiResult();
@@ -1137,7 +1137,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         var entries = playerTags.Select(pt => pt.ToDto()).ToList();
 
-        var result = new CollectionModel<PlayerTagDto>(entries, entries.Count, entries.Count);
+        var result = new CollectionModel<PlayerTagDto>(entries);
 
         return new ApiResponse<CollectionModel<PlayerTagDto>>(result)
         {
@@ -1406,9 +1406,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         var playerDtos = players.Select(p => p.ToDto()).ToList();
 
         // Create result
-        var result = new CollectionModel<PlayerDto>(playerDtos, totalCount, totalCount);
+        var data = new CollectionModel<PlayerDto>(playerDtos);
 
-        return new ApiResponse<CollectionModel<PlayerDto>>(result)
+        return new ApiResponse<CollectionModel<PlayerDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
         }.ToApiResult();
@@ -1488,9 +1488,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         var dtos = items.Select(item => item.ToIpAddressDto()).ToList();
 
         // Create and return the response
-        var result = new CollectionModel<IpAddressDto>(dtos, totalCount, totalCount);
+        var data = new CollectionModel<IpAddressDto>(dtos);
 
-        return new ApiResponse<CollectionModel<IpAddressDto>>(result)
+        return new ApiResponse<CollectionModel<IpAddressDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
         }.ToApiResult();
@@ -1557,9 +1557,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         // Map the aliases to DTOs
         var aliasesDto = aliases.Select(a => a.ToPlayerAliasDto()).ToList();
 
-        var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
+        var data = new CollectionModel<PlayerAliasDto>(aliasesDto);
 
-        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result)
+        return new ApiResponse<CollectionModel<PlayerAliasDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
         }.ToApiResult();
@@ -1758,9 +1758,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         // Map the aliases to DTOs
         var aliasesDto = aliases.Select(a => a.ToPlayerAliasDto()).ToList();
 
-        var result = new CollectionModel<PlayerAliasDto>(aliasesDto, totalCount, totalCount);
+        var data = new CollectionModel<PlayerAliasDto>(aliasesDto);
 
-        return new ApiResponse<CollectionModel<PlayerAliasDto>>(result)
+        return new ApiResponse<CollectionModel<PlayerAliasDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
         }.ToApiResult();

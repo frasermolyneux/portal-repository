@@ -80,8 +80,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var result = new CollectionModel<PlayerAnalyticEntryDto>
             {
-                TotalCount = groupedPlayers.Count,
-                FilteredCount = groupedPlayers.Count,
                 Items = groupedPlayers
             };
 
@@ -132,8 +130,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var result = new CollectionModel<PlayerAnalyticPerGameEntryDto>
             {
-                TotalCount = groupedPlayers.Count,
-                FilteredCount = groupedPlayers.Count,
                 Items = groupedPlayers
             };
 
@@ -184,8 +180,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var result = new CollectionModel<PlayerAnalyticPerGameEntryDto>
             {
-                TotalCount = groupedPlayers.Count,
-                FilteredCount = groupedPlayers.Count,
                 Items = groupedPlayers
             };
 

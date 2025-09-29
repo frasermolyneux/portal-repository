@@ -164,14 +164,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var entries = adminActions.Select(aa => mapper.Map<AdminActionDto>(aa)).ToList();
 
-            var data = new CollectionModel<AdminActionDto>
-            {
-                Items = entries,
-                TotalCount = totalCount,
-                FilteredCount = filteredCount
-            };
+            var data = new CollectionModel<AdminActionDto>(entries);
 
-            return new ApiResponse<CollectionModel<AdminActionDto>>(data).ToApiResult();
+            return new ApiResponse<CollectionModel<AdminActionDto>>(data)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
         }
 
         private IQueryable<AdminAction> ApplyFilters(IQueryable<AdminAction> query, GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter)

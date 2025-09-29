@@ -145,9 +145,10 @@ public class GameServersController : ControllerBase, IGameServersApi
         var results = await orderedQuery.ToListAsync(cancellationToken);
 
         var entries = results.Select(m => m.ToDto()).ToList();
-        var result = new CollectionModel<GameServerDto>(entries, totalCount, filteredCount);
 
-        return new ApiResponse<CollectionModel<GameServerDto>>(result)
+        var data = new CollectionModel<GameServerDto>(entries);
+
+        return new ApiResponse<CollectionModel<GameServerDto>>(data)
         {
             Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
         }.ToApiResult();

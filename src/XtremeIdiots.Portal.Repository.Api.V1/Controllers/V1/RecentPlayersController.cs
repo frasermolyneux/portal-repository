@@ -97,14 +97,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var entries = results.Select(rp => rp.ToDto()).ToList();
 
-            var result = new CollectionModel<RecentPlayerDto>
-            {
-                TotalCount = totalCount,
-                FilteredCount = filteredCount,
-                Items = entries
-            };
+            var data = new CollectionModel<RecentPlayerDto>(entries);
 
-            return new ApiResponse<CollectionModel<RecentPlayerDto>>(result)
+            return new ApiResponse<CollectionModel<RecentPlayerDto>>(data)
             {
                 Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
             }.ToApiResult();

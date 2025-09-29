@@ -72,14 +72,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Take(takeEntries)
                 .ToListAsync(cancellationToken);
 
-            var result = new CollectionModel<TagDto>
-            {
-                TotalCount = totalCount,
-                FilteredCount = totalCount, // No filtering for tags
-                Items = tags.Select(tag => tag.ToDto()).ToList()
-            };
+            var entries = tags.Select(tag => tag.ToDto()).ToList();
 
-            return new ApiResponse<CollectionModel<TagDto>>(result)
+            var data = new CollectionModel<TagDto>(entries);
+
+            return new ApiResponse<CollectionModel<TagDto>>(data)
             {
                 Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
             }.ToApiResult();
