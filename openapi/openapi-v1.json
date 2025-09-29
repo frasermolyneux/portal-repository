@@ -6814,19 +6814,6 @@
           }
         }
       }
-    },
-    "/": {
-      "get": {
-        "tags": [
-          "XtremeIdiots.Portal.Repository.Api.V1"
-        ],
-        "operationId": "Root",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
     }
   },
   "components": {
