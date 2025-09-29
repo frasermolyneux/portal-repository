@@ -6818,7 +6818,7 @@
     "/": {
       "get": {
         "tags": [
-          "XtremeIdiots.Portal.Repository.Api.V1, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+          "XtremeIdiots.Portal.Repository.Api.V1"
         ],
         "operationId": "Root",
         "responses": {
@@ -9151,7 +9151,7 @@
             "nullable": true
           }
         },
-        "additionalProperties": { }
+        "additionalProperties": {}
       },
       "ProtectedNameDto": {
         "type": "object",
@@ -9808,7 +9808,7 @@
   },
   "security": [
     {
-      "Bearer": [ ]
+      "Bearer": []
     }
   ]
 }
