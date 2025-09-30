@@ -77,7 +77,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public async Task<ApiResult> CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/user-profile", Method.Post);
-            request.AddJsonBody(new List<CreateUserProfileDto> { createUserProfileDto });
+            request.AddJsonBody(createUserProfileDto);
 
             var response = await ExecuteAsync(request, cancellationToken);
 
@@ -97,7 +97,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public async Task<ApiResult> UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/user-profile", Method.Put);
-            request.AddJsonBody(new List<EditUserProfileDto> { editUserProfileDto });
+            request.AddJsonBody(editUserProfileDto);
 
             var response = await ExecuteAsync(request, cancellationToken);
 
