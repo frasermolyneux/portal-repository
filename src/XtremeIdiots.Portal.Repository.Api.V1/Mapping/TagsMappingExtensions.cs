@@ -13,7 +13,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         /// </summary>
         /// <param name="entity">The Tag entity to map from.</param>
         /// <returns>The mapped TagDto.</returns>
-        public static TagDto ToDto(this Tag entity)
+        public static TagDto ToDto(this Tag entity, int playerCount = 0)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
@@ -23,7 +23,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Name = entity.Name,
                 Description = entity.Description,
                 UserDefined = entity.UserDefined,
-                TagHtml = entity.TagHtml
+                TagHtml = entity.TagHtml,
+                PlayerCount = playerCount
             };
         }
 

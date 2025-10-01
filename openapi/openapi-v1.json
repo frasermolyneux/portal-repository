@@ -9523,6 +9523,10 @@
           "tagHtml": {
             "type": "string",
             "nullable": true
+          },
+          "playerCount": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

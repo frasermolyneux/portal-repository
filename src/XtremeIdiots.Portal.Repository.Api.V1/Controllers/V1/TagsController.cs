@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
@@ -25,16 +26,41 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Route("api/v{version:apiVersion}")]
     public class TagsController : ControllerBase, ITagsApi
     {
+        internal const string TagPlayerCountsCacheKey = "TagsController:PlayerCounts";
+
         private readonly PortalDbContext context;
+        private readonly IMemoryCache memoryCache;
 
         /// <summary>
         /// Initializes a new instance of the TagsController class.
         /// </summary>
         /// <param name="context">The database context for accessing tag data.</param>
         /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
-        public TagsController(PortalDbContext context)
+        public TagsController(PortalDbContext context, IMemoryCache memoryCache)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        }
+
+        private async Task<Dictionary<Guid, int>> GetTagPlayerCountsAsync(CancellationToken cancellationToken)
+        {
+            var counts = await memoryCache.GetOrCreateAsync(TagPlayerCountsCacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
+
+                return await context.PlayerTags
+                    .AsNoTracking()
+                    .Where(pt => pt.TagId.HasValue)
+                    .GroupBy(pt => pt.TagId!.Value)
+                    .Select(group => new
+                    {
+                        TagId = group.Key,
+                        Count = group.Count()
+                    })
+                    .ToDictionaryAsync(x => x.TagId, x => x.Count, cancellationToken);
+            });
+
+            return counts ?? new Dictionary<Guid, int>();
         }
 
         /// <summary>
@@ -72,7 +98,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Take(takeEntries)
                 .ToListAsync(cancellationToken);
 
-            var entries = tags.Select(tag => tag.ToDto()).ToList();
+            var playerCounts = await GetTagPlayerCountsAsync(cancellationToken);
+
+            var entries = tags
+                .Select(tag =>
+                {
+                    var hasCount = playerCounts.TryGetValue(tag.TagId, out var count);
+                    return tag.ToDto(hasCount ? count : 0);
+                })
+                .ToList();
 
             var data = new CollectionModel<TagDto>(entries);
 
@@ -112,7 +146,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (tag == null)
                 return new ApiResult<TagDto>(HttpStatusCode.NotFound);
 
-            var result = tag.ToDto();
+            var playerCounts = await GetTagPlayerCountsAsync(cancellationToken);
+            playerCounts.TryGetValue(tag.TagId, out var playerCount);
+
+            var result = tag.ToDto(playerCount);
             return new ApiResponse<TagDto>(result).ToApiResult();
         }
 

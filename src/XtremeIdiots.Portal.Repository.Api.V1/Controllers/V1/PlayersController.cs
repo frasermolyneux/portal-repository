@@ -37,6 +37,9 @@ public class PlayersController : ControllerBase, IPlayersApi
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
+    private void InvalidateTagPlayerCountsCache()
+        => _memoryCache.Remove(TagsController.TagPlayerCountsCacheKey);
+
     /// <summary>
     /// Retrieves a specific player by their unique identifier.
     /// </summary>
@@ -1205,6 +1208,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         context.PlayerTags.Add(playerTag);
         await context.SaveChangesAsync();
+        InvalidateTagPlayerCountsCache();
         return new ApiResponse().ToApiResult();
     }
     /// <summary>
@@ -1243,6 +1247,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         context.PlayerTags.Remove(playerTag);
         await context.SaveChangesAsync();
+        InvalidateTagPlayerCountsCache();
         return new ApiResponse().ToApiResult();
     }
 
@@ -1313,6 +1318,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         context.PlayerTags.Remove(playerTag);
         await context.SaveChangesAsync();
+        InvalidateTagPlayerCountsCache();
         return new ApiResponse().ToApiResult();
     }
 

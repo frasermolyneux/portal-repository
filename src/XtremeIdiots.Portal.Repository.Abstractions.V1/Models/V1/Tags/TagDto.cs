@@ -23,5 +23,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags
 
         [JsonProperty]
         public string? TagHtml { get; set; }
+
+        [JsonProperty]
+        public int PlayerCount { get; set; }
     }
 }
