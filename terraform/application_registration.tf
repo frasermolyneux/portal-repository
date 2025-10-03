@@ -11,6 +11,8 @@ resource "azuread_application" "repository_api" {
   sign_in_audience = "AzureADMyOrg"
 
   api {
+    requested_access_token_version = 2
+
     oauth2_permission_scope {
       admin_consent_description  = format("Allow the application to access %s on behalf of the signed-in user.", local.app_registration_name)
       admin_consent_display_name = format("Access %s", local.app_registration_name)
