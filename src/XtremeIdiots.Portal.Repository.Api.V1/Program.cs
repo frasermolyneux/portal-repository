@@ -23,6 +23,7 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<TelemetryConfiguration>(telemetryConfiguration =>
 {
     var telemetryProcessorChainBuilder = telemetryConfiguration.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    telemetryProcessorChainBuilder.Use(next => new SqlDependencyFilterTelemetryProcessor(next));
     telemetryProcessorChainBuilder.UseAdaptiveSampling(excludedTypes: "Exception");
     telemetryProcessorChainBuilder.Build();
 });
