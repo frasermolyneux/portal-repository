@@ -76,7 +76,7 @@ resource "azurerm_api_management_api_diagnostic" "repository_api_diagnostic_lega
   api_management_name      = data.azurerm_api_management.core.name
   api_management_logger_id = format("%s/providers/Microsoft.ApiManagement/service/serviceValue/loggers/%s", data.azurerm_resource_group.core.id, data.azurerm_application_insights.core.name)
 
-  sampling_percentage = 100
+  sampling_percentage = 20
 
   always_log_errors = true
   log_client_ip     = true
