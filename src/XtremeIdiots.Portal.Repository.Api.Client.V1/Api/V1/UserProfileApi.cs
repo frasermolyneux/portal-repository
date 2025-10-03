@@ -86,7 +86,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profile", Method.Post);
+            var request = await CreateRequestAsync("v1/user-profiles", Method.Post);
             request.AddJsonBody(createUserProfileDtos);
 
             var response = await ExecuteAsync(request, cancellationToken);
@@ -96,7 +96,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profile", Method.Put);
+            var request = await CreateRequestAsync($"v1/user-profile/{editUserProfileDto.UserProfileId}", Method.Patch);
             request.AddJsonBody(editUserProfileDto);
 
             var response = await ExecuteAsync(request, cancellationToken);
@@ -106,7 +106,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profile", Method.Put);
+            var request = await CreateRequestAsync("v1/user-profiles", Method.Patch);
             request.AddJsonBody(editUserProfileDtos);
 
             var response = await ExecuteAsync(request, cancellationToken);
@@ -116,7 +116,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Patch);
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Post);
             request.AddJsonBody(createUserProfileClaimDto);
 
             var response = await ExecuteAsync(request, cancellationToken);
@@ -126,7 +126,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Post);
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Put);
             request.AddJsonBody(createUserProfileClaimDto);
 
             var response = await ExecuteAsync(request, cancellationToken);
