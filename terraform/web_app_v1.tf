@@ -29,9 +29,9 @@ resource "azurerm_linux_web_app" "app_v1" {
   }
 
   app_settings = {
-    "AzureAppConfiguration:Endpoint"                = local.app_configuration_endpoint
-    "AzureAppConfiguration:ManagedIdentityClientId" = local.repository_webapi_identity_principal_id
-    "AzureAppConfiguration:Environment"             = var.environment
+    "AzureAppConfiguration__Endpoint"                = local.app_configuration_endpoint
+    "AzureAppConfiguration__ManagedIdentityClientId" = local.repository_webapi_identity_principal_id
+    "AzureAppConfiguration__Environment"             = var.environment
 
     "minTlsVersion"                              = "1.2"
     "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.core.connection_string
