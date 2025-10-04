@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.ApplicationInsights.WindowsServer.Channel.Implementation;
@@ -15,6 +16,21 @@ using XtremeIdiots.Portal.Repository.Api.V1.OpenApiOperationFilters;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var appConfigurationEndpoint = builder.Configuration["AzureAppConfiguration:Endpoint"];
+if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
+{
+    var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
+    var managedIdentityCredential = string.IsNullOrWhiteSpace(managedIdentityClientId)
+        ? new ManagedIdentityCredential()
+        : new ManagedIdentityCredential(managedIdentityClientId);
+
+    builder.Configuration.AddAzureAppConfiguration(options =>
+    {
+        options.Connect(new Uri(appConfigurationEndpoint), managedIdentityCredential)
+               .Select("XtremeIdiots.Portal.Repository.Api.V1.*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"]);
+    });
+}
 
 builder.Services.AddSingleton<ITelemetryInitializer, TelemetryInitializer>();
 builder.Services.AddLogging();
@@ -119,6 +135,8 @@ builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseAzureAppConfiguration();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
