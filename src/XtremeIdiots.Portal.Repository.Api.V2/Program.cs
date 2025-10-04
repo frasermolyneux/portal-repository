@@ -28,7 +28,8 @@ if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
     builder.Configuration.AddAzureAppConfiguration(options =>
     {
         options.Connect(new Uri(appConfigurationEndpoint), managedIdentityCredential)
-               .Select("XtremeIdiots.Portal.Repository.Api.V2.*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"]);
+               .Select("XtremeIdiots.Portal.Repository.Api.V2:*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"])
+               .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V2:");
     });
 }
 
