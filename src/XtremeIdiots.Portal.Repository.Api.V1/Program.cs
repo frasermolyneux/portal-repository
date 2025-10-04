@@ -31,8 +31,8 @@ if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
     builder.Configuration.AddAzureAppConfiguration(options =>
     {
         options.Connect(new Uri(appConfigurationEndpoint), identityCredential)
-               .Select("XtremeIdiots.Portal.Repository.Api.V2:*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"])
-               .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V2:");
+               .Select("XtremeIdiots.Portal.Repository.Api.V1:*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"])
+               .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V1:");
 
         options.ConfigureKeyVault(keyVaultOptions =>
         {
