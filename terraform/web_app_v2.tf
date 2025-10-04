@@ -33,11 +33,11 @@ resource "azurerm_linux_web_app" "app_v2" {
     "ApplicationInsightsAgent_EXTENSION_VERSION" = "~3"
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"
-    "AzureAd__TenantId"                          = data.azurerm_client_config.current.tenant_id
-    "AzureAd__Instance"                          = "https://login.microsoftonline.com/"
-    "AzureAd__ClientId"                          = azuread_application.repository_api.client_id
-    "AzureAd__ClientSecret"                      = format("@Microsoft.KeyVault(VaultName=%s;SecretName=%s)", azurerm_key_vault.kv.name, azurerm_key_vault_secret.app_registration_client_secret.name)
-    "AzureAd__Audience"                          = format("api://%s", local.app_registration_name)
+    "AzureAd__TenantId"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:TenantId, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
+    "AzureAd__Instance"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:Instance, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
+    "AzureAd__ClientId"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:ClientId, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
+    "AzureAd__ClientSecret"                      = format("@Microsoft.AppConfiguration(Key=AzureAd:ClientSecret, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
+    "AzureAd__Audience"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:Audience, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
 
     "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;", data.azurerm_mssql_server.core.fully_qualified_domain_name, local.sql_database_name)
     "appdata_storage_blob_endpoint" = azurerm_storage_account.app_data_storage.primary_blob_endpoint

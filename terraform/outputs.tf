@@ -30,10 +30,6 @@ output "key_vault_name" {
   value = azurerm_key_vault.kv.name
 }
 
-output "integration_tests_account_name" {
-  value = azuread_application.integration_tests.display_name
-}
-
 output "api_audience" {
   value = format("api://%s", local.app_registration_name)
 }
