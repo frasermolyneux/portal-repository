@@ -14,9 +14,15 @@ data "terraform_remote_state" "portal_environments" {
 }
 
 locals {
-  app_configuration_endpoint              = data.terraform_remote_state.portal_environments.outputs.app_configuration_endpoint
-  managed_identity_ids                    = try(data.terraform_remote_state.portal_environments.outputs.managed_identity_ids, {})
-  managed_identity_principal_ids          = try(data.terraform_remote_state.portal_environments.outputs.managed_identity_principal_ids, {})
+  app_configuration_endpoint = data.terraform_remote_state.portal_environments.outputs.app_configuration_endpoint
+
+  managed_identity_ids           = try(data.terraform_remote_state.portal_environments.outputs.managed_identity_ids, {})
+  managed_identity_client_ids    = try(data.terraform_remote_state.portal_environments.outputs.managed_identity_client_ids, {})
+  managed_identity_object_ids    = try(data.terraform_remote_state.portal_environments.outputs.managed_identity_object_ids, {})
+  managed_identity_principal_ids = try(data.terraform_remote_state.portal_environments.outputs.managed_identity_principal_ids, {})
+
   repository_webapi_identity_id           = local.managed_identity_ids["repository_webapi_identity"]
+  repository_webapi_identity_client_id    = local.managed_identity_client_ids["repository_webapi_identity"]
+  repository_webapi_identity_object_id    = local.managed_identity_object_ids["repository_webapi_identity"]
   repository_webapi_identity_principal_id = local.managed_identity_principal_ids["repository_webapi_identity"]
 }

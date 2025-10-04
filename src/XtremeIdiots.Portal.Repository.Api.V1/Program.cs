@@ -19,6 +19,8 @@ using Azure.Core;
 var builder = WebApplication.CreateBuilder(args);
 
 var appConfigurationEndpoint = builder.Configuration["AzureAppConfiguration:Endpoint"];
+var isAzureAppConfigurationEnabled = false;
+
 if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
 {
     var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
@@ -37,6 +39,9 @@ if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
             keyVaultOptions.SetCredential(identityCredential);
         });
     });
+
+    builder.Services.AddAzureAppConfiguration();
+    isAzureAppConfigurationEnabled = true;
 }
 
 builder.Services.AddSingleton<ITelemetryInitializer, TelemetryInitializer>();
@@ -143,7 +148,10 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-app.UseAzureAppConfiguration();
+if (isAzureAppConfigurationEnabled)
+{
+    app.UseAzureAppConfiguration();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
