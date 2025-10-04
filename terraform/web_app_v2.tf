@@ -10,7 +10,8 @@ resource "azurerm_linux_web_app" "app_v2" {
   https_only = true
 
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [local.repository_webapi_identity_id]
   }
 
   site_config {
@@ -28,16 +29,17 @@ resource "azurerm_linux_web_app" "app_v2" {
   }
 
   app_settings = {
+    "AZURE_CLIENT_ID"                            = local.repository_webapi_identity_principal_id
     "minTlsVersion"                              = "1.2"
     "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.core.connection_string
     "ApplicationInsightsAgent_EXTENSION_VERSION" = "~3"
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"
-    "AzureAd__TenantId"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:TenantId, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
-    "AzureAd__Instance"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:Instance, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
-    "AzureAd__ClientId"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:ClientId, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
-    "AzureAd__ClientSecret"                      = format("@Microsoft.AppConfiguration(Key=AzureAd:ClientSecret, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
-    "AzureAd__Audience"                          = format("@Microsoft.AppConfiguration(Key=AzureAd:Audience, Label=repository-webapi-v2, Endpoint=%s)", local.app_configuration_endpoint)
+    "AzureAd__TenantId"                          = format("@Microsoft.AppConfiguration(Endpoint=%s; Key=AzureAd:TenantId; Label=repository-webapi-v2)", local.app_configuration_endpoint)
+    "AzureAd__Instance"                          = format("@Microsoft.AppConfiguration(Endpoint=%s; Key=AzureAd:Instance; Label=repository-webapi-v2)", local.app_configuration_endpoint)
+    "AzureAd__ClientId"                          = format("@Microsoft.AppConfiguration(Endpoint=%s; Key=AzureAd:ClientId; Label=repository-webapi-v2)", local.app_configuration_endpoint)
+    "AzureAd__ClientSecret"                      = format("@Microsoft.AppConfiguration(Endpoint=%s; Key=AzureAd:ClientSecret; Label=repository-webapi-v2)", local.app_configuration_endpoint)
+    "AzureAd__Audience"                          = format("@Microsoft.AppConfiguration(Endpoint=%s; Key=AzureAd:Audience; Label=repository-webapi-v2)", local.app_configuration_endpoint)
 
     "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;", data.azurerm_mssql_server.core.fully_qualified_domain_name, local.sql_database_name)
     "appdata_storage_blob_endpoint" = azurerm_storage_account.app_data_storage.primary_blob_endpoint

@@ -14,5 +14,7 @@ data "terraform_remote_state" "portal_environments" {
 }
 
 locals {
-  app_configuration_endpoint = data.terraform_remote_state.portal_environments.outputs.app_configuration_endpoint
+  app_configuration_endpoint              = data.terraform_remote_state.portal_environments.outputs.app_configuration_endpoint
+  repository_webapi_identity_id           = data.terraform_remote_state.portal_environments.outputs.repository_webapi_identity_id
+  repository_webapi_identity_principal_id = data.terraform_remote_state.portal_environments.outputs.repository_webapi_identity_principal_id
 }
