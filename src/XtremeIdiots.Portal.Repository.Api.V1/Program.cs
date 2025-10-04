@@ -14,6 +14,7 @@ using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using XtremeIdiots.Portal.Repository.Api.V1.OpenApiOperationFilters;
 using Microsoft.OpenApi.Models;
+using Azure.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,15 +22,20 @@ var appConfigurationEndpoint = builder.Configuration["AzureAppConfiguration:Endp
 if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
 {
     var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
-    var managedIdentityCredential = string.IsNullOrWhiteSpace(managedIdentityClientId)
-        ? new ManagedIdentityCredential()
+    TokenCredential identityCredential = string.IsNullOrWhiteSpace(managedIdentityClientId)
+        ? new DefaultAzureCredential()
         : new ManagedIdentityCredential(managedIdentityClientId);
 
     builder.Configuration.AddAzureAppConfiguration(options =>
     {
-        options.Connect(new Uri(appConfigurationEndpoint), managedIdentityCredential)
-               .Select("XtremeIdiots.Portal.Repository.Api.V1:*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"])
-               .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V1:");
+        options.Connect(new Uri(appConfigurationEndpoint), identityCredential)
+               .Select("XtremeIdiots.Portal.Repository.Api.V2:*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"])
+               .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V2:");
+
+        options.ConfigureKeyVault(keyVaultOptions =>
+        {
+            keyVaultOptions.SetCredential(identityCredential);
+        });
     });
 }
 
