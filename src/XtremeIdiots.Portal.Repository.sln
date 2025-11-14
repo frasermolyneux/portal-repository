@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XtremeIdiots.Portal.Reposit
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1", "XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1.csproj", "{6BC924E9-E6D4-429A-94BF-1786E369E53C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy", "XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy\XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy.csproj", "{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XtremeIdiots.Portal.Repository.Api.V1", "XtremeIdiots.Portal.Repository.Api.V1\XtremeIdiots.Portal.Repository.Api.V1.csproj", "{60FCD99E-47DD-4825-90FB-3775F68530D4}"
 EndProject
 Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "XtremeIdiots.Portal.Repository.Database", "XtremeIdiots.Portal.Repository.Database\XtremeIdiots.Portal.Repository.Database.sqlproj", "{F76B1171-080C-44A4-ACFF-4711CB9B7518}"
@@ -71,18 +69,6 @@ Global
 		{6BC924E9-E6D4-429A-94BF-1786E369E53C}.Release|x64.Build.0 = Release|Any CPU
 		{6BC924E9-E6D4-429A-94BF-1786E369E53C}.Release|x86.ActiveCfg = Release|Any CPU
 		{6BC924E9-E6D4-429A-94BF-1786E369E53C}.Release|x86.Build.0 = Release|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Debug|x64.Build.0 = Debug|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Debug|x86.Build.0 = Debug|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Release|x64.ActiveCfg = Release|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Release|x64.Build.0 = Release|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Release|x86.ActiveCfg = Release|Any CPU
-		{514CF9D2-659D-4CA8-A320-BD17FABAFFCB}.Release|x86.Build.0 = Release|Any CPU
 		{60FCD99E-47DD-4825-90FB-3775F68530D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{60FCD99E-47DD-4825-90FB-3775F68530D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{60FCD99E-47DD-4825-90FB-3775F68530D4}.Debug|x64.ActiveCfg = Debug|Any CPU

@@ -4,10 +4,6 @@ output "api_version_set_name" {
   value = azurerm_api_management_api_version_set.repository_api_version_set.name
 }
 
-output "api_legacy_name" {
-  value = azurerm_api_management_api.repository_api_legacy.name
-}
-
 output "api_versions_deployed" {
   value = [
     for api in azurerm_api_management_api.repository_api_versioned : api.version
