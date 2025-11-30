@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
@@ -50,7 +50,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
@@ -101,7 +101,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
