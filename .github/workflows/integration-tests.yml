@@ -7,9 +7,9 @@ on:
       - 'integration/**'
 
 permissions:
+  contents: read
   id-token: write # This is required for Az CLI Login
-  contents: read # This is required for actions/checkout
-
+  
 jobs:
   terraform-get-outputs-dev:
     environment: Development
@@ -19,7 +19,7 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: "Az CLI Login"
       uses: azure/login@v2

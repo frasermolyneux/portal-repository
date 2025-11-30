@@ -7,16 +7,14 @@ on:
       - 'feature/**'
 
 permissions:
+  contents: read
   id-token: write # This is required for Az CLI Login
-  contents: read # This is required for actions/checkout
-
+  
 jobs:
   dotnet-web-ci-v1:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
         dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
@@ -30,8 +28,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
         dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
@@ -50,8 +46,6 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
-    
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
         terraform-folder: "terraform"
@@ -101,8 +95,6 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
         sql-args: /Variables:env=dev /Variables:instance=01

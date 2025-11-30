@@ -10,8 +10,8 @@ on:
     - cron: "0 3 * * 4" # Weekly Thursday at 3am UTC (standardized)
 
 permissions:
+  contents: read
   id-token: write # This is required for Az CLI Login
-  contents: read # This is required for actions/checkout
 
 concurrency: # This is required to prevent multiple runs of the same workflow from running at the same time.
   group: ${{ github.workflow }}
@@ -21,8 +21,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
         dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
@@ -36,8 +34,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/dotnet-web-ci@main
       with:
         dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
@@ -56,8 +52,6 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
         terraform-folder: "terraform"
@@ -107,8 +101,6 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
         sql-args: /Variables:env=dev /Variables:instance=01
@@ -209,8 +201,6 @@ jobs:
       group: ${{ github.repository }}-prd
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/terraform-plan-and-apply@main
       with:
         terraform-folder: "terraform"
@@ -260,8 +250,6 @@ jobs:
       group: ${{ github.repository }}-prd
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/deploy-sql-database@main
       with:
         sql-args: /Variables:env=prd /Variables:instance=01

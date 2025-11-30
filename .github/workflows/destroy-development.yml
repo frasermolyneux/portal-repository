@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
 
 permissions:
+  contents: read
   id-token: write # This is required for Az CLI Login
-  contents: read # This is required for actions/checkout
-
+  
 jobs:
   terraform-destroy-dev:
     environment: Development
@@ -16,8 +16,6 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
-
     - uses: frasermolyneux/actions/terraform-destroy@main
       with:
         terraform-folder: "terraform"

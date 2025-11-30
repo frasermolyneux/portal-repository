@@ -5,7 +5,7 @@ on:
 
 permissions:
   id-token: write # This is required for Az CLI Login
-  contents: write # This is required for actions/checkout and to update the repository
+  contents: write # This is required to update the repository
   pull-requests: write # This is required to create a pull request
 
 jobs:
@@ -17,8 +17,6 @@ jobs:
       group: ${{ github.repository }}-dev
 
     steps:
-    - uses: actions/checkout@v5
-
     - name: 'Az CLI Login'
       uses: azure/login@v2
       with:

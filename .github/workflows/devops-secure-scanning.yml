@@ -12,7 +12,7 @@ on:
     - cron: "0 2 * * 4" # Weekly security scan (Thu 02:00 UTC)
 
 permissions:
-  contents: read # This is required for actions/checkout
+  contents: read
   security-events: write # Required to publish security alerts
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
     steps:
 
       # Checkout your code repository to scan
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
       # Run analyzers
     - name: Run Microsoft Security DevOps Analysis
