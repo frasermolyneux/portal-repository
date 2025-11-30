@@ -30,9 +30,10 @@ jobs:
       - uses: frasermolyneux/actions/dotnet-web-ci@main
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
-          dotnet-version: 9.0.x
+          dotnet-version: |
+            9.0.x
+            10.0.x-preview
           src-folder: "src"
-          majorMinorVersion: "1.1"
           nugetArtifactName: "XtremeIdiots.Portal.Repository.Api.V1-nuget"
 
   dotnet-web-ci-v2:
@@ -44,9 +45,10 @@ jobs:
       - uses: frasermolyneux/actions/dotnet-web-ci@main
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
-          dotnet-version: 9.0.x
+          dotnet-version: |
+            9.0.x
+            10.0.x-preview
           src-folder: "src"
-          majorMinorVersion: "2.0"
           nugetArtifactName: "XtremeIdiots.Portal.Repository.Api.V2-nuget"
 
   terraform-plan-and-apply-dev:
