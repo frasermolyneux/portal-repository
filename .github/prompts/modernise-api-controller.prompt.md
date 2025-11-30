@@ -1,5 +1,5 @@
 ---
-mode: agent
+agent: agent
 ---
 Modernize this ASP.NET Core controller to use current framework patterns and best practices. Apply these specific changes:
 
