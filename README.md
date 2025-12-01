@@ -1,7 +1,7 @@
 # XtremeIdiots Portal - Repository
 > Backend data APIs, DTOs, and infrastructure definitions that power the XtremeIdiots Portal across multiple API versions.
 
-`GitHub Actions workflows (12)`
+## ⚙️ Workflows
 [![DevOps Secure Scanning](https://github.com/frasermolyneux/portal-repository/actions/workflows/devops-secure-scanning.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/devops-secure-scanning.yml)
 [![Code Quality](https://github.com/frasermolyneux/portal-repository/actions/workflows/codequality.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/codequality.yml)
 [![Feature Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml)
@@ -16,13 +16,13 @@
 [![Update Dashboard From Staging](https://github.com/frasermolyneux/portal-repository/actions/workflows/update-dashboard-from-staging.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/update-dashboard-from-staging.yml)
 
 ## 📌 Overview
-The repository hosts versioned REST APIs, DTO abstractions, EF Core data access, and Terraform infrastructure needed to keep the XtremeIdiots Portal synchronized with in-game telemetry. API hosts share mapping extensions, ApiResponse envelopes, and Azure App Configuration defaults, while Terraform standardizes App Service, API Management, SQL, Key Vault, and monitoring assets.
+Versioned REST APIs, DTO abstractions, EF Core data access, and Terraform infrastructure keep the XtremeIdiots Portal synchronized with in-game telemetry. API hosts share mapping extensions, `ApiResponse` envelopes, and Azure App Configuration defaults, while Terraform standardizes App Service, API Management, SQL, Key Vault, and monitoring assets across every environment.
 
 ## 🧱 Technology & Frameworks
-- `.NET 9.0` – API hosts, DTO libraries, clients, and automated tests.
-- `EF Core DataLib for SQL Server/Azure SQL` – Generated data layer packaged for the APIs.
-- `Terraform >= 1.14 + AzureRM 4.54.0` – Infrastructure as code for Azure resources.
-- `Azure App Service, Azure API Management, Azure Front Door` – Production hosting surface.
+- .NET 9.0 – API hosts, DTO libraries, clients, and automated tests
+- EF Core DataLib for SQL Server/Azure SQL – Generated data layer packaged for the APIs
+- Terraform 1.14+ with AzureRM 4.54.0 – Infrastructure as code for Azure resources
+- Azure App Service, Azure API Management, Azure Front Door – Production hosting surface
 
 ## 📚 Documentation Index
 - [docs/api-backend-mapping.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/api-backend-mapping.md) – APIM backend mapping strategy for routing versioned APIs.
@@ -33,8 +33,8 @@ The repository hosts versioned REST APIs, DTO abstractions, EF Core data access,
 
 ## 🚀 Getting Started
 **Highlights**
-- Legacy, V1, and V2 API hosts share DTOs, mapping helpers, and telemetry defaults for consistent responses.
-- Automated Swagger generation feeds API Management plus Terraform so inbound/outbound policies always match the code.
+- Legacy, V1, and V2 API hosts reuse DTOs, mapping helpers, and telemetry defaults for consistent responses.
+- Automated Swagger generation feeds API Management and Terraform so inbound/outbound policies always match the code.
 - Terraform provisions App Service, API Management, SQL, Key Vault, and dashboards via OIDC-only deployments.
 
 **Sample Usage (optional)**
