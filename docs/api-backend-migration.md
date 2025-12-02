@@ -1,48 +1,55 @@
 # API Management Backend Migration Guide
 
-This guide outlines the steps needed to migrate from the separate API v1 configuration to the unified, dynamic backend approach.
+This guide outlines the implementation of the unified, dynamic backend approach for versioned APIs.
 
-## Overview of Changes
+## Overview of Implementation
 
-1. The `api_management_api_versioned.tf` file has been updated to:
-   - Include all API versions (including v1.0)
-   - Create dynamic backends by major version
-   - Remove the dependency on named values
+The Portal Repository API uses a dynamic backend configuration that:
+- Includes all API versions (v1.0, v1.1, v2.0, etc.)
+- Creates dynamic backends by major version
+- Automatically discovers and deploys API versions from OpenAPI specifications
 
-2. New resources created:
-   - `azurerm_api_management_backend.webapi_api_management_backend_versioned` - Dynamic backend for versioned APIs
-   - `azurerm_api_management_api_policy.repository_api_policy_legacy_v2` - Updated legacy API policy
+## Architecture
 
-## Migration Status
+### Backend Mapping
 
-✅ **Migration Complete!**
+The system uses a structured backend mapping in `api_management_api_versioned.tf`:
 
-The following changes have been made:
+```terraform
+backend_mapping = {
+  "v1" = {
+    name         = local.web_app_name_v1
+    hostname     = azurerm_linux_web_app.app_v1.default_hostname
+    protocol     = "http"
+    tls_validate = true
+    description  = "Backend for v1.x APIs"
+    exists       = true
+  }
+  "v2" = {
+    name         = local.web_app_name_v2
+    hostname     = azurerm_linux_web_app.app_v2.default_hostname
+    protocol     = "http"
+    tls_validate = true
+    description  = "Backend for v2.x APIs"
+    exists       = true
+  }
+}
+```
 
-1. Added enhanced backend mapping in `api_management_api_versioned.tf`
-2. Created dynamic API diagnostics in `api_management_api_diagnostic.tf`
-3. Updated outputs to reference the new resources
-4. Renamed the legacy API policy in `api_management_policy_updates.tf`
-5. Removed redundant resources from `api_management_api_legacy.tf`
-6. Deleted the `api_management_api_v1.tf` file
+### Dynamic API Discovery
 
-## Next Steps
-
-After applying these changes, verify that:
-
-1. All API versions (including v1.0) are correctly deployed
-2. The legacy (non-versioned) API redirects to v1.0
-3. API diagnostics are correctly configured for all versions
-4. No references to the old configuration remain
+The system automatically:
+1. Scans for OpenAPI specification files (openapi-v*.json)
+2. Extracts version information
+3. Creates API Management resources for each version
+4. Maps APIs to backends based on major version
 
 ## Verification Checklist
 
-- [ ] Terraform plan shows no errors
+When deploying changes:
+
+- [ ] Terraform plan shows expected resources
 - [ ] Terraform apply successfully deploys all resources
 - [ ] API Gateway routes all versions correctly
 - [ ] API diagnostics show data in Application Insights
-- [ ] Legacy API (non-versioned) works as expected
-
-### Step 4: Test thoroughly
-
-After migration, test all API versions to ensure they are correctly routing to the proper backends.
+- [ ] All versioned APIs (v1, v1.1, v2, etc.) work as expected

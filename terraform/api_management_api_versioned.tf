@@ -2,17 +2,12 @@
 // based on the OpenAPI specs captured during the build process
 
 locals {
-  // List of version files that exist (excluding legacy which is handled separately)
+  // List of version files that exist
   version_files = fileset("../openapi", "openapi-v*.json")
 
   // Extract version strings from filenames (e.g., "v1", "v1.1", "v2")
-  version_strings = [for file in local.version_files :
+  versioned_apis = [for file in local.version_files :
     trimsuffix(trimprefix(basename(file), "openapi-"), ".json")
-  ]
-
-  // Filter out legacy as it's handled in separate file
-  versioned_apis = [for version in local.version_strings :
-    version if version != "legacy"
   ]
 
   // Extract major versions from all discovered APIs (v1, v2, etc.)
