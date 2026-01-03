@@ -1,14 +1,13 @@
 # API Versioning with OpenAPI Specs
 
-This document outlines how API versioning is implemented in the XtremeIdiots.Portal.Repository.Api.V1 project.
+This document outlines how API versioning is implemented in the Portal Repository API projects.
 
 ## Overview
 
-The XtremeIdiots.Portal.Repository.Api.V1 project supports multiple API versions, which are deployed to Azure API Management. The versioning follows a combination of path-based versioning and segment-based versioning:
+The Portal Repository API supports multiple versioned APIs, which are deployed to Azure API Management. The versioning follows a combination of path-based versioning and segment-based versioning:
 
 - **Path-based versioning**: APIs are accessible at paths like `/api/v1`, `/api/v1.1`, `/api/v2` etc. in the backend application
 - **Segment-based versioning**: In API Management, APIs are accessed through segments like `/repository/v1`, `/repository/v1.1`, `/repository/v2` etc.
-- **Legacy APIs**: For backward compatibility, the API is also available without a version in the path
 - **Backend Mapping**: APIs are mapped to backend services by major version (e.g., all v1.x APIs use the same backend)
 
 ## Workflow
@@ -22,7 +21,6 @@ The XtremeIdiots.Portal.Repository.Api.V1 project supports multiple API versions
 
 The APIs are routed based on their version:
 
-- **Legacy API (non-versioned)**: Routes to the `/api/v1.0` endpoint in the backend
 - **v1.0 API**: Routes to the `/api/v1.0` endpoint in the backend
 - **v1.1, v1.2, etc.**: Route to the `/api/v1.1`, `/api/v1.2` endpoints respectively in the backend
 - **v2.0, etc.**: Routes to the corresponding `/api/v2.0` endpoint in the backend
@@ -52,7 +50,8 @@ API Management is configured with:
 3. **Backend Mapping**: A structured approach to map API versions to backend services
 
 The backend mapping is implemented as a structured map that includes all the necessary information for routing API requests to the appropriate backend service. For details, see [API Backend Mapping](api-backend-mapping.md).
-3. **Policies**: URL rewriting policies that map segment versions to path-based versions
+
+4. **Policies**: URL rewriting policies that map segment versions to path-based versions
 
 ### Terraform
 
