@@ -44,10 +44,3 @@ tags = {
   DeployedBy  = "GitHub-Terraform",
   Git         = "https://github.com/frasermolyneux/portal-repository"
 }
-
-portal_environments_state_resource_group_name  = "rg-tf-portal-environments-prd-uksouth-01"
-portal_environments_state_storage_account_name = "sad74a6da165e7"
-portal_environments_state_container_name       = "tfstate"
-portal_environments_state_key                  = "terraform.tfstate"
-portal_environments_state_subscription_id      = "7760848c-794d-4a19-8cb2-52f71a21ac2b"
-portal_environments_state_tenant_id            = "e56a6947-bb9a-4a6e-846a-1f118d1c3a14"
