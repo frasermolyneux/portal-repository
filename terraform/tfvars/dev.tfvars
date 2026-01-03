@@ -1,5 +1,5 @@
 environment = "dev"
-location    = "uksouth"
+location    = "swedencentral"
 instance    = "01"
 
 subscription_id = "d68448b0-9947-46d7-8771-baa331a3063a"
@@ -31,8 +31,8 @@ portal_environments_state = {
   tenant_id            = "e56a6947-bb9a-4a6e-846a-1f118d1c3a14"
 }
 
-api_management_name = "apim-portal-core-dev-uksouth-01-3138575b4c87"
-sql_server_name     = "sql-portal-core-dev-uksouth-01-3138575b4c87"
+api_management_name = "apim-portal-core-dev-swedencentral-01-3138575b4c87"
+sql_server_name     = "sql-portal-core-dev-swedencentral-01-3138575b4c87"
 
 dns_subscription_id     = "db34f572-8b71-40d6-8f99-f29a27612144"
 dns_resource_group_name = "rg-platform-dns-prd-uksouth-01"

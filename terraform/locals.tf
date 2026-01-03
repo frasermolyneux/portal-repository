@@ -1,4 +1,5 @@
 locals {
+  # Remote State References
   workload_resource_groups = {
     for location in [var.location] :
     location => data.terraform_remote_state.platform_workloads.outputs.workload_resource_groups[var.workload_name][var.environment].resource_groups[lower(location)]
@@ -22,11 +23,10 @@ locals {
 
   repository_webapi_identity = local.managed_identities["repository_webapi_identity"]
 
-
-
+  # Local Resource Naming
   resource_group_name = "rg-portal-repo-${var.environment}-${var.location}-${var.instance}"
 
-  key_vault_name = "kv-${random_id.environment_id.hex}-${var.location}"
+  key_vault_name = substr(format("kv-%s-%s", random_id.environment_id.hex, var.location), 0, 24)
 
   web_app_name_v1 = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.environment_id.hex}"
   web_app_name_v2 = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.environment_id.hex}"
