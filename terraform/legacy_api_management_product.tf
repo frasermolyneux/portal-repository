@@ -1,4 +1,4 @@
-resource "azurerm_api_management_api_version_set" "repository_api_version_set" {
+resource "azurerm_api_management_api_version_set" "legacy_repository_api_version_set" {
   name                = "repository-api"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
@@ -7,7 +7,7 @@ resource "azurerm_api_management_api_version_set" "repository_api_version_set" {
   versioning_scheme = "Segment"
 }
 
-resource "azurerm_api_management_product" "repository_api_product" {
+resource "azurerm_api_management_product" "legacy_repository_api_product" {
   product_id          = "repository-api"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
@@ -19,8 +19,8 @@ resource "azurerm_api_management_product" "repository_api_product" {
   published             = true
 }
 
-resource "azurerm_api_management_product_policy" "repository_api_product_policy" {
-  product_id          = azurerm_api_management_product.repository_api_product.product_id
+resource "azurerm_api_management_product_policy" "legacy_repository_api_product_policy" {
+  product_id          = azurerm_api_management_product.legacy_repository_api_product.product_id
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
 
@@ -32,7 +32,7 @@ resource "azurerm_api_management_product_policy" "repository_api_product_policy"
       <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
           <openid-config url="https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration" />
           <audiences>
-              <audience>${format("api://%s/%s", data.azuread_client_config.current.tenant_id, local.app_registration_name)}</audience>
+              <audience>${format("api://%s/%s", data.azuread_client_config.current.tenant_id, local.legacy_app_registration_name)}</audience>
           </audiences>
           <issuers>
               <issuer>https://sts.windows.net/${data.azuread_client_config.current.tenant_id}/</issuer>
