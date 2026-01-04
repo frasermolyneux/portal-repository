@@ -1,3 +1,8 @@
+moved {
+  from = azurerm_resource_group.rg
+  to   = azurerm_resource_group.legacy_rg
+}
+
 resource "azurerm_resource_group" "legacy_rg" {
   name     = local.legacy_resource_group_name
   location = var.location

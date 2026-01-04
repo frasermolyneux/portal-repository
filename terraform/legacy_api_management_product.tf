@@ -1,3 +1,8 @@
+moved {
+  from = azurerm_api_management_api_version_set.repository_api_version_set
+  to   = azurerm_api_management_api_version_set.legacy_repository_api_version_set
+}
+
 resource "azurerm_api_management_api_version_set" "legacy_repository_api_version_set" {
   name                = "repository-api"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -5,6 +10,11 @@ resource "azurerm_api_management_api_version_set" "legacy_repository_api_version
 
   display_name      = "Repository API"
   versioning_scheme = "Segment"
+}
+
+moved {
+  from = azurerm_api_management_product.repository_api_product
+  to   = azurerm_api_management_product.legacy_repository_api_product
 }
 
 resource "azurerm_api_management_product" "legacy_repository_api_product" {
@@ -17,6 +27,11 @@ resource "azurerm_api_management_product" "legacy_repository_api_product" {
   subscription_required = true
   approval_required     = false
   published             = true
+}
+
+moved {
+  from = azurerm_api_management_product_policy.repository_api_product_policy
+  to   = azurerm_api_management_product_policy.legacy_repository_api_product_policy
 }
 
 resource "azurerm_api_management_product_policy" "legacy_repository_api_product_policy" {

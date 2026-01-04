@@ -1,3 +1,8 @@
+moved {
+  from = azurerm_key_vault.kv
+  to   = azurerm_key_vault.legacy_kv
+}
+
 resource "azurerm_key_vault" "legacy_kv" {
   name                = local.legacy_key_vault_name
   location            = azurerm_resource_group.legacy_rg.location

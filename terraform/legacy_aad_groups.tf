@@ -1,3 +1,13 @@
+moved {
+  from = azuread_group.repo_database_readers
+  to   = azuread_group.legacy_repo_database_readers
+}
+
+moved {
+  from = azuread_group.repo_database_writers
+  to   = azuread_group.legacy_repo_database_writers
+}
+
 resource "azuread_group" "legacy_repo_database_readers" {
   display_name = local.legacy_sql_dbreaders_group_name
   owners = [

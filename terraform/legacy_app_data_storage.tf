@@ -1,3 +1,23 @@
+moved {
+  from = azurerm_storage_account.app_data_storage
+  to   = azurerm_storage_account.legacy_app_data_storage
+}
+
+moved {
+  from = azurerm_storage_container.map_images_container
+  to   = azurerm_storage_container.legacy_map_images_container
+}
+
+moved {
+  from = azurerm_storage_container.demos_container
+  to   = azurerm_storage_container.legacy_demos_container
+}
+
+moved {
+  from = azurerm_storage_container.gametracker_container
+  to   = azurerm_storage_container.legacy_gametracker_container
+}
+
 resource "azurerm_storage_account" "legacy_app_data_storage" {
   name                = local.legacy_app_data_storage_name
   resource_group_name = azurerm_resource_group.legacy_rg.name

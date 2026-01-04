@@ -1,6 +1,12 @@
 // This file contains API diagnostic configurations for all API versions
 
 // Diagnostics for versioned APIs
+
+moved {
+  from = azurerm_api_management_api_diagnostic.repository_api_diagnostic_versioned
+  to   = azurerm_api_management_api_diagnostic.legacy_repository_api_diagnostic_versioned
+}
+
 resource "azurerm_api_management_api_diagnostic" "legacy_repository_api_diagnostic_versioned" {
   for_each = azurerm_api_management_api.legacy_repository_api_versioned
 
