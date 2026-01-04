@@ -1,7 +1,5 @@
 data "azurerm_client_config" "current" {}
 
-data "azuread_client_config" "current" {}
-
 moved {
   from = random_id.environment_id
   to   = random_id.legacy_environment_id

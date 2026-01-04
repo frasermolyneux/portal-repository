@@ -16,24 +16,24 @@ PRINT 'Database Name (Predefined Var): $(DatabaseName)'
 
 IF (NOT EXISTS(SELECT *
 FROM sys.database_principals
-WHERE [name] = 'sg-sql-$(DatabaseName)-readers-$(env)-$(instance)'))  
+WHERE [name] = 'sg-sql-portal-repository-readers-$(env)'))  
 BEGIN
-	PRINT 'Adding user: sg-sql-$(DatabaseName)-readers-$(env)-$(instance) to [db_datareader]'
-	CREATE USER [sg-sql-$(DatabaseName)-readers-$(env)-$(instance)] FROM EXTERNAL PROVIDER
-	ALTER ROLE [db_datareader] ADD MEMBER [sg-sql-$(DatabaseName)-readers-$(env)-$(instance)]
+	PRINT 'Adding user: sg-sql-portal-repository-readers-$(env) to [db_datareader]'
+	CREATE USER [sg-sql-portal-repository-readers-$(env)] FROM EXTERNAL PROVIDER
+	ALTER ROLE [db_datareader] ADD MEMBER [sg-sql-portal-repository-readers-$(env)]
 	SELECT *
 	FROM sys.database_principals
-	WHERE [name] = 'sg-sql-$(DatabaseName)-readers-$(env)-$(instance)'
+	WHERE [name] = 'sg-sql-portal-repository-readers-$(env)'
 END
 
 IF (NOT EXISTS(SELECT *
 FROM sys.database_principals
-WHERE [name] = 'sg-sql-$(DatabaseName)-writers-$(env)-$(instance)'))  
+WHERE [name] = 'sg-sql-portal-repository-writers-$(env)'))  
 BEGIN
-	PRINT 'Adding user: sg-sql-$(DatabaseName)-writers-$(env)-$(instance) to [db_datawriter]'
-	CREATE USER [sg-sql-$(DatabaseName)-writers-$(env)-$(instance)] FROM EXTERNAL PROVIDER
-	ALTER ROLE [db_datawriter] ADD MEMBER [sg-sql-$(DatabaseName)-writers-$(env)-$(instance)]
+	PRINT 'Adding user: sg-sql-portal-repository-writers-$(env) to [db_datawriter]'
+	CREATE USER [sg-sql-portal-repository-writers-$(env)] FROM EXTERNAL PROVIDER
+	ALTER ROLE [db_datawriter] ADD MEMBER [sg-sql-portal-repository-writers-$(env)]
 	SELECT *
 	FROM sys.database_principals
-	WHERE [name] = 'sg-sql-$(DatabaseName)-writers-$(env)-$(instance)'
+	WHERE [name] = 'sg-sql-portal-repository-writers-$(env)'
 END  

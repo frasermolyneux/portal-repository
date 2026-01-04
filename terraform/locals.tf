@@ -23,6 +23,9 @@ locals {
 
   repository_webapi_identity = local.managed_identities["repository_webapi_identity"]
 
+  sql_repository_readers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_readers_group
+  sql_repository_writers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_writers_group
+
   # Local Resource Naming
   legacy_resource_group_name = "rg-portal-repo-${var.environment}-${var.location}-${var.instance}"
 
@@ -31,9 +34,7 @@ locals {
   legacy_web_app_name_v1 = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.legacy_environment_id.hex}"
   legacy_web_app_name_v2 = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.legacy_environment_id.hex}"
 
-  legacy_sql_database_name        = "portal-repo-${random_id.legacy_environment_id.hex}"
-  legacy_sql_dbreaders_group_name = "sg-sql-portal-repo-${random_id.legacy_environment_id.hex}-readers-${var.environment}-${var.instance}"
-  legacy_sql_dbwriters_group_name = "sg-sql-portal-repo-${random_id.legacy_environment_id.hex}-writers-${var.environment}-${var.instance}"
+  legacy_sql_database_name = "portal-repo-${random_id.legacy_environment_id.hex}"
 
   legacy_app_data_storage_name = "saad${random_id.legacy_environment_id.hex}"
 
