@@ -19,8 +19,7 @@ locals {
 
   app_configuration_endpoint = data.terraform_remote_state.portal_environments.outputs.app_configuration.endpoint
 
-  managed_identities = try(data.terraform_remote_state.portal_environments.outputs.managed_identities, {})
-
+  managed_identities         = try(data.terraform_remote_state.portal_environments.outputs.managed_identities, {})
   repository_webapi_identity = local.managed_identities["repository_webapi_identity"]
 
   sql_repository_readers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_readers_group
