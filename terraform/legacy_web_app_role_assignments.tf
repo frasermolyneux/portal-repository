@@ -4,16 +4,6 @@ resource "azurerm_role_assignment" "repository_webapi_identity_principal_id_to_k
   principal_id         = local.repository_webapi_identity.principal_id
 }
 
-moved {
-  from = azurerm_role_assignment.repository_webapi_identity_principal_id_to_key_vault
-  to   = azurerm_role_assignment.repository_webapi_identity_principal_id_to_key_vault
-}
-
-moved {
-  from = azurerm_role_assignment.repository_webapi_identity_principal_id_to_app_data_storage
-  to   = azurerm_role_assignment.repository_webapi_identity_principal_id_to_app_data_storage
-}
-
 resource "azurerm_role_assignment" "repository_webapi_identity_principal_id_to_app_data_storage" {
   scope                = azurerm_storage_account.legacy_app_data_storage.id
   role_definition_name = "Storage Blob Data Owner"

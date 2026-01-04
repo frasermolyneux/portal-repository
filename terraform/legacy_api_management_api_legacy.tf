@@ -5,11 +5,6 @@ data "local_file" "repository_openapi_legacy" {
   filename = "../openapi/openapi-legacy.json"
 }
 
-moved {
-  from = azurerm_api_management_api.repository_api_legacy
-  to   = azurerm_api_management_api.legacy_repository_api_legacy
-}
-
 resource "azurerm_api_management_api" "legacy_repository_api_legacy" {
   name                = "repository-api-legacy"
   resource_group_name = data.azurerm_api_management.core.resource_group_name
@@ -37,22 +32,12 @@ resource "azurerm_api_management_api" "legacy_repository_api_legacy" {
   }
 }
 
-moved {
-  from = azurerm_api_management_product_api.repository_api_legacy
-  to   = azurerm_api_management_product_api.legacy_repository_api_legacy
-}
-
 resource "azurerm_api_management_product_api" "legacy_repository_api_legacy" {
   api_name   = azurerm_api_management_api.legacy_repository_api_legacy.name
   product_id = azurerm_api_management_product.legacy_repository_api_product.product_id
 
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
-}
-
-moved {
-  from = azurerm_api_management_api_policy.repository_api_policy_legacy
-  to   = azurerm_api_management_api_policy.legacy_repository_api_policy_legacy
 }
 
 resource "azurerm_api_management_api_policy" "legacy_repository_api_policy_legacy" {
@@ -82,11 +67,6 @@ XML
   depends_on = [
     azurerm_api_management_backend.legacy_webapi_api_management_backend_versioned
   ]
-}
-
-moved {
-  from = azurerm_api_management_api_diagnostic.repository_api_diagnostic_legacy
-  to   = azurerm_api_management_api_diagnostic.legacy_repository_api_diagnostic_legacy
 }
 
 resource "azurerm_api_management_api_diagnostic" "legacy_repository_api_diagnostic_legacy" {

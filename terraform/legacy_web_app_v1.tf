@@ -1,8 +1,3 @@
-moved {
-  from = azurerm_linux_web_app.app_v1
-  to   = azurerm_linux_web_app.legacy_app_v1
-}
-
 resource "azurerm_linux_web_app" "legacy_app_v1" {
   name = local.legacy_web_app_name_v1
   tags = var.tags

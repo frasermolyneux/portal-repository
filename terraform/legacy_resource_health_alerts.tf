@@ -1,8 +1,3 @@
-moved {
-  from = azurerm_monitor_activity_log_alert.rg_resource_health
-  to   = azurerm_monitor_activity_log_alert.legacy_rg_resource_health
-}
-
 resource "azurerm_monitor_activity_log_alert" "legacy_rg_resource_health" {
   name = "portal-repository-${var.environment} - ${azurerm_resource_group.legacy_rg.name} - resource health"
 

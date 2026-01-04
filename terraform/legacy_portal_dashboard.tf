@@ -35,11 +35,6 @@ resource "azurerm_portal_dashboard" "legacy_app" {
   dashboard_properties = local.legacy_out
 }
 
-moved {
-  from = azurerm_portal_dashboard.app
-  to   = azurerm_portal_dashboard.legacy_app
-}
-
 resource "azurerm_portal_dashboard" "legacy_staging_dashboard" {
   count = var.environment == "dev" ? 1 : 0
   name  = "${local.legacy_dashboard_name}-staging"
@@ -56,9 +51,4 @@ resource "azurerm_portal_dashboard" "legacy_staging_dashboard" {
       dashboard_properties
     ]
   }
-}
-
-moved {
-  from = azurerm_portal_dashboard.staging_dashboard
-  to   = azurerm_portal_dashboard.legacy_staging_dashboard
 }

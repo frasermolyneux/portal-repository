@@ -76,11 +76,6 @@ data "local_file" "repository_openapi_versioned" {
   filename = "../openapi/openapi-${each.key}.json"
 }
 
-moved {
-  from = azurerm_api_management_backend.webapi_api_management_backend_versioned
-  to   = azurerm_api_management_backend.legacy_webapi_api_management_backend_versioned
-}
-
 // Create backend for versioned APIs
 resource "azurerm_api_management_backend" "legacy_webapi_api_management_backend_versioned" {
   for_each = local.legacy_filtered_backend_mapping
@@ -98,11 +93,6 @@ resource "azurerm_api_management_backend" "legacy_webapi_api_management_backend_
     validate_certificate_chain = each.value.tls_validate
     validate_certificate_name  = each.value.tls_validate
   }
-}
-
-moved {
-  from = azurerm_api_management_api.repository_api_versioned
-  to   = azurerm_api_management_api.legacy_repository_api_versioned
 }
 
 // Dynamic versioned APIs that are discovered from OpenAPI spec files
@@ -135,11 +125,6 @@ resource "azurerm_api_management_api" "legacy_repository_api_versioned" {
   }
 }
 
-moved {
-  from = azurerm_api_management_product_api.repository_api_versioned
-  to   = azurerm_api_management_product_api.legacy_repository_api_versioned
-}
-
 // Add versioned APIs to the product
 resource "azurerm_api_management_product_api" "legacy_repository_api_versioned" {
   for_each = azurerm_api_management_api.legacy_repository_api_versioned
@@ -149,11 +134,6 @@ resource "azurerm_api_management_product_api" "legacy_repository_api_versioned" 
 
   resource_group_name = data.azurerm_api_management.core.resource_group_name
   api_management_name = data.azurerm_api_management.core.name
-}
-
-moved {
-  from = azurerm_api_management_api_policy.repository_api_policy_versioned
-  to   = azurerm_api_management_api_policy.legacy_repository_api_policy_versioned
 }
 
 // Configure policies for versioned APIs
