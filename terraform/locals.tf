@@ -25,6 +25,10 @@ locals {
   sql_repository_readers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_readers_group
   sql_repository_writers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_writers_group
 
+  spec_storage_account      = data.terraform_remote_state.portal_environments.outputs.spec_storage.account
+  spec_storage_containers   = data.terraform_remote_state.portal_environments.outputs.spec_storage.containers
+  repository_spec_container = local.spec_storage_containers["repository"]
+
   # Local Resource Naming
   legacy_resource_group_name = "rg-portal-repo-${var.environment}-${var.location}-${var.instance}"
 
