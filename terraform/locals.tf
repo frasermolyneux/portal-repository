@@ -32,7 +32,6 @@ locals {
   api_management_identity    = local.managed_identities["environments_api_management_identity"]
 
   api_management               = data.terraform_remote_state.portal_environments.outputs.api_management
-  event_ingest_api             = data.terraform_remote_state.portal_environments.outputs.event_ingest_api
   repository_api               = data.terraform_remote_state.portal_environments.outputs.repository_api
   sql_repository_readers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_readers_group
   sql_repository_writers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_writers_group
