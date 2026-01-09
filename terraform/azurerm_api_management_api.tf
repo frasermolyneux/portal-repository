@@ -26,7 +26,7 @@ locals {
   backend_mapping = {
     "v1" = {
       name         = local.web_app_name_v1
-      hostname     = azurerm_linux_web_app.web_app_v1.default_hostname
+      hostname     = azurerm_linux_web_app.app_v1.default_hostname
       protocol     = "http"
       tls_validate = true
       description  = "Backend for v1.x APIs"
@@ -34,7 +34,7 @@ locals {
     }
     "v2" = {
       name         = local.web_app_name_v2
-      hostname     = azurerm_linux_web_app.web_app_v2.default_hostname
+      hostname     = azurerm_linux_web_app.app_v2.default_hostname
       protocol     = "http"
       tls_validate = true
       description  = "Backend for v2.x APIs"

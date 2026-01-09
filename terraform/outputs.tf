@@ -19,11 +19,11 @@ output "web_app_resource_group_v2" {
 }
 
 output "sql_server_fqdn" {
-  value = data.azurerm_mssql_server.core.fully_qualified_domain_name
+  value = data.azurerm_mssql_server.sql_server.fully_qualified_domain_name
 }
 
 output "sql_database_name" {
-  value = azurerm_mssql_database.sql_database.name
+  value = azurerm_mssql_database.database.name
 }
 
 output "api_audience" {

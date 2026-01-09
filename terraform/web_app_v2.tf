@@ -35,7 +35,7 @@ resource "azurerm_linux_web_app" "app_v2" {
     "AzureAppConfiguration__Environment"             = var.environment
 
     "minTlsVersion"                              = "1.2"
-    "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.core.connection_string
+    "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.app_insights.connection_string
     "ApplicationInsightsAgent_EXTENSION_VERSION" = "~3"
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"
