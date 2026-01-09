@@ -50,7 +50,6 @@ jobs:
       run: |
         cd terraform
         echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
-        echo "key_vault_name=$(terraform output -raw key_vault_name)" >> $GITHUB_OUTPUT
         echo "api_audience=$(terraform output -raw api_audience)" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -61,7 +60,6 @@ jobs:
 
     outputs:
       apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
-      key_vault_name: ${{ steps.terraform-output.outputs.key_vault_name }}
       api_audience: ${{ steps.terraform-output.outputs.api_audience }}
 
   run-api-integration-tests-dev:

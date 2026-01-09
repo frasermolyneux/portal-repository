@@ -66,7 +66,6 @@ jobs:
         echo "apim_base_url=$(terraform output -raw apim_base_url)" >> $GITHUB_OUTPUT
         echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
         echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
-        echo "key_vault_name=$(terraform output -raw key_vault_name)" >> $GITHUB_OUTPUT
         echo "api_audience=$(terraform output -raw api_audience)" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -83,7 +82,6 @@ jobs:
       apim_base_url: ${{ steps.terraform-output.outputs.apim_base_url }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
-      key_vault_name: ${{ steps.terraform-output.outputs.key_vault_name }}
       api_audience: ${{ steps.terraform-output.outputs.api_audience }}
 
   deploy-sql-database-dev:
