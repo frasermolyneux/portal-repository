@@ -17,28 +17,32 @@ locals {
 
   workload_resource_group = local.workload_resource_groups[var.location]
 
+  action_group_map = {
+    critical      = data.terraform_remote_state.platform_monitoring.outputs.monitor_action_groups.critical
+    high          = data.terraform_remote_state.platform_monitoring.outputs.monitor_action_groups.high
+    moderate      = data.terraform_remote_state.platform_monitoring.outputs.monitor_action_groups.moderate
+    low           = data.terraform_remote_state.platform_monitoring.outputs.monitor_action_groups.low
+    informational = data.terraform_remote_state.platform_monitoring.outputs.monitor_action_groups.informational
+  }
+
   app_configuration_endpoint = data.terraform_remote_state.portal_environments.outputs.app_configuration.endpoint
 
-  managed_identities         = try(data.terraform_remote_state.portal_environments.outputs.managed_identities, {})
+  managed_identities         = data.terraform_remote_state.portal_environments.outputs.managed_identities
   repository_webapi_identity = local.managed_identities["repository_webapi_identity"]
+  api_management_identity    = local.managed_identities["environments_api_management_identity"]
 
+  api_management               = data.terraform_remote_state.portal_environments.outputs.api_management
+  event_ingest_api             = data.terraform_remote_state.portal_environments.outputs.event_ingest_api
+  repository_api               = data.terraform_remote_state.portal_environments.outputs.repository_api
   sql_repository_readers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_readers_group
   sql_repository_writers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_writers_group
+  app_insights                 = data.terraform_remote_state.portal_core.outputs.app_insights
+  app_service_plan             = data.terraform_remote_state.portal_core.outputs.app_service_plans["apps"]
 
   # Local Resource Naming
-  legacy_resource_group_name = "rg-portal-repo-${var.environment}-${var.location}-${var.instance}"
-
-  legacy_key_vault_name = substr(format("kv-%s-%s", random_id.legacy_environment_id.hex, var.location), 0, 24)
-
-  legacy_web_app_name_v1 = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.legacy_environment_id.hex}"
-  legacy_web_app_name_v2 = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.legacy_environment_id.hex}"
-
-  legacy_sql_database_name = "portal-repo-${random_id.legacy_environment_id.hex}"
-
-  legacy_app_data_storage_name = "saad${random_id.legacy_environment_id.hex}"
-
-  legacy_app_registration_name       = "portal-repository-${var.environment}-${var.instance}"
-  legacy_tests_app_registration_name = "portal-repository-integration-tests-${var.environment}-${var.instance}"
-
-  legacy_dashboard_name = "portal-repository-${var.environment}-${var.instance}"
+  web_app_name_v1      = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.environment_id.hex}"
+  web_app_name_v2      = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.environment_id.hex}"
+  sql_database_name    = "portal-repo-${random_id.environment_id.hex}"
+  web_api_storage_name = "saad${random_id.environment_id.hex}"
+  dashboard_name       = "portal-repository-${var.environment}"
 }

@@ -32,14 +32,14 @@ resource "azurerm_api_management_product_policy" "legacy_repository_api_product_
       <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation was unsuccessful" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
           <openid-config url="https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0/.well-known/openid-configuration" />
           <audiences>
-              <audience>${format("api://%s/%s", data.azuread_client_config.current.tenant_id, local.legacy_app_registration_name)}</audience>
+          <audience>${local.repository_api_identifier_uri}</audience>
           </audiences>
           <issuers>
               <issuer>https://sts.windows.net/${data.azuread_client_config.current.tenant_id}/</issuer>
           </issuers>
           <required-claims>
               <claim name="roles" match="any">
-                <value>ServiceAccount</value>
+                <value>EventGenerator</value>
               </claim>
           </required-claims>
       </validate-jwt>
@@ -54,4 +54,19 @@ resource "azurerm_api_management_product_policy" "legacy_repository_api_product_
   <on-error />
 </policies>
 XML
+}
+
+import {
+  to = azurerm_api_management_api_version_set.legacy_repository_api_version_set
+  id = "${data.azurerm_api_management.core.id}/apiVersionSets/repository-api"
+}
+
+import {
+  to = azurerm_api_management_product.legacy_repository_api_product
+  id = "${data.azurerm_api_management.core.id}/products/repository-api"
+}
+
+import {
+  to = azurerm_api_management_product_policy.legacy_repository_api_product_policy
+  id = "${data.azurerm_api_management.core.id}/products/repository-api"
 }

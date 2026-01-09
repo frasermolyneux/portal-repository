@@ -1,19 +1,15 @@
-variable "environment" {
-  default = "dev"
-}
-
 variable "workload_name" {
   description = "Name of the workload as defined in platform-workloads state"
   type        = string
   default     = "portal-repository"
 }
 
-variable "location" {
-  default = "uksouth"
+variable "environment" {
+  default = "dev"
 }
 
-variable "instance" {
-  default = "01"
+variable "location" {
+  default = "uksouth"
 }
 
 variable "subscription_id" {}
@@ -54,8 +50,17 @@ variable "portal_environments_state" {
   })
 }
 
-variable "api_management_name" {}
-variable "sql_server_name" {}
+variable "portal_core_state" {
+  description = "Backend config for portal-core remote state"
+  type = object({
+    resource_group_name  = string
+    storage_account_name = string
+    container_name       = string
+    key                  = string
+    subscription_id      = string
+    tenant_id            = string
+  })
+}
 
 variable "dns_subscription_id" {}
 variable "dns_resource_group_name" {}
