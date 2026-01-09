@@ -38,6 +38,7 @@ locals {
   sql_repository_writers_group = data.terraform_remote_state.portal_environments.outputs.sql_repository_writers_group
   app_insights                 = data.terraform_remote_state.portal_core.outputs.app_insights
   app_service_plan             = data.terraform_remote_state.portal_core.outputs.app_service_plans["apps"]
+  sql_server                   = data.terraform_remote_state.portal_core.outputs.sql_server
 
   # Local Resource Naming
   web_app_name_v1      = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.environment_id.hex}"

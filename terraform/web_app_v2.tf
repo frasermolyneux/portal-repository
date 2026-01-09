@@ -1,11 +1,12 @@
-resource "azurerm_linux_web_app" "legacy_app_v1" {
-  name = local.legacy_web_app_name_v1
+resource "azurerm_linux_web_app" "app_v2" {
+  name = local.web_app_name_v2
+
   tags = var.tags
 
-  resource_group_name = azurerm_resource_group.legacy_rg.name
-  location            = azurerm_resource_group.legacy_rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
 
-  service_plan_id = data.azurerm_service_plan.core.id
+  service_plan_id = data.azurerm_service_plan.sp.id
 
   https_only = true
 
@@ -39,8 +40,8 @@ resource "azurerm_linux_web_app" "legacy_app_v1" {
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"
 
-    "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;User ID=%s;", data.azurerm_mssql_server.core.fully_qualified_domain_name, local.legacy_sql_database_name, local.repository_webapi_identity.client_id)
-    "appdata_storage_blob_endpoint" = azurerm_storage_account.legacy_app_data_storage.primary_blob_endpoint
+    "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;User ID=%s;", data.azurerm_mssql_server.sql_server.fully_qualified_domain_name, local.sql_database_name, local.repository_webapi_identity.client_id)
+    "appdata_storage_blob_endpoint" = azurerm_storage_account.web_api_storage.primary_blob_endpoint
 
     // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler
     "APPINSIGHTS_PROFILERFEATURE_VERSION"  = "1.0.0"
