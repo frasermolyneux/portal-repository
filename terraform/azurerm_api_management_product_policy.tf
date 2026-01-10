@@ -24,7 +24,7 @@ resource "azurerm_api_management_product_policy" "api_product_policy" {
               </claim>
           </required-claims>
       </validate-jwt>
-      <authentication-managed-identity resource="${local.repository_api.application.application.client_id}"${format(" client-id=\"%s\"", local.api_management_identity.client_id)} />
+      <authentication-managed-identity resource="${local.repository_api.application.client_id}"${format(" client-id=\"%s\"", local.api_management_identity.client_id)} />
   </inbound>
   <backend>
       <forward-request />
