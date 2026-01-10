@@ -92,6 +92,16 @@ resource "azurerm_api_management_backend" "versioned_api_backend" {
   }
 }
 
+resource "azurerm_api_management_logger" "app_insights" {
+  name                = "${var.workload_name}-application-insights"
+  resource_group_name = data.azurerm_api_management.api_management.resource_group_name
+  api_management_name = data.azurerm_api_management.api_management.name
+
+  application_insights {
+    instrumentation_key = data.azurerm_application_insights.app_insights.instrumentation_key
+  }
+}
+
 // Dynamic versioned APIs that are discovered from OpenAPI spec files
 resource "azurerm_api_management_api" "versioned_api" {
   for_each = toset(local.versioned_apis)
@@ -164,4 +174,14 @@ XML
 depends_on = [
   azurerm_api_management_backend.versioned_api_backend
 ]
+}
+
+resource "azurerm_api_management_api_diagnostic" "versioned_api_diagnostic" {
+  for_each = azurerm_api_management_api.versioned_api
+
+  api_name                 = each.value.name
+  identifier               = "applicationinsights"
+  resource_group_name      = data.azurerm_api_management.api_management.resource_group_name
+  api_management_name      = data.azurerm_api_management.api_management.name
+  api_management_logger_id = azurerm_api_management_logger.app_insights.id
 }
