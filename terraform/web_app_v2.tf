@@ -34,6 +34,8 @@ resource "azurerm_linux_web_app" "app_v2" {
     "AzureAppConfiguration__ManagedIdentityClientId" = local.repository_webapi_identity.client_id
     "AzureAppConfiguration__Environment"             = var.environment
 
+    "AZURE_CLIENT_ID" = local.repository_webapi_identity.client_id
+
     "minTlsVersion"                              = "1.2"
     "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.app_insights.connection_string
     "ApplicationInsightsAgent_EXTENSION_VERSION" = "~3"
