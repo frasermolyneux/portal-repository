@@ -12,7 +12,7 @@ resource "azurerm_linux_web_app" "app_v1" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [local.repository_webapi_identity.id]
+    identity_ids = [local.repository_identity.id]
   }
 
   site_config {
@@ -31,10 +31,10 @@ resource "azurerm_linux_web_app" "app_v1" {
 
   app_settings = {
     "AzureAppConfiguration__Endpoint"                = local.app_configuration_endpoint
-    "AzureAppConfiguration__ManagedIdentityClientId" = local.repository_webapi_identity.client_id
+    "AzureAppConfiguration__ManagedIdentityClientId" = local.repository_identity.client_id
     "AzureAppConfiguration__Environment"             = var.environment
 
-    "AZURE_CLIENT_ID" = local.repository_webapi_identity.client_id
+    "AZURE_CLIENT_ID" = local.repository_identity.client_id
 
     "minTlsVersion"                              = "1.2"
     "APPLICATIONINSIGHTS_CONNECTION_STRING"      = data.azurerm_application_insights.app_insights.connection_string
@@ -42,7 +42,7 @@ resource "azurerm_linux_web_app" "app_v1" {
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"
 
-    "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;User ID=%s;", data.azurerm_mssql_server.sql_server.fully_qualified_domain_name, local.sql_database_name, local.repository_webapi_identity.client_id)
+    "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;User ID=%s;", data.azurerm_mssql_server.sql_server.fully_qualified_domain_name, local.sql_database_name, local.repository_identity.client_id)
     "appdata_storage_blob_endpoint" = azurerm_storage_account.web_api_storage.primary_blob_endpoint
 
     // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler
