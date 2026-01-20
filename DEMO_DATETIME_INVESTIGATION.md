@@ -65,7 +65,7 @@ var demo = JsonConvert.DeserializeObject<DemoDto>(apiResponse, settings);
 ```csharp
 var jobj = JObject.Parse(apiResponse);
 DateTime created = jobj["Created"].ToObject<DateTime>();
-// Result: ❌ FAILURE - "Can not convert Null to DateTime"
+// Result: ❌ FAILURE - "Cannot convert Null to DateTime"
 // This is what the demo manager client is doing incorrectly
 ```
 
