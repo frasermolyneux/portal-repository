@@ -8,21 +8,37 @@ updates:
     directory: "/src"
     schedule:
       interval: "daily"
+    # Only perform minor and patch version upgrades, not major
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "terraform"
     assignees: ["frasermolyneux"]
     directory: "/terraform"
     schedule:
       interval: "daily"
+    # Only perform minor and patch version upgrades, not major
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     assignees: ["frasermolyneux"]
     directory: "/"
     schedule:
       interval: "daily"
+    # Only perform minor and patch version upgrades, not major
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "devcontainers"
     assignees: ["frasermolyneux"]
     directory: "/"
     schedule:
       interval: weekly
+    # Only perform minor and patch version upgrades, not major
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

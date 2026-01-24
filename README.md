@@ -19,12 +19,13 @@
 Versioned REST APIs, DTO abstractions, EF Core data access, and Terraform infrastructure keep the XtremeIdiots Portal synchronized with in-game telemetry. API hosts share mapping extensions, `ApiResponse` envelopes, and Azure App Configuration defaults, while Terraform standardizes App Service, API Management, SQL, Key Vault, and monitoring assets across every environment.
 
 ## 🧱 Technology & Frameworks
-- .NET 9.0 – API hosts, DTO libraries, clients, and automated tests
+- .NET 9.0 & .NET 10.0 – Multi-targeted API hosts, DTO libraries, clients, and automated tests
 - EF Core DataLib for SQL Server/Azure SQL – Generated data layer packaged for the APIs
 - Terraform 1.14+ with AzureRM 4.54.0 – Infrastructure as code for Azure resources
 - Azure App Service, Azure API Management, Azure Front Door – Production hosting surface
 
 ## 📚 Documentation Index
+- [docs/dotnet-support-strategy.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/dotnet-support-strategy.md) – .NET 9 and .NET 10 multi-targeting strategy and dependency management.
 - [docs/api-backend-mapping.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/api-backend-mapping.md) – APIM backend mapping strategy for routing versioned APIs.
 - [docs/api-backend-migration.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/api-backend-migration.md) – Steps for migrating legacy APIs into the modern backend layout.
 - [docs/api-design-v2.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/api-design-v2.md) – V2 contract, DTO envelopes, and error handling principles.
