@@ -1,7 +1,9 @@
 # .NET Support Strategy
 
 ## Target Frameworks
-All projects target both `net9.0` and `net10.0` using multi-targeting:
+
+### Multi-Targeted Libraries
+Library projects target both `net9.0` and `net10.0`:
 
 ```xml
 <PropertyGroup>
@@ -10,9 +12,22 @@ All projects target both `net9.0` and `net10.0` using multi-targeting:
 ```
 
 This includes:
-- API host projects (Api.V1, Api.V2)
 - Library projects (Abstractions, Client libraries, DataLib)
 - Test projects (all integration test projects)
+
+### Single-Targeted API Hosts
+API host applications target `net9.0` for deployment:
+
+```xml
+<PropertyGroup>
+  <TargetFramework>net9.0</TargetFramework>
+</PropertyGroup>
+```
+
+This includes:
+- API host projects (Api.V1, Api.V2)
+
+API hosts use single-targeting because they are deployable applications that require a specific runtime for publishing.
 
 ## Dependencies
 All NuGet packages use the highest stable version compatible with both .NET 9 and .NET 10. No conditional package references are used.
