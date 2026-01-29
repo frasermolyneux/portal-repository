@@ -5,10 +5,10 @@ This document describes how OpenAPI specification files are generated and kept u
 ## Overview
 
 The repository contains OpenAPI specification files that describe the API contracts for the Portal Repository APIs:
-- `openapi/openapi-v1.json` - API version 1.0
-- `openapi/openapi-v1.1.json` - API version 1.1
-- `openapi/openapi-v2.json` - API version 2.0
-- `openapi/openapi-legacy.json` - Legacy API
+- `openapi/openapi-v1.json` - API version 1.0 (auto-generated)
+- `openapi/openapi-v1.1.json` - API version 1.1 (auto-generated)
+- `openapi/openapi-v2.json` - API version 2.0 (auto-generated)
+- `openapi/openapi-legacy.json` - Legacy API (manually maintained)
 
 ## Automatic Generation
 

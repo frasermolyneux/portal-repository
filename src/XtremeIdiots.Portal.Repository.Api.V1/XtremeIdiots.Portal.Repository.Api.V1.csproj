@@ -53,9 +53,9 @@
     <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputDir)/openapi-v1.1.json&quot; &quot;$(SwaggerAssembly)&quot; v1.1" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" EnvironmentVariables="ASPNETCORE_ENVIRONMENT=DesignTime" />
     
     <!-- Post-process OpenAPI files to replace /api/v1/ with / using sed (cross-platform) -->
-    <Exec Command="sed -i.bak 's|/api/v1/|/|g; s|/api/v1&quot;|/&quot;|g' &quot;$(OpenApiOutputDir)/openapi-v1.json&quot; &amp;&amp; rm &quot;$(OpenApiOutputDir)/openapi-v1.json.bak&quot;" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" ContinueOnError="true" />
+    <Exec Command="sed -i'' -e 's|/api/v1/|/|g' -e 's|/api/v1&quot;|/&quot;|g' &quot;$(OpenApiOutputDir)/openapi-v1.json&quot;" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" ContinueOnError="true" />
     
-    <Exec Command="sed -i.bak 's|/api/v1.1/|/|g; s|/api/v1.1&quot;|/&quot;|g' &quot;$(OpenApiOutputDir)/openapi-v1.1.json&quot; &amp;&amp; rm &quot;$(OpenApiOutputDir)/openapi-v1.1.json.bak&quot;" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" ContinueOnError="true" />
+    <Exec Command="sed -i'' -e 's|/api/v1.1/|/|g' -e 's|/api/v1.1&quot;|/&quot;|g' &quot;$(OpenApiOutputDir)/openapi-v1.1.json&quot;" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" ContinueOnError="true" />
     
     <!-- Post-process OpenAPI files on Windows using PowerShell -->
     <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputDir)/openapi-v1.json').replace('/api/v1/', '/').replace('/api/v1', '/') | Set-Content '$(OpenApiOutputDir)/openapi-v1.json'&quot;" Condition="$([MSBuild]::IsOSPlatform('Windows'))" ContinueOnError="true" />

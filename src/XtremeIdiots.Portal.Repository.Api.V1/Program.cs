@@ -22,7 +22,7 @@ var appConfigurationEndpoint = builder.Configuration["AzureAppConfiguration:Endp
 var isAzureAppConfigurationEnabled = false;
 
 // Skip Azure App Configuration in design-time scenarios (e.g., during OpenAPI generation)
-var isDesignTime = string.Equals(builder.Configuration["ASPNETCORE_ENVIRONMENT"], "DesignTime", StringComparison.OrdinalIgnoreCase);
+var isDesignTime = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "DesignTime", StringComparison.OrdinalIgnoreCase);
 
 if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint) && !isDesignTime)
 {
@@ -80,9 +80,10 @@ builder.Services.AddDbContext<PortalDbContext>(options =>
     var connectionString = builder.Configuration["sql_connection_string"];
     
     // Use a dummy connection string in design-time scenarios if none is configured
+    // Note: This connection string will never actually be used since we don't connect to the DB during OpenAPI generation
     if (string.IsNullOrWhiteSpace(connectionString) && isDesignTime)
     {
-        connectionString = "Server=localhost;Database=PortalDb;Integrated Security=true;TrustServerCertificate=true;";
+        connectionString = "Server=(localdb)\\mssqllocaldb;Database=PortalDb;Trusted_Connection=False;";
     }
     
     options.UseSqlServer(connectionString, sqlOptions =>
