@@ -80,7 +80,9 @@ builder.Services.AddDbContext<PortalDbContext>(options =>
     var connectionString = builder.Configuration["sql_connection_string"];
     
     // Use a dummy connection string in design-time scenarios if none is configured
-    // Note: This connection string will never actually be used since we don't connect to the DB during OpenAPI generation
+    // Note: This connection string will never actually be used during OpenAPI generation
+    // since Swashbuckle only reflects on the API controllers and doesn't connect to the database.
+    // The server name is Windows-specific but acceptable since it's never actually executed.
     if (string.IsNullOrWhiteSpace(connectionString) && isDesignTime)
     {
         connectionString = "Server=(localdb)\\mssqllocaldb;Database=PortalDb;Trusted_Connection=False;";
