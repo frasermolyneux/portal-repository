@@ -31,6 +31,7 @@ Versioned REST APIs, DTO abstractions, EF Core data access, and Terraform infras
 - [docs/api-design-v2.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/api-design-v2.md) – V2 contract, DTO envelopes, and error handling principles.
 - [docs/api-versioning.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/api-versioning.md) – Implementation details for API host and APIM versioning.
 - [docs/efcore-data-lib.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/efcore-data-lib.md) – Regeneration walkthrough for the EF Core DataLib from the DACPAC.
+- [docs/openapi-specs.md](https://github.com/frasermolyneux/portal-repository/blob/main/docs/openapi-specs.md) – OpenAPI specification management, generation, and CI/CD validation.
 
 ## 🚀 Getting Started
 **Highlights**
