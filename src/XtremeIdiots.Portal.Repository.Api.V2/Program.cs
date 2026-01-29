@@ -21,7 +21,10 @@ var builder = WebApplication.CreateBuilder(args);
 var appConfigurationEndpoint = builder.Configuration["AzureAppConfiguration:Endpoint"];
 var isAzureAppConfigurationEnabled = false;
 
-if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
+// Skip Azure App Configuration in design-time scenarios (e.g., during OpenAPI generation)
+var isDesignTime = string.Equals(builder.Configuration["ASPNETCORE_ENVIRONMENT"], "DesignTime", StringComparison.OrdinalIgnoreCase);
+
+if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint) && !isDesignTime)
 {
     var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
     TokenCredential identityCredential = string.IsNullOrWhiteSpace(managedIdentityClientId)
@@ -74,7 +77,15 @@ builder.Services.AddServiceProfiler();
 
 builder.Services.AddDbContext<PortalDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration["sql_connection_string"], sqlOptions =>
+    var connectionString = builder.Configuration["sql_connection_string"];
+    
+    // Use a dummy connection string in design-time scenarios if none is configured
+    if (string.IsNullOrWhiteSpace(connectionString) && isDesignTime)
+    {
+        connectionString = "Server=localhost;Database=PortalDb;Integrated Security=true;TrustServerCertificate=true;";
+    }
+    
+    options.UseSqlServer(connectionString, sqlOptions =>
     {
         sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null);
         sqlOptions.CommandTimeout(180);
