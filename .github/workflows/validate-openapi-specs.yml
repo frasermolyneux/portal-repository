@@ -1,0 +1,70 @@
+name: Validate OpenAPI Specs
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**/*.cs'
+      - 'src/**/*.csproj'
+      - 'openapi/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-openapi-specs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x-preview
+      
+      - name: Restore tools
+        run: dotnet tool restore
+        working-directory: .
+      
+      - name: Build V1 API (generates OpenAPI specs)
+        run: dotnet build src/XtremeIdiots.Portal.Repository.Api.V1/XtremeIdiots.Portal.Repository.Api.V1.csproj --configuration Debug
+      
+      - name: Build V2 API (generates OpenAPI specs)
+        run: dotnet build src/XtremeIdiots.Portal.Repository.Api.V2/XtremeIdiots.Portal.Repository.Api.V2.csproj --configuration Debug
+      
+      - name: Check for differences
+        id: check_diff
+        run: |
+          # Check if there are any differences in the openapi directory
+          if git diff --quiet openapi/; then
+            echo "specs_changed=false" >> $GITHUB_OUTPUT
+            echo "✅ OpenAPI specs are up to date"
+          else
+            echo "specs_changed=true" >> $GITHUB_OUTPUT
+            echo "❌ OpenAPI specs are out of date"
+            echo "The following files have changed:"
+            git diff --name-only openapi/
+            echo ""
+            echo "Please regenerate the OpenAPI specs by running:"
+            echo "  dotnet build src/XtremeIdiots.Portal.Repository.Api.V1/XtremeIdiots.Portal.Repository.Api.V1.csproj --configuration Debug"
+            echo "  dotnet build src/XtremeIdiots.Portal.Repository.Api.V2/XtremeIdiots.Portal.Repository.Api.V2.csproj --configuration Debug"
+            echo "Or use the 'Update OpenAPI Specs' workflow to automatically create a PR with the changes."
+          fi
+      
+      - name: Show diff if specs changed
+        if: steps.check_diff.outputs.specs_changed == 'true'
+        run: |
+          echo "OpenAPI spec differences:"
+          git diff openapi/
+      
+      - name: Fail if specs are out of date
+        if: steps.check_diff.outputs.specs_changed == 'true'
+        run: |
+          echo "::error::OpenAPI specs are out of date. Please regenerate them."
+          exit 1
