@@ -209,8 +209,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            using (var stream = System.IO.File.Create(filePath))
-                await file.CopyToAsync(stream, cancellationToken);
+            using var stream = System.IO.File.Create(filePath);
+            await file.CopyToAsync(stream, cancellationToken);
 
             var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath, cancellationToken);
 

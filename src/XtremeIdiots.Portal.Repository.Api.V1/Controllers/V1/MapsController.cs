@@ -612,10 +612,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var file = Request.Form.Files.First();
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            using (var stream = System.IO.File.Create(filePath))
-            {
-                await file.CopyToAsync(stream, cancellationToken);
-            }
+            using var stream = System.IO.File.Create(filePath);
+            await file.CopyToAsync(stream, cancellationToken);
 
             var response = await ((IMapsApi)this).UpdateMapImage(mapId, filePath, cancellationToken);
 
