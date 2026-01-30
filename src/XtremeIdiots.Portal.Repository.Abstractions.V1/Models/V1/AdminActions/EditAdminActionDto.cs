@@ -33,7 +33,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(AdminActionId), AdminActionId.ToString() },
-                    { nameof(AdminId), AdminId is not null ? AdminId.ToString() : string.Empty }
+                    { nameof(AdminId), AdminId ?? string.Empty }
                 };
 
                 return telemetryProperties;

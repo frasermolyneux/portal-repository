@@ -56,8 +56,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RecentPlayers
                 {
                     { nameof(RecentPlayerId), RecentPlayerId.ToString() },
                     { nameof(GameType), GameType.ToString() },
-                    { nameof(PlayerId), PlayerId is not null ? ((Guid)PlayerId).ToString() : string.Empty },
-                    { nameof(GameServerId), GameServerId is not null ? ((Guid)GameServerId).ToString() : string.Empty}
+                    { nameof(PlayerId), PlayerId?.ToString() ?? string.Empty },
+                    { nameof(GameServerId), GameServerId?.ToString() ?? string.Empty}
                 };
 
                 if (Player is not null)

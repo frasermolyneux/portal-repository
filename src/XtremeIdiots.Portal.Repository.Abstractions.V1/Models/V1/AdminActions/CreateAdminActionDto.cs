@@ -46,7 +46,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions
                 {
                     { nameof(PlayerId), PlayerId.ToString() },
                     { nameof(Type), Type.ToString() },
-                    { nameof(AdminId), AdminId is not null ? AdminId.ToString() : string.Empty }
+                    { nameof(AdminId), AdminId ?? string.Empty }
                 };
 
                 return telemetryProperties;

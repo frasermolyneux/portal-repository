@@ -62,8 +62,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(GameType), GameType.ToString() },
-                    { nameof(PlayerId), PlayerId is not null ? ((Guid)PlayerId).ToString() : string.Empty },
-                    { nameof(GameServerId), GameServerId is not null ? ((Guid)GameServerId).ToString() : string.Empty }
+                    { nameof(PlayerId), PlayerId?.ToString() ?? string.Empty },
+                    { nameof(GameServerId), GameServerId?.ToString() ?? string.Empty }
                 };
 
                 return telemetryProperties;
