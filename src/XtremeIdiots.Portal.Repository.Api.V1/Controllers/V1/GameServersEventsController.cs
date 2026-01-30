@@ -34,7 +34,8 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
     public GameServersEventsController(PortalDbContext context)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
     }
 
     /// <summary>

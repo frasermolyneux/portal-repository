@@ -29,7 +29,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public UserProfileController(
             PortalDbContext context)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
         }
 
         /// <summary>

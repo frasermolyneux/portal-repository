@@ -36,7 +36,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
     public DataMaintenanceController(PortalDbContext context)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
     }
 
     /// <summary>

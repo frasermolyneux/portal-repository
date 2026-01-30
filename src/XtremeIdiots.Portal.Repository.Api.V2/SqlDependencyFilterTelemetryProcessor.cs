@@ -5,9 +5,15 @@ using Microsoft.ApplicationInsights.Extensibility;
 
 namespace XtremeIdiots.Portal.Repository.Api.V2;
 
-public sealed class SqlDependencyFilterTelemetryProcessor(ITelemetryProcessor nextProcessor) : ITelemetryProcessor
+public sealed class SqlDependencyFilterTelemetryProcessor : ITelemetryProcessor
 {
-    private readonly ITelemetryProcessor nextProcessor = nextProcessor ?? throw new ArgumentNullException(nameof(nextProcessor));
+    private readonly ITelemetryProcessor nextProcessor;
+
+    public SqlDependencyFilterTelemetryProcessor(ITelemetryProcessor nextProcessor)
+    {
+        ArgumentNullException.ThrowIfNull(nextProcessor);
+        this.nextProcessor = nextProcessor;
+    }
 
     public void Process(ITelemetry item)
     {

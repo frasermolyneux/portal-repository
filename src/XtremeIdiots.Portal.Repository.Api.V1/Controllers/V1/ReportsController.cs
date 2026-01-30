@@ -38,7 +38,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public ReportsController(
             PortalDbContext context)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
         }
 
         /// <summary>

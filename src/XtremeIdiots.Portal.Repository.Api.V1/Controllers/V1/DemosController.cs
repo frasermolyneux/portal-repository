@@ -37,8 +37,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             PortalDbContext context,
             IConfiguration configuration)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
+            ArgumentNullException.ThrowIfNull(configuration);
+            this.configuration = configuration;
         }
 
         /// <summary>

@@ -37,7 +37,8 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     /// <exception cref="ArgumentNullException">Thrown when context parameter is null.</exception>
     public ChatMessagesController(PortalDbContext context)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
     }
 
     /// <summary>
@@ -297,7 +298,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             // For extremely short terms, avoid full-text (likely ignored due to noise word / min length) and use prefix LIKE for some selectivity.
             if (term.Length < 3)
             {
-                var like = term + "%";
+                var like = $"{term}%";
                 query = query.Where(m => (m.Message != null && EF.Functions.Like(m.Message, like)) || (m.Username != null && EF.Functions.Like(m.Username, like)));
             }
             else

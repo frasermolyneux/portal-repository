@@ -32,7 +32,8 @@ public class GameServersController : ControllerBase, IGameServersApi
     public GameServersController(
         PortalDbContext context)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
     }
 
     /// <summary>

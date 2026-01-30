@@ -36,8 +36,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             PortalDbContext context,
             ILogger<MapsController> logger)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
+            ArgumentNullException.ThrowIfNull(logger);
+            this.logger = logger;
         }
 
         /// <summary>
