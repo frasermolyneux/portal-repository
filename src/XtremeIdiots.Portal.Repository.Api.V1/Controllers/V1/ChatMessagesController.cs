@@ -34,7 +34,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     /// Initializes a new instance of the <see cref="ChatMessagesController"/> class.
     /// </summary>
     /// <param name="context">The database context for accessing chat messages.</param>
-    /// <exception cref="ArgumentNullException">Thrown when context parameter == null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when context parameter is null.</exception>
     public ChatMessagesController(PortalDbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

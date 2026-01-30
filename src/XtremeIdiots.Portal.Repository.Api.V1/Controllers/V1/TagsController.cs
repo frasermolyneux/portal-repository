@@ -35,7 +35,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Initializes a new instance of the TagsController class.
         /// </summary>
         /// <param name="context">The database context for accessing tag data.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context == null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
         public TagsController(PortalDbContext context, IMemoryCache memoryCache)
         {
             ArgumentNullException.ThrowIfNull(context);
