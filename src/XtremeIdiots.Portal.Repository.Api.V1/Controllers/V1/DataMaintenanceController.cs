@@ -64,7 +64,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     {
         // Execute pruning operation in batches to avoid locking issues
         // Only delete unlocked chat messages to preserve locked ones
-        for (int i = 6; i <= 12; i++)
+        foreach (var i in Enumerable.Range(6, 7))
         {
             var batchCutoff = DateTime.UtcNow.AddMonths(-i);
             await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {batchCutoff} AND [Locked] = 0", cancellationToken);
