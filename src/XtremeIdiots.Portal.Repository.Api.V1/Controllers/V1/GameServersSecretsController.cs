@@ -76,7 +76,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
-        if (gameServer == null)
+        if (gameServer is null)
             return new ApiResult<string>(HttpStatusCode.NotFound);
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
@@ -131,7 +131,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
-        if (gameServer == null)
+        if (gameServer is null)
             return new ApiResult<string>(HttpStatusCode.NotFound);
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");

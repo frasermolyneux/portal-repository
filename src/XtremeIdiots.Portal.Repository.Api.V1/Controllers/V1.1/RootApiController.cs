@@ -28,7 +28,7 @@ public class RootApiController : ControllerBase, IRootApi
 
     Task<ApiResult<RootDto>> IRootApi.GetRoot(CancellationToken cancellationToken)
     {
-        var rootDto = new RootDto();
+        RootDto rootDto = new();
         return Task.FromResult(new ApiResponse<RootDto>(rootDto).ToApiResult());
     }
 }

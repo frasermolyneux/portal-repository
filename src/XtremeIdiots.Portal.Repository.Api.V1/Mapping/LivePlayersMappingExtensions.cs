@@ -36,7 +36,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameType = entity.GameType.ToGameType(),
                 PlayerId = entity.PlayerId,
                 GameServerServerId = entity.GameServerId,
-                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null
+                Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null
             };
         }
 

@@ -32,7 +32,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Initializes a new instance of the <see cref="BanFileMonitorsController"/> class.
         /// </summary>
         /// <param name="context">The database context for data access.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when context == null.</exception>
         public BanFileMonitorsController(PortalDbContext context)
         {
             ArgumentNullException.ThrowIfNull(context);

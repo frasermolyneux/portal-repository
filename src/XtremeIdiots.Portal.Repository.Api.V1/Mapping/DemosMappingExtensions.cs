@@ -23,7 +23,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 ServerName = entity.ServerName ?? string.Empty,
                 FileSize = entity.FileSize,
                 FileUri = entity.FileUri ?? string.Empty,
-                UserProfile = expand && entity.UserProfile != null ? entity.UserProfile.ToDto(false) : null
+                UserProfile = expand && entity.UserProfile is not null ? entity.UserProfile.ToDto(false) : null
             };
         }
     }

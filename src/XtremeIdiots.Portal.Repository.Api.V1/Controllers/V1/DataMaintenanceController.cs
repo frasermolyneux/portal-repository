@@ -33,7 +33,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// Initializes a new instance of the <see cref="DataMaintenanceController"/> class.
     /// </summary>
     /// <param name="context">The database context for data operations.</param>
-    /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when context == null.</exception>
     public DataMaintenanceController(PortalDbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

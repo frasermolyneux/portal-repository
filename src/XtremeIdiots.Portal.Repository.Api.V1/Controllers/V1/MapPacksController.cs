@@ -324,20 +324,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private IQueryable<MapPack> ApplyFilters(IQueryable<MapPack> query, GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter)
         {
-            var needsGameServerInclude = (gameTypes != null && gameTypes.Length > 0) || (gameServerIds != null && gameServerIds.Length > 0);
+            var needsGameServerInclude = (gameTypes?.Length > 0) || (gameServerIds?.Length > 0);
 
             if (needsGameServerInclude)
             {
                 query = query.Include(mp => mp.GameServer);
             }
 
-            if (gameTypes != null && gameTypes.Length > 0)
+            if (gameTypes?.Length > 0)
             {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
                 query = query.Where(mp => mp.GameServer != null && gameTypeInts.Contains(mp.GameServer.GameType));
             }
 
-            if (gameServerIds != null && gameServerIds.Length > 0)
+            if (gameServerIds?.Length > 0)
             {
                 query = query.Where(mp => mp.GameServer != null && gameServerIds.Contains(mp.GameServer.GameServerId));
             }

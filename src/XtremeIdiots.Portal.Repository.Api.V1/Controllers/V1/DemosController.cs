@@ -296,7 +296,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private IQueryable<Demo> ApplyFilters(IQueryable<Demo> query, GameType[]? gameTypes, string? userId, string? filterString)
         {
-            if (gameTypes != null && gameTypes.Length > 0)
+            if (gameTypes?.Length > 0)
             {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
                 query = query.Where(d => gameTypeInts.Contains(d.GameType));

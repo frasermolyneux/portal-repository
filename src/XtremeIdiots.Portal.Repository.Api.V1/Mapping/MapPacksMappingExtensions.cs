@@ -26,7 +26,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.SyncToGameServer,
                 entity.SyncCompleted,
                 entity.Deleted,
-                (expand && entity.MapPackMaps != null)
+                (expand && entity.MapPackMaps is not null)
                     ? entity.MapPackMaps.Select(mpm => mpm.ToDto(false)).ToList()
                     : new List<MapPackMapDto>()
             );

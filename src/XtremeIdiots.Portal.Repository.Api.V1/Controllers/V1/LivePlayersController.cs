@@ -34,7 +34,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Initializes a new instance of the LivePlayersController.
         /// </summary>
         /// <param name="context">The database context for portal operations.</param>
-        /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when context == null.</exception>
         public LivePlayersController(PortalDbContext context)
         {
             ArgumentNullException.ThrowIfNull(context);
