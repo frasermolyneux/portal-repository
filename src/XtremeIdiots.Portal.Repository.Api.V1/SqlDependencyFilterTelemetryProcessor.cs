@@ -3,26 +3,20 @@ using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
 
-namespace XtremeIdiots.Portal.Repository.Api.V1
+namespace XtremeIdiots.Portal.Repository.Api.V1;
+
+public sealed class SqlDependencyFilterTelemetryProcessor(ITelemetryProcessor nextProcessor) : ITelemetryProcessor
 {
-    public sealed class SqlDependencyFilterTelemetryProcessor : ITelemetryProcessor
+    private readonly ITelemetryProcessor nextProcessor = nextProcessor ?? throw new ArgumentNullException(nameof(nextProcessor));
+
+    public void Process(ITelemetry item)
     {
-        private readonly ITelemetryProcessor nextProcessor;
-
-        public SqlDependencyFilterTelemetryProcessor(ITelemetryProcessor nextProcessor)
+        if (item is DependencyTelemetry dependency &&
+            string.Equals(dependency.Type, "SQL", StringComparison.OrdinalIgnoreCase))
         {
-            this.nextProcessor = nextProcessor ?? throw new ArgumentNullException(nameof(nextProcessor));
+            return;
         }
 
-        public void Process(ITelemetry item)
-        {
-            if (item is DependencyTelemetry dependency &&
-                string.Equals(dependency.Type, "SQL", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            nextProcessor.Process(item);
-        }
+        nextProcessor.Process(item);
     }
 }

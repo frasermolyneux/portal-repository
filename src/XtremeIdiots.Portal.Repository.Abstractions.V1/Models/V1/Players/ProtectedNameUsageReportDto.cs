@@ -24,7 +24,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         /// List of players using this name and usage statistics
         /// </summary>
         [JsonProperty]
-        public List<PlayerUsageDto> UsageInstances { get; set; } = new List<PlayerUsageDto>();
+        public List<PlayerUsageDto> UsageInstances { get; set; } = [];
 
         /// <summary>
         /// Represents a player's usage of a protected name

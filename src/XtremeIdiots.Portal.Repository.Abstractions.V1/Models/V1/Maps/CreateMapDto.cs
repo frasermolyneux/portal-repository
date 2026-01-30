@@ -25,7 +25,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
         public string MapName { get; set; }
 
         [JsonProperty]
-        public List<MapFileDto> MapFiles { get; set; } = new List<MapFileDto>();
+        public List<MapFileDto> MapFiles { get; set; } = [];
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties

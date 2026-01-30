@@ -39,7 +39,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
         public string? TimeZone { get; internal set; }
 
         [JsonProperty]
-        public List<UserProfileClaimDto> UserProfileClaims { get; set; } = new List<UserProfileClaimDto>();
+        public List<UserProfileClaimDto> UserProfileClaims { get; set; } = [];
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties

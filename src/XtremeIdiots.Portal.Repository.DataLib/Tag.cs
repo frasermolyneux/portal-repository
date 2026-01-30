@@ -25,5 +25,5 @@ public partial class Tag
     public string? TagHtml { get; set; }
 
     [InverseProperty("Tag")]
-    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = new List<PlayerTag>();
+    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = [];
 }

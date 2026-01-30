@@ -36,24 +36,24 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         public string IpAddress { get; internal set; } = string.Empty;
 
         [JsonProperty]
-        public List<AliasDto> PlayerAliases { get; internal set; } = new List<AliasDto>();
+        public List<AliasDto> PlayerAliases { get; internal set; } = [];
 
         [JsonProperty]
-        public List<IpAddressDto> PlayerIpAddresses { get; internal set; } = new List<IpAddressDto>();
+        public List<IpAddressDto> PlayerIpAddresses { get; internal set; } = [];
 
         [JsonProperty]
-        public List<AdminActionDto> AdminActions { get; internal set; } = new List<AdminActionDto>();
+        public List<AdminActionDto> AdminActions { get; internal set; } = [];
 
         [JsonProperty]
-        public List<ReportDto> Reports { get; internal set; } = new List<ReportDto>();
+        public List<ReportDto> Reports { get; internal set; } = [];
 
         [JsonProperty]
-        public List<RelatedPlayerDto> RelatedPlayers { get; internal set; } = new List<RelatedPlayerDto>();
+        public List<RelatedPlayerDto> RelatedPlayers { get; internal set; } = [];
 
         [JsonProperty]
-        public List<ProtectedNameDto> ProtectedNames { get; internal set; } = new List<ProtectedNameDto>();
+        public List<ProtectedNameDto> ProtectedNames { get; internal set; } = [];
 
-        public List<PlayerTagDto> Tags { get; internal set; } = new List<PlayerTagDto>();
+        public List<PlayerTagDto> Tags { get; internal set; } = [];
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties

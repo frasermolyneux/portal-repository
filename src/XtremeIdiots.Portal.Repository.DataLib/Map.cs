@@ -33,8 +33,8 @@ public partial class Map
     public double DislikePercentage { get; set; }
 
     [InverseProperty("Map")]
-    public virtual ICollection<MapPackMap> MapPackMaps { get; set; } = new List<MapPackMap>();
+    public virtual ICollection<MapPackMap> MapPackMaps { get; set; } = [];
 
     [InverseProperty("Map")]
-    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
+    public virtual ICollection<MapVote> MapVotes { get; set; } = [];
 }

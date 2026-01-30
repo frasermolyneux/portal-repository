@@ -5,6 +5,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors;
 [Obsolete("Use CollectionModel<BanFileMonitorDto> from MX.Api.Abstractions instead")]
 public record BanFileMonitorCollectionDto
 {
-    public List<BanFileMonitorDto> Entries { get; set; } = new List<BanFileMonitorDto>();
+    public List<BanFileMonitorDto> Entries { get; set; } = [];
     public int TotalRecords { get; set; }
 }
