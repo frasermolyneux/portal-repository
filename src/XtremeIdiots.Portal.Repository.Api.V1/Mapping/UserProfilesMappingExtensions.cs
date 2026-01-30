@@ -30,7 +30,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 PhotoUrl = entity.PhotoUrl,
                 ProfileUrl = entity.ProfileUrl,
                 TimeZone = entity.TimeZone,
-                UserProfileClaims = entity.UserProfileClaims?.Select(c => c.ToDto(false)).ToList() ?? new List<UserProfileClaimDto>()
+                UserProfileClaims = entity.UserProfileClaims?.Select(c => c.ToDto(false)).ToList() ?? []
             };
         }
 

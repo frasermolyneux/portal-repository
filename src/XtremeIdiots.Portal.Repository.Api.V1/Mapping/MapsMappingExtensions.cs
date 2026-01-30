@@ -24,12 +24,12 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 mapFiles = string.IsNullOrEmpty(entity.MapFiles)
                     ? new List<MapFileDto>()
-                    : JsonConvert.DeserializeObject<List<MapFileDto>>(entity.MapFiles) ?? new List<MapFileDto>();
+                    : JsonConvert.DeserializeObject<List<MapFileDto>>(entity.MapFiles) ?? [];
             }
             catch (JsonException)
             {
                 // Fallback to empty list if deserialization fails
-                mapFiles = new List<MapFileDto>();
+                mapFiles = [];
             }
 
             return new MapDto

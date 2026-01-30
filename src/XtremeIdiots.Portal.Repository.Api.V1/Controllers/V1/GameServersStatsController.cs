@@ -63,7 +63,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the game server statistics were created.</returns>
         async Task<ApiResult> IGameServersStatsApi.CreateGameServerStats(List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken)
         {
-            var gameServerStats = new List<GameServerStat>();
+            List<GameServerStat> gameServerStats = [];
 
             foreach (var createGameServerStatDto in createGameServerStatDtos)
             {
