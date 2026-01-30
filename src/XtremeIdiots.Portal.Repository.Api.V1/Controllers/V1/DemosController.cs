@@ -202,7 +202,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (Request.Form.Files.Count == 0)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage))).ToHttpResult();
 
-            var whitelistedExtensions = new List<string> { ".dm_1", ".dm_6" };
+            List<string> whitelistedExtensions = [".dm_1", ".dm_6"];
 
             var file = Request.Form.Files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
