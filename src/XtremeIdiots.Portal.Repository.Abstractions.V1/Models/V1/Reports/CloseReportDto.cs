@@ -18,17 +18,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports
         public string AdminClosingComments { get; private set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(AdminUserProfileId), AdminUserProfileId.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(AdminUserProfileId), AdminUserProfileId.ToString() }
+        };
     }
 }

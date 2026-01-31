@@ -39,18 +39,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.V1.Models.Root
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(Name), Name },
-                    { nameof(Version), Version }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(Name), Name },
+            { nameof(Version), Version }
+        };
     }
 }

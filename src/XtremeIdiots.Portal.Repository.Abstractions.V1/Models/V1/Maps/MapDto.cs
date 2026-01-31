@@ -43,18 +43,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
         public List<MapFileDto> MapFiles { get; internal set; } = [];
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(MapId), MapId.ToString() },
-                    { nameof(GameType), GameType.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(MapId), MapId.ToString() },
+            { nameof(GameType), GameType.ToString() }
+        };
     }
 }

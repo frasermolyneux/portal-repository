@@ -21,18 +21,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
         public string ClaimValue { get; internal set; } = string.Empty;
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(UserProfileClaimId), UserProfileClaimId.ToString() },
-                    { nameof(UserProfileId), UserProfileId.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(UserProfileClaimId), UserProfileClaimId.ToString() },
+            { nameof(UserProfileId), UserProfileId.ToString() }
+        };
     }
 }
