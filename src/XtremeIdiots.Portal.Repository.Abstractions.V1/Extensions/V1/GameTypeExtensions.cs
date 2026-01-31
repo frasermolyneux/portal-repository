@@ -11,32 +11,24 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1
 
         public static string DisplayName(this GameType gameType)
         {
-            switch (gameType)
+            return gameType switch
             {
-                case GameType.CallOfDuty2:
-                    return "Call of Duty 2";
-                case GameType.CallOfDuty4:
-                    return "Call of Duty 4";
-                case GameType.CallOfDuty5:
-                    return "Call of Duty 5";
-            }
-
-            return gameType.ToString();
+                GameType.CallOfDuty2 => "Call of Duty 2",
+                GameType.CallOfDuty4 => "Call of Duty 4",
+                GameType.CallOfDuty5 => "Call of Duty 5",
+                _ => gameType.ToString()
+            };
         }
 
         public static string ShortDisplayName(this GameType gameType)
         {
-            switch (gameType)
+            return gameType switch
             {
-                case GameType.CallOfDuty2:
-                    return "COD2";
-                case GameType.CallOfDuty4:
-                    return "COD4";
-                case GameType.CallOfDuty5:
-                    return "COD5";
-            }
-
-            return gameType.ToString();
+                GameType.CallOfDuty2 => "COD2",
+                GameType.CallOfDuty4 => "COD4",
+                GameType.CallOfDuty5 => "COD5",
+                _ => gameType.ToString()
+            };
         }
     }
 }
