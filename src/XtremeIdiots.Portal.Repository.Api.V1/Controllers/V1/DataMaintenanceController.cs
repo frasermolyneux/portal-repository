@@ -437,8 +437,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             if (underscoreIndex <= 0 || underscoreIndex >= noExt.Length - 1)
                 return false;
 
-            var gameTypeStr = noExt.Substring(0, underscoreIndex);
-            mapName = noExt.Substring(underscoreIndex + 1);
+            var gameTypeStr = noExt[..underscoreIndex];
+            mapName = noExt[(underscoreIndex + 1)..];
 
             // Try parse enum by name (case-insensitive) using V1 GameType enum
             if (Enum.TryParse(typeof(GameType), gameTypeStr, true, out var enumVal) && enumVal is GameType gt)
