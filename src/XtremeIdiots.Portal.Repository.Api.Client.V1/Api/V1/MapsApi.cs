@@ -25,23 +25,23 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/{mapId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/{mapId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<MapDto>();
         }
 
         public async Task<ApiResult<MapDto>> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/{gameType}/{mapName}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/{gameType}/{mapName}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<MapDto>();
         }
 
         public async Task<ApiResult<CollectionModel<MapDto>>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps", Method.Get);
+            var request = await CreateRequestAsync("v1/maps", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -61,101 +61,101 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<MapDto>>();
         }
 
         public async Task<ApiResult> CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps", Method.Post);
+            var request = await CreateRequestAsync("v1/maps", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(new List<CreateMapDto> { createMapDto });
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CreateMaps(List<CreateMapDto> createMapDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps", Method.Post);
+            var request = await CreateRequestAsync("v1/maps", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createMapDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateMap(EditMapDto editMapDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/{editMapDto.MapId}", Method.Patch);
+            var request = await CreateRequestAsync($"v1/maps/{editMapDto.MapId}", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(editMapDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateMaps(List<EditMapDto> editMapDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps", Method.Patch);
+            var request = await CreateRequestAsync("v1/maps", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(editMapDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> DeleteMap(Guid mapId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/{mapId}", Method.Delete);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/{mapId}", Method.Delete).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> RebuildMapPopularity(CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/popularity", Method.Post);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/popularity", Method.Post).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/votes", Method.Post);
+            var request = await CreateRequestAsync($"v1/maps/votes", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(new List<UpsertMapVoteDto> { upsertMapVoteDto });
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/votes", Method.Post);
+            var request = await CreateRequestAsync($"v1/maps/votes", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(upsertMapVoteDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/{mapId}/image", Method.Post);
+            var request = await CreateRequestAsync($"v1/maps/{mapId}/image", Method.Post).ConfigureAwait(false);
             request.AddFile("map.jpg", filePath);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> ClearMapImage(Guid mapId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/{mapId}/image", Method.Delete);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/{mapId}/image", Method.Delete).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

@@ -47,7 +47,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IGameServersApi)this).GetGameServer(gameServerId, cancellationToken);
+        var response = await ((IGameServersApi)this).GetGameServer(gameServerId, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -64,7 +64,7 @@ public class GameServersController : ControllerBase, IGameServersApi
             .Include(gs => gs.BanFileMonitors)
             .Include(gs => gs.LivePlayers)
             .AsNoTracking()
-            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken);
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
 
         if (gameServer == null)
             return new ApiResult<GameServerDto>(HttpStatusCode.NotFound);
@@ -110,7 +110,7 @@ public class GameServersController : ControllerBase, IGameServersApi
             gameServerIdsFilter = split.Select(id => Guid.Parse(id)).ToArray();
         }
 
-        var response = await ((IGameServersApi)this).GetGameServers(gameTypesFilter, gameServerIdsFilter, filter, skipEntries, takeEntries, order, cancellationToken);
+        var response = await ((IGameServersApi)this).GetGameServers(gameTypesFilter, gameServerIdsFilter, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -135,15 +135,15 @@ public class GameServersController : ControllerBase, IGameServersApi
             .AsNoTracking();
 
         // Calculate total count before applying filters
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
+        var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
         // Apply filters
         var filteredQuery = ApplyFilters(baseQuery, gameTypes, gameServerIds, filter);
-        var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+        var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
         // Apply ordering and pagination
         var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
-        var results = await orderedQuery.ToListAsync(cancellationToken);
+        var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var entries = results.Select(m => m.ToDto()).ToList();
 
@@ -165,7 +165,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     {
         var gameServer = createGameServerDto.ToEntity();
         context.GameServers.Add(gameServer);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
 
@@ -179,7 +179,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateGameServers(CancellationToken cancellationToken = default)
     {
-        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
+        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken).ConfigureAwait(false);
 
         List<CreateGameServerDto>? createGameServerDtos;
         try
@@ -198,7 +198,7 @@ public class GameServersController : ControllerBase, IGameServersApi
                 .ToBadRequestResult()
                 .ToHttpResult();
 
-        var response = await ((IGameServersApi)this).CreateGameServers(createGameServerDtos, cancellationToken);
+        var response = await ((IGameServersApi)this).CreateGameServers(createGameServerDtos, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -213,8 +213,8 @@ public class GameServersController : ControllerBase, IGameServersApi
     {
         var gameServers = createGameServerDtos.Select(gs => gs.ToEntity()).ToList();
 
-        await context.GameServers.AddRangeAsync(gameServers, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.GameServers.AddRangeAsync(gameServers, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -231,7 +231,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
-        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
+        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken).ConfigureAwait(false);
 
         EditGameServerDto? editGameServerDto;
         try
@@ -253,7 +253,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         if (editGameServerDto.GameServerId != gameServerId)
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();
 
-        var response = await ((IGameServersApi)this).UpdateGameServer(editGameServerDto, cancellationToken);
+        var response = await ((IGameServersApi)this).UpdateGameServer(editGameServerDto, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -267,13 +267,13 @@ public class GameServersController : ControllerBase, IGameServersApi
     async Task<ApiResult> IGameServersApi.UpdateGameServer(EditGameServerDto editGameServerDto, CancellationToken cancellationToken)
     {
         var gameServer = await context.GameServers
-            .FirstOrDefaultAsync(gs => gs.GameServerId == editGameServerDto.GameServerId, cancellationToken);
+            .FirstOrDefaultAsync(gs => gs.GameServerId == editGameServerDto.GameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
         editGameServerDto.ApplyTo(gameServer);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -288,7 +288,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IGameServersApi)this).DeleteGameServer(gameServerId, cancellationToken);
+        var response = await ((IGameServersApi)this).DeleteGameServer(gameServerId, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -302,17 +302,17 @@ public class GameServersController : ControllerBase, IGameServersApi
     async Task<ApiResult> IGameServersApi.DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken)
     {
         var gameServer = await context.GameServers
-            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
 
         gameServer.Deleted = true;
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 

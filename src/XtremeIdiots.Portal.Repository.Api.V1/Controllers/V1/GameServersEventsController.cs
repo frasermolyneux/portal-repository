@@ -49,7 +49,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateGameServerEvent([FromBody] CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken = default)
     {
-        var response = await ((IGameServersEventsApi)this).CreateGameServerEvent(createGameServerEventDto, cancellationToken);
+        var response = await ((IGameServersEventsApi)this).CreateGameServerEvent(createGameServerEventDto, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -65,7 +65,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         gameServerEvent.Timestamp = DateTime.UtcNow;
 
         context.GameServerEvents.Add(gameServerEvent);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
@@ -81,7 +81,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateGameServerEvents([FromBody] List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken = default)
     {
-        var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDtos, cancellationToken);
+        var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDtos, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -101,8 +101,8 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
             return gameServerEvent;
         }).ToList();
 
-        await context.GameServerEvents.AddRangeAsync(gameServerEvents, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.GameServerEvents.AddRangeAsync(gameServerEvents, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }

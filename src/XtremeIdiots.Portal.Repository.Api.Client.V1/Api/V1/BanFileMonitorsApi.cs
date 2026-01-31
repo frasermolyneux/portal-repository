@@ -23,15 +23,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<BanFileMonitorDto>> GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<BanFileMonitorDto>();
         }
 
         public async Task<ApiResult<CollectionModel<BanFileMonitorDto>>> GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/ban-file-monitors", Method.Get);
+            var request = await CreateRequestAsync("v1/ban-file-monitors", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
@@ -48,35 +48,35 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<BanFileMonitorDto>>();
         }
 
         public async Task<ApiResult> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors", Method.Post);
+            var request = await CreateRequestAsync($"v1/ban-file-monitors", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createBanFileMonitorDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch);
+            var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(editBanFileMonitorDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Delete);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Delete).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

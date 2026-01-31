@@ -40,7 +40,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapPacksApi)this).GetMapPack(mapPackId, cancellationToken);
+            var response = await ((IMapPacksApi)this).GetMapPack(mapPackId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -56,7 +56,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(mp => mp.GameServer)
                 .Include(mp => mp.MapPackMaps)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(mp => mp.MapPackId == mapPackId && !mp.Deleted, cancellationToken);
+                .FirstOrDefaultAsync(mp => mp.MapPackId == mapPackId && !mp.Deleted, cancellationToken).ConfigureAwait(false);
 
             if (mapPack == null)
                 return new ApiResult<MapPackDto>(HttpStatusCode.NotFound);
@@ -101,7 +101,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 gameServerIdsFilter = split.Select(id => Guid.Parse(id)).ToArray();
             }
 
-            var response = await ((IMapPacksApi)this).GetMapPacks(gameTypesFilter, gameServerIdsFilter, filter, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((IMapPacksApi)this).GetMapPacks(gameTypesFilter, gameServerIdsFilter, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -130,17 +130,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Where(mp => !mp.Deleted);
 
             // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filters
             var filteredQuery = ApplyFilters(baseQuery, gameTypes, gameServerIds, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery
                 .Include(mp => mp.MapPackMaps)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = results.Select(m => m.ToDto()).ToList();
 
@@ -163,7 +163,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateMapPack([FromBody] CreateMapPackDto createMapPackDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapPacksApi)this).CreateMapPack(createMapPackDto, cancellationToken);
+            var response = await ((IMapPacksApi)this).CreateMapPack(createMapPackDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -177,7 +177,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var mapPack = createMapPackDto.ToEntity();
             context.MapPacks.Add(mapPack);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -197,7 +197,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToBadRequestResult()
                     .ToHttpResult();
 
-            var response = await ((IMapPacksApi)this).CreateMapPacks(createMapPackDtos, cancellationToken);
+            var response = await ((IMapPacksApi)this).CreateMapPacks(createMapPackDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -214,7 +214,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var allMaps = await context.Maps
                 .AsNoTracking()
                 .Where(m => allMapIds.Contains(m.MapId))
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var mapLookup = allMaps.ToDictionary(m => m.MapId, m => m);
 
@@ -227,10 +227,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToList();
                 mapPack.MapPackMaps = maps.Select(m => new MapPackMap { Map = m }).ToList();
 
-                await context.MapPacks.AddAsync(mapPack, cancellationToken);
+                await context.MapPacks.AddAsync(mapPack, cancellationToken).ConfigureAwait(false);
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -255,7 +255,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (updateMapPackDto.MapPackId != mapPackId)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();
 
-            var response = await ((IMapPacksApi)this).UpdateMapPack(updateMapPackDto, cancellationToken);
+            var response = await ((IMapPacksApi)this).UpdateMapPack(updateMapPackDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -268,7 +268,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IMapPacksApi.UpdateMapPack(UpdateMapPackDto updateMapPackDto, CancellationToken cancellationToken)
         {
             var mapPack = await context.MapPacks
-                .FirstOrDefaultAsync(mp => mp.MapPackId == updateMapPackDto.MapPackId, cancellationToken);
+                .FirstOrDefaultAsync(mp => mp.MapPackId == updateMapPackDto.MapPackId, cancellationToken).ConfigureAwait(false);
 
             if (mapPack == null)
                 return new ApiResult(HttpStatusCode.NotFound);
@@ -280,11 +280,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var maps = await context.Maps
                     .AsNoTracking()
                     .Where(m => updateMapPackDto.MapIds.Contains(m.MapId))
-                    .ToListAsync(cancellationToken);
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
                 mapPack.MapPackMaps = maps.Select(m => new MapPackMap { Map = m }).ToList();
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 
@@ -299,7 +299,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapPacksApi)this).DeleteMapPack(mapPackId, cancellationToken);
+            var response = await ((IMapPacksApi)this).DeleteMapPack(mapPackId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -312,13 +312,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IMapPacksApi.DeleteMapPack(Guid mapPackId, CancellationToken cancellationToken)
         {
             var mapPack = await context.MapPacks
-                .FirstOrDefaultAsync(mp => mp.MapPackId == mapPackId, cancellationToken);
+                .FirstOrDefaultAsync(mp => mp.MapPackId == mapPackId, cancellationToken).ConfigureAwait(false);
 
             if (mapPack == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             mapPack.Deleted = true;
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 

@@ -53,7 +53,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayer(playerId, playerEntityOptions);
+        var response = await ((IPlayersApi)this).GetPlayer(playerId, playerEntityOptions).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -68,7 +68,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var player = await context.Players
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.PlayerId == playerId);
+            .FirstOrDefaultAsync(p => p.PlayerId == playerId).ConfigureAwait(false);
 
         if (player == null)
             return new ApiResult<PlayerDto>(HttpStatusCode.NotFound);
@@ -78,14 +78,14 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .AsNoTracking()
                 .Where(pa => pa.PlayerId == player.PlayerId)
                 .OrderByDescending(pa => pa.LastUsed)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses))
             player.PlayerIpAddresses = await context.PlayerIpAddresses
                 .AsNoTracking()
                 .Where(pip => pip.PlayerId == player.PlayerId)
                 .OrderByDescending(pip => pip.LastUsed)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions))
             player.AdminActions = await context.AdminActions
@@ -93,7 +93,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Include(aa => aa.UserProfile)
                 .Where(aa => aa.PlayerId == player.PlayerId)
                 .OrderByDescending(aa => aa.Created)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
             player.ProtectedNames = await context.ProtectedNames
@@ -101,14 +101,14 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Include(pn => pn.CreatedByUserProfile)
                 .Where(pn => pn.PlayerId == player.PlayerId)
                 .OrderByDescending(pn => pn.CreatedOn)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
             player.PlayerTags = await context.PlayerTags
                 .AsNoTracking()
                 .Include(pt => pt.Tag)
                 .Where(pt => pt.PlayerId == player.PlayerId)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         var result = player.ToDto();
 
@@ -134,7 +134,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .AsNoTracking()
                 .Include(ip => ip.Player)
                 .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
             result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
         }
@@ -154,7 +154,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HeadPlayerByGameType(GameType gameType, string guid, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).HeadPlayerByGameType(gameType, guid);
+        var response = await ((IPlayersApi)this).HeadPlayerByGameType(gameType, guid).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -169,7 +169,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var playerExists = await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid);
+            .AnyAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid).ConfigureAwait(false);
 
         if (!playerExists)
             return new ApiResult(HttpStatusCode.NotFound);
@@ -190,7 +190,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPlayerByGameType(GameType gameType, string guid, PlayerEntityOptions playerEntityOptions, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayerByGameType(gameType, guid, playerEntityOptions);
+        var response = await ((IPlayersApi)this).GetPlayerByGameType(gameType, guid, playerEntityOptions).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -206,7 +206,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var player = await context.Players
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid);
+            .FirstOrDefaultAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid).ConfigureAwait(false);
 
         if (player == null)
             return new ApiResult<PlayerDto>(HttpStatusCode.NotFound);
@@ -216,14 +216,14 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .AsNoTracking()
                 .Where(pa => pa.PlayerId == player.PlayerId)
                 .OrderByDescending(pa => pa.LastUsed)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses))
             player.PlayerIpAddresses = await context.PlayerIpAddresses
                 .AsNoTracking()
                 .Where(pip => pip.PlayerId == player.PlayerId)
                 .OrderByDescending(pip => pip.LastUsed)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions))
             player.AdminActions = await context.AdminActions
@@ -231,7 +231,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Include(aa => aa.UserProfile)
                 .Where(aa => aa.PlayerId == player.PlayerId)
                 .OrderByDescending(aa => aa.Created)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
             player.ProtectedNames = await context.ProtectedNames
@@ -239,14 +239,14 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Include(pn => pn.CreatedByUserProfile)
                 .Where(pn => pn.PlayerId == player.PlayerId)
                 .OrderByDescending(pn => pn.CreatedOn)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
             player.PlayerTags = await context.PlayerTags
                 .AsNoTracking()
                 .Include(pt => pt.Tag)
                 .Where(pt => pt.PlayerId == player.PlayerId)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
         var result = player.ToDto();
 
@@ -272,7 +272,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .AsNoTracking()
                 .Include(ip => ip.Player)
                 .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
-                .ToListAsync();
+                .ToListAsync().ConfigureAwait(false);
 
             result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
         }
@@ -311,7 +311,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         var skipValue = skipEntries ?? 0;
         var takeValue = takeEntries ?? 20;
 
-        var response = await ((IPlayersApi)this).GetPlayers(gameType, filter, filterString, skipValue, takeValue, order, playerEntityOptions);
+        var response = await ((IPlayersApi)this).GetPlayers(gameType, filter, filterString, skipValue, takeValue, order, playerEntityOptions).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -345,7 +345,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             if (gameType.HasValue)
                 countQuery = countQuery.Where(p => p.GameType == gameType.Value.ToGameTypeInt());
 
-            totalCount = await countQuery.CountAsync();
+            totalCount = await countQuery.CountAsync().ConfigureAwait(false);
 
             // Cache the count for 10 minutes
             _memoryCache.Set(cacheKey, totalCount, TimeSpan.FromMinutes(10));
@@ -358,7 +358,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         query = ApplyFilter(query, gameType, filter, filterString);
 
         // Calculate filtered count before applying ordering and pagination
-        var filteredCount = await query.CountAsync();
+        var filteredCount = await query.CountAsync().ConfigureAwait(false);
 
         // Apply ordering and pagination
         query = ApplyOrderAndLimits(query, skipEntries, takeEntries, order);
@@ -388,11 +388,11 @@ public class PlayersController : ControllerBase, IPlayersApi
                             .Take(10)
                             .ToList()
                     })
-                    .ToListAsync();
+                    .ToListAsync().ConfigureAwait(false);
             }
             else
             {
-                results = await query.ToListAsync();
+                results = await query.ToListAsync().ConfigureAwait(false);
             }
 
             // Extract player IDs for use in subsequent queries
@@ -412,7 +412,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                             .Take(10)
                             .ToList()
                     })
-                    .ToDictionaryAsync(x => x.PlayerId, x => x.IpAddresses);
+                    .ToDictionaryAsync(x => x.PlayerId, x => x.IpAddresses).ConfigureAwait(false);
 
                 foreach (var player in results)
                 {
@@ -440,7 +440,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                             .Take(10)
                             .ToList()
                     })
-                    .ToDictionaryAsync(x => x.PlayerId, x => x.AdminActions);
+                    .ToDictionaryAsync(x => x.PlayerId, x => x.AdminActions).ConfigureAwait(false);
 
                 foreach (var player in results)
                 {
@@ -457,7 +457,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
         else
         {
-            results = await query.ToListAsync();
+            results = await query.ToListAsync().ConfigureAwait(false);
         }
 
         // Map to DTOs
@@ -489,7 +489,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .ToBadRequestResult()
                 .ToHttpResult();
 
-        var response = await ((IPlayersApi)this).CreatePlayers(createPlayerDtos);
+        var response = await ((IPlayersApi)this).CreatePlayers(createPlayerDtos).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -503,7 +503,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         if (await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
+            .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid).ConfigureAwait(false))
             return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
         var player = createPlayerDto.ToEntity();
@@ -537,8 +537,8 @@ public class PlayersController : ControllerBase, IPlayersApi
             }
         ];
 
-        await context.Players.AddAsync(player);
-        await context.SaveChangesAsync();
+        await context.Players.AddAsync(player).ConfigureAwait(false);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
@@ -554,7 +554,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         {
             if (await context.Players
                 .AsNoTracking()
-                .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
+                .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid).ConfigureAwait(false))
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
             var player = createPlayerDto.ToEntity();
@@ -588,10 +588,10 @@ public class PlayersController : ControllerBase, IPlayersApi
                 }
             ];
 
-            await context.Players.AddAsync(player);
+            await context.Players.AddAsync(player).ConfigureAwait(false);
         }
 
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -617,7 +617,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (editPlayerDto.PlayerId != playerId)
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage)).ToBadRequestResult().ToHttpResult();
 
-        var response = await ((IPlayersApi)this).UpdatePlayer(editPlayerDto);
+        var response = await ((IPlayersApi)this).UpdatePlayer(editPlayerDto).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -632,7 +632,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         var player = await context.Players
             .Include(p => p.PlayerAliases)
             .Include(p => p.PlayerIpAddresses)
-            .FirstOrDefaultAsync(p => p.PlayerId == editPlayerDto.PlayerId);
+            .FirstOrDefaultAsync(p => p.PlayerId == editPlayerDto.PlayerId).ConfigureAwait(false);
 
         if (player == null)
             return new ApiResult(HttpStatusCode.NotFound);
@@ -675,7 +675,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             });
         }
 
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -816,7 +816,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         var skipValue = skipEntries ?? 0;
         var takeValue = takeEntries ?? 20;
 
-        var response = await ((IPlayersApi)this).GetProtectedNames(skipValue, takeValue);
+        var response = await ((IPlayersApi)this).GetProtectedNames(skipValue, takeValue).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -829,7 +829,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result containing a paginated collection of protected names.</returns>
     async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
     {
-        var totalCount = await context.ProtectedNames.AsNoTracking().CountAsync();
+        var totalCount = await context.ProtectedNames.AsNoTracking().CountAsync().ConfigureAwait(false);
 
         var query = context.ProtectedNames
             .AsNoTracking()
@@ -839,7 +839,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Skip(skipEntries)
             .Take(takeEntries);
 
-        var results = await query.ToListAsync();
+        var results = await query.ToListAsync().ConfigureAwait(false);
 
         var entries = results.Select(pn => pn.ToProtectedNameDto()).ToList();
 
@@ -862,7 +862,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProtectedName(Guid protectedNameId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetProtectedName(protectedNameId);
+        var response = await ((IPlayersApi)this).GetProtectedName(protectedNameId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -878,7 +878,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .AsNoTracking()
             .Include(pn => pn.Player)
             .Include(pn => pn.CreatedByUserProfile)
-            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
+            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId).ConfigureAwait(false);
 
         if (protectedName == null)
             return new ApiResult<ProtectedNameDto>(HttpStatusCode.NotFound);
@@ -899,7 +899,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProtectedNamesForPlayer(Guid playerId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetProtectedNamesForPlayer(playerId);
+        var response = await ((IPlayersApi)this).GetProtectedNamesForPlayer(playerId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -911,7 +911,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result containing a collection of protected names for the player if the player exists; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNamesForPlayer(Guid playerId)
     {
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult<CollectionModel<ProtectedNameDto>>(HttpStatusCode.NotFound);
 
         var query = context.ProtectedNames
@@ -920,9 +920,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Include(pn => pn.CreatedByUserProfile)
             .Where(pn => pn.PlayerId == playerId);
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync().ConfigureAwait(false);
 
-        var results = await query.OrderBy(pn => pn.Name).ToListAsync();
+        var results = await query.OrderBy(pn => pn.Name).ToListAsync().ConfigureAwait(false);
 
         var entries = results.Select(pn => pn.ToProtectedNameDto()).ToList();
 
@@ -952,7 +952,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                 .ToBadRequestResult()
                 .ToHttpResult();
 
-        var response = await ((IPlayersApi)this).CreateProtectedName(createProtectedNameDto);
+        var response = await ((IPlayersApi)this).CreateProtectedName(createProtectedNameDto).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -965,11 +965,11 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
     {
         // Check if player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if the name is already protected
-        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()))
+        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)));
 
         var protectedName = new ProtectedName
@@ -981,10 +981,10 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         };
 
         if (!string.IsNullOrWhiteSpace(createProtectedNameDto.AdminId))
-            protectedName.CreatedByUserProfile = await context.UserProfiles.FirstOrDefaultAsync(u => u.XtremeIdiotsForumId == createProtectedNameDto.AdminId);
+            protectedName.CreatedByUserProfile = await context.UserProfiles.FirstOrDefaultAsync(u => u.XtremeIdiotsForumId == createProtectedNameDto.AdminId).ConfigureAwait(false);
 
-        await context.ProtectedNames.AddAsync(protectedName);
-        await context.SaveChangesAsync();
+        await context.ProtectedNames.AddAsync(protectedName).ConfigureAwait(false);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
@@ -1001,7 +1001,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     public async Task<IActionResult> DeleteProtectedName(Guid protectedNameId, CancellationToken cancellationToken = default)
     {
         var deleteProtectedNameDto = new DeleteProtectedNameDto(protectedNameId);
-        var response = await ((IPlayersApi)this).DeleteProtectedName(deleteProtectedNameDto);
+        var response = await ((IPlayersApi)this).DeleteProtectedName(deleteProtectedNameDto).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1014,13 +1014,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.DeleteProtectedName(DeleteProtectedNameDto deleteProtectedNameDto)
     {
         var protectedName = await context.ProtectedNames
-            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == deleteProtectedNameDto.ProtectedNameId);
+            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == deleteProtectedNameDto.ProtectedNameId).ConfigureAwait(false);
 
         if (protectedName == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
         context.ProtectedNames.Remove(protectedName);
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -1036,7 +1036,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProtectedNameUsageReport(Guid protectedNameId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetProtectedNameUsageReport(protectedNameId);
+        var response = await ((IPlayersApi)this).GetProtectedNameUsageReport(protectedNameId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1052,14 +1052,14 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .AsNoTracking()
             .Include(pn => pn.Player)
             .Include(pn => pn.CreatedByUserProfile)
-            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId);
+            .FirstOrDefaultAsync(pn => pn.ProtectedNameId == protectedNameId).ConfigureAwait(false);
 
         if (protectedName == null)
             return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
 
         var owningPlayer = await context.Players
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.PlayerId == protectedName.PlayerId);
+            .FirstOrDefaultAsync(p => p.PlayerId == protectedName.PlayerId).ConfigureAwait(false);
 
         if (owningPlayer == null)
             return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
@@ -1070,7 +1070,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Include(pa => pa.Player)
             .Where(pa => pa.Name != null && protectedName.Name != null && pa.Name.ToLower() == protectedName.Name.ToLower())
             .OrderByDescending(pa => pa.LastUsed)
-            .ToListAsync();
+            .ToListAsync().ConfigureAwait(false);
 
         List<ProtectedNameUsageReportDto.PlayerUsageDto> usageInstances = [];
 
@@ -1116,7 +1116,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPlayerTags(Guid playerId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayerTags(playerId);
+        var response = await ((IPlayersApi)this).GetPlayerTags(playerId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1129,7 +1129,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult<CollectionModel<PlayerTagDto>>> IPlayersApi.GetPlayerTags(Guid playerId)
     {
         // Check if the player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult<CollectionModel<PlayerTagDto>>(HttpStatusCode.NotFound);
 
         var playerTags = await context.PlayerTags
@@ -1137,7 +1137,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Include(pt => pt.Tag)
             .Include(pt => pt.UserProfile)
             .Where(pt => pt.PlayerId == playerId)
-            .ToListAsync();
+            .ToListAsync().ConfigureAwait(false);
 
         var entries = playerTags.Select(pt => pt.ToDto()).ToList();
 
@@ -1173,7 +1173,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         // Set the playerId in the DTO to match the URL
         playerTagDto.PlayerId = playerId;
 
-        var response = await ((IPlayersApi)this).AddPlayerTag(playerId, playerTagDto);
+        var response = await ((IPlayersApi)this).AddPlayerTag(playerId, playerTagDto).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1190,16 +1190,16 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.MissingEntityId, ApiErrorMessages.TagIdRequiredMessage)));
 
         // Check if the player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if the tag exists
-        var tagExists = await context.Tags.AsNoTracking().AnyAsync(t => t.TagId == playerTagDto.TagId);
+        var tagExists = await context.Tags.AsNoTracking().AnyAsync(t => t.TagId == playerTagDto.TagId).ConfigureAwait(false);
         if (!tagExists)
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if player already has this tag
-        var exists = await context.PlayerTags.AsNoTracking().AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId);
+        var exists = await context.PlayerTags.AsNoTracking().AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId).ConfigureAwait(false);
         if (exists)
             return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerTagConflictMessage)));
 
@@ -1208,7 +1208,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         playerTag.Assigned = DateTime.UtcNow;
 
         context.PlayerTags.Add(playerTag);
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
         InvalidateTagPlayerCountsCache();
         return new ApiResponse().ToApiResult();
     }
@@ -1224,7 +1224,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemovePlayerTag(Guid playerId, Guid playerTagId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).RemovePlayerTag(playerId, playerTagId);
+        var response = await ((IPlayersApi)this).RemovePlayerTag(playerId, playerTagId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1238,16 +1238,16 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.RemovePlayerTag(Guid playerId, Guid playerTagId)
     {
         // Check if the player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
-        var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId);
+        var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId).ConfigureAwait(false);
 
         if (playerTag == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
         context.PlayerTags.Remove(playerTag);
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
         InvalidateTagPlayerCountsCache();
         return new ApiResponse().ToApiResult();
     }
@@ -1263,7 +1263,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPlayerTagById(Guid playerTagId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayerTagById(playerTagId);
+        var response = await ((IPlayersApi)this).GetPlayerTagById(playerTagId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1280,7 +1280,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Include(pt => pt.Player)
             .Include(pt => pt.Tag)
             .Include(pt => pt.UserProfile)
-            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId);
+            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId).ConfigureAwait(false);
 
         if (playerTag == null)
             return new ApiResult<PlayerTagDto>(HttpStatusCode.NotFound);
@@ -1299,7 +1299,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemovePlayerTagById(Guid playerTagId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).RemovePlayerTagById(playerTagId);
+        var response = await ((IPlayersApi)this).RemovePlayerTagById(playerTagId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1312,13 +1312,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.RemovePlayerTagById(Guid playerTagId)
     {
         var playerTag = await context.PlayerTags
-            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId);
+            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId).ConfigureAwait(false);
 
         if (playerTag == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
         context.PlayerTags.Remove(playerTag);
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
         InvalidateTagPlayerCountsCache();
         return new ApiResponse().ToApiResult();
     }
@@ -1347,7 +1347,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         [FromQuery] PlayerEntityOptions playerEntityOptions,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayersWithIpAddress(ipAddress, skipEntries, takeEntries, order, playerEntityOptions);
+        var response = await ((IPlayersApi)this).GetPlayersWithIpAddress(ipAddress, skipEntries, takeEntries, order, playerEntityOptions).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1377,7 +1377,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         query = query.Where(p => p.Guid != null && (!p.Guid.Contains("test") && !p.Guid.Contains("server")));
 
         // Get total count before ordering and pagination
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync().ConfigureAwait(false);
 
         // Apply ordering using switch expression
         query = order switch
@@ -1397,7 +1397,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         query = query.Skip(skipEntries).Take(takeEntries);
 
         // Execute the final query
-        var players = await query.ToListAsync();
+        var players = await query.ToListAsync().ConfigureAwait(false);
 
         // Include related data based on options
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
@@ -1443,7 +1443,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         [FromQuery] IpAddressesOrder? order,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayerIpAddresses(playerId, skipEntries, takeEntries, order);
+        var response = await ((IPlayersApi)this).GetPlayerIpAddresses(playerId, skipEntries, takeEntries, order).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1458,7 +1458,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result containing a collection of IP addresses associated with the player.</returns>
     async Task<ApiResult<CollectionModel<IpAddressDto>>> IPlayersApi.GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
     {
-        var player = await context.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == playerId);
+        var player = await context.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == playerId).ConfigureAwait(false);
 
         if (player == null)
             return new ApiResult<CollectionModel<IpAddressDto>>(HttpStatusCode.NotFound);
@@ -1483,13 +1483,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         };
 
         // Get total count before pagination
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync().ConfigureAwait(false);
 
         // Apply pagination
         var items = await query
             .Skip(skipEntries)
             .Take(takeEntries)
-            .ToListAsync();
+            .ToListAsync().ConfigureAwait(false);
 
         // Map to DTOs
         var dtos = items.Select(item => item.ToIpAddressDto()).ToList();
@@ -1524,7 +1524,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         [FromQuery] int takeEntries,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).GetPlayerAliases(playerId, skipEntries, takeEntries);
+        var response = await ((IPlayersApi)this).GetPlayerAliases(playerId, skipEntries, takeEntries).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1541,7 +1541,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         // Check if the player exists - using AnyAsync instead of FirstOrDefaultAsync for better performance
         var playerExists = await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.PlayerId == playerId);
+            .AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false);
 
         if (!playerExists)
             return new ApiResult<CollectionModel<PlayerAliasDto>>(HttpStatusCode.NotFound);
@@ -1552,14 +1552,14 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Where(pa => pa.PlayerId == playerId);
 
         // Calculate total count before applying pagination
-        var totalCount = await baseQuery.CountAsync();
+        var totalCount = await baseQuery.CountAsync().ConfigureAwait(false);
 
         // Apply ordering and pagination
         var aliases = await baseQuery
             .OrderByDescending(pa => pa.LastUsed)
             .Skip(skipEntries)
             .Take(takeEntries)
-            .ToListAsync();
+            .ToListAsync().ConfigureAwait(false);
 
         // Map the aliases to DTOs
         var aliasesDto = aliases.Select(a => a.ToPlayerAliasDto()).ToList();
@@ -1584,7 +1584,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddPlayerAlias(Guid playerId, [FromBody] CreatePlayerAliasDto createPlayerAliasDto, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).AddPlayerAlias(playerId, createPlayerAliasDto);
+        var response = await ((IPlayersApi)this).AddPlayerAlias(playerId, createPlayerAliasDto).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1598,13 +1598,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.AddPlayerAlias(Guid playerId, CreatePlayerAliasDto createPlayerAliasDto)
     {
         // Check if the player exists
-        var player = await context.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == playerId);
+        var player = await context.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == playerId).ConfigureAwait(false);
         if (player == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if the alias already exists
         var existingAlias = await context.PlayerAliases
-            .FirstOrDefaultAsync(pa => pa.PlayerId == playerId && pa.Name == createPlayerAliasDto.Name);
+            .FirstOrDefaultAsync(pa => pa.PlayerId == playerId && pa.Name == createPlayerAliasDto.Name).ConfigureAwait(false);
 
         if (existingAlias != null)
         {
@@ -1624,10 +1624,10 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                 ConfidenceScore = 1
             };
 
-            await context.PlayerAliases.AddAsync(newAlias);
+            await context.PlayerAliases.AddAsync(newAlias).ConfigureAwait(false);
         }
 
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -1647,7 +1647,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     {
         if (updatePlayerAliasDto == null || string.IsNullOrWhiteSpace(updatePlayerAliasDto.Name))
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)).ToBadRequestResult().ToHttpResult();
-        var response = await ((IPlayersApi)this).UpdatePlayerAlias(playerId, aliasId, updatePlayerAliasDto);
+        var response = await ((IPlayersApi)this).UpdatePlayerAlias(playerId, aliasId, updatePlayerAliasDto).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1663,7 +1663,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     {
         // Check if the alias exists and belongs to the player
         var alias = await context.PlayerAliases
-            .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId);
+            .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId).ConfigureAwait(false);
 
         if (alias == null)
             return new ApiResult(HttpStatusCode.NotFound);
@@ -1673,7 +1673,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             alias.Name = updatePlayerAliasDto.Name.Trim();
         alias.LastUsed = DateTime.UtcNow;
 
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -1690,7 +1690,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeletePlayerAlias(Guid playerId, Guid aliasId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).DeletePlayerAlias(playerId, aliasId);
+        var response = await ((IPlayersApi)this).DeletePlayerAlias(playerId, aliasId).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1705,14 +1705,14 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     {
         // Check if the alias exists and belongs to the player
         var alias = await context.PlayerAliases
-            .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId);
+            .FirstOrDefaultAsync(pa => pa.PlayerAliasId == aliasId && pa.PlayerId == playerId).ConfigureAwait(false);
 
         if (alias == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Remove the alias
         context.PlayerAliases.Remove(alias);
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -1730,7 +1730,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SearchPlayersByAlias([FromQuery] string aliasSearch, [FromQuery] int skipEntries, [FromQuery] int takeEntries, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayersApi)this).SearchPlayersByAlias(aliasSearch, skipEntries, takeEntries);
+        var response = await ((IPlayersApi)this).SearchPlayersByAlias(aliasSearch, skipEntries, takeEntries).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1755,12 +1755,12 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .Where(pa => pa.Name != null && pa.Name.Contains(trimmedSearch))
             .OrderByDescending(pa => pa.LastUsed);
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync().ConfigureAwait(false);
 
         var aliases = await query
             .Skip(skipEntries)
             .Take(takeEntries)
-            .ToListAsync();
+            .ToListAsync().ConfigureAwait(false);
 
         // Map the aliases to DTOs
         var aliasesDto = aliases.Select(a => a.ToPlayerAliasDto()).ToList();

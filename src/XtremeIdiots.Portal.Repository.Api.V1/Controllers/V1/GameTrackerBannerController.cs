@@ -57,7 +57,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetGameTrackerBanner(string ipAddress, int queryPort, string imageName, CancellationToken cancellationToken = default)
         {
-            var response = await ((IGameTrackerBannerApi)this).GetGameTrackerBanner(ipAddress, queryPort.ToString(), imageName, cancellationToken);
+            var response = await ((IGameTrackerBannerApi)this).GetGameTrackerBanner(ipAddress, queryPort.ToString(), imageName, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -87,10 +87,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var blobKey = $"{ipAddress}_{queryPort}_{imageName}";
                 var blobClient = containerClient.GetBlobClient(blobKey);
 
-                var blobExists = await blobClient.ExistsAsync(cancellationToken);
+                var blobExists = await blobClient.ExistsAsync(cancellationToken).ConfigureAwait(false);
                 if (blobExists.Value)
                 {
-                    var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+                    var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                     var isRecentlyUpdated = properties.Value.LastModified > DateTime.UtcNow.AddMinutes(-10);
 
                     if (isRecentlyUpdated)
@@ -103,10 +103,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         return new ApiResponse<GameTrackerBannerDto>(result).ToApiResult();
                     }
 
-                    return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, true, cancellationToken);
+                    return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, true, cancellationToken).ConfigureAwait(false);
                 }
 
-                return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, true, cancellationToken);
+                return await UpdateBannerImageAndRedirect(ipAddress, queryPort, imageName, blobClient, true, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -150,15 +150,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
                 try
                 {
-                    await httpClient.DownloadFileTaskAsync(new Uri(gameTrackerImageUrl), filePath);
+                    await httpClient.DownloadFileTaskAsync(new Uri(gameTrackerImageUrl), filePath).ConfigureAwait(false);
 
-                    var blobExists = await blobClient.ExistsAsync(cancellationToken);
+                    var blobExists = await blobClient.ExistsAsync(cancellationToken).ConfigureAwait(false);
                     if (blobExists.Value)
                     {
-                        await blobClient.DeleteAsync(cancellationToken: cancellationToken);
+                        await blobClient.DeleteAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                     }
 
-                    await blobClient.UploadAsync(filePath, cancellationToken);
+                    await blobClient.UploadAsync(filePath, cancellationToken).ConfigureAwait(false);
 
                     var result = new GameTrackerBannerDto
                     {

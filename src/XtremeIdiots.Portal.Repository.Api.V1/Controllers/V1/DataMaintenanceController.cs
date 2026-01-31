@@ -51,7 +51,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PruneChatMessages(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneChatMessages(cancellationToken);
+        var response = await ((IDataMaintenanceApi)this).PruneChatMessages(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -68,7 +68,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         foreach (var i in Enumerable.Range(6, 7))
         {
             var batchCutoff = DateTime.UtcNow.AddMonths(-i);
-            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {batchCutoff} AND [Locked] = 0", cancellationToken);
+            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {batchCutoff} AND [Locked] = 0", cancellationToken).ConfigureAwait(false);
         }
 
         return new ApiResponse().ToApiResult();
@@ -83,7 +83,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PruneGameServerEvents(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneGameServerEvents(cancellationToken);
+        var response = await ((IDataMaintenanceApi)this).PruneGameServerEvents(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -95,7 +95,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     async Task<ApiResult> IDataMaintenanceApi.PruneGameServerEvents(CancellationToken cancellationToken)
     {
         var cutoffDate = DateTime.UtcNow.AddMonths(-6);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {cutoffDate}", cancellationToken);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -108,7 +108,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PruneGameServerStats(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneGameServerStats(cancellationToken);
+        var response = await ((IDataMaintenanceApi)this).PruneGameServerStats(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -120,7 +120,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     async Task<ApiResult> IDataMaintenanceApi.PruneGameServerStats(CancellationToken cancellationToken)
     {
         var cutoffDate = DateTime.UtcNow.AddMonths(-6);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {cutoffDate}", cancellationToken);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -133,7 +133,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PruneRecentPlayers(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).PruneRecentPlayers(cancellationToken);
+        var response = await ((IDataMaintenanceApi)this).PruneRecentPlayers(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -145,7 +145,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     async Task<ApiResult> IDataMaintenanceApi.PruneRecentPlayers(CancellationToken cancellationToken)
     {
         var cutoffDate = DateTime.UtcNow.AddDays(-7);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {cutoffDate}", cancellationToken);
+        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -160,7 +160,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).ResetSystemAssignedPlayerTags(cancellationToken);
+        var response = await ((IDataMaintenanceApi)this).ResetSystemAssignedPlayerTags(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -177,11 +177,11 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         // First, get the tag IDs by name using AsNoTracking for better performance
         var activeTag = await context.Tags
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Name == "active-players", cancellationToken);
+            .FirstOrDefaultAsync(t => t.Name == "active-players", cancellationToken).ConfigureAwait(false);
 
         var inactiveTag = await context.Tags
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Name == "inactive-player", cancellationToken);
+            .FirstOrDefaultAsync(t => t.Name == "inactive-player", cancellationToken).ConfigureAwait(false);
 
         if (activeTag == null || inactiveTag == null)
         {
@@ -193,13 +193,13 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             .AsNoTracking()
             .Where(rp => rp.LastSeen >= twoWeeksAgo)
             .Select(rp => rp.PlayerId)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         // Get all players
         var allPlayerIds = await context.Players
             .AsNoTracking()
             .Select(p => p.PlayerId)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         // Determine which players are inactive (using except manually)
         var inactivePlayers = allPlayerIds
@@ -209,7 +209,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         // Get existing player tags
         var existingPlayerTags = await context.PlayerTags
             .Where(pt => pt.TagId == activeTag.TagId || pt.TagId == inactiveTag.TagId)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         // Process active players
         foreach (var playerId in activePlayers)
@@ -267,7 +267,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             }
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -282,7 +282,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ValidateMapImages(CancellationToken cancellationToken = default)
     {
-        var response = await ((IDataMaintenanceApi)this).ValidateMapImages(cancellationToken);
+        var response = await ((IDataMaintenanceApi)this).ValidateMapImages(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -307,12 +307,12 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             Convert.FromBase64String("MRMoR2jCIgtFK2zpmGOPRQ==")
         };
         var removedHashMatches = 0;
-        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken))
+        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
             var contentHash = blobItem.Properties.ContentHash;
             if (contentHash != null && targetHashes.Any(th => contentHash.SequenceEqual(th)))
             {
-                await containerClient.DeleteBlobIfExistsAsync(blobItem.Name, cancellationToken: cancellationToken);
+                await containerClient.DeleteBlobIfExistsAsync(blobItem.Name, cancellationToken: cancellationToken).ConfigureAwait(false);
                 removedHashMatches++;
             }
         }
@@ -320,14 +320,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         // Step 2: Validate DB-referenced images; clear MapImageUri if blob missing
         var mapsWithImages = await context.Maps
             .Where(m => m.MapImageUri != null)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var cleared = 0;
         foreach (var map in mapsWithImages)
         {
             var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg";
             var blobClient = containerClient.GetBlobClient(blobKey);
-            var exists = await blobClient.ExistsAsync(cancellationToken);
+            var exists = await blobClient.ExistsAsync(cancellationToken).ConfigureAwait(false);
             if (!exists.Value)
             {
                 map.MapImageUri = null;
@@ -336,14 +336,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }
 
         if (cleared > 0)
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         // Step 3: Normalize blobs with incorrect content-type (application/octet-stream) and missing metadata
         //   - If blob content appears to be HTML, delete it and clear any matching map reference
         //   - Else, set proper image content type and metadata (mapId, gameType, mapName) if resolvable
         var updatedMaps = 0;
         var normalizedBlobs = 0;
-        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken))
+        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
             if (!string.Equals(blobItem.Properties.ContentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
                 continue; // only process unknown content types
@@ -353,9 +353,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             // Download a small portion to inspect content (first 1KB)
             try
             {
-                var download = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+                var download = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 using var mem = new MemoryStream();
-                await download.Value.Content.CopyToAsync(mem, 1024, cancellationToken);
+                await download.Value.Content.CopyToAsync(mem, 1024, cancellationToken).ConfigureAwait(false);
                 var bytes = mem.ToArray();
                 var head = Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 512));
                 var looksHtml = head.TrimStart().StartsWith("<") && head.IndexOf("<html", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -363,14 +363,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 if (looksHtml)
                 {
                     // Delete blob and clear any map referencing it
-                    await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+                    await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
                     // Attempt to parse map filename to clear DB reference (pattern: GameType_MapName.jpg)
                     if (TryParseBlobName(blobItem.Name, out var gameTypeInt, out var mapName))
                     {
                         var mapsToClear = await context.Maps
                             .Where(m => m.GameType == gameTypeInt && m.MapName == mapName && m.MapImageUri != null)
-                            .ToListAsync(cancellationToken);
+                            .ToListAsync(cancellationToken).ConfigureAwait(false);
                         foreach (var m in mapsToClear)
                         {
                             m.MapImageUri = null;
@@ -387,7 +387,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 Dictionary<string, string>? metadata = null;
                 if (TryParseBlobName(blobItem.Name, out var gti, out var mName))
                 {
-                    var mapEntity = await context.Maps.FirstOrDefaultAsync(m => m.GameType == gti && m.MapName == mName, cancellationToken);
+                    var mapEntity = await context.Maps.FirstOrDefaultAsync(m => m.GameType == gti && m.MapName == mName, cancellationToken).ConfigureAwait(false);
                     if (mapEntity != null)
                     {
                         metadata = new Dictionary<string, string>
@@ -406,10 +406,10 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                     }
                 }
 
-                await blobClient.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = contentType }, cancellationToken: cancellationToken);
+                await blobClient.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = contentType }, cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (metadata != null)
                 {
-                    await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+                    await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
                 normalizedBlobs++;
             }
@@ -420,7 +420,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }
 
         if (updatedMaps > 0)
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }

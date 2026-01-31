@@ -44,7 +44,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfile(userProfileId, cancellationToken);
+            var response = await ((IUserProfileApi)this).GetUserProfile(userProfileId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -59,7 +59,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
@@ -79,7 +79,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfileByIdentityId(identityId, cancellationToken);
+            var response = await ((IUserProfileApi)this).GetUserProfileByIdentityId(identityId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -94,7 +94,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(up => up.IdentityOid == identityId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.IdentityOid == identityId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
@@ -114,7 +114,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfileByXtremeIdiotsId(xtremeIdiotsId, cancellationToken);
+            var response = await ((IUserProfileApi)this).GetUserProfileByXtremeIdiotsId(xtremeIdiotsId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -129,7 +129,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(up => up.XtremeIdiotsForumId == xtremeIdiotsId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.XtremeIdiotsForumId == xtremeIdiotsId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
@@ -149,7 +149,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserProfileByDemoAuthKey(string demoAuthKey, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfileByDemoAuthKey(demoAuthKey, cancellationToken);
+            var response = await ((IUserProfileApi)this).GetUserProfileByDemoAuthKey(demoAuthKey, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -164,7 +164,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(up => up.DemoAuthKey == demoAuthKey, cancellationToken);
+                .FirstOrDefaultAsync(up => up.DemoAuthKey == demoAuthKey, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult<UserProfileDto>(HttpStatusCode.NotFound);
@@ -186,7 +186,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType<CollectionModel<UserProfileDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUserProfiles([FromQuery] string? filterString, [FromQuery] UserProfileFilter? filter = null, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, [FromQuery] UserProfilesOrder? order = null, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, filter, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -207,15 +207,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsQueryable();
 
             // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filtering
             var filteredQuery = ApplyFilters(baseQuery, filterString, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
-            var results = await orderedQuery.ToListAsync(cancellationToken);
+            var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = results.Select(up => up.ToDto()).ToList();
 
@@ -280,7 +280,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> CreateUserProfile([FromBody] CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).CreateUserProfile(createUserProfileDto, cancellationToken);
+            var response = await ((IUserProfileApi)this).CreateUserProfile(createUserProfileDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -292,12 +292,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the user profile was created.</returns>
         async Task<ApiResult> IUserProfileApi.CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken)
         {
-            if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
+            if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken).ConfigureAwait(false))
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
             var userProfile = createUserProfileDto.ToEntity();
-            await context.UserProfiles.AddAsync(userProfile, cancellationToken);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.UserProfiles.AddAsync(userProfile, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
@@ -314,7 +314,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> CreateUserProfiles([FromBody] List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).CreateUserProfiles(createUserProfileDtos, cancellationToken);
+            var response = await ((IUserProfileApi)this).CreateUserProfiles(createUserProfileDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -328,14 +328,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             foreach (var createUserProfileDto in createUserProfileDtos)
             {
-                if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken))
+                if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken).ConfigureAwait(false))
                     return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
 
                 var userProfile = createUserProfileDto.ToEntity();
-                await context.UserProfiles.AddAsync(userProfile, cancellationToken);
+                await context.UserProfiles.AddAsync(userProfile, cancellationToken).ConfigureAwait(false);
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -355,7 +355,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (editUserProfileDto.UserProfileId != userProfileId)
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.UserProfileIdMismatchMessage)).ToBadRequestResult().ToHttpResult();
 
-            var response = await ((IUserProfileApi)this).UpdateUserProfile(editUserProfileDto, cancellationToken);
+            var response = await ((IUserProfileApi)this).UpdateUserProfile(editUserProfileDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -368,13 +368,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IUserProfileApi.UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
-                .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             editUserProfileDto.ApplyTo(userProfile);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -391,7 +391,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateUserProfiles([FromBody] List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).UpdateUserProfiles(editUserProfileDtos, cancellationToken);
+            var response = await ((IUserProfileApi)this).UpdateUserProfiles(editUserProfileDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -406,7 +406,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             foreach (var editUserProfileDto in editUserProfileDtos)
             {
                 var userProfile = await context.UserProfiles
-                    .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken);
+                    .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken).ConfigureAwait(false);
 
                 if (userProfile == null)
                     return new ApiResult(HttpStatusCode.NotFound);
@@ -414,7 +414,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 editUserProfileDto.ApplyTo(userProfile);
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 
@@ -431,7 +431,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateUserProfileClaim(Guid userProfileId, [FromBody] List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).CreateUserProfileClaim(userProfileId, createUserProfileClaimDtos, cancellationToken);
+            var response = await ((IUserProfileApi)this).CreateUserProfileClaim(userProfileId, createUserProfileClaimDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -447,7 +447,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult(HttpStatusCode.NotFound);
@@ -459,10 +459,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
                 var userProfileClaim = createUserProfileClaimDto.ToEntity();
                 userProfileClaim.UserProfileId = userProfileId;
-                await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken);
+                await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken).ConfigureAwait(false);
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -494,7 +494,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, $"Duplicate claim types: {string.Join(", ", duplicateClaimTypes)}"));
                 return err.ToBadRequestResult().ToHttpResult();
             }
-            var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos, cancellationToken);
+            var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -509,7 +509,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
-                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult(HttpStatusCode.NotFound);
@@ -522,10 +522,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 var userProfileClaim = createUserProfileClaimDto.ToEntity();
                 userProfileClaim.UserProfileId = userProfileId;
-                await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken);
+                await context.UserProfileClaims.AddAsync(userProfileClaim, cancellationToken).ConfigureAwait(false);
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 
@@ -541,7 +541,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).DeleteUserProfileClaim(userProfileId, userProfileClaimId, cancellationToken);
+            var response = await ((IUserProfileApi)this).DeleteUserProfileClaim(userProfileId, userProfileClaimId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -555,13 +555,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IUserProfileApi.DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken)
         {
             var userProfileClaim = await context.UserProfileClaims
-                .FirstOrDefaultAsync(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId, cancellationToken);
+                .FirstOrDefaultAsync(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId, cancellationToken).ConfigureAwait(false);
 
             if (userProfileClaim == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             context.UserProfileClaims.Remove(userProfileClaim);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

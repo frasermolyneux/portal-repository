@@ -22,30 +22,30 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<CollectionModel<PlayerAnalyticEntryDto>>> GetCumulativeDailyPlayers(DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/player-analytics/cumulative-daily-players", Method.Get);
+            var request = await CreateRequestAsync($"v1/player-analytics/cumulative-daily-players", Method.Get).ConfigureAwait(false);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<PlayerAnalyticEntryDto>>();
         }
 
         public async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> GetNewDailyPlayersPerGame(DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/player-analytics/new-daily-players-per-game", Method.Get);
+            var request = await CreateRequestAsync($"v1/player-analytics/new-daily-players-per-game", Method.Get).ConfigureAwait(false);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>();
         }
 
         public async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> GetPlayersDropOffPerGameJson(DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/player-analytics/players-drop-off-per-game", Method.Get);
+            var request = await CreateRequestAsync($"v1/player-analytics/players-drop-off-per-game", Method.Get).ConfigureAwait(false);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>();
         }

@@ -64,7 +64,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] LivePlayersOrder? order = null,
             CancellationToken cancellationToken = default)
         {
-            var response = await ((ILivePlayersApi)this).GetLivePlayers(gameType, gameServerId, filter, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((ILivePlayersApi)this).GetLivePlayers(gameType, gameServerId, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -87,15 +87,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsQueryable();
 
             // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filters
             var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
-            var livePlayers = await orderedQuery.ToListAsync(cancellationToken);
+            var livePlayers = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = livePlayers.Select(lp => lp.ToDto()).ToList();
 
@@ -119,7 +119,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> SetLivePlayersForGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
-            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(Request.Body).ReadToEndAsync().ConfigureAwait(false);
 
             List<CreateLivePlayerDto>? createLivePlayerDtos;
             try
@@ -140,7 +140,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToHttpResult();
             }
 
-            var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos, cancellationToken);
+            var response = await ((ILivePlayersApi)this).SetLivePlayersForGameServer(gameServerId, createLivePlayerDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -153,12 +153,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the operation was successful.</returns>
         async Task<ApiResult> ILivePlayersApi.SetLivePlayersForGameServer(Guid gameServerId, List<CreateLivePlayerDto> createLivePlayerDtos, CancellationToken cancellationToken)
         {
-            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}", cancellationToken);
+            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServerId}", cancellationToken).ConfigureAwait(false);
 
             var livePlayers = createLivePlayerDtos.Select(lp => lp.ToEntity()).ToList();
 
-            await context.LivePlayers.AddRangeAsync(livePlayers, cancellationToken);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.LivePlayers.AddRangeAsync(livePlayers, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

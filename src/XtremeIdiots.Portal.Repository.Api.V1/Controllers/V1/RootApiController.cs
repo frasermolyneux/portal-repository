@@ -30,7 +30,7 @@ public class RootApiController : ControllerBase, IRootApi
     [ProducesResponseType<RootDto>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRoot(CancellationToken cancellationToken = default)
     {
-        var response = await ((IRootApi)this).GetRoot(cancellationToken);
+        var response = await ((IRootApi)this).GetRoot(cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 

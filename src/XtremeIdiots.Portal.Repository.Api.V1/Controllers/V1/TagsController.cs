@@ -59,8 +59,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         TagId = group.Key,
                         Count = group.Count()
                     })
-                    .ToDictionaryAsync(x => x.TagId, x => x.Count, cancellationToken);
-            });
+                    .ToDictionaryAsync(x => x.TagId, x => x.Count, cancellationToken).ConfigureAwait(false);
+            }).ConfigureAwait(false);
 
             return counts ?? new Dictionary<Guid, int>();
         }
@@ -76,7 +76,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType<CollectionModel<TagDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetTags([FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).GetTags(skipEntries, takeEntries, cancellationToken);
+            var response = await ((ITagsApi)this).GetTags(skipEntries, takeEntries, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -92,15 +92,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var baseQuery = context.Tags.AsNoTracking();
 
             // Calculate total count before applying ordering and pagination
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             var tags = await baseQuery
                 .OrderBy(t => t.Name)
                 .Skip(skipEntries)
                 .Take(takeEntries)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-            var playerCounts = await GetTagPlayerCountsAsync(cancellationToken);
+            var playerCounts = await GetTagPlayerCountsAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = tags
                 .Select(tag =>
@@ -129,7 +129,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetTag(Guid tagId, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).GetTag(tagId, cancellationToken);
+            var response = await ((ITagsApi)this).GetTag(tagId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -143,12 +143,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var tag = await context.Tags
                 .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.TagId == tagId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.TagId == tagId, cancellationToken).ConfigureAwait(false);
 
             if (tag == null)
                 return new ApiResult<TagDto>(HttpStatusCode.NotFound);
 
-            var playerCounts = await GetTagPlayerCountsAsync(cancellationToken);
+            var playerCounts = await GetTagPlayerCountsAsync(cancellationToken).ConfigureAwait(false);
             playerCounts.TryGetValue(tag.TagId, out var playerCount);
 
             var result = tag.ToDto(playerCount);
@@ -166,7 +166,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateTag([FromBody] TagDto tagDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).CreateTag(tagDto, cancellationToken);
+            var response = await ((ITagsApi)this).CreateTag(tagDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -180,7 +180,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var tag = tagDto.ToEntity();
             context.Tags.Add(tag);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -200,7 +200,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (tagDto.TagId != tagId)
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.RequestEntityMismatchMessage)).ToBadRequestResult().ToHttpResult();
 
-            var response = await ((ITagsApi)this).UpdateTag(tagDto, cancellationToken);
+            var response = await ((ITagsApi)this).UpdateTag(tagDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -213,13 +213,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> ITagsApi.UpdateTag(TagDto tagDto, CancellationToken cancellationToken)
         {
             var tag = await context.Tags
-                .FirstOrDefaultAsync(t => t.TagId == tagDto.TagId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.TagId == tagDto.TagId, cancellationToken).ConfigureAwait(false);
 
             if (tag == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             tagDto.ApplyTo(tag);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 
@@ -234,7 +234,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteTag(Guid tagId, CancellationToken cancellationToken = default)
         {
-            var response = await ((ITagsApi)this).DeleteTag(tagId, cancellationToken);
+            var response = await ((ITagsApi)this).DeleteTag(tagId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -247,13 +247,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> ITagsApi.DeleteTag(Guid tagId, CancellationToken cancellationToken)
         {
             var tag = await context.Tags
-                .FirstOrDefaultAsync(t => t.TagId == tagId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.TagId == tagId, cancellationToken).ConfigureAwait(false);
 
             if (tag == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             context.Tags.Remove(tag);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
     }

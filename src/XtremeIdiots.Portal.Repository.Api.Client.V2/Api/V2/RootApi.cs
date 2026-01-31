@@ -23,8 +23,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V2
 
         public async Task<ApiResult> GetRoot()
         {
-            var request = await CreateRequestAsync($"v2/", Method.Post);
-            var response = await ExecuteAsync(request);
+            var request = await CreateRequestAsync($"v2/", Method.Post).ConfigureAwait(false);
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

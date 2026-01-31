@@ -25,15 +25,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<GameServerDto>> GetGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<GameServerDto>();
         }
 
         public async Task<ApiResult<CollectionModel<GameServerDto>>> GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/game-servers", Method.Get);
+            var request = await CreateRequestAsync("v1/game-servers", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
@@ -50,45 +50,45 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<GameServerDto>>();
         }
 
         public async Task<ApiResult> CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/game-servers", Method.Post);
+            var request = await CreateRequestAsync("v1/game-servers", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(new List<CreateGameServerDto> { createGameServerDto });
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/game-servers", Method.Post);
+            var request = await CreateRequestAsync("v1/game-servers", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createGameServerDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateGameServer(EditGameServerDto editGameServerDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-servers/{editGameServerDto.GameServerId}", Method.Patch);
+            var request = await CreateRequestAsync($"v1/game-servers/{editGameServerDto.GameServerId}", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(editGameServerDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Delete);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Delete).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

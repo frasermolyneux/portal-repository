@@ -2,13 +2,13 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Extensions
 {
     public static class HttpClientExtensions
     {
-        public static async Task DownloadFileTaskAsync(this HttpClient client, Uri uri, string FileName)
+        public static async Task DownloadFileTaskAsync(this HttpClient client, Uri uri, string FileName, CancellationToken cancellationToken = default)
         {
-            using (var s = await client.GetStreamAsync(uri))
+            using (var s = await client.GetStreamAsync(uri, cancellationToken).ConfigureAwait(false))
             {
                 using (var fs = new FileStream(FileName, FileMode.OpenOrCreate))
                 {
-                    await s.CopyToAsync(fs);
+                    await s.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
                 }
             }
         }

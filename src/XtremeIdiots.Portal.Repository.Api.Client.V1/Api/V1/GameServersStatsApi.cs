@@ -22,20 +22,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> CreateGameServerStats(List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-servers-stats", Method.Post);
+            var request = await CreateRequestAsync($"v1/game-servers-stats", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createGameServerStatDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult<CollectionModel<GameServerStatDto>>> GetGameServerStatusStats(Guid gameServerId, DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-servers-stats/{gameServerId}", Method.Get);
+            var request = await CreateRequestAsync($"v1/game-servers-stats/{gameServerId}", Method.Get).ConfigureAwait(false);
             request.AddQueryParameter("cutoff", cutoff.ToString("MM/dd/yyyy HH:mm:ss"));
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<GameServerStatDto>>();
         }
