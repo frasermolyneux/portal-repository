@@ -37,8 +37,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             PortalDbContext context,
             IConfiguration configuration)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
+            ArgumentNullException.ThrowIfNull(configuration);
+            this.configuration = configuration;
         }
 
         /// <summary>
@@ -200,7 +202,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (Request.Form.Files.Count == 0)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage))).ToHttpResult();
 
-            var whitelistedExtensions = new List<string> { ".dm_1", ".dm_6" };
+            List<string> whitelistedExtensions = [".dm_1", ".dm_6"];
 
             var file = Request.Form.Files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
@@ -294,7 +296,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private IQueryable<Demo> ApplyFilters(IQueryable<Demo> query, GameType[]? gameTypes, string? userId, string? filterString)
         {
-            if (gameTypes != null && gameTypes.Length > 0)
+            if (gameTypes?.Length > 0)
             {
                 var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
                 query = query.Where(d => gameTypeInts.Contains(d.GameType));

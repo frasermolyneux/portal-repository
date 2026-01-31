@@ -5,6 +5,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks;
 [Obsolete("Use CollectionModel<MapPackDto> from MX.Api.Abstractions instead")]
 public record MapPackCollectionDto
 {
-    public List<MapPackDto> Entries { get; set; } = new List<MapPackDto>();
+    public List<MapPackDto> Entries { get; set; } = [];
     public int TotalRecords { get; set; }
 }

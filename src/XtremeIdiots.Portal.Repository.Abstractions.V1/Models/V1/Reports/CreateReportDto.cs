@@ -33,7 +33,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports
                 {
                     { nameof(PlayerId), PlayerId.ToString() },
                     { nameof(UserProfileId), UserProfileId.ToString() },
-                    { nameof(GameServerId), GameServerId is not null ? ((Guid)GameServerId).ToString() : string.Empty }
+                    { nameof(GameServerId), GameServerId?.ToString() ?? string.Empty }
                 };
 
                 return telemetryProperties;

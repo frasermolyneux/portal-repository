@@ -30,8 +30,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Text = entity.Text,
                 Created = entity.Created,
                 Expires = entity.Expires,
-                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null!,
-                UserProfile = expand && entity.UserProfile != null ? entity.UserProfile.ToDto(false) : null
+                Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null!,
+                UserProfile = expand && entity.UserProfile is not null ? entity.UserProfile.ToDto(false) : null
             };
         }
 

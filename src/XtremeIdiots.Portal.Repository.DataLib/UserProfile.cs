@@ -43,23 +43,23 @@ public partial class UserProfile
     public string? TimeZone { get; set; }
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
+    public virtual ICollection<AdminAction> AdminActions { get; set; } = [];
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
+    public virtual ICollection<Demo> Demos { get; set; } = [];
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = new List<PlayerTag>();
+    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = [];
 
     [InverseProperty("CreatedByUserProfile")]
-    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = new List<ProtectedName>();
+    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = [];
 
     [InverseProperty("AdminUserProfile")]
-    public virtual ICollection<Report> ReportAdminUserProfiles { get; set; } = new List<Report>();
+    public virtual ICollection<Report> ReportAdminUserProfiles { get; set; } = [];
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<Report> ReportUserProfiles { get; set; } = new List<Report>();
+    public virtual ICollection<Report> ReportUserProfiles { get; set; } = [];
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; } = new List<UserProfileClaim>();
+    public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; } = [];
 }

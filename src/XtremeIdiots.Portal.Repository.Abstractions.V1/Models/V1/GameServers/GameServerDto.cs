@@ -94,10 +94,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool Deleted { get; internal set; }
 
         [JsonProperty]
-        public List<BanFileMonitorDto> BanFileMonitors { get; internal set; } = new List<BanFileMonitorDto>();
+        public List<BanFileMonitorDto> BanFileMonitors { get; internal set; } = [];
 
         [JsonProperty]
-        public List<LivePlayerDto> LivePlayers { get; internal set; } = new List<LivePlayerDto>();
+        public List<LivePlayerDto> LivePlayers { get; internal set; } = [];
 
         public void ClearFtpCredentials()
         {

@@ -54,7 +54,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(UserProfileId), UserProfileId.ToString() },
-                    { nameof(IdentityOid), IdentityOid is not null ? IdentityOid.ToString() : string.Empty }
+                    { nameof(IdentityOid), IdentityOid ?? string.Empty }
                 };
 
                 return telemetryProperties;

@@ -39,7 +39,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
         public string? TimeZone { get; internal set; }
 
         [JsonProperty]
-        public List<UserProfileClaimDto> UserProfileClaims { get; set; } = new List<UserProfileClaimDto>();
+        public List<UserProfileClaimDto> UserProfileClaims { get; set; } = [];
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties
@@ -49,9 +49,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(UserProfileId), UserProfileId.ToString() },
-                    { nameof(IdentityOid), IdentityOid is not null ? IdentityOid.ToString() : string.Empty},
-                    { nameof(XtremeIdiotsForumId), XtremeIdiotsForumId is not null ? XtremeIdiotsForumId.ToString() : string.Empty},
-                    { nameof(DisplayName), DisplayName is not null ? DisplayName.ToString() : string.Empty}
+                    { nameof(IdentityOid), IdentityOid ?? string.Empty },
+                    { nameof(XtremeIdiotsForumId), XtremeIdiotsForumId ?? string.Empty },
+                    { nameof(DisplayName), DisplayName ?? string.Empty }
                 };
 
                 return telemetryProperties;

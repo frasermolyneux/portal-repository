@@ -81,9 +81,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 TagId = entity.TagId,
                 UserProfileId = entity.UserProfileId,
                 Assigned = entity.Assigned,
-                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null,
-                Tag = expand && entity.Tag != null ? entity.Tag.ToDto() : null,
-                UserProfile = expand && entity.UserProfile != null ? entity.UserProfile.ToDto() : null
+                Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null,
+                Tag = expand && entity.Tag is not null ? entity.Tag.ToDto() : null,
+                UserProfile = expand && entity.UserProfile is not null ? entity.UserProfile.ToDto() : null
             };
         }
 

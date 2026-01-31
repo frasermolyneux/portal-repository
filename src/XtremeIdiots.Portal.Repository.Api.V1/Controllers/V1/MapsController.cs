@@ -36,8 +36,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             PortalDbContext context,
             ILogger<MapsController> logger)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
+            ArgumentNullException.ThrowIfNull(logger);
+            this.logger = logger;
         }
 
         /// <summary>
@@ -750,10 +752,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (gameType.HasValue)
                 query = query.Where(m => m.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
 
-            if (mapNames != null && mapNames.Length > 0)
+            if (mapNames?.Length > 0)
                 query = query.Where(m => mapNames.Contains(m.MapName)).AsQueryable();
 
-            if (filterString is not null && filterString.Length > 0)
+            if (!string.IsNullOrEmpty(filterString))
             {
                 query = query.Where(m => m.MapName != null && m.MapName.Contains(filterString));
             }

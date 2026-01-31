@@ -40,7 +40,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
         public double DislikePercentage { get; internal set; } = 0;
 
         [JsonProperty]
-        public List<MapFileDto> MapFiles { get; internal set; } = new List<MapFileDto>();
+        public List<MapFileDto> MapFiles { get; internal set; } = [];
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties

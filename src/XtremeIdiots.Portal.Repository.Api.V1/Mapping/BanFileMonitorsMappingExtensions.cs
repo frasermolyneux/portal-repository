@@ -25,7 +25,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 FilePath = entity.FilePath ?? string.Empty,
                 RemoteFileSize = entity.RemoteFileSize,
                 LastSync = entity.LastSync,
-                GameServer = expand && entity.GameServer != null ? entity.GameServer.ToDto(false) : null!
+                GameServer = expand && entity.GameServer is not null ? entity.GameServer.ToDto(false) : null!
             };
         }
 

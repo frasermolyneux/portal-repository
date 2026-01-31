@@ -33,7 +33,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="context">The database context for player data access.</param>
         public PlayerAnalyticsController(PortalDbContext context)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
         }
 
         /// <summary>

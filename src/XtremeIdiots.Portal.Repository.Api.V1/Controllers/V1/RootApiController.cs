@@ -41,7 +41,7 @@ public class RootApiController : ControllerBase, IRootApi
     /// <returns>An API result containing the root API information with version details and endpoint metadata.</returns>
     Task<ApiResult<RootDto>> IRootApi.GetRoot(CancellationToken cancellationToken)
     {
-        var rootDto = new RootDto();
+        RootDto rootDto = new();
         return Task.FromResult(new ApiResponse<RootDto>(rootDto).ToApiResult());
     }
 }

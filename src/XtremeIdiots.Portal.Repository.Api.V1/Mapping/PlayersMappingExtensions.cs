@@ -134,7 +134,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         {
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (entity.Player == null)
+            if (entity.Player is null)
                 throw new InvalidOperationException("Player navigation property is required for RelatedPlayerDto mapping");
 
             return new RelatedPlayerDto

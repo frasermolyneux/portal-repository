@@ -24,12 +24,12 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 mapFiles = string.IsNullOrEmpty(entity.MapFiles)
                     ? new List<MapFileDto>()
-                    : JsonConvert.DeserializeObject<List<MapFileDto>>(entity.MapFiles) ?? new List<MapFileDto>();
+                    : JsonConvert.DeserializeObject<List<MapFileDto>>(entity.MapFiles) ?? [];
             }
             catch (JsonException)
             {
                 // Fallback to empty list if deserialization fails
-                mapFiles = new List<MapFileDto>();
+                mapFiles = [];
             }
 
             return new MapDto
@@ -105,9 +105,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameServerId = entity.GameServerId,
                 Like = entity.Like,
                 Timestamp = entity.Timestamp,
-                Map = expand && entity.Map != null ? entity.Map.ToDto(false) : null,
-                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null,
-                GameServer = expand && entity.GameServer != null ? entity.GameServer.ToDto(false) : null
+                Map = expand && entity.Map is not null ? entity.Map.ToDto(false) : null,
+                Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null,
+                GameServer = expand && entity.GameServer is not null ? entity.GameServer.ToDto(false) : null
             };
         }
 

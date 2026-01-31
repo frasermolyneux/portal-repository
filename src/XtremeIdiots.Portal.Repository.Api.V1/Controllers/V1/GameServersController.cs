@@ -32,7 +32,8 @@ public class GameServersController : ControllerBase, IGameServersApi
     public GameServersController(
         PortalDbContext context)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
     }
 
     /// <summary>
@@ -317,13 +318,13 @@ public class GameServersController : ControllerBase, IGameServersApi
 
     private IQueryable<GameServer> ApplyFilters(IQueryable<GameServer> query, GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter)
     {
-        if (gameTypes != null && gameTypes.Length > 0)
+        if (gameTypes?.Length > 0)
         {
             var gameTypeInts = gameTypes.Select(gt => gt.ToGameTypeInt()).ToArray();
             query = query.Where(gs => gameTypeInts.Contains(gs.GameType));
         }
 
-        if (gameServerIds != null && gameServerIds.Length > 0)
+        if (gameServerIds?.Length > 0)
             query = query.Where(gs => gameServerIds.Contains(gs.GameServerId));
 
         if (filter.HasValue)

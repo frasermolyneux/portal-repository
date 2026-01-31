@@ -27,7 +27,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         public RecentPlayersController(PortalDbContext context)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
         }
 
         /// <summary>

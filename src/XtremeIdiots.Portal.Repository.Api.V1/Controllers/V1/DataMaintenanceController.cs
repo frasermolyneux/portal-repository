@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using System.Net;
 using Azure.Identity;
 using Azure.Storage.Blobs;
@@ -36,7 +37,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
     public DataMaintenanceController(PortalDbContext context)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
     }
 
     /// <summary>
@@ -63,7 +65,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     {
         // Execute pruning operation in batches to avoid locking issues
         // Only delete unlocked chat messages to preserve locked ones
-        for (int i = 6; i <= 12; i++)
+        foreach (var i in Enumerable.Range(6, 7))
         {
             var batchCutoff = DateTime.UtcNow.AddMonths(-i);
             await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {batchCutoff} AND [Locked] = 0", cancellationToken);
@@ -435,8 +437,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             if (underscoreIndex <= 0 || underscoreIndex >= noExt.Length - 1)
                 return false;
 
-            var gameTypeStr = noExt.Substring(0, underscoreIndex);
-            mapName = noExt.Substring(underscoreIndex + 1);
+            var gameTypeStr = noExt[..underscoreIndex];
+            mapName = noExt[(underscoreIndex + 1)..];
 
             // Try parse enum by name (case-insensitive) using V1 GameType enum
             if (Enum.TryParse(typeof(GameType), gameTypeStr, true, out var enumVal) && enumVal is GameType gt)

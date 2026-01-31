@@ -38,8 +38,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
         public TagsController(PortalDbContext context, IMemoryCache memoryCache)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+            ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
+            ArgumentNullException.ThrowIfNull(memoryCache);
+            this.memoryCache = memoryCache;
         }
 
         private async Task<Dictionary<Guid, int>> GetTagPlayerCountsAsync(CancellationToken cancellationToken)

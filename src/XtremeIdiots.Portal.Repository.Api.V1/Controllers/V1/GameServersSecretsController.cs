@@ -37,8 +37,10 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     /// <exception cref="ArgumentNullException">Thrown when context or configuration is null.</exception>
     public GameServersSecretsController(PortalDbContext context, IConfiguration configuration)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
+        ArgumentNullException.ThrowIfNull(configuration);
+            this.configuration = configuration;
     }
 
     /// <summary>
@@ -74,7 +76,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
-        if (gameServer == null)
+        if (gameServer is null)
             return new ApiResult<string>(HttpStatusCode.NotFound);
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
@@ -129,7 +131,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
 
-        if (gameServer == null)
+        if (gameServer is null)
             return new ApiResult<string>(HttpStatusCode.NotFound);
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");

@@ -36,8 +36,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <exception cref="ArgumentNullException">Thrown when logger or configuration is null.</exception>
         public GameTrackerBannerController(ILogger<GameTrackerBannerController> logger, IConfiguration configuration)
         {
-            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            ArgumentNullException.ThrowIfNull(logger);
+            this.logger = logger;
+            ArgumentNullException.ThrowIfNull(configuration);
+            this.configuration = configuration;
         }
 
         /// <summary>

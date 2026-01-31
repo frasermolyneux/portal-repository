@@ -29,8 +29,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Message = entity.Message ?? string.Empty,
                 Timestamp = entity.Timestamp,
                 Locked = entity.Locked,
-                Player = expand && entity.Player != null ? entity.Player.ToDto(false) : null!,
-                GameServer = expand && entity.GameServer != null ? entity.GameServer.ToDto(false) : null!
+                Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null!,
+                GameServer = expand && entity.GameServer is not null ? entity.GameServer.ToDto(false) : null!
             };
         }
 

@@ -33,7 +33,8 @@ public class PlayersController : ControllerBase, IPlayersApi
         PortalDbContext context,
         IMemoryCache memoryCache)
     {
-        this.context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(context);
+            this.context = context;
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
@@ -278,7 +279,7 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         // Map tags to DTO if requested  
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
-            result.Tags = player.PlayerTags?.Select(pt => pt.ToDto()).ToList() ?? new List<PlayerTagDto>();
+            result.Tags = player.PlayerTags?.Select(pt => pt.ToDto()).ToList() ?? [];
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
     }
@@ -421,7 +422,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                     }
                     else
                     {
-                        player.PlayerIpAddresses = new List<PlayerIpAddress>();
+                        player.PlayerIpAddresses = [];
                     }
                 }
             }
@@ -449,7 +450,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                     }
                     else
                     {
-                        player.AdminActions = new List<AdminAction>();
+                        player.AdminActions = [];
                     }
                 }
             }
@@ -513,8 +514,8 @@ public class PlayersController : ControllerBase, IPlayersApi
         {
             player.IpAddress = ip.ToString();
 
-            player.PlayerIpAddresses = new List<PlayerIpAddress>
-            {
+            player.PlayerIpAddresses =
+            [
                 new PlayerIpAddress
                 {
                     Address = ip.ToString(),
@@ -522,11 +523,11 @@ public class PlayersController : ControllerBase, IPlayersApi
                     LastUsed = DateTime.UtcNow,
                     ConfidenceScore = 1
                 }
-            };
+            ];
         }
 
-        player.PlayerAliases = new List<PlayerAlias>
-        {
+        player.PlayerAliases =
+        [
             new PlayerAlias
             {
                 Name = createPlayerDto.Username.Trim(),
@@ -534,7 +535,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 LastUsed = DateTime.UtcNow,
                 ConfidenceScore = 1
             }
-        };
+        ];
 
         await context.Players.AddAsync(player);
         await context.SaveChangesAsync();
@@ -564,8 +565,8 @@ public class PlayersController : ControllerBase, IPlayersApi
             {
                 player.IpAddress = ip.ToString();
 
-                player.PlayerIpAddresses = new List<PlayerIpAddress>
-                {
+                player.PlayerIpAddresses =
+                [
                     new PlayerIpAddress
                     {
                         Address = ip.ToString(),
@@ -573,11 +574,11 @@ public class PlayersController : ControllerBase, IPlayersApi
                         LastUsed = DateTime.UtcNow,
                         ConfidenceScore = 1
                     }
-                };
+                ];
             }
 
-            player.PlayerAliases = new List<PlayerAlias>
-            {
+            player.PlayerAliases =
+            [
                 new PlayerAlias
                 {
                     Name = createPlayerDto.Username.Trim(),
@@ -585,7 +586,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                     LastUsed = DateTime.UtcNow,
                     ConfidenceScore = 1
                 }
-            };
+            ];
 
             await context.Players.AddAsync(player);
         }
@@ -1071,7 +1072,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             .OrderByDescending(pa => pa.LastUsed)
             .ToListAsync();
 
-        var usageInstances = new List<ProtectedNameUsageReportDto.PlayerUsageDto>();
+        List<ProtectedNameUsageReportDto.PlayerUsageDto> usageInstances = [];
 
         // Group by player and create usage instances
         foreach (var group in matchingAliases.GroupBy(a => a.PlayerId))

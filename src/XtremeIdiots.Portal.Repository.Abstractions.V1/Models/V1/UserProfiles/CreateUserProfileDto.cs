@@ -52,7 +52,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
             {
                 var telemetryProperties = new Dictionary<string, string>
                 {
-                    { nameof(XtremeIdiotsForumId), XtremeIdiotsForumId is not null ? XtremeIdiotsForumId.ToString() : string.Empty }
+                    { nameof(XtremeIdiotsForumId), XtremeIdiotsForumId ?? string.Empty }
                 };
 
                 return telemetryProperties;

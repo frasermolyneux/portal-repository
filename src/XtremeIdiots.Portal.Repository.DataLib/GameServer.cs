@@ -65,29 +65,29 @@ public partial class GameServer
     public bool Deleted { get; set; }
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; } = new List<BanFileMonitor>();
+    public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
+    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<GameServerEvent> GameServerEvents { get; set; } = new List<GameServerEvent>();
+    public virtual ICollection<GameServerEvent> GameServerEvents { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<GameServerStat> GameServerStats { get; set; } = new List<GameServerStat>();
+    public virtual ICollection<GameServerStat> GameServerStats { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
+    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<MapPack> MapPacks { get; set; } = new List<MapPack>();
+    public virtual ICollection<MapPack> MapPacks { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
+    public virtual ICollection<MapVote> MapVotes { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
+    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = [];
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
+    public virtual ICollection<Report> Reports { get; set; } = [];
 }
