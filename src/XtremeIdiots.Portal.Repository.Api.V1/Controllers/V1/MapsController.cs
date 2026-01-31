@@ -213,7 +213,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map was created if successful; otherwise, a 409 Conflict response.</returns>
         async Task<ApiResult> IMapsApi.CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken)
         {
-            if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken))
+            if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken).ConfigureAwait(false))
             {
                 var response = new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapConflictMessage));
                 return response.ToApiResult(HttpStatusCode.Conflict);
@@ -271,7 +271,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             foreach (var createMapDto in createMapDtos)
             {
-                if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken))
+                if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken).ConfigureAwait(false))
                 {
                     var response = new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapConflictMessage));
                     return response.ToApiResult(HttpStatusCode.Conflict);
@@ -646,7 +646,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg"; // Stored as .jpg regardless of original extension
             var blobClient = containerClient.GetBlobClient(blobKey);
-            if (await blobClient.ExistsAsync(cancellationToken))
+            if (await blobClient.ExistsAsync(cancellationToken).ConfigureAwait(false))
             {
                 await blobClient.DeleteAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             }
@@ -721,7 +721,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var blobKey = $"{map.GameType.ToGameType()}_{map.MapName}.jpg";
                 var blobClient = containerClient.GetBlobClient(blobKey);
 
-                if (await blobClient.ExistsAsync(cancellationToken))
+                if (await blobClient.ExistsAsync(cancellationToken).ConfigureAwait(false))
                 {
                     await blobClient.DeleteAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 }

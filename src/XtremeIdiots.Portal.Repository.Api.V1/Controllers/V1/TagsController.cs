@@ -60,7 +60,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         Count = group.Count()
                     })
                     .ToDictionaryAsync(x => x.TagId, x => x.Count, cancellationToken).ConfigureAwait(false);
-            });
+            }).ConfigureAwait(false);
 
             return counts ?? new Dictionary<Guid, int>();
         }
