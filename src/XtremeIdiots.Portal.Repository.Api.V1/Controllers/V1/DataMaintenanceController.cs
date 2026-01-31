@@ -301,11 +301,11 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
 
         // Step 1: Remove any blobs (including orphans) that match any target MD5 hash
-        var targetHashes = new[]
-        {
+        byte[][] targetHashes =
+        [
             Convert.FromBase64String("aJ39V4B09SgLKGEgsVkteA=="),
             Convert.FromBase64String("MRMoR2jCIgtFK2zpmGOPRQ==")
-        };
+        ];
         var removedHashMatches = 0;
         await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
