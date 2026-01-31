@@ -169,7 +169,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var playerExists = await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid);
+            .AnyAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid).ConfigureAwait(false);
 
         if (!playerExists)
             return new ApiResult(HttpStatusCode.NotFound);
@@ -206,7 +206,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         var player = await context.Players
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid);
+            .FirstOrDefaultAsync(p => p.GameType == gameType.ToGameTypeInt() && p.Guid == guid).ConfigureAwait(false);
 
         if (player == null)
             return new ApiResult<PlayerDto>(HttpStatusCode.NotFound);
@@ -503,7 +503,7 @@ public class PlayersController : ControllerBase, IPlayersApi
     {
         if (await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
+            .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid).ConfigureAwait(false))
             return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
         var player = createPlayerDto.ToEntity();
@@ -554,7 +554,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         {
             if (await context.Players
                 .AsNoTracking()
-                .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid))
+                .AnyAsync(p => p.GameType == createPlayerDto.GameType.ToGameTypeInt() && p.Guid == createPlayerDto.Guid).ConfigureAwait(false))
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
 
             var player = createPlayerDto.ToEntity();
@@ -911,7 +911,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result containing a collection of protected names for the player if the player exists; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNamesForPlayer(Guid playerId)
     {
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult<CollectionModel<ProtectedNameDto>>(HttpStatusCode.NotFound);
 
         var query = context.ProtectedNames
@@ -965,11 +965,11 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
     {
         // Check if player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if the name is already protected
-        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()))
+        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)));
 
         var protectedName = new ProtectedName
@@ -1129,7 +1129,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult<CollectionModel<PlayerTagDto>>> IPlayersApi.GetPlayerTags(Guid playerId)
     {
         // Check if the player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult<CollectionModel<PlayerTagDto>>(HttpStatusCode.NotFound);
 
         var playerTags = await context.PlayerTags
@@ -1190,7 +1190,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.MissingEntityId, ApiErrorMessages.TagIdRequiredMessage)));
 
         // Check if the player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
         // Check if the tag exists
@@ -1238,7 +1238,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.RemovePlayerTag(Guid playerId, Guid playerTagId)
     {
         // Check if the player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId))
+        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
         var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId).ConfigureAwait(false);

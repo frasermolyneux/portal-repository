@@ -108,7 +108,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var map = await context.Maps
                 .Include(m => m.MapVotes)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName, cancellationToken);
+                .FirstOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName, cancellationToken).ConfigureAwait(false);
 
             if (map == null)
                 return new ApiResult<MapDto>(HttpStatusCode.NotFound);
