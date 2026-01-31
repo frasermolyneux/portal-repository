@@ -50,7 +50,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitor(banFileMonitorId, cancellationToken);
+            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitor(banFileMonitorId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -66,7 +66,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(bfm => bfm.GameServer)
                 .Where(bfm => !bfm.GameServer.Deleted)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken);
+                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken).ConfigureAwait(false);
 
             if (banFileMonitor == null)
                 return new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound);
@@ -111,7 +111,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 banFileMonitorsIdFilter = split.Select(id => Guid.Parse(id)).ToArray();
             }
 
-            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitors(gameTypesFilter, banFileMonitorsIdFilter, gameServerId, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((IBanFileMonitorsApi)this).GetBanFileMonitors(gameTypesFilter, banFileMonitorsIdFilter, gameServerId, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -138,12 +138,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var filteredQuery = ApplyFilters(baseQuery, gameTypes, banFileMonitorIds, gameServerId);
 
             // Calculate counts after filtering but before pagination
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
-            var results = await orderedQuery.ToListAsync(cancellationToken);
+            var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = results.Select(bfm => bfm.ToDto()).ToList();
 
@@ -166,7 +166,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateBanFileMonitor([FromBody] CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((IBanFileMonitorsApi)this).CreateBanFileMonitor(createBanFileMonitorDto, cancellationToken);
+            var response = await ((IBanFileMonitorsApi)this).CreateBanFileMonitor(createBanFileMonitorDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -182,7 +182,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             banFileMonitor.LastSync = DateTime.UtcNow.AddHours(-4);
 
             context.BanFileMonitors.Add(banFileMonitor);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
@@ -203,7 +203,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (editBanFileMonitorDto.BanFileMonitorId != banFileMonitorId)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.BanFileMonitorIdMismatchMessage))).ToHttpResult();
 
-            var response = await ((IBanFileMonitorsApi)this).UpdateBanFileMonitor(editBanFileMonitorDto, cancellationToken);
+            var response = await ((IBanFileMonitorsApi)this).UpdateBanFileMonitor(editBanFileMonitorDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -216,14 +216,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IBanFileMonitorsApi.UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken)
         {
             var banFileMonitor = await context.BanFileMonitors
-                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == editBanFileMonitorDto.BanFileMonitorId, cancellationToken);
+                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == editBanFileMonitorDto.BanFileMonitorId, cancellationToken).ConfigureAwait(false);
 
             if (banFileMonitor == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             editBanFileMonitorDto.ApplyTo(banFileMonitor);
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -239,7 +239,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IBanFileMonitorsApi)this).DeleteBanFileMonitor(banFileMonitorId, cancellationToken);
+            var response = await ((IBanFileMonitorsApi)this).DeleteBanFileMonitor(banFileMonitorId, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -253,14 +253,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IBanFileMonitorsApi.DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken)
         {
             var banFileMonitor = await context.BanFileMonitors
-                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken);
+                .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken).ConfigureAwait(false);
 
             if (banFileMonitor == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             context.BanFileMonitors.Remove(banFileMonitor);
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

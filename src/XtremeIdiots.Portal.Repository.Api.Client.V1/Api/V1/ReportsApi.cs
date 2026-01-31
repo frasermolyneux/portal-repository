@@ -23,15 +23,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<ReportDto>> GetReport(Guid reportId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/reports/{reportId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/reports/{reportId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<ReportDto>();
         }
 
         public async Task<ApiResult<CollectionModel<ReportDto>>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/reports", Method.Get);
+            var request = await CreateRequestAsync("v1/reports", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
                 request.AddQueryParameter("gameType", gameType.ToString());
@@ -51,27 +51,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<ReportDto>>();
         }
 
         public async Task<ApiResult> CreateReports(List<CreateReportDto> createReportDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/reports", Method.Post);
+            var request = await CreateRequestAsync("v1/reports", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createReportDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/reports/{reportId}/close", Method.Patch);
+            var request = await CreateRequestAsync($"v1/reports/{reportId}/close", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(closeReportDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

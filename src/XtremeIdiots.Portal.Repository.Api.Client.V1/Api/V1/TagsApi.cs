@@ -27,10 +27,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/tags", Method.Get, cancellationToken);
+                var request = await CreateRequestAsync($"v1/tags", Method.Get, cancellationToken).ConfigureAwait(false);
                 request.AddQueryParameter("skipEntries", skipEntries);
                 request.AddQueryParameter("takeEntries", takeEntries);
-                var response = await ExecuteAsync(request, cancellationToken);
+                var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
                 return response.ToApiResult<CollectionModel<TagDto>>();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -45,8 +45,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/tags/{tagId}", Method.Get, cancellationToken);
-                var response = await ExecuteAsync(request, cancellationToken);
+                var request = await CreateRequestAsync($"v1/tags/{tagId}", Method.Get, cancellationToken).ConfigureAwait(false);
+                var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
                 return response.ToApiResult<TagDto>();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -61,9 +61,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/tags", Method.Post, cancellationToken);
+                var request = await CreateRequestAsync($"v1/tags", Method.Post, cancellationToken).ConfigureAwait(false);
                 request.AddJsonBody(tagDto);
-                var response = await ExecuteAsync(request, cancellationToken);
+                var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
                 var result = response.ToApiResult();
                 return result;
@@ -80,9 +80,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/tags/{tagDto.TagId}", Method.Patch, cancellationToken);
+                var request = await CreateRequestAsync($"v1/tags/{tagDto.TagId}", Method.Patch, cancellationToken).ConfigureAwait(false);
                 request.AddJsonBody(tagDto);
-                var response = await ExecuteAsync(request, cancellationToken);
+                var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
                 var result = response.ToApiResult();
                 return result;
@@ -99,8 +99,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/tags/{tagId}", Method.Delete, cancellationToken);
-                var response = await ExecuteAsync(request, cancellationToken);
+                var request = await CreateRequestAsync($"v1/tags/{tagId}", Method.Delete, cancellationToken).ConfigureAwait(false);
+                var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
                 var result = response.ToApiResult();
                 return result;

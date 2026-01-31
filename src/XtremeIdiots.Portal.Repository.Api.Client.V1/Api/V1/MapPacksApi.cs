@@ -23,15 +23,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<MapPackDto>> GetMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/pack/{mapPackId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/pack/{mapPackId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<MapPackDto>();
         }
 
         public async Task<ApiResult<CollectionModel<MapPackDto>>> GetMapPacks(GameType[]? gameTypes, Guid[]? gameServerIds, MapPacksFilter? filter, int skipEntries, int takeEntries, MapPacksOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps/pack", Method.Get);
+            var request = await CreateRequestAsync("v1/maps/pack", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
@@ -48,45 +48,45 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<MapPackDto>>();
         }
 
         public async Task<ApiResult> CreateMapPack(CreateMapPackDto createMapPackDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps/pack", Method.Post);
+            var request = await CreateRequestAsync("v1/maps/pack", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(new List<CreateMapPackDto> { createMapPackDto });
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CreateMapPacks(List<CreateMapPackDto> createMapPackDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/maps/pack", Method.Post);
+            var request = await CreateRequestAsync("v1/maps/pack", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createMapPackDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateMapPack(UpdateMapPackDto updateMapPackDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/pack/{updateMapPackDto.MapPackId}", Method.Patch);
+            var request = await CreateRequestAsync($"v1/maps/pack/{updateMapPackDto.MapPackId}", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(updateMapPackDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> DeleteMapPack(Guid mapPackId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/maps/pack/{mapPackId}", Method.Delete);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/maps/pack/{mapPackId}", Method.Delete).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

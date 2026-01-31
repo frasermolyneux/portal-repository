@@ -48,7 +48,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetCumulativeDailyPlayers([FromQuery] DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var response = await ((IPlayerAnalyticsApi)this).GetCumulativeDailyPlayers(cutoff, cancellationToken);
+            var response = await ((IPlayerAnalyticsApi)this).GetCumulativeDailyPlayers(cutoff, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -62,14 +62,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var cumulative = await context.Players
                 .AsNoTracking()
-                .CountAsync(p => p.FirstSeen < cutoff, cancellationToken);
+                .CountAsync(p => p.FirstSeen < cutoff, cancellationToken).ConfigureAwait(false);
 
             var players = await context.Players
                 .AsNoTracking()
                 .Where(p => p.FirstSeen > cutoff)
                 .Select(p => p.FirstSeen)
                 .OrderBy(p => p)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var groupedPlayers = players.GroupBy(p => new DateTime(p.Year, p.Month, p.Day))
                 .Select(g => new PlayerAnalyticEntryDto
@@ -101,7 +101,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetNewDailyPlayersPerGame([FromQuery] DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var response = await ((IPlayerAnalyticsApi)this).GetNewDailyPlayersPerGame(cutoff, cancellationToken);
+            var response = await ((IPlayerAnalyticsApi)this).GetNewDailyPlayersPerGame(cutoff, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -118,7 +118,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Where(p => p.FirstSeen > cutoff)
                 .Select(p => new { p.FirstSeen, p.GameType })
                 .OrderBy(p => p.FirstSeen)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var groupedPlayers = players.GroupBy(p => new DateTime(p.FirstSeen.Year, p.FirstSeen.Month, p.FirstSeen.Day))
                 .Select(g => new PlayerAnalyticPerGameEntryDto
@@ -151,7 +151,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetPlayersDropOffPerGameJson([FromQuery] DateTime cutoff, CancellationToken cancellationToken = default)
         {
-            var response = await ((IPlayerAnalyticsApi)this).GetPlayersDropOffPerGameJson(cutoff, cancellationToken);
+            var response = await ((IPlayerAnalyticsApi)this).GetPlayersDropOffPerGameJson(cutoff, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -168,7 +168,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Where(p => p.LastSeen > cutoff)
                 .Select(p => new { p.LastSeen, p.GameType })
                 .OrderBy(p => p.LastSeen)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var groupedPlayers = players.GroupBy(p => new DateTime(p.LastSeen.Year, p.LastSeen.Month, p.LastSeen.Day))
                 .Select(g => new PlayerAnalyticPerGameEntryDto

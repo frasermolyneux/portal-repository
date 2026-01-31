@@ -22,20 +22,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-server-events", Method.Post);
+            var request = await CreateRequestAsync($"v1/game-server-events", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(new List<CreateGameServerEventDto> { createGameServerEventDto });
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/game-server-events", Method.Post);
+            var request = await CreateRequestAsync($"v1/game-server-events", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createGameServerEventDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

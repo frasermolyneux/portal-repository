@@ -56,7 +56,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IGameServersSecretsApi)this).GetGameServerSecret(gameServerId, secretId, cancellationToken);
+        var response = await ((IGameServersSecretsApi)this).GetGameServerSecret(gameServerId, secretId, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -74,7 +74,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
 
         var gameServer = await context.GameServers
             .AsNoTracking()
-            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer is null)
             return new ApiResult<string>(HttpStatusCode.NotFound);
@@ -84,7 +84,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
 
         try
         {
-            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken);
+            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken).ConfigureAwait(false);
             return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
         }
         catch (RequestFailedException ex)
@@ -109,8 +109,8 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken = default)
     {
-        var rawSecretValue = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken);
-        var response = await ((IGameServersSecretsApi)this).SetGameServerSecret(gameServerId, secretId, rawSecretValue, cancellationToken);
+        var rawSecretValue = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        var response = await ((IGameServersSecretsApi)this).SetGameServerSecret(gameServerId, secretId, rawSecretValue, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -129,7 +129,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
 
         var gameServer = await context.GameServers
             .AsNoTracking()
-            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken);
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer is null)
             return new ApiResult<string>(HttpStatusCode.NotFound);
@@ -139,10 +139,10 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
 
         try
         {
-            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken);
+            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (keyVaultResponse.Value.Value != secretValue)
-                keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken);
+                keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
         }
@@ -152,7 +152,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
                 throw;
         }
 
-        var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken);
+        var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken).ConfigureAwait(false);
         return new ApiResponse<string>(newSecretKeyVaultResponse.Value.Value).ToApiResult();
     }
 }

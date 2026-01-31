@@ -53,7 +53,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetReport(Guid reportId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IReportsApi)this).GetReport(reportId, cancellationToken);
+            var response = await ((IReportsApi)this).GetReport(reportId, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -70,7 +70,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(r => r.UserProfile)
                 .Include(r => r.AdminUserProfile)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken);
+                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken).ConfigureAwait(false);
 
             if (report == null)
                 return new ApiResult<ReportDto>(HttpStatusCode.NotFound);
@@ -107,7 +107,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddDays(-14))
                 cutoff = DateTime.UtcNow.AddDays(-14);
 
-            var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -141,15 +141,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsQueryable();
 
             // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filters
             var filteredQuery = ApplyFilters(baseQuery, gameType, gameServerId, cutoff, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
-            var results = await orderedQuery.ToListAsync(cancellationToken);
+            var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = results.Select(r => r.ToDto()).ToList();
 
@@ -177,7 +177,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToBadRequestResult()
                     .ToHttpResult();
 
-            var response = await ((IReportsApi)this).CreateReports(createReportDtos, cancellationToken);
+            var response = await ((IReportsApi)this).CreateReports(createReportDtos, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -196,7 +196,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 var gameServer = await context.GameServers
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(gs => gs.GameServerId == report.GameServerId, cancellationToken);
+                    .FirstOrDefaultAsync(gs => gs.GameServerId == report.GameServerId, cancellationToken).ConfigureAwait(false);
 
                 if (gameServer == null)
                     return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
@@ -204,8 +204,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 report.GameType = gameServer.GameType;
             }
 
-            await context.Reports.AddRangeAsync(reports, cancellationToken);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.Reports.AddRangeAsync(reports, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
@@ -228,7 +228,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToBadRequestResult()
                     .ToHttpResult();
 
-            var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto, cancellationToken);
+            var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -243,14 +243,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IReportsApi.CloseReport(Guid reportId, CloseReportDto closeReportDto, CancellationToken cancellationToken)
         {
             var report = await context.Reports
-                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken);
+                .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken).ConfigureAwait(false);
 
             if (report == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             var userProfile = await context.UserProfiles
                 .AsNoTracking()
-                .FirstOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId, cancellationToken);
+                .FirstOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
@@ -260,7 +260,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             report.Closed = true;
             report.ClosedTimestamp = DateTime.UtcNow;
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

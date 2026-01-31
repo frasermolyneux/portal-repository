@@ -52,7 +52,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToBadRequestResult()
                     .ToHttpResult();
 
-            var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDtos, cancellationToken);
+            var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -72,7 +72,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .AsNoTracking()
                     .Where(gss => gss.GameServerId == createGameServerStatDto.GameServerId)
                     .OrderBy(gss => gss.Timestamp)
-                    .LastOrDefaultAsync(cancellationToken);
+                    .LastOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (lastStat == null || lastStat.PlayerCount != createGameServerStatDto.PlayerCount || lastStat.MapName != createGameServerStatDto.MapName)
                 {
@@ -83,8 +83,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
             }
 
-            await context.GameServerStats.AddRangeAsync(gameServerStats, cancellationToken);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.GameServerStats.AddRangeAsync(gameServerStats, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
@@ -105,7 +105,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (cutoff.Value < DateTime.UtcNow.AddDays(-2))
                 cutoff = DateTime.UtcNow.AddDays(-2);
 
-            var response = await ((IGameServersStatsApi)this).GetGameServerStatusStats(gameServerId, cutoff.Value, cancellationToken);
+            var response = await ((IGameServersStatsApi)this).GetGameServerStatusStats(gameServerId, cutoff.Value, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -122,7 +122,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsNoTracking()
                 .Where(gss => gss.GameServerId == gameServerId && gss.Timestamp >= cutoff)
                 .OrderBy(gss => gss.Timestamp)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = gameServerStats.Select(r => r.ToDto()).ToList();
             var result = new CollectionModel<GameServerStatDto>(entries);

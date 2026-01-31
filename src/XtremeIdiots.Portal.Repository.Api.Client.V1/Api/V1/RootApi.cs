@@ -24,8 +24,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             try
             {
-                var request = await CreateRequestAsync($"v1/", Method.Get, cancellationToken);
-                var response = await ExecuteAsync(request, cancellationToken);
+                var request = await CreateRequestAsync($"v1/", Method.Get, cancellationToken).ConfigureAwait(false);
+                var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
                 return response.ToApiResult<RootDto>();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

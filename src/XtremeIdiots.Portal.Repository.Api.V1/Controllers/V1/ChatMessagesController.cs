@@ -52,7 +52,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetChatMessage(Guid chatMessageId, CancellationToken cancellationToken = default)
     {
-        var response = await ((IChatMessagesApi)this).GetChatMessage(chatMessageId, cancellationToken);
+        var response = await ((IChatMessagesApi)this).GetChatMessage(chatMessageId, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -69,7 +69,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             .Include(cl => cl.GameServer)
             .Include(cl => cl.Player)
             .AsNoTracking()
-            .FirstOrDefaultAsync(cl => cl.ChatMessageId == chatMessageId, cancellationToken);
+            .FirstOrDefaultAsync(cl => cl.ChatMessageId == chatMessageId, cancellationToken).ConfigureAwait(false);
 
         if (chatLog == null)
             return new ApiResult<ChatMessageDto>(HttpStatusCode.NotFound);
@@ -105,7 +105,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         [FromQuery] bool? lockedOnly = null,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IChatMessagesApi)this).GetChatMessages(gameType, gameServerId, playerId, filterString, skipEntries, takeEntries, order, lockedOnly, cancellationToken);
+        var response = await ((IChatMessagesApi)this).GetChatMessages(gameType, gameServerId, playerId, filterString, skipEntries, takeEntries, order, lockedOnly, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -132,15 +132,15 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             .AsQueryable();
 
         // Calculate total count before applying filtering
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
+        var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
         // Apply filtering
         var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, playerId, filterString, lockedOnly);
-        var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+        var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
         // Apply ordering and pagination
         var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
-        var results = await orderedQuery.ToListAsync(cancellationToken);
+        var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var entries = results.Select(cm => cm.ToDto()).ToList();
 
@@ -163,7 +163,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         var chatMessage = createChatMessageDto.ToEntity();
 
         context.ChatMessages.Add(chatMessage);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
@@ -178,7 +178,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateChatMessages(CancellationToken cancellationToken = default)
     {
-        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync();
+        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync().ConfigureAwait(false);
 
         List<CreateChatMessageDto>? createChatMessageDtos;
         try
@@ -193,7 +193,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         if (createChatMessageDtos == null || !createChatMessageDtos.Any())
             return new ApiResponse().ToBadRequestResult().ToHttpResult();
 
-        var response = await ((IChatMessagesApi)this).CreateChatMessages(createChatMessageDtos, cancellationToken);
+        var response = await ((IChatMessagesApi)this).CreateChatMessages(createChatMessageDtos, cancellationToken).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -209,7 +209,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetLock(Guid chatMessageId, CancellationToken cancellationToken = default)
     {
-        var body = await new StreamReader(Request.Body).ReadToEndAsync();
+        var body = await new StreamReader(Request.Body).ReadToEndAsync().ConfigureAwait(false);
         bool? locked = null;
         if (!string.IsNullOrWhiteSpace(body))
         {
@@ -230,7 +230,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         if (locked == null)
             return new ApiResponse().ToBadRequestResult().ToHttpResult();
 
-        var response = await ((IChatMessagesApi)this).SetLock(chatMessageId, locked.Value, cancellationToken);
+        var response = await ((IChatMessagesApi)this).SetLock(chatMessageId, locked.Value, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
@@ -243,13 +243,13 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     async Task<ApiResult> IChatMessagesApi.SetLock(Guid chatMessageId, bool locked, CancellationToken cancellationToken)
     {
         var chatMessage = await context.ChatMessages
-            .FirstOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId, cancellationToken);
+            .FirstOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId, cancellationToken).ConfigureAwait(false);
 
         if (chatMessage == null)
             return new ApiResult(HttpStatusCode.NotFound);
         chatMessage.Locked = locked;
 
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -265,7 +265,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         var chatLogs = createChatMessageDtos.Select(cm => cm.ToEntity()).ToList();
 
         context.ChatMessages.AddRange(chatLogs);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }

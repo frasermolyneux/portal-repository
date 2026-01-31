@@ -22,8 +22,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1_1
 
         public async Task<ApiResult<RootDto>> GetRoot(CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1.1/", Method.Get, cancellationToken);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1.1/", Method.Get, cancellationToken).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
             return response.ToApiResult<RootDto>();
         }
     }

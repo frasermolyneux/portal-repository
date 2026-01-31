@@ -22,42 +22,42 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> PruneChatMessages(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-chat-messages", Method.Delete), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-chat-messages", Method.Delete), cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-game-server-events", Method.Delete), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-game-server-events", Method.Delete), cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-game-server-stats", Method.Delete), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-game-server-stats", Method.Delete), cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> PruneRecentPlayers(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-recent-players", Method.Delete), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-recent-players", Method.Delete), cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/reset-system-assigned-player-tags", Method.Post), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/reset-system-assigned-player-tags", Method.Post), cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> ValidateMapImages(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/validate-map-images", Method.Post), cancellationToken);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/validate-map-images", Method.Post), cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

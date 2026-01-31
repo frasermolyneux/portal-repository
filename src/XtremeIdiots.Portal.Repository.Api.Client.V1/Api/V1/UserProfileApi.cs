@@ -23,39 +23,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<UserProfileDto>> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<UserProfileDto>();
         }
 
         public async Task<ApiResult<UserProfileDto>> GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/by-identity-id/{identityId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/user-profile/by-identity-id/{identityId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<UserProfileDto>();
         }
 
         public async Task<ApiResult<UserProfileDto>> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/user-profile/by-xtremeidiots-id/{xtremeIdiotsId}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<UserProfileDto>();
         }
 
         public async Task<ApiResult<UserProfileDto>> GetUserProfileByDemoAuthKey(string demoAuthKey, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/by-demo-auth-key/{demoAuthKey}", Method.Get);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/user-profile/by-demo-auth-key/{demoAuthKey}", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<UserProfileDto>();
         }
 
         public async Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profiles", Method.Get);
+            var request = await CreateRequestAsync("v1/user-profiles", Method.Get).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(filterString))
                 request.AddQueryParameter("filterString", filterString.ToString());
@@ -69,75 +69,75 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
                 request.AddQueryParameter("order", order.ToString());
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<UserProfileDto>>();
         }
 
         public async Task<ApiResult> CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profile", Method.Post);
+            var request = await CreateRequestAsync("v1/user-profile", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createUserProfileDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profiles", Method.Post);
+            var request = await CreateRequestAsync("v1/user-profiles", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createUserProfileDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{editUserProfileDto.UserProfileId}", Method.Patch);
+            var request = await CreateRequestAsync($"v1/user-profile/{editUserProfileDto.UserProfileId}", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(editUserProfileDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/user-profiles", Method.Patch);
+            var request = await CreateRequestAsync("v1/user-profiles", Method.Patch).ConfigureAwait(false);
             request.AddJsonBody(editUserProfileDtos);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Post);
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Post).ConfigureAwait(false);
             request.AddJsonBody(createUserProfileClaimDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Put);
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims", Method.Put).ConfigureAwait(false);
             request.AddJsonBody(createUserProfileClaimDto);
 
-            var response = await ExecuteAsync(request, cancellationToken);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }
 
         public async Task<ApiResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims/{userProfileClaimId}", Method.Delete);
-            var response = await ExecuteAsync(request, cancellationToken);
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/claims/{userProfileClaimId}", Method.Delete).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
         }

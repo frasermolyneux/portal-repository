@@ -22,7 +22,7 @@ public class RootApiController : ControllerBase, IRootApi
     [Route("")]
     public async Task<IActionResult> GetRoot()
     {
-        var response = await ((IRootApi)this).GetRoot(CancellationToken.None);
+        var response = await ((IRootApi)this).GetRoot(CancellationToken.None).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 

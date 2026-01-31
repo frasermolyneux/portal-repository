@@ -61,7 +61,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddHours(-48))
                 cutoff = DateTime.UtcNow.AddHours(-48);
 
-            var response = await ((IRecentPlayersApi)this).GetRecentPlayers(gameType, gameServerId, cutoff, filter, skip, take, order, cancellationToken);
+            var response = await ((IRecentPlayersApi)this).GetRecentPlayers(gameType, gameServerId, cutoff, filter, skip, take, order, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -86,15 +86,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsQueryable();
 
             // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filters
             var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, cutoff, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
-            var results = await orderedQuery.ToListAsync(cancellationToken);
+            var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = results.Select(rp => rp.ToDto()).ToList();
 
@@ -122,7 +122,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToBadRequestResult()
                     .ToHttpResult();
 
-            var response = await ((IRecentPlayersApi)this).CreateRecentPlayers(createRecentPlayerDtos, cancellationToken);
+            var response = await ((IRecentPlayersApi)this).CreateRecentPlayers(createRecentPlayerDtos, cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -143,7 +143,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             // Fetch all existing recent players in one query for better performance
             var existingPlayers = await context.RecentPlayers
                 .Where(rp => rp.PlayerId.HasValue && playerIds.Contains(rp.PlayerId.Value))
-                .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var existingPlayerDict = existingPlayers.ToDictionary(rp => rp.PlayerId!.Value);
 
@@ -164,7 +164,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

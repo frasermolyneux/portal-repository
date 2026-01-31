@@ -40,7 +40,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IAdminActionsApi)this).GetAdminAction(adminActionId, cancellationToken);
+            var response = await ((IAdminActionsApi)this).GetAdminAction(adminActionId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -56,7 +56,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(a => a.Player)
                 .Include(a => a.UserProfile)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken);
+                .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken).ConfigureAwait(false);
 
             if (adminAction == null)
                 return new ApiResult<AdminActionDto>(HttpStatusCode.NotFound);
@@ -89,7 +89,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] AdminActionOrder? order = null,
             CancellationToken cancellationToken = default)
         {
-            var response = await ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, cancellationToken);
+            var response = await ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -122,15 +122,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsQueryable();
 
             // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken);
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filters
             var filteredQuery = ApplyFilters(baseQuery, gameType, playerId, adminId, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken);
+            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
-            var adminActions = await orderedQuery.ToListAsync(cancellationToken);
+            var adminActions = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = adminActions.Select(aa => aa.ToDto()).ToList();
 
@@ -201,7 +201,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateAdminAction([FromBody] CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken = default)
         {
-            var response = await ((IAdminActionsApi)this).CreateAdminAction(createAdminActionDto, cancellationToken);
+            var response = await ((IAdminActionsApi)this).CreateAdminAction(createAdminActionDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -221,13 +221,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var userProfileId = await context.UserProfiles
                     .Where(up => up.IdentityOid == adminId || up.XtremeIdiotsForumId == adminId)
                     .Select(up => up.UserProfileId)
-                    .FirstOrDefaultAsync(cancellationToken);
+                    .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (userProfileId != Guid.Empty)
                     adminAction.UserProfileId = userProfileId;
             }
             context.AdminActions.Add(adminAction);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -256,7 +256,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return err.ToBadRequestResult().ToHttpResult();
             }
 
-            var response = await ((IAdminActionsApi)this).UpdateAdminAction(editAdminActionDto, cancellationToken);
+            var response = await ((IAdminActionsApi)this).UpdateAdminAction(editAdminActionDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -269,7 +269,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IAdminActionsApi.UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken)
         {
             var adminAction = await context.AdminActions
-                .FirstOrDefaultAsync(a => a.AdminActionId == editAdminActionDto.AdminActionId, cancellationToken);
+                .FirstOrDefaultAsync(a => a.AdminActionId == editAdminActionDto.AdminActionId, cancellationToken).ConfigureAwait(false);
 
             if (adminAction == null)
                 return new ApiResult(HttpStatusCode.NotFound);
@@ -283,13 +283,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var userProfileId = await context.UserProfiles
                     .Where(up => up.IdentityOid == adminId || up.XtremeIdiotsForumId == adminId)
                     .Select(up => up.UserProfileId)
-                    .FirstOrDefaultAsync(cancellationToken);
+                    .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (userProfileId != Guid.Empty)
                     adminAction.UserProfileId = userProfileId;
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 
@@ -304,7 +304,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
         {
-            var response = await ((IAdminActionsApi)this).DeleteAdminAction(adminActionId, cancellationToken);
+            var response = await ((IAdminActionsApi)this).DeleteAdminAction(adminActionId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -317,13 +317,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IAdminActionsApi.DeleteAdminAction(Guid adminActionId, CancellationToken cancellationToken)
         {
             var adminAction = await context.AdminActions
-                .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken);
+                .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken).ConfigureAwait(false);
 
             if (adminAction == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
             context.AdminActions.Remove(adminAction);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
     }
