@@ -12,13 +12,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         public int Count { get; internal set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
-        {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>();
-                return telemetryProperties;
-            }
-        }
+        public Dictionary<string, string> TelemetryProperties => [];
     }
 }
