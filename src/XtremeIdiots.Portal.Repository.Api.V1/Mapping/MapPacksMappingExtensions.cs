@@ -28,7 +28,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.Deleted,
                 (expand && entity.MapPackMaps is not null)
                     ? entity.MapPackMaps.Select(mpm => mpm.ToDto(false)).ToList()
-                    : new List<MapPackMapDto>()
+                    : []
             );
         }
 

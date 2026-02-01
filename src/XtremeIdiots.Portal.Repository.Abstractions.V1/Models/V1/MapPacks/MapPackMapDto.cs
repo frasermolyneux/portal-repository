@@ -12,12 +12,5 @@ public record MapPackMapDto : IDto
     public Guid MapId { get; set; }
 
     [JsonIgnore]
-    public Dictionary<string, string> TelemetryProperties
-    {
-        get
-        {
-            var telemetryProperties = new Dictionary<string, string>();
-            return telemetryProperties;
-        }
-    }
+    public Dictionary<string, string> TelemetryProperties => [];
 }

@@ -23,7 +23,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             try
             {
                 mapFiles = string.IsNullOrEmpty(entity.MapFiles)
-                    ? new List<MapFileDto>()
+                    ? []
                     : JsonConvert.DeserializeObject<List<MapFileDto>>(entity.MapFiles) ?? [];
             }
             catch (JsonException)

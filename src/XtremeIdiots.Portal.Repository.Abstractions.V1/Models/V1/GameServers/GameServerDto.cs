@@ -117,19 +117,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(GameServerId), GameServerId.ToString() },
-                    { nameof(GameType), GameType.ToString() },
-                    { nameof(Title), Title }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(GameServerId), GameServerId.ToString() },
+            { nameof(GameType), GameType.ToString() },
+            { nameof(Title), Title }
+        };
     }
 }

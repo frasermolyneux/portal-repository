@@ -25,18 +25,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos
         public Guid UserProfileId { get; private set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(GameType), GameType.ToString() },
-                    { nameof(UserProfileId), UserProfileId.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(GameType), GameType.ToString() },
+            { nameof(UserProfileId), UserProfileId.ToString() }
+        };
     }
 }

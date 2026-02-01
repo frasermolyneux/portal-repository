@@ -42,20 +42,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
         public List<UserProfileClaimDto> UserProfileClaims { get; set; } = [];
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(UserProfileId), UserProfileId.ToString() },
-                    { nameof(IdentityOid), IdentityOid ?? string.Empty },
-                    { nameof(XtremeIdiotsForumId), XtremeIdiotsForumId ?? string.Empty },
-                    { nameof(DisplayName), DisplayName ?? string.Empty }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(UserProfileId), UserProfileId.ToString() },
+            { nameof(IdentityOid), IdentityOid ?? string.Empty },
+            { nameof(XtremeIdiotsForumId), XtremeIdiotsForumId ?? string.Empty },
+            { nameof(DisplayName), DisplayName ?? string.Empty }
+        };
     }
 }

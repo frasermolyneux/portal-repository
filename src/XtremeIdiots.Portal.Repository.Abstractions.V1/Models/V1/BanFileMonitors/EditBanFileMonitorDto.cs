@@ -37,17 +37,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         public DateTime? LastSync { get; set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(BanFileMonitorId), BanFileMonitorId.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(BanFileMonitorId), BanFileMonitorId.ToString() }
+        };
     }
 }

@@ -14,9 +14,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.OpenApiOperationFilters
                 schema.Type = "string";
                 schema.Enum.Clear();
 
-                Enum.GetNames(context.Type)
-                    .ToList()
-                    .ForEach(n => schema.Enum.Add(new OpenApiString(n)));
+                foreach (var name in Enum.GetNames(context.Type))
+                {
+                    schema.Enum.Add(new OpenApiString(name));
+                }
             }
         }
     }

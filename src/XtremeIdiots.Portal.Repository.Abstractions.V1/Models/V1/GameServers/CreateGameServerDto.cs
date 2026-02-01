@@ -69,18 +69,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool LiveTrackingEnabled { get; set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(GameType), GameType.ToString() },
-                    { nameof(Title), Title }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(GameType), GameType.ToString() },
+            { nameof(Title), Title }
+        };
     }
 }

@@ -56,20 +56,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         public List<PlayerTagDto> Tags { get; internal set; } = [];
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(PlayerId), PlayerId.ToString() },
-                    { nameof(GameType), GameType.ToString() },
-                    { nameof(Username), Username.ToString() },
-                    { nameof(Guid), Guid.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(PlayerId), PlayerId.ToString() },
+            { nameof(GameType), GameType.ToString() },
+            { nameof(Username), Username.ToString() },
+            { nameof(Guid), Guid.ToString() }
+        };
     }
 }

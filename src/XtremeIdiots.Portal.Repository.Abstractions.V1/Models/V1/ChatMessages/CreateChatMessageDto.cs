@@ -40,19 +40,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages
         public DateTime Timestamp { get; private set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(GameServerId), GameServerId.ToString() },
-                    { nameof(PlayerId), PlayerId.ToString() },
-                    { nameof(ChatType), ChatType.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(GameServerId), GameServerId.ToString() },
+            { nameof(PlayerId), PlayerId.ToString() },
+            { nameof(ChatType), ChatType.ToString() }
+        };
     }
 }

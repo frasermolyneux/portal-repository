@@ -13,17 +13,13 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Extensions
         public static GameVersion ToCodDemoReaderGameVersion(this int gameType)
         {
             var portalGameType = (GameType)gameType;
-            switch (portalGameType)
+            return portalGameType switch
             {
-                case GameType.CallOfDuty2:
-                    return GameVersion.CallOfDuty2;
-                case GameType.CallOfDuty4:
-                    return GameVersion.CallOfDuty4;
-                case GameType.CallOfDuty5:
-                    return GameVersion.CallOfDuty5;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(gameType));
-            }
+                GameType.CallOfDuty2 => GameVersion.CallOfDuty2,
+                GameType.CallOfDuty4 => GameVersion.CallOfDuty4,
+                GameType.CallOfDuty5 => GameVersion.CallOfDuty5,
+                _ => throw new ArgumentOutOfRangeException(nameof(gameType))
+            };
         }
 
         public static int ToGameTypeInt(this GameType gameType)
@@ -33,17 +29,13 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Extensions
 
         public static string DemoExtension(this GameType gameType)
         {
-            switch (gameType)
+            return gameType switch
             {
-                case GameType.CallOfDuty2:
-                    return "dm_1";
-                case GameType.CallOfDuty4:
-                    return "dm_1";
-                case GameType.CallOfDuty5:
-                    return "dm_6";
-                default:
-                    throw new ApplicationException("Game Type not supported for demos");
-            }
+                GameType.CallOfDuty2 => "dm_1",
+                GameType.CallOfDuty4 => "dm_1",
+                GameType.CallOfDuty5 => "dm_6",
+                _ => throw new ApplicationException("Game Type not supported for demos")
+            };
         }
     }
 }

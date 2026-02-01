@@ -38,19 +38,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions
         public string? AdminId { get; set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(PlayerId), PlayerId.ToString() },
-                    { nameof(Type), Type.ToString() },
-                    { nameof(AdminId), AdminId ?? string.Empty }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(PlayerId), PlayerId.ToString() },
+            { nameof(Type), Type.ToString() },
+            { nameof(AdminId), AdminId ?? string.Empty }
+        };
     }
 }

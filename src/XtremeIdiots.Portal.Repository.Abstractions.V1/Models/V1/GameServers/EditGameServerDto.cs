@@ -83,18 +83,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool? Deleted { get; set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(GameServerId), GameServerId.ToString() },
-                    { nameof(Title), Title is not null ? Title : string.Empty }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(GameServerId), GameServerId.ToString() },
+            { nameof(Title), Title is not null ? Title : string.Empty }
+        };
     }
 }

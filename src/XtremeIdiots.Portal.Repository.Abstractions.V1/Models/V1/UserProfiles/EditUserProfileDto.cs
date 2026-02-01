@@ -47,18 +47,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
         public string? TimeZone { get; set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(UserProfileId), UserProfileId.ToString() },
-                    { nameof(IdentityOid), IdentityOid ?? string.Empty }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(UserProfileId), UserProfileId.ToString() },
+            { nameof(IdentityOid), IdentityOid ?? string.Empty }
+        };
     }
 }

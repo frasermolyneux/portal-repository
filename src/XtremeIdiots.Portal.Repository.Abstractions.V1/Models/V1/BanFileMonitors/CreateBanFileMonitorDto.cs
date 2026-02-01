@@ -29,18 +29,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         public GameType GameType { get; private set; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties
+        public Dictionary<string, string> TelemetryProperties => new()
         {
-            get
-            {
-                var telemetryProperties = new Dictionary<string, string>
-                {
-                    { nameof(GameServerId), GameServerId.ToString() },
-                    { nameof(GameType), GameType.ToString() }
-                };
-
-                return telemetryProperties;
-            }
-        }
+            { nameof(GameServerId), GameServerId.ToString() },
+            { nameof(GameType), GameType.ToString() }
+        };
     }
 }

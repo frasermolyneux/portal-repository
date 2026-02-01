@@ -47,12 +47,5 @@ public record MapPackDto : IDto
     public List<MapPackMapDto> MapPackMaps { get; set; }
 
     [JsonIgnore]
-    public Dictionary<string, string> TelemetryProperties
-    {
-        get
-        {
-            var telemetryProperties = new Dictionary<string, string>();
-            return telemetryProperties;
-        }
-    }
+    public Dictionary<string, string> TelemetryProperties => [];
 }
