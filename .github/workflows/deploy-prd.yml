@@ -1,0 +1,219 @@
+name: Deploy PRD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 4"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: frasermolyneux/actions/dotnet-web-ci@main
+        with:
+          dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
+          dotnet-version: |
+            9.0.x
+            10.0.x
+          src-folder: "src"
+      - uses: frasermolyneux/actions/dotnet-web-ci@main
+        with:
+          dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
+          dotnet-version: |
+            9.0.x
+            10.0.x
+          src-folder: "src"
+
+  terraform-plan-and-apply-dev:
+    environment: Development
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/terraform-plan-and-apply@main
+        with:
+          terraform-folder: "terraform"
+          terraform-var-file: "tfvars/dev.tfvars"
+          terraform-backend-file: "backends/dev.backend.hcl"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - id: terraform-output-dev
+        shell: bash
+        run: |
+          cd terraform
+          echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
+          echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
+          echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
+          echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
+          echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
+          echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_USE_AZUREAD: true
+          ARM_USE_OIDC: true
+
+    outputs:
+      web_app_name_v1: ${{ steps.terraform-output-dev.outputs.web_app_name_v1 }}
+      web_app_resource_group_v1: ${{ steps.terraform-output-dev.outputs.web_app_resource_group_v1 }}
+      web_app_name_v2: ${{ steps.terraform-output-dev.outputs.web_app_name_v2 }}
+      web_app_resource_group_v2: ${{ steps.terraform-output-dev.outputs.web_app_resource_group_v2 }}
+      sql_server_fqdn: ${{ steps.terraform-output-dev.outputs.sql_server_fqdn }}
+      sql_database_name: ${{ steps.terraform-output-dev.outputs.sql_database_name }}
+
+  deploy-sql-database-dev:
+    environment: Development
+    needs: terraform-plan-and-apply-dev
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/deploy-sql-database@main
+        with:
+          sql-args: /Variables:env=dev /Variables:instance=01
+          sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
+          sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
+          project-folder: "src/XtremeIdiots.Portal.Repository.Database"
+          project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  app-service-deploy-v1-dev:
+    environment: Development
+    needs: [build-and-test, terraform-plan-and-apply-dev, deploy-sql-database-dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/deploy-app-service@main
+        with:
+          web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V1"
+          web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
+          resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group_v1 }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  app-service-deploy-v2-dev:
+    environment: Development
+    needs: [build-and-test, terraform-plan-and-apply-dev, deploy-sql-database-dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/deploy-app-service@main
+        with:
+          web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
+          web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
+          resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group_v2 }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  terraform-plan-and-apply-prd:
+    environment: Production
+    needs:
+      - app-service-deploy-v1-dev
+      - app-service-deploy-v2-dev
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-prd
+    steps:
+      - uses: frasermolyneux/actions/terraform-plan-and-apply@main
+        with:
+          terraform-folder: "terraform"
+          terraform-var-file: "tfvars/prd.tfvars"
+          terraform-backend-file: "backends/prd.backend.hcl"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - id: terraform-output-prd
+        shell: bash
+        run: |
+          cd terraform
+          echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
+          echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
+          echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
+          echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
+          echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
+          echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_USE_AZUREAD: true
+          ARM_USE_OIDC: true
+
+    outputs:
+      web_app_name_v1: ${{ steps.terraform-output-prd.outputs.web_app_name_v1 }}
+      web_app_resource_group_v1: ${{ steps.terraform-output-prd.outputs.web_app_resource_group_v1 }}
+      web_app_name_v2: ${{ steps.terraform-output-prd.outputs.web_app_name_v2 }}
+      web_app_resource_group_v2: ${{ steps.terraform-output-prd.outputs.web_app_resource_group_v2 }}
+      sql_server_fqdn: ${{ steps.terraform-output-prd.outputs.sql_server_fqdn }}
+      sql_database_name: ${{ steps.terraform-output-prd.outputs.sql_database_name }}
+
+  deploy-sql-database-prd:
+    environment: Production
+    needs: terraform-plan-and-apply-prd
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-prd
+    steps:
+      - uses: frasermolyneux/actions/deploy-sql-database@main
+        with:
+          sql-args: /Variables:env=prd /Variables:instance=01
+          sql-server-fqdn: ${{ needs.terraform-plan-and-apply-prd.outputs.sql_server_fqdn }}
+          sql-database-name: ${{ needs.terraform-plan-and-apply-prd.outputs.sql_database_name }}
+          project-folder: "src/XtremeIdiots.Portal.Repository.Database"
+          project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  app-service-deploy-v1-prd:
+    environment: Production
+    needs: [build-and-test, terraform-plan-and-apply-prd, deploy-sql-database-prd]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-prd
+    steps:
+      - uses: frasermolyneux/actions/deploy-app-service@main
+        with:
+          web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V1"
+          web-app-name: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v1 }}
+          resource-group-name: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_resource_group_v1 }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  app-service-deploy-v2-prd:
+    environment: Production
+    needs: [build-and-test, terraform-plan-and-apply-prd, deploy-sql-database-prd]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-prd
+    steps:
+      - uses: frasermolyneux/actions/deploy-app-service@main
+        with:
+          web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
+          web-app-name: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v2 }}
+          resource-group-name: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_resource_group_v2 }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
