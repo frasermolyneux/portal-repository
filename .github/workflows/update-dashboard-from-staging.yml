@@ -3,8 +3,7 @@ name: Update Dashboard from Staging Dashboard
 on:
   workflow_dispatch:
 
-
-permissions: read-all
+permissions: {}
 
 jobs:
   update-dashboard:
