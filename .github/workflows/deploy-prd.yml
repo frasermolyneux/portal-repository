@@ -8,15 +8,17 @@ on:
   schedule:
     - cron: "0 3 * * 4"
 
-permissions:
-  contents: read
-  id-token: write
+
+permissions: read-all
 
 concurrency:
   group: ${{ github.workflow }}
 
 jobs:
   build-and-test:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: frasermolyneux/actions/dotnet-web-ci@main
@@ -35,6 +37,9 @@ jobs:
           src-folder: "src"
 
   terraform-plan-and-apply-dev:
+    permissions:
+      contents: read
+      id-token: write
     environment: Development
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -76,6 +81,9 @@ jobs:
       sql_database_name: ${{ steps.terraform-output-dev.outputs.sql_database_name }}
 
   deploy-sql-database-dev:
+    permissions:
+      contents: read
+      id-token: write
     environment: Development
     needs: terraform-plan-and-apply-dev
     runs-on: ubuntu-latest
@@ -94,6 +102,9 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   app-service-deploy-v1-dev:
+    permissions:
+      contents: read
+      id-token: write
     environment: Development
     needs: [build-and-test, terraform-plan-and-apply-dev, deploy-sql-database-dev]
     runs-on: ubuntu-latest
@@ -110,6 +121,9 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   app-service-deploy-v2-dev:
+    permissions:
+      contents: read
+      id-token: write
     environment: Development
     needs: [build-and-test, terraform-plan-and-apply-dev, deploy-sql-database-dev]
     runs-on: ubuntu-latest
@@ -126,6 +140,9 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   terraform-plan-and-apply-prd:
+    permissions:
+      contents: read
+      id-token: write
     environment: Production
     needs:
       - app-service-deploy-v1-dev
@@ -169,6 +186,9 @@ jobs:
       sql_database_name: ${{ steps.terraform-output-prd.outputs.sql_database_name }}
 
   deploy-sql-database-prd:
+    permissions:
+      contents: read
+      id-token: write
     environment: Production
     needs: terraform-plan-and-apply-prd
     runs-on: ubuntu-latest
@@ -187,6 +207,9 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   app-service-deploy-v1-prd:
+    permissions:
+      contents: read
+      id-token: write
     environment: Production
     needs: [build-and-test, terraform-plan-and-apply-prd, deploy-sql-database-prd]
     runs-on: ubuntu-latest
@@ -203,6 +226,9 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   app-service-deploy-v2-prd:
+    permissions:
+      contents: read
+      id-token: write
     environment: Production
     needs: [build-and-test, terraform-plan-and-apply-prd, deploy-sql-database-prd]
     runs-on: ubuntu-latest

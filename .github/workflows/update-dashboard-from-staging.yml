@@ -3,13 +3,15 @@ name: Update Dashboard from Staging Dashboard
 on:
   workflow_dispatch:
 
-permissions:
-  id-token: write # This is required for Az CLI Login
-  contents: write # This is required to update the repository
-  pull-requests: write # This is required to create a pull request
+
+permissions: read-all
 
 jobs:
   update-dashboard:
+    permissions:
+      id-token: write # This is required for Az CLI Login
+      contents: write # This is required to update the repository
+      pull-requests: write # This is required to create a pull request
     environment: Development
     runs-on: ubuntu-latest
 
