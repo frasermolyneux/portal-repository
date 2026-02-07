@@ -2,7 +2,6 @@
 > Backend data APIs, DTOs, and infrastructure definitions that power the XtremeIdiots Portal across multiple API versions.
 
 ## ⚙️ Workflows
-[![DevOps Secure Scanning](https://github.com/frasermolyneux/portal-repository/actions/workflows/devops-secure-scanning.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/devops-secure-scanning.yml)
 [![Code Quality](https://github.com/frasermolyneux/portal-repository/actions/workflows/codequality.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/codequality.yml)
 [![Feature Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/feature-development.yml)
 [![Pull Request Validation](https://github.com/frasermolyneux/portal-repository/actions/workflows/pull-request-validation.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/pull-request-validation.yml)

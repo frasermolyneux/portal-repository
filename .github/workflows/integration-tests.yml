@@ -6,8 +6,7 @@ on:
     branches:
       - 'integration/**'
 
-  
-permissions: read-all
+permissions: {}
 
 jobs:
   terraform-get-outputs-dev:
