@@ -1,17 +1,15 @@
 name: PR Verify
 
 # Label-based workflow control:
-# - 'run-dev-plan': Enables dev Terraform plan for copilot/* branches (always runs for other branches)
-# - 'run-prd-plan': Enables prd Terraform plan for any branch
-# - copilot/* branches: Require 'run-dev-plan' label to run dev plan, and both 'run-dev-plan' + 'run-prd-plan' labels to run prd plan
-# - Non-copilot branches: Dev plan runs automatically, prd plan requires 'run-prd-plan' label
-# - dependabot PRs: Terraform plans are always skipped
+# - Always run Terraform plan against Development (skips drafts/dependabot)
+# - 'deploy-dev': Runs Terraform plan+apply and deploys database + apps to Development (skips drafts/dependabot)
+# - 'run-prd-plan': Runs Terraform plan against Production (skips drafts/dependabot)
 
 on:
   pull_request:
     branches:
       - main
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
 permissions: {}
 
@@ -34,7 +32,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && (!startsWith(github.head_ref, 'copilot/') || contains(github.event.pull_request.labels.*.name, 'run-dev-plan'))
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && !contains(github.event.pull_request.labels.*.name, 'deploy-dev')
     needs: build-and-test
     environment: Development
     runs-on: ubuntu-latest
@@ -50,12 +48,119 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+  terraform-plan-and-apply-dev:
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'deploy-dev')
+    needs: build-and-test
+    environment: Development
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/terraform-plan-and-apply@main
+        with:
+          terraform-folder: "terraform"
+          terraform-var-file: "tfvars/dev.tfvars"
+          terraform-backend-file: "backends/dev.backend.hcl"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - id: terraform-output
+        shell: bash
+        run: |
+          cd terraform
+          echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
+          echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
+          echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
+          echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
+          echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
+          echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_USE_AZUREAD: true
+          ARM_USE_OIDC: true
+
+    outputs:
+      web_app_name_v1: ${{ steps.terraform-output.outputs.web_app_name_v1 }}
+      web_app_resource_group_v1: ${{ steps.terraform-output.outputs.web_app_resource_group_v1 }}
+      web_app_name_v2: ${{ steps.terraform-output.outputs.web_app_name_v2 }}
+      web_app_resource_group_v2: ${{ steps.terraform-output.outputs.web_app_resource_group_v2 }}
+      sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
+      sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
+
+  deploy-sql-database-dev:
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'deploy-dev')
+    environment: Development
+    needs: terraform-plan-and-apply-dev
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/deploy-sql-database@main
+        with:
+          sql-args: /Variables:env=dev /Variables:instance=01
+          sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
+          sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
+          project-folder: "src/XtremeIdiots.Portal.Repository.Database"
+          project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  app-service-deploy-v1-dev:
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'deploy-dev')
+    environment: Development
+    needs: [build-and-test, terraform-plan-and-apply-dev, deploy-sql-database-dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/deploy-app-service@main
+        with:
+          web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V1"
+          web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
+          resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group_v1 }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  app-service-deploy-v2-dev:
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'deploy-dev')
+    environment: Development
+    needs: [build-and-test, terraform-plan-and-apply-dev, deploy-sql-database-dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: frasermolyneux/actions/deploy-app-service@main
+        with:
+          web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
+          web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
+          resource-group-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_resource_group_v2 }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
   terraform-plan-prd:
     permissions:
       contents: read
       id-token: write
-    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'run-prd-plan') && (!startsWith(github.head_ref, 'copilot/') || contains(github.event.pull_request.labels.*.name, 'run-dev-plan'))
-    needs: terraform-plan-dev
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'run-prd-plan')
+    needs: build-and-test
     environment: Production
     runs-on: ubuntu-latest
     concurrency:
