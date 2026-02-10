@@ -75,9 +75,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<CollectionModel<PlayerDto>>> GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
         {
-            var request = await CreateRequestAsync("v1/players/by-ip-address", Method.Get).ConfigureAwait(false);
+            var request = await CreateRequestAsync("v1/players/with-ip-address/{ipAddress}", Method.Get).ConfigureAwait(false);
+            request.AddUrlSegment("ipAddress", ipAddress);
             request.AddQueryParameter(nameof(playerEntityOptions), playerEntityOptions);
-            request.AddQueryParameter(nameof(ipAddress), ipAddress);
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
