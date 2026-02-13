@@ -274,9 +274,58 @@ jobs:
 
       - name: Wait for App Services to start
         shell: bash
+        env:
+          WEB_APP_NAME_V1: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
+          WEB_APP_NAME_V2: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
         run: |
           echo "Waiting for App Services to be fully started..."
-          sleep 60
+          
+          check_health() {
+            local app_name=$1
+            local version=$2
+            local url="https://${app_name}.azurewebsites.net/swagger/${version}/swagger.json"
+            
+            echo "Checking ${url}..."
+            if curl -f -s -o /dev/null "$url"; then
+              return 0
+            else
+              return 1
+            fi
+          }
+          
+          # Wait up to 5 minutes for apps to be healthy
+          timeout=300
+          elapsed=0
+          v1_ready=false
+          v11_ready=false
+          v2_ready=false
+          
+          while [ $elapsed -lt $timeout ]; do
+            if [ "$v1_ready" = false ] && check_health "$WEB_APP_NAME_V1" "v1"; then
+              echo "✓ V1 API is ready"
+              v1_ready=true
+            fi
+            
+            if [ "$v11_ready" = false ] && check_health "$WEB_APP_NAME_V1" "v1.1"; then
+              echo "✓ V1.1 API is ready"
+              v11_ready=true
+            fi
+            
+            if [ "$v2_ready" = false ] && check_health "$WEB_APP_NAME_V2" "v2"; then
+              echo "✓ V2 API is ready"
+              v2_ready=true
+            fi
+            
+            if [ "$v1_ready" = true ] && [ "$v11_ready" = true ] && [ "$v2_ready" = true ]; then
+              echo "All APIs are ready!"
+              exit 0
+            fi
+            
+            sleep 10
+            elapsed=$((elapsed + 10))
+          done
+          
+          echo "WARNING: Timeout waiting for all APIs to be ready. Proceeding anyway..."
 
       - name: Import OpenAPI Specifications
         shell: bash
@@ -310,9 +359,58 @@ jobs:
 
       - name: Wait for App Services to start
         shell: bash
+        env:
+          WEB_APP_NAME_V1: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v1 }}
+          WEB_APP_NAME_V2: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v2 }}
         run: |
           echo "Waiting for App Services to be fully started..."
-          sleep 60
+          
+          check_health() {
+            local app_name=$1
+            local version=$2
+            local url="https://${app_name}.azurewebsites.net/swagger/${version}/swagger.json"
+            
+            echo "Checking ${url}..."
+            if curl -f -s -o /dev/null "$url"; then
+              return 0
+            else
+              return 1
+            fi
+          }
+          
+          # Wait up to 5 minutes for apps to be healthy
+          timeout=300
+          elapsed=0
+          v1_ready=false
+          v11_ready=false
+          v2_ready=false
+          
+          while [ $elapsed -lt $timeout ]; do
+            if [ "$v1_ready" = false ] && check_health "$WEB_APP_NAME_V1" "v1"; then
+              echo "✓ V1 API is ready"
+              v1_ready=true
+            fi
+            
+            if [ "$v11_ready" = false ] && check_health "$WEB_APP_NAME_V1" "v1.1"; then
+              echo "✓ V1.1 API is ready"
+              v11_ready=true
+            fi
+            
+            if [ "$v2_ready" = false ] && check_health "$WEB_APP_NAME_V2" "v2"; then
+              echo "✓ V2 API is ready"
+              v2_ready=true
+            fi
+            
+            if [ "$v1_ready" = true ] && [ "$v11_ready" = true ] && [ "$v2_ready" = true ]; then
+              echo "All APIs are ready!"
+              exit 0
+            fi
+            
+            sleep 10
+            elapsed=$((elapsed + 10))
+          done
+          
+          echo "WARNING: Timeout waiting for all APIs to be ready. Proceeding anyway..."
 
       - name: Import OpenAPI Specifications
         shell: bash
