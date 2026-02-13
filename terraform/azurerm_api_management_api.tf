@@ -1,18 +1,9 @@
 locals {
-  // List of version files that exist (excluding legacy which is handled separately)
-  version_files = fileset("../openapi", "openapi-v*.json")
+  // Statically define the API versions we support
+  // This replaces the dynamic discovery from OpenAPI files
+  versioned_apis = ["v1", "v1.1", "v2"]
 
-  // Extract version strings from filenames (e.g., "v1", "v1.1", "v2")
-  version_strings = [for file in local.version_files :
-    trimsuffix(trimprefix(basename(file), "openapi-"), ".json")
-  ]
-
-  // Filter out legacy as it's handled in separate file
-  versioned_apis = [for version in local.version_strings :
-    version if version != "legacy"
-  ]
-
-  // Extract major versions from all discovered APIs (v1, v2, etc.)
+  // Extract major versions from all defined APIs (v1, v2, etc.)
   major_versions = toset([for version in local.versioned_apis :
     regex("^(v[0-9]+)", version)[0]
   ])
@@ -66,10 +57,34 @@ locals {
   }
 }
 
-// Data sources for versioned OpenAPI specification files
-data "local_file" "openapi_versioned" {
+// Dynamic versioned APIs without initial OpenAPI spec import
+// Specs will be imported from deployed apps via GitHub Actions
+resource "azurerm_api_management_api" "versioned_api" {
   for_each = toset(local.versioned_apis)
-  filename = "../openapi/openapi-${each.key}.json"
+
+  name = "${local.repository_api.api_management.root_path}-api-${replace(each.key, ".", "-")}"
+
+  resource_group_name = data.azurerm_api_management.api_management.resource_group_name
+  api_management_name = data.azurerm_api_management.api_management.name
+
+  revision     = "1"
+  display_name = "Repository API"
+  description  = "API for repository"
+  path         = local.repository_api.api_management.root_path
+  protocols    = ["https"]
+
+  subscription_required = false
+
+  version        = each.key
+  version_set_id = azurerm_api_management_api_version_set.id
+
+  # Lifecycle rule to prevent Terraform from reverting spec imports done via GitHub Actions
+  lifecycle {
+    ignore_changes = [
+      import,           # Ignore changes to the imported OpenAPI spec
+      soap_pass_through # Ignore SOAP settings that might be set during import
+    ]
+  }
 }
 
 // Create backend for versioned APIs
@@ -99,32 +114,6 @@ resource "azurerm_api_management_logger" "app_insights" {
 
   application_insights {
     instrumentation_key = data.azurerm_application_insights.app_insights.instrumentation_key
-  }
-}
-
-// Dynamic versioned APIs that are discovered from OpenAPI spec files
-resource "azurerm_api_management_api" "versioned_api" {
-  for_each = toset(local.versioned_apis)
-
-  name = "${local.repository_api.api_management.root_path}-api-${replace(each.key, ".", "-")}"
-
-  resource_group_name = data.azurerm_api_management.api_management.resource_group_name
-  api_management_name = data.azurerm_api_management.api_management.name
-
-  revision     = "1"
-  display_name = "Repository API"
-  description  = "API for repository"
-  path         = local.repository_api.api_management.root_path
-  protocols    = ["https"]
-
-  subscription_required = false
-
-  version        = each.key
-  version_set_id = azurerm_api_management_api_version_set.api_version_set.id
-
-  import {
-    content_format = "openapi+json"
-    content_value  = data.local_file.openapi_versioned[each.key].content
   }
 }
 

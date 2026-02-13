@@ -34,24 +34,4 @@
     <ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V2\XtremeIdiots.Portal.Repository.Abstractions.V2.csproj" />
   </ItemGroup>
 
-  <!-- Post-build target to generate OpenAPI files -->
-  <Target Name="GenerateOpenApiFiles" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <PropertyGroup>
-      <OpenApiOutputPath>$(MSBuildProjectDirectory)\..\..\openapi</OpenApiOutputPath>
-      <SwaggerAssembly>$(MSBuildProjectDirectory)\$(OutputPath)$(AssemblyName).dll</SwaggerAssembly>
-    </PropertyGroup>
-    
-    <!-- Ensure output directory exists -->
-    <MakeDir Directories="$(OpenApiOutputPath)" />
-    
-    <!-- Restore local tools -->
-    <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="false" />
-    
-    <!-- Generate OpenAPI JSON for V2 -->
-    <Exec Command="dotnet swagger tofile --output $(OpenApiOutputPath)\openapi-v2.json $(SwaggerAssembly) v2" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="true" />
-
-    <!-- Post-process OpenAPI files to replace /api/v2/ with / -->
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v2.json').replace('/api/v2/', '/').replace('/api/v2', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v2.json'&quot;" IgnoreExitCode="true" />
-  </Target>
-
 </Project>

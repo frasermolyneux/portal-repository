@@ -408,3 +408,6 @@ __tablestorage__/
 
 # Shared Copilot configuration checked out during copilot-setup-steps
 .github-copilot/
+
+# OpenAPI spec files - generated from deployed apps
+openapi/
