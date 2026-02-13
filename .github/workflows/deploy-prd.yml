@@ -66,6 +66,8 @@ jobs:
           echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
           echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
           echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+          echo "apim_name=$(terraform output -raw apim_name)" >> $GITHUB_OUTPUT
+          echo "apim_resource_group=$(terraform output -raw apim_resource_group)" >> $GITHUB_OUTPUT
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -80,6 +82,8 @@ jobs:
       web_app_resource_group_v2: ${{ steps.terraform-output-dev.outputs.web_app_resource_group_v2 }}
       sql_server_fqdn: ${{ steps.terraform-output-dev.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output-dev.outputs.sql_database_name }}
+      apim_name: ${{ steps.terraform-output-dev.outputs.apim_name }}
+      apim_resource_group: ${{ steps.terraform-output-dev.outputs.apim_resource_group }}
 
   deploy-sql-database-dev:
     permissions:
@@ -171,6 +175,8 @@ jobs:
           echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
           echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
           echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+          echo "apim_name=$(terraform output -raw apim_name)" >> $GITHUB_OUTPUT
+          echo "apim_resource_group=$(terraform output -raw apim_resource_group)" >> $GITHUB_OUTPUT
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -185,6 +191,8 @@ jobs:
       web_app_resource_group_v2: ${{ steps.terraform-output-prd.outputs.web_app_resource_group_v2 }}
       sql_server_fqdn: ${{ steps.terraform-output-prd.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output-prd.outputs.sql_database_name }}
+      apim_name: ${{ steps.terraform-output-prd.outputs.apim_name }}
+      apim_resource_group: ${{ steps.terraform-output-prd.outputs.apim_resource_group }}
 
   deploy-sql-database-prd:
     permissions:
@@ -244,3 +252,75 @@ jobs:
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  import-openapi-specs-dev:
+    permissions:
+      contents: read
+      id-token: write
+    environment: Development
+    needs: [terraform-plan-and-apply-dev, app-service-deploy-v1-dev, app-service-deploy-v2-dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for App Services to start
+        shell: bash
+        run: |
+          echo "Waiting for App Services to be fully started..."
+          sleep 60
+
+      - name: Import OpenAPI Specifications
+        shell: bash
+        env:
+          APIM_NAME: ${{ needs.terraform-plan-and-apply-dev.outputs.apim_name }}
+          APIM_RESOURCE_GROUP: ${{ needs.terraform-plan-and-apply-dev.outputs.apim_resource_group }}
+          WEB_APP_NAME_V1: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
+          WEB_APP_NAME_V2: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
+        run: |
+          chmod +x scripts/import-openapi-specs.sh
+          ./scripts/import-openapi-specs.sh
+
+  import-openapi-specs-prd:
+    permissions:
+      contents: read
+      id-token: write
+    environment: Production
+    needs: [terraform-plan-and-apply-prd, app-service-deploy-v1-prd, app-service-deploy-v2-prd]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-prd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for App Services to start
+        shell: bash
+        run: |
+          echo "Waiting for App Services to be fully started..."
+          sleep 60
+
+      - name: Import OpenAPI Specifications
+        shell: bash
+        env:
+          APIM_NAME: ${{ needs.terraform-plan-and-apply-prd.outputs.apim_name }}
+          APIM_RESOURCE_GROUP: ${{ needs.terraform-plan-and-apply-prd.outputs.apim_resource_group }}
+          WEB_APP_NAME_V1: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v1 }}
+          WEB_APP_NAME_V2: ${{ needs.terraform-plan-and-apply-prd.outputs.web_app_name_v2 }}
+        run: |
+          chmod +x scripts/import-openapi-specs.sh
+          ./scripts/import-openapi-specs.sh
