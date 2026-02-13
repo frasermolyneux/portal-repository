@@ -76,7 +76,7 @@ resource "azurerm_api_management_api" "versioned_api" {
   subscription_required = false
 
   version        = each.key
-  version_set_id = azurerm_api_management_api_version_set.id
+  version_set_id = azurerm_api_management_api_version_set.api_version_set.id
 
   # Lifecycle rule to prevent Terraform from reverting spec imports done via GitHub Actions
   lifecycle {

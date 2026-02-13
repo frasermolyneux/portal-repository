@@ -43,7 +43,7 @@ import_spec() {
         # Process the spec to replace base path
         # The API Management expects paths without the /api/vX prefix
         local processed_file=$(mktemp)
-        jq ".paths |= with_entries(.key |= sub(\"/api/${api_version}/\"; \"/\") | sub(\"/api/${api_version}\"; \"/\"))" "$temp_file" > "$processed_file"
+        jq ".paths |= with_entries(.key |= sub(\"/api/${api_version}/?\";\"/\"))" "$temp_file" > "$processed_file"
         
         echo "Importing spec into API Management..."
         
