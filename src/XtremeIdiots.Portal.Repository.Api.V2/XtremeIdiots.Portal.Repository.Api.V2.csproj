@@ -48,10 +48,10 @@
     <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="false" />
     
     <!-- Generate OpenAPI JSON for V2 -->
-    <Exec Command="dotnet swagger tofile --output $(OpenApiOutputPath)\openapi-v2.json $(SwaggerAssembly) v2" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" />
+    <Exec Command="dotnet swagger tofile --output $(OpenApiOutputPath)\openapi-v2.json $(SwaggerAssembly) v2" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" IgnoreExitCode="true" />
 
     <!-- Post-process OpenAPI files to replace /api/v2/ with / -->
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v2.json').replace('/api/v2/', '/').replace('/api/v2', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v2.json'&quot;" ContinueOnError="true" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v2.json').replace('/api/v2/', '/').replace('/api/v2', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v2.json'&quot;" ContinueOnError="true" IgnoreExitCode="true" />
   </Target>
 
 </Project>

@@ -48,14 +48,14 @@
     <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)\..\..\" />
     
     <!-- Generate OpenAPI files for different API versions -->
-    <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputPath)\openapi-v1.json&quot; &quot;$(SwaggerAssembly)&quot; v1" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" />
+    <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputPath)\openapi-v1.json&quot; &quot;$(SwaggerAssembly)&quot; v1" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" IgnoreExitCode="true" />
     
-    <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputPath)\openapi-v1.1.json&quot; &quot;$(SwaggerAssembly)&quot; v1.1" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" />
+    <Exec Command="dotnet swagger tofile --output &quot;$(OpenApiOutputPath)\openapi-v1.1.json&quot; &quot;$(SwaggerAssembly)&quot; v1.1" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" IgnoreExitCode="true" />
     
     <!-- Post-process OpenAPI files to replace /api/v1/ with / -->
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.json').replace('/api/v1/', '/').replace('/api/v1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.json'&quot;" ContinueOnError="true" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.json').replace('/api/v1/', '/').replace('/api/v1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.json'&quot;" ContinueOnError="true" IgnoreExitCode="true" />
     
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.1.json').replace('/api/v1.1/', '/').replace('/api/v1.1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.1.json'&quot;" ContinueOnError="true" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OpenApiOutputPath)\openapi-v1.1.json').replace('/api/v1.1/', '/').replace('/api/v1.1', '/') | Set-Content '$(OpenApiOutputPath)\openapi-v1.1.json'&quot;" ContinueOnError="true" IgnoreExitCode="true" />
     
     <Message Text="OpenAPI files generated and processed in $(OpenApiOutputPath)" Importance="high" />
   </Target>
