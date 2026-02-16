@@ -1,18 +1,18 @@
 {
-    "version": 1,
-    "isRoot": true,
-    "tools": {
-        "swashbuckle.aspnetcore.cli": {
-            "version": "9.0.6",
-            "commands": [
-                "swagger"
-            ]
-        },
-        "dotnet-outdated-tool": {
-            "version": "4.6.9",
-            "commands": [
-                "dotnet-outdated"
-            ]
-        }
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "swashbuckle.aspnetcore.cli": {
+      "version": "9.0.6",
+      "commands": [
+        "swagger"
+      ]
+    },
+    "dotnet-outdated-tool": {
+      "version": "4.7.0",
+      "commands": [
+        "dotnet-outdated"
+      ]
     }
+  }
 }
