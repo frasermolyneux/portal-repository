@@ -2,6 +2,7 @@ using System.Reflection;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using XtremeIdiots.Portal.RepositoryWebApi.Models;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V2;
 
@@ -20,7 +21,7 @@ public class ApiInfoController : ControllerBase
             .InformationalVersion ?? "unknown";
         var assemblyVersion = assembly.GetName().Version?.ToString() ?? "unknown";
 
-        return Ok(new
+        return Ok(new ApiInfoDto
         {
             Version = informationalVersion,
             BuildVersion = informationalVersion.Split('+')[0],

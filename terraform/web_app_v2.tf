@@ -27,7 +27,7 @@ resource "azurerm_linux_web_app" "app_v2" {
 
     minimum_tls_version = "1.2"
 
-    health_check_path                 = "/health"
+    health_check_path                 = "/v2.0/health"
     health_check_eviction_time_in_min = 5
   }
 

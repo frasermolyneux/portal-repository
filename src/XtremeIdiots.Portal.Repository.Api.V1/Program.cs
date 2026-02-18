@@ -117,7 +117,10 @@ builder.Services.AddOpenApi("v1.1", options =>
     options.AddDocumentTransformer<StripVersionPrefixTransformer>();
 });
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<XtremeIdiots.Portal.Repository.Api.V1.HealthChecks.SqlDatabaseHealthCheck>(
+        name: "sql-database",
+        tags: ["dependency"]);
 
 var app = builder.Build();
 
@@ -136,7 +139,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();
 
