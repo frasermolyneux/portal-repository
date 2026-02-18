@@ -2,7 +2,7 @@
 
 ## Solution Layout
 
-`src/XtremeIdiots.Portal.Repository.sln` contains API hosts (Api.V1, Api.V2), shared contracts (Abstractions.V1/V2), generated HTTP clients (Api.Client.V1/V2), the EF Core data layer (DataLib), a SQL database project (Database), and integration test suites (Legacy, V1, V2).
+`src/XtremeIdiots.Portal.Repository.sln` contains API hosts (Api.V1, Api.V2), shared contracts (Abstractions.V1/V2), generated HTTP clients (Api.Client.V1/V2), the EF Core data layer (DataLib), a SQL database project (Database), and integration test suites (V1, V2).
 
 ## Framework Targets
 
@@ -10,7 +10,21 @@ Libraries, clients, and tests multi-target `net9.0` and `net10.0`. API hosts tar
 
 ## Architecture
 
-APIs use attribute-routed ASP.NET Core controllers with `Asp.Versioning.Mvc` for versioning. V1 and V2 hosts run side by side behind Azure API Management. Responses standardise on `ApiResponse`/`CollectionResult` envelopes from the `MX.Api.Abstractions` package. V2 endpoints support OData-like query options (`$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$skip`, `$count`)—see `docs/api-design-v2.md`.
+APIs use attribute-routed ASP.NET Core controllers with `Asp.Versioning.Mvc` for URL segment versioning. V1 and V2 hosts run as separate App Services behind Azure API Management. Controller routes use `v{version:apiVersion}/[controller]` (no `/api/` prefix). The `GroupNameFormat` is `'v'VV` (always includes minor version: `v1.0`, `v1.1`, `v2.0`). Responses standardise on `ApiResponse`/`CollectionResult` envelopes from the `MX.Api.Abstractions` package. V2 endpoints support OData-like query options (`$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$skip`, `$count`)—see `docs/api-design-v2.md`.
+
+## OpenAPI & Interactive Docs
+
+Both hosts use native ASP.NET Core OpenAPI (`AddOpenApi()`) with two document transformers:
+
+- **`StripVersionPrefixTransformer`** — strips the version prefix from spec paths (e.g. `/v1.0/players/...` → `/players/...`) so APIM segment versioning manages the prefix without duplication.
+- **`BearerSecuritySchemeTransformer`** — adds Bearer JWT security scheme to all operations.
+
+Specs are served at runtime: `/openapi/v1.0.json`, `/openapi/v1.1.json` (V1 host), `/openapi/v2.0.json` (V2 host). No build-time spec generation. Scalar provides interactive API docs at `/scalar` on both hosts.
+
+## Key Endpoints
+
+- **`ApiInfoController`** — returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host). Anonymous access. Used by deploy workflows for version verification.
+- **Health** — `/health` on both hosts.
 
 ## Data Access
 
@@ -31,11 +45,13 @@ Integration test projects require configured databases and secrets; only run the
 
 ## Infrastructure
 
-Terraform (AzureRM v4, AzureAD v3) provisions API Management, App Services, SQL Database, Key Vault, Storage Accounts, and Application Insights. Terraform state uses an Azure Storage backend. See `terraform/` for resource definitions and `terraform/tfvars/` for per-environment variable files.
+Terraform (AzureRM v4, AzureAD v3) provisions API Management (version set, product, product policy, diagnostics), App Services, SQL Database, Key Vault, Storage Accounts, and Application Insights. APIM API definitions are **not** managed by Terraform — they are imported by deploy workflows. See `terraform/` for resource definitions and `terraform/tfvars/` for per-environment variable files.
 
 ## CI/CD Workflows
 
-GitHub Actions workflows in `.github/workflows/` cover build-and-test, code quality, PR verification, dev/prd deploys, environment destroy, NuGet publishing, integration tests, and dashboard updates. Versioning is handled by Nerdbank.GitVersioning (`version.json`).
+GitHub Actions workflows in `.github/workflows/` cover build-and-test, code quality, PR verification, dev/prd deploys, environment destroy, NuGet publishing, integration tests, and dashboard updates. Versioning is handled by Nerdbank.GitVersioning (`version.json`). The CI job outputs `build_version`.
+
+Deploy workflows perform version verification (polling `/v1.0/info` and `/v2.0/info` until the deployed build matches the expected version), then import OpenAPI specs into APIM via `az apim api import --specification-url` from the live App Services.
 
 ## Key Conventions
 
@@ -43,4 +59,5 @@ GitHub Actions workflows in `.github/workflows/` cover build-and-test, code qual
 - Regenerate DataLib after any database schema change.
 - Keep Abstractions and Client packages version-aligned with their host APIs.
 - Use C# 13 language features (set in `Directory.Build.props`).
-- Reference `docs/` for detailed guidance on versioning, backend mapping, and migration.
+- Controller routes use `v{version:apiVersion}/...` — no `/api/` prefix.
+- Reference `docs/` for detailed guidance on versioning and backend mapping.

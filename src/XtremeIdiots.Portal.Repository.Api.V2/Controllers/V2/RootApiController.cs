@@ -10,7 +10,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V2;
 [ApiController]
 [AllowAnonymous]
 [ApiVersion(ApiVersions.V2)]
-[Route("api/v{version:apiVersion}")]
+[Route("v{version:apiVersion}")]
 public class RootApiController : ControllerBase, IRootApi
 {
     [HttpHead]
@@ -25,3 +25,4 @@ public class RootApiController : ControllerBase, IRootApi
         });
     }
 }
+

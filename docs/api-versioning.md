@@ -1,98 +1,121 @@
-# API Versioning with OpenAPI Specs
+# API Versioning, APIM Routing & OpenAPI
 
-This document outlines how API versioning is implemented in the XtremeIdiots.Portal.Repository.Api.V1 project.
+This document describes how API versioning, path routing, OpenAPI spec generation, APIM integration, and deployment version verification work together in the Portal Repository service.
 
-## Overview
+## Backend (ASP.NET Core 9)
 
-The XtremeIdiots.Portal.Repository.Api.V1 project supports multiple API versions, which are deployed to Azure API Management. The versioning follows a combination of path-based versioning and segment-based versioning:
+The API uses `Asp.Versioning` with URL segment versioning across two separate hosts:
 
-- **Path-based versioning**: APIs are accessible at paths like `/api/v1`, `/api/v1.1`, `/api/v2` etc. in the backend application
-- **Segment-based versioning**: In API Management, APIs are accessed through segments like `/repository/v1`, `/repository/v1.1`, `/repository/v2` etc.
-- **Legacy APIs**: For backward compatibility, the API is also available without a version in the path
-- **Backend Mapping**: APIs are mapped to backend services by major version (e.g., all v1.x APIs use the same backend)
+- **V1 Host** (`Api.V1`): Serves v1.0 and v1.1 endpoints
+- **V2 Host** (`Api.V2`): Serves v2.0 endpoints
 
-## Workflow
+Both hosts use identical patterns:
 
-1. During the CI/CD process, the solution is built and run
-2. OpenAPI/Swagger specs are automatically captured for each API version
-3. The specs are published as artifacts
-4. Terraform deploys the API versions to Azure API Management using the specs
+- **Controller routes**: `[Route("v{version:apiVersion}/[controller]")]` + action routes
+- **Version reader**: `UrlSegmentApiVersionReader` extracts the version from the URL path
+- **Group name format**: `'v'VV` — always includes the minor version (`v1.0`, `v1.1`, `v2.0`) to ensure unambiguous OpenAPI document grouping
+- **Info endpoint**: `ApiInfoController` returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host) with anonymous access
+- **Health endpoint**: Both hosts expose `/health`
 
-## API Routing
+## OpenAPI Spec Generation
 
-The APIs are routed based on their version:
+Three OpenAPI documents are served at runtime across the two hosts:
 
-- **Legacy API (non-versioned)**: Routes to the `/api/v1.0` endpoint in the backend
-- **v1.0 API**: Routes to the `/api/v1.0` endpoint in the backend
-- **v1.1, v1.2, etc.**: Route to the `/api/v1.1`, `/api/v1.2` endpoints respectively in the backend
-- **v2.0, etc.**: Routes to the corresponding `/api/v2.0` endpoint in the backend
+**V1 Host:**
+- `/openapi/v1.0.json` — v1.0 endpoints
+- `/openapi/v1.1.json` — v1.1 endpoints
 
-## Implementation Details
+**V2 Host:**
+- `/openapi/v2.0.json` — v2.0 endpoints
 
-### Backend Application
+Two document transformers modify each spec:
 
-The backend application uses the ASP.NET versioning library to define API versions. Controllers are decorated with the `[ApiVersion]` attribute and organized in version-specific folders.
+1. **`StripVersionPrefixTransformer`** — Uses a regex (`^/v\d+(\.\d+)?`) to remove the version prefix from all spec paths (e.g. `/v1.0/players/...` → `/players/...`). This is required because APIM segment versioning manages the version prefix itself; without stripping, APIM would produce double-versioned paths (`/v1/v1/players/...`).
 
-```csharp
-[ApiController]
-[ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/[controller]")]
-public class ExampleController : ControllerBase
-{
-    // API methods
-}
+2. **`BearerSecuritySchemeTransformer`** — Adds the Bearer JWT security scheme and applies it to all operations.
+
+Scalar provides interactive API docs at `/scalar` on both hosts.
+
+## Build Versioning
+
+The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for deterministic versioning:
+
+- Assembly `InformationalVersion` is stamped at build time with the full SemVer2 string (e.g. `1.0.3+abc123def`)
+- The `dotnet-web-ci` action exposes `build_version` (NuGet version, e.g. `1.0.3`) as a job output
+- The `/v1.0/info` and `/v2.0/info` endpoints return the running version for deployment verification
+
+## APIM Configuration
+
+### Terraform-managed resources
+
+- **APIM instance**: Consumption tier
+- **Version set**: `repository-api` with `Segment` versioning scheme — APIM manages the version segment (e.g. `/v1`, `/v1.1`, `/v2`) in the consumer-facing URL
+- **Product**: `repository-api` with subscription required
+- **Product policy**: JWT validation (Entra ID) and request forwarding
+- **Diagnostic / logger**: Application Insights logging
+
+### Workflow-managed resources (GitHub Actions)
+
+The API definitions are imported via `az apim api import` after the App Services are deployed. All three specs are imported:
+
+| Parameter | v1 | v1.1 | v2 |
+|---|---|---|---|
+| `--api-id` | `repository-api-v1` | `repository-api-v1-1` | `repository-api-v2` |
+| `--api-version` | `v1` | `v1.1` | `v2` |
+| `--api-version-set-id` | `repository-api` | `repository-api` | `repository-api` |
+| `--specification-url` | `...v1-host/openapi/v1.0.json` | `...v1-host/openapi/v1.1.json` | `...v2-host/openapi/v2.0.json` |
+| `--service-url` | `...v1-host/v1` | `...v1-host/v1.1` | `...v2-host/v2` |
+| `--path` | `repository` | `repository` | `repository` |
+
+All APIs share the same `--path` and version set — APIM requires this for segment versioning to work. The `--service-url` routes v1.x requests to the V1 App Service and v2.x requests to the V2 App Service.
+
+Each API is then added to the product for subscription key access.
+
+## Deployment Version Verification
+
+Before importing OpenAPI specs, the workflow verifies the deployed apps are running the expected build:
+
+1. The `build-and-test` job outputs `build_version` (from Nerdbank.GitVersioning via the `dotnet-web-ci` action)
+2. The deploy job polls `GET /v1.0/info` on the V1 App Service and `GET /v2.0/info` on the V2 App Service, comparing `.buildVersion` from the response to the expected version
+3. Polling runs up to 30 attempts with 10-second intervals (5 minutes max)
+4. The APIM spec import only proceeds once both versions match
+
+This prevents importing a stale OpenAPI spec from a previous deployment that hasn't finished recycling.
+
+## Request Flow
+
+```
+Consumer request:
+  GET https://{apim-gateway}/repository/v1/players/{gameType}/{guid}
+                             │           │  │
+                             │           │  └─ Operation path (matched from spec: /players/{gameType}/{guid})
+                             │           └──── Version segment (managed by APIM segment versioning)
+                             └──────────────── API path (--path repository)
+
+APIM forwards to V1 App Service:
+  GET https://{v1-app-service}.azurewebsites.net/v1/players/{gameType}/{guid}
+                                                │   │
+                                                │   └─ Operation path from spec
+                                                └──── From --service-url (includes /v1)
+
+Backend matches:
+  [Route("v{version:apiVersion}/[controller]")] + [Route("{gameType}/{guid}")] ✅
 ```
 
-### API Management Configuration
+The same flow applies to v1.1 (routed to V1 App Service) and v2 (routed to V2 App Service).
 
-API Management is configured with:
+## Key Design Decisions
 
-1. **API Version Set**: Defines the versioning scheme (Segment)
-2. **API Definitions**: One for each version, importing the corresponding OpenAPI spec
-3. **Backend Mapping**: A structured approach to map API versions to backend services
+1. **Two-host architecture** — V1 and V2 hosts are separate App Services. The V1 host serves both v1.0 and v1.1, while V2 serves v2.0. APIM's `--service-url` routes to the correct host.
 
-The backend mapping is implemented as a structured map that includes all the necessary information for routing API requests to the appropriate backend service. For details, see [API Backend Mapping](api-backend-mapping.md).
-3. **Policies**: URL rewriting policies that map segment versions to path-based versions
+2. **Spec paths are version-free** — The `StripVersionPrefixTransformer` removes the version prefix from the OpenAPI spec so APIM segment versioning can own the version prefix without duplication.
 
-### Terraform
+3. **Service URL includes the version** — Because the spec paths are version-free but the backend controllers still expect `/v1.0/...`, `/v1.1/...`, or `/v2.0/...`, the APIM service URL must include the version suffix to bridge the gap.
 
-Terraform is responsible for:
+4. **Group name format uses `'v'VV`** — Always includes the minor version (`v1.0`, `v1.1`, `v2.0`) to prevent ambiguous prefix matching. Using `'v'V` would produce `v1` for version 1.0 which prefix-matches both `v1` and `v1.1` documents.
 
-- Dynamically discovering available OpenAPI specs from build artifacts
-- Automatically importing OpenAPI specs for each discovered version
-- Creating API definitions in API Management based on discovered versions
-- Dynamically configuring backend services by major version (e.g., all v1.x APIs use the v1 backend)
-- Applying URL rewriting policies that maintain consistent versioning
+5. **No Terraform-managed backends or API definitions** — APIM backends and API imports are fully managed by the deploy workflow using `az apim api import --service-url`. Terraform only manages the version set, product, product policy, and diagnostics.
 
-## Adding a New API Version
+6. **Runtime spec generation** — No build-time generation or source-controlled spec files. The deployed apps serve their own specs, and the workflow imports them directly from the live URLs.
 
-To add a new API version:
-
-1. Create controllers for the new version in the appropriate folder (e.g., `V1_1/ExampleController.cs`)
-2. Decorate controllers with the correct `[ApiVersion]` attribute
-3. The CI/CD pipeline will automatically detect and publish the new version
-4. No manual updates to Terraform are needed - the system will automatically discover and deploy new API versions
-
-## Backend Mapping
-
-API versions are mapped to backend services by their major version:
-
-```terraform
-// Backend mapping by major version
-backend_mapping = {
-  // All v1.x APIs use the v1 backend
-  "v1" = "repository-api-v1-backend"
-  // Add more major version backends here when needed
-  "v2" = "repository-api-v2-backend"
-}
-```
-
-When adding a new major version (e.g., v2.x), you'll need to update this mapping in `api_management_api_versioned.tf`.
-
-## Testing Versioned APIs
-
-You can test versioned APIs through:
-
-- Swagger UI at `/swagger/index.html` in the backend application
-- API Management developer portal
-- Direct calls to the API endpoints with appropriate version segments
+7. **Version verification before import** — The workflow polls the `/v1.0/info` and `/v2.0/info` endpoints to confirm the correct build is running before importing specs, preventing stale spec imports during App Service restarts.

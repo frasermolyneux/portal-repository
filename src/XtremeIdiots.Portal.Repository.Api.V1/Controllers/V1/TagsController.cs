@@ -23,7 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [ApiController]
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
-    [Route("api/v{version:apiVersion}")]
+    [Route("v{version:apiVersion}")]
     public class TagsController : ControllerBase, ITagsApi
     {
         internal const string TagPlayerCountsCacheKey = "TagsController:PlayerCounts";

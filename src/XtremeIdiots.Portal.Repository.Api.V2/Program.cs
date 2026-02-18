@@ -9,12 +9,10 @@ using Newtonsoft.Json.Converters;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V2;
-using XtremeIdiots.Portal.Repository.Api.V2.Configuration;
 using Asp.Versioning;
-using Asp.Versioning.ApiExplorer;
-using XtremeIdiots.Portal.Repository.Api.V2.OpenApiOperationFilters;
-using Microsoft.OpenApi.Models;
+using XtremeIdiots.Portal.Repository.Api.V2.OpenApi;
 using Azure.Core;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,48 +99,17 @@ builder.Services.AddApiVersioning(options =>
 })
 .AddApiExplorer(options =>
 {
-    // Format the version as "'v'major[.minor]" (e.g. v2.0)
-    options.GroupNameFormat = "'v'VVV";
+    // Format the version as "'v'major.minor" (e.g. v2.0)
+    options.GroupNameFormat = "'v'VV";
     options.SubstituteApiVersionInUrl = true;
 });
 
-// Configure Swagger
-builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.AddSwaggerGen(options =>
+// Configure OpenAPI
+builder.Services.AddOpenApi("v2.0", options =>
 {
-    options.OperationFilter<SwaggerDefaultValues>();
-
-    options.SchemaFilter<EnumSchemaFilter>();
-
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "",
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            []
-        }
-    });
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+    options.AddDocumentTransformer<StripVersionPrefixTransformer>();
 });
-
-// Configure Swagger options for versioning
-builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 
 builder.Services.AddHealthChecks();
 
@@ -154,21 +121,8 @@ if (isAzureAppConfigurationEnabled)
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        // Build a Swagger endpoint for each discovered API version
-        var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-        foreach (var description in provider.ApiVersionDescriptions)
-        {
-            options.SwaggerEndpoint(
-                $"/swagger/{description.GroupName}/swagger.json",
-                description.GroupName.ToUpperInvariant());
-        }
-    });
-}
+app.MapOpenApi();
+app.MapScalarApiReference();
 
 app.UseHttpsRedirection();
 
@@ -176,6 +130,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/api/health").AllowAnonymous();
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();
+

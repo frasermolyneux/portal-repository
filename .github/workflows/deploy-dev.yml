@@ -12,7 +12,8 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: frasermolyneux/actions/dotnet-web-ci@main
+      - id: v1-ci
+        uses: frasermolyneux/actions/dotnet-web-ci@main
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
           dotnet-version: |
@@ -20,7 +21,8 @@ jobs:
             10.0.x
           src-folder: "src"
           skip-nuget-artifact-upload: "true"
-      - uses: frasermolyneux/actions/dotnet-web-ci@main
+      - id: v2-ci
+        uses: frasermolyneux/actions/dotnet-web-ci@main
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
           dotnet-version: |
@@ -28,6 +30,9 @@ jobs:
             10.0.x
           src-folder: "src"
           skip-nuget-artifact-upload: "true"
+
+    outputs:
+      build_version: ${{ steps.v1-ci.outputs.build_version }}
 
   terraform-plan-and-apply-dev:
     permissions:
@@ -58,6 +63,10 @@ jobs:
           echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
           echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
           echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
+          echo "api_management_name=$(terraform output -raw api_management_name)" >> $GITHUB_OUTPUT
+          echo "api_management_resource_group_name=$(terraform output -raw api_management_resource_group_name)" >> $GITHUB_OUTPUT
+          echo "api_management_product_id=$(terraform output -raw api_management_product_id)" >> $GITHUB_OUTPUT
+          echo "api_version_set_id=$(terraform output -raw api_version_set_id)" >> $GITHUB_OUTPUT
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -72,6 +81,10 @@ jobs:
       web_app_resource_group_v2: ${{ steps.terraform-output.outputs.web_app_resource_group_v2 }}
       sql_server_fqdn: ${{ steps.terraform-output.outputs.sql_server_fqdn }}
       sql_database_name: ${{ steps.terraform-output.outputs.sql_database_name }}
+      api_management_name: ${{ steps.terraform-output.outputs.api_management_name }}
+      api_management_resource_group_name: ${{ steps.terraform-output.outputs.api_management_resource_group_name }}
+      api_management_product_id: ${{ steps.terraform-output.outputs.api_management_product_id }}
+      api_version_set_id: ${{ steps.terraform-output.outputs.api_version_set_id }}
 
   deploy-sql-database-dev:
     permissions:
@@ -131,3 +144,136 @@ jobs:
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+  apim-api-import-dev:
+    permissions:
+      contents: read
+      id-token: write
+    environment: Development
+    needs: [build-and-test, terraform-plan-and-apply-dev, app-service-deploy-v1-dev, app-service-deploy-v2-dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.repository }}-dev
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for V1 API version ${{ needs.build-and-test.outputs.build_version }}
+        shell: bash
+        run: |
+          EXPECTED_VERSION="${{ needs.build-and-test.outputs.build_version }}"
+          INFO_URL="https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/v1.0/info"
+          echo "Waiting for $INFO_URL to report version '$EXPECTED_VERSION'..."
+          for i in $(seq 1 30); do
+            RESPONSE=$(curl -s "$INFO_URL" || true)
+            CURRENT_VERSION=$(echo "$RESPONSE" | jq -r '.buildVersion // empty' 2>/dev/null || true)
+            if [ "$CURRENT_VERSION" = "$EXPECTED_VERSION" ]; then
+              echo "V1 API is running expected version '$EXPECTED_VERSION' (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i: got version '$CURRENT_VERSION' - waiting 10s..."
+            sleep 10
+          done
+          echo "V1 API did not report expected version '$EXPECTED_VERSION' in time (last seen: '$CURRENT_VERSION')"
+          exit 1
+
+      - name: Wait for V2 API version ${{ needs.build-and-test.outputs.build_version }}
+        shell: bash
+        run: |
+          EXPECTED_VERSION="${{ needs.build-and-test.outputs.build_version }}"
+          INFO_URL="https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}.azurewebsites.net/v2.0/info"
+          echo "Waiting for $INFO_URL to report version '$EXPECTED_VERSION'..."
+          for i in $(seq 1 30); do
+            RESPONSE=$(curl -s "$INFO_URL" || true)
+            CURRENT_VERSION=$(echo "$RESPONSE" | jq -r '.buildVersion // empty' 2>/dev/null || true)
+            if [ "$CURRENT_VERSION" = "$EXPECTED_VERSION" ]; then
+              echo "V2 API is running expected version '$EXPECTED_VERSION' (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i: got version '$CURRENT_VERSION' - waiting 10s..."
+            sleep 10
+          done
+          echo "V2 API did not report expected version '$EXPECTED_VERSION' in time (last seen: '$CURRENT_VERSION')"
+          exit 1
+
+      - name: Import OpenAPI v1 spec into APIM
+        shell: bash
+        run: |
+          az apim api import \
+            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
+            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
+            --api-id repository-api-v1 \
+            --display-name "Repository API" \
+            --path repository \
+            --api-version v1 \
+            --api-version-set-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_version_set_id }}" \
+            --protocols https \
+            --specification-format OpenApiJson \
+            --specification-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/openapi/v1.0.json" \
+            --service-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/v1" \
+            --subscription-required false
+
+      - name: Import OpenAPI v1.1 spec into APIM
+        shell: bash
+        run: |
+          az apim api import \
+            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
+            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
+            --api-id repository-api-v1-1 \
+            --display-name "Repository API" \
+            --path repository \
+            --api-version v1.1 \
+            --api-version-set-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_version_set_id }}" \
+            --protocols https \
+            --specification-format OpenApiJson \
+            --specification-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/openapi/v1.1.json" \
+            --service-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/v1.1" \
+            --subscription-required false
+
+      - name: Import OpenAPI v2 spec into APIM
+        shell: bash
+        run: |
+          az apim api import \
+            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
+            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
+            --api-id repository-api-v2 \
+            --display-name "Repository API" \
+            --path repository \
+            --api-version v2 \
+            --api-version-set-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_version_set_id }}" \
+            --protocols https \
+            --specification-format OpenApiJson \
+            --specification-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}.azurewebsites.net/openapi/v2.0.json" \
+            --service-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}.azurewebsites.net/v2" \
+            --subscription-required false
+
+      - name: Add v1 API to product
+        shell: bash
+        run: |
+          az apim product api add \
+            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
+            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
+            --product-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_product_id }}" \
+            --api-id repository-api-v1 || true
+
+      - name: Add v1.1 API to product
+        shell: bash
+        run: |
+          az apim product api add \
+            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
+            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
+            --product-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_product_id }}" \
+            --api-id repository-api-v1-1 || true
+
+      - name: Add v2 API to product
+        shell: bash
+        run: |
+          az apim product api add \
+            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
+            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
+            --product-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_product_id }}" \
+            --api-id repository-api-v2 || true
