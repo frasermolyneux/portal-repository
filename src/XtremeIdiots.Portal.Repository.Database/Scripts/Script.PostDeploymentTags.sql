@@ -112,4 +112,17 @@ BEGIN
     PRINT 'Inserted vpn-detected tag'
 END
 
+-- Moderate Chat Tag
+IF NOT EXISTS (SELECT *
+FROM [dbo].[Tags]
+WHERE [Name] = 'moderate-chat')
+BEGIN
+    INSERT INTO [dbo].[Tags]
+        ([Name], [Description], [UserDefined], [TagHtml])
+    VALUES
+        ('moderate-chat', 'All chat messages from this player are analysed by AI content moderation', 1, '<span class="badge bg-warning"><i class="fa-solid fa-shield"></i> Moderate Chat</span>')
+
+    PRINT 'Inserted moderate-chat tag'
+END
+
 PRINT 'Finished inserting system tags'
