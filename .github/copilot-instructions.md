@@ -37,7 +37,9 @@ dotnet build src/XtremeIdiots.Portal.Repository.sln
 dotnet test src/XtremeIdiots.Portal.Repository.sln
 ```
 
-Integration test projects require configured databases and secrets; only run them when infrastructure is available. Unit/integration tests use xUnit with Moq.
+Unit tests use EF Core In-Memory provider and require no external dependencies. Integration tests use `WebApplicationFactory` with in-memory database and `TestAuthHandler` for auth bypass. Test framework: xUnit + Moq. See [docs/testing.md](../docs/testing.md) for details.
+
+Three NuGet packages are published: `XtremeIdiots.Portal.Repository.Api.Client.V1`, `XtremeIdiots.Portal.Repository.Api.Client.V2`, and `XtremeIdiots.Portal.Repository.Api.Client.Testing` (in-memory fakes and DTO factories for consumer test projects).
 
 ## API Clients
 
