@@ -7,15 +7,12 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>XtremeIdiots.Portal.Repository.Abstractions.V2</PackageId>
-    <Authors>Fraser Molyneux</Authors>
-    <Company>XtremeIdiots</Company>
     <Product>XtremeIdiots Portal</Product>
     <Title>XtremeIdiots Portal Repository API Abstractions V2</Title>
     <Description>V2 Abstractions for the XtremeIdiots Portal Repository API.</Description>
     <PackageProjectUrl>https://github.com/frasermolyneux/portal-repository</PackageProjectUrl>
     <RepositoryUrl>https://github.com/frasermolyneux/portal-repository</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression> 
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +27,10 @@
   <ItemGroup>
     <PackageReference Include="MX.Api.Abstractions" Version="2.2.40" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

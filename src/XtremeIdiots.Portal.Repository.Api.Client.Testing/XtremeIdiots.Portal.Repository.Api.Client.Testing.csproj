@@ -4,15 +4,14 @@
 		<TargetFrameworks>net9.0;net10.0</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<Authors>Fraser Molyneux</Authors>
-		<Product>Portal Repository Client Testing</Product>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>XtremeIdiots.Portal.Repository.Api.Client.Testing</PackageId>
+		<Product>XtremeIdiots Portal</Product>
+		<Title>XtremeIdiots Portal Repository API Client Testing</Title>
 		<Description>Test helpers for consumer apps: in-memory fakes of IRepositoryApiClient, DTO factory methods, and DI extensions for integration tests.</Description>
-		<Copyright>GNUv3</Copyright>
-		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 		<PackageProjectUrl>https://github.com/frasermolyneux/portal-repository</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/frasermolyneux/portal-repository</RepositoryUrl>
-		<RepositoryType>Git</RepositoryType>
-		<PackageId>XtremeIdiots.Portal.Repository.Api.Client.Testing</PackageId>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -25,6 +24,10 @@
 		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V2\XtremeIdiots.Portal.Repository.Abstractions.V2.csproj" />
 		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Api.Client.V1\XtremeIdiots.Portal.Repository.Api.Client.V1.csproj" />
 		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Api.Client.V2\XtremeIdiots.Portal.Repository.Api.Client.V2.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 </Project>
