@@ -20,7 +20,7 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
-      - uses: frasermolyneux/actions/dotnet-ci@dotnet-ci/v1.3
+      - uses: frasermolyneux/actions/dotnet-ci@dotnet-ci/v1.3.1
         with:
           dotnet-version: |
             9.0.x
@@ -28,7 +28,7 @@ jobs:
           src-folder: "src"
           skip-nuget-artifact-upload: "true"
 
-      - uses: frasermolyneux/actions/dotnet-web-ci@main
+      - uses: frasermolyneux/actions/dotnet-web-ci@dotnet-web-ci/v1.3.1
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
           dotnet-version: |
@@ -37,7 +37,7 @@ jobs:
           src-folder: "src"
           skip-nuget-artifact-upload: "true"
 
-      - uses: frasermolyneux/actions/dotnet-web-ci@main
+      - uses: frasermolyneux/actions/dotnet-web-ci@dotnet-web-ci/v1.3.1
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
           dotnet-version: |
@@ -62,7 +62,7 @@ jobs:
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     steps:
-      - uses: frasermolyneux/actions/terraform-plan@main
+      - uses: frasermolyneux/actions/terraform-plan@terraform-plan/v1.3.1
         with:
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/dev.tfvars"
@@ -83,7 +83,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/terraform-plan-and-apply@main
+      - uses: frasermolyneux/actions/terraform-plan-and-apply@terraform-plan-and-apply/v1.3.1
         with:
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/dev.tfvars"
@@ -129,7 +129,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-sql-database@main
+      - uses: frasermolyneux/actions/deploy-sql-database@deploy-sql-database/v1.1.2
         with:
           sql-args: /Variables:env=dev /Variables:instance=01
           sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
@@ -152,7 +152,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-app-service@main
+      - uses: frasermolyneux/actions/deploy-app-service@deploy-app-service/v1.1.3
         with:
           web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V1"
           web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
@@ -173,7 +173,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-app-service@main
+      - uses: frasermolyneux/actions/deploy-app-service@deploy-app-service/v1.1.3
         with:
           web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
           web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
@@ -198,7 +198,7 @@ jobs:
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     steps:
-      - uses: frasermolyneux/actions/terraform-plan@main
+      - uses: frasermolyneux/actions/terraform-plan@terraform-plan/v1.3.1
         with:
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/prd.tfvars"
