@@ -134,21 +134,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             ReportsOrder? order,
             CancellationToken cancellationToken)
         {
-            var baseQuery = context.Reports
+            // Use lightweight query without includes for counting
+            var countQuery = context.Reports.AsNoTracking().AsQueryable();
+            var totalCount = await countQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            var filteredCountQuery = ApplyFilters(countQuery, gameType, gameServerId, cutoff, filter);
+            var filteredCount = await filteredCountQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            // Build data query with includes only for the paginated results
+            var dataQuery = context.Reports
                 .Include(r => r.UserProfile)
                 .Include(r => r.AdminUserProfile)
                 .AsNoTracking()
                 .AsQueryable();
 
-            // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-
-            // Apply filters
-            var filteredQuery = ApplyFilters(baseQuery, gameType, gameServerId, cutoff, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-
-            // Apply ordering and pagination
-            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var filteredDataQuery = ApplyFilters(dataQuery, gameType, gameServerId, cutoff, filter);
+            var orderedQuery = ApplyOrderingAndPagination(filteredDataQuery, skipEntries, takeEntries, order);
             var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = results.Select(r => r.ToDto()).ToList();

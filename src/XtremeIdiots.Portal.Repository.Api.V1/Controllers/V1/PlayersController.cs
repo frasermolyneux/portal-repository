@@ -348,7 +348,11 @@ public class PlayersController : ControllerBase, IPlayersApi
             totalCount = await countQuery.CountAsync().ConfigureAwait(false);
 
             // Cache the count for 10 minutes
-            _memoryCache.Set(cacheKey, totalCount, TimeSpan.FromMinutes(10));
+            _memoryCache.Set(cacheKey, totalCount, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                Size = 1
+            });
         }
 
         // Start building the query for filtered results
@@ -1064,34 +1068,24 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         if (owningPlayer == null)
             return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
 
-        // Find all player aliases that match this protected name
-        var matchingAliases = await context.PlayerAliases
-            .AsNoTracking()
-            .Include(pa => pa.Player)
-            .Where(pa => pa.Name != null && protectedName.Name != null && pa.Name.ToLower() == protectedName.Name.ToLower())
-            .OrderByDescending(pa => pa.LastUsed)
-            .ToListAsync().ConfigureAwait(false);
-
-        List<ProtectedNameUsageReportDto.PlayerUsageDto> usageInstances = [];
-
-        // Group by player and create usage instances
-        foreach (var group in matchingAliases.GroupBy(a => a.PlayerId))
-        {
-            var player = group.First().Player;
-            if (player != null)
-            {
-                var isOwner = player.PlayerId == protectedName.PlayerId;
-
-                usageInstances.Add(new ProtectedNameUsageReportDto.PlayerUsageDto
+        // Aggregate alias usage per player in SQL using collation-aware comparison
+        // instead of loading all matching aliases into memory and grouping client-side
+        var usageInstances = protectedName.Name == null
+            ? []
+            : await context.PlayerAliases
+                .AsNoTracking()
+                .Include(pa => pa.Player)
+                .Where(pa => pa.Name != null && EF.Functions.Like(pa.Name, protectedName.Name))
+                .GroupBy(pa => new { pa.PlayerId, pa.Player!.Username })
+                .Select(g => new ProtectedNameUsageReportDto.PlayerUsageDto
                 {
-                    PlayerId = player.PlayerId,
-                    Username = player.Username ?? string.Empty,
-                    IsOwner = isOwner,
-                    LastUsed = group.Max(a => a.LastUsed),
-                    UsageCount = group.Count()
-                });
-            }
-        }
+                    PlayerId = g.Key.PlayerId!.Value,
+                    Username = g.Key.Username ?? string.Empty,
+                    IsOwner = g.Key.PlayerId == protectedName.PlayerId,
+                    LastUsed = g.Max(a => a.LastUsed),
+                    UsageCount = g.Count()
+                })
+                .ToListAsync().ConfigureAwait(false);
 
         var result = new ProtectedNameUsageReportDto
         {
@@ -1399,15 +1393,59 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         // Execute the final query
         var players = await query.ToListAsync().ConfigureAwait(false);
 
-        // Include related data based on options
+        // Batch-load related data instead of N+1 per-player explicit loading
+        var playerIds = players.Select(p => p.PlayerId).ToList();
+
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Aliases))
-            players.ForEach(p => context.Entry(p).Collection(p => p.PlayerAliases).Load());
+        {
+            var playerIdToAliases = await context.PlayerAliases
+                .AsNoTracking()
+                .Where(pa => pa.PlayerId != null && playerIds.Contains(pa.PlayerId.Value))
+                .GroupBy(pa => pa.PlayerId!.Value)
+                .Select(g => new
+                {
+                    PlayerId = g.Key,
+                    Aliases = g.OrderByDescending(a => a.LastUsed).Take(10).ToList()
+                })
+                .ToDictionaryAsync(x => x.PlayerId, x => x.Aliases).ConfigureAwait(false);
+
+            foreach (var player in players)
+                player.PlayerAliases = playerIdToAliases.GetValueOrDefault(player.PlayerId, []);
+        }
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.IpAddresses))
-            players.ForEach(p => context.Entry(p).Collection(p => p.PlayerIpAddresses).Load());
+        {
+            var playerIdToIpAddresses = await context.PlayerIpAddresses
+                .AsNoTracking()
+                .Where(ip => ip.PlayerId != null && playerIds.Contains(ip.PlayerId.Value))
+                .GroupBy(ip => ip.PlayerId)
+                .Select(g => new
+                {
+                    PlayerId = g.Key!.Value,
+                    IpAddresses = g.OrderByDescending(ip => ip.LastUsed).Take(10).ToList()
+                })
+                .ToDictionaryAsync(x => x.PlayerId, x => x.IpAddresses).ConfigureAwait(false);
+
+            foreach (var player in players)
+                player.PlayerIpAddresses = playerIdToIpAddresses.GetValueOrDefault(player.PlayerId, []);
+        }
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.AdminActions))
-            players.ForEach(p => context.Entry(p).Collection(p => p.AdminActions).Load());
+        {
+            var playerIdToAdminActions = await context.AdminActions
+                .AsNoTracking()
+                .Where(aa => playerIds.Contains(aa.PlayerId))
+                .GroupBy(aa => aa.PlayerId)
+                .Select(g => new
+                {
+                    PlayerId = g.Key,
+                    AdminActions = g.OrderByDescending(aa => aa.Created).Take(10).ToList()
+                })
+                .ToDictionaryAsync(x => x.PlayerId, x => x.AdminActions).ConfigureAwait(false);
+
+            foreach (var player in players)
+                player.AdminActions = playerIdToAdminActions.GetValueOrDefault(player.PlayerId, []);
+        }
 
         // Map to DTOs
         var playerDtos = players.Select(p => p.ToDto()).ToList();
@@ -1749,10 +1787,15 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         var trimmedSearch = aliasSearch.Trim();
 
-        // Find aliases that match the search term
+        // Use full-text search (CONTAINSTABLE) instead of LIKE '%term%' to leverage the existing full-text index on PlayerAlias.Name
+        var sanitized = trimmedSearch.Replace("\"", "\"\"");
+        var ftSearch = $"\"{sanitized}*\"";
+
         var query = context.PlayerAliases
+            .FromSqlInterpolated($@"SELECT a.*
+FROM CONTAINSTABLE(PlayerAlias, (Name), {ftSearch}) ft
+JOIN PlayerAlias a ON a.PlayerAliasId = ft.[Key]")
             .AsNoTracking()
-            .Where(pa => pa.Name != null && pa.Name.Contains(trimmedSearch))
             .OrderByDescending(pa => pa.LastUsed);
 
         var totalCount = await query.CountAsync().ConfigureAwait(false);

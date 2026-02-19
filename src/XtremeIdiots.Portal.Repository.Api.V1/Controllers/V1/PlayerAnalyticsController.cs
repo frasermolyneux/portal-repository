@@ -64,18 +64,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsNoTracking()
                 .CountAsync(p => p.FirstSeen < cutoff, cancellationToken).ConfigureAwait(false);
 
-            var players = await context.Players
+            // Group by date in SQL instead of loading all individual dates into memory
+            var dailyCounts = await context.Players
                 .AsNoTracking()
                 .Where(p => p.FirstSeen > cutoff)
-                .Select(p => p.FirstSeen)
-                .OrderBy(p => p)
+                .GroupBy(p => p.FirstSeen.Date)
+                .Select(g => new { Date = g.Key, Count = g.Count() })
+                .OrderBy(x => x.Date)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-            var groupedPlayers = players.GroupBy(p => new DateTime(p.Year, p.Month, p.Day))
+            // Build cumulative totals from the aggregated daily counts
+            var groupedPlayers = dailyCounts
                 .Select(g => new PlayerAnalyticEntryDto
                 {
-                    Created = g.Key,
-                    Count = cumulative += g.Count()
+                    Created = g.Date,
+                    Count = cumulative += g.Count
                 })
                 .ToList();
 
@@ -113,20 +116,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing a collection of new daily player statistics grouped by game type.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> IPlayerAnalyticsApi.GetNewDailyPlayersPerGame(DateTime cutoff, CancellationToken cancellationToken)
         {
-            var players = await context.Players
+            // Group by date and game type in SQL instead of loading all rows into memory
+            var dailyGameCounts = await context.Players
                 .AsNoTracking()
                 .Where(p => p.FirstSeen > cutoff)
-                .Select(p => new { p.FirstSeen, p.GameType })
-                .OrderBy(p => p.FirstSeen)
+                .GroupBy(p => new { Date = p.FirstSeen.Date, p.GameType })
+                .Select(g => new { g.Key.Date, g.Key.GameType, Count = g.Count() })
+                .OrderBy(x => x.Date)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-            var groupedPlayers = players.GroupBy(p => new DateTime(p.FirstSeen.Year, p.FirstSeen.Month, p.FirstSeen.Day))
+            var groupedPlayers = dailyGameCounts
+                .GroupBy(x => x.Date)
                 .Select(g => new PlayerAnalyticPerGameEntryDto
                 {
                     Created = g.Key,
-                    GameCounts = g.GroupBy(i => i.GameType)
-                        .Select(i => new { Type = i.Key, Count = i.Count() })
-                        .ToDictionary(a => a.Type.ToGameType(), a => a.Count)
+                    GameCounts = g.ToDictionary(i => i.GameType.ToGameType(), i => i.Count)
                 }).ToList();
 
             var result = new CollectionModel<PlayerAnalyticPerGameEntryDto>
@@ -163,20 +167,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing a collection of player drop-off statistics grouped by game type.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> IPlayerAnalyticsApi.GetPlayersDropOffPerGameJson(DateTime cutoff, CancellationToken cancellationToken)
         {
-            var players = await context.Players
+            // Group by date and game type in SQL instead of loading all rows into memory
+            var dailyGameCounts = await context.Players
                 .AsNoTracking()
                 .Where(p => p.LastSeen > cutoff)
-                .Select(p => new { p.LastSeen, p.GameType })
-                .OrderBy(p => p.LastSeen)
+                .GroupBy(p => new { Date = p.LastSeen.Date, p.GameType })
+                .Select(g => new { g.Key.Date, g.Key.GameType, Count = g.Count() })
+                .OrderBy(x => x.Date)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-            var groupedPlayers = players.GroupBy(p => new DateTime(p.LastSeen.Year, p.LastSeen.Month, p.LastSeen.Day))
+            var groupedPlayers = dailyGameCounts
+                .GroupBy(x => x.Date)
                 .Select(g => new PlayerAnalyticPerGameEntryDto
                 {
                     Created = g.Key,
-                    GameCounts = g.GroupBy(i => i.GameType)
-                        .Select(i => new { Type = i.Key, Count = i.Count() })
-                        .ToDictionary(a => a.Type.ToGameType(), a => a.Count)
+                    GameCounts = g.ToDictionary(i => i.GameType.ToGameType(), i => i.Count)
                 }).ToList();
 
             var result = new CollectionModel<PlayerAnalyticPerGameEntryDto>

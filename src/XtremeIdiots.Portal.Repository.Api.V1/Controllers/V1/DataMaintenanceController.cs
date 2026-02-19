@@ -174,7 +174,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     {
         var twoWeeksAgo = DateTime.UtcNow.AddDays(-14);
 
-        // First, get the tag IDs by name using AsNoTracking for better performance
+        // Get the tag IDs by name
         var activeTag = await context.Tags
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Name == "active-players", cancellationToken).ConfigureAwait(false);
@@ -188,86 +188,45 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             throw new InvalidOperationException("Required tags 'active-players' or 'inactive-player' do not exist.");
         }
 
-        // Get list of active players (played in last 2 weeks)
-        var activePlayers = await context.Players
-            .AsNoTracking()
-            .Where(rp => rp.LastSeen >= twoWeeksAgo)
-            .Select(rp => rp.PlayerId)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var activeTagId = activeTag.TagId;
+        var inactiveTagId = inactiveTag.TagId;
+        var now = DateTime.UtcNow;
 
-        // Get all players
-        var allPlayerIds = await context.Players
-            .AsNoTracking()
-            .Select(p => p.PlayerId)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        // Remove inactive tags from active players (played in last 2 weeks)
+        await context.Database.ExecuteSqlInterpolatedAsync($@"
+            DELETE pt FROM [dbo].[PlayerTags] pt
+            INNER JOIN [dbo].[Players] p ON pt.[PlayerId] = p.[PlayerId]
+            WHERE pt.[TagId] = {inactiveTagId}
+              AND p.[LastSeen] >= {twoWeeksAgo}", cancellationToken).ConfigureAwait(false);
 
-        // Determine which players are inactive (using except manually)
-        var inactivePlayers = allPlayerIds
-            .Where(p => !activePlayers.Contains(p))
-            .ToList();
+        // Remove active tags from inactive players (not played in last 2 weeks)
+        await context.Database.ExecuteSqlInterpolatedAsync($@"
+            DELETE pt FROM [dbo].[PlayerTags] pt
+            INNER JOIN [dbo].[Players] p ON pt.[PlayerId] = p.[PlayerId]
+            WHERE pt.[TagId] = {activeTagId}
+              AND p.[LastSeen] < {twoWeeksAgo}", cancellationToken).ConfigureAwait(false);
 
-        // Get existing player tags
-        var existingPlayerTags = await context.PlayerTags
-            .Where(pt => pt.TagId == activeTag.TagId || pt.TagId == inactiveTag.TagId)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        // Add active tag to active players who don't already have it
+        await context.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO [dbo].[PlayerTags] ([PlayerTagId], [PlayerId], [TagId], [Assigned])
+            SELECT NEWID(), p.[PlayerId], {activeTagId}, {now}
+            FROM [dbo].[Players] p
+            WHERE p.[LastSeen] >= {twoWeeksAgo}
+              AND NOT EXISTS (
+                  SELECT 1 FROM [dbo].[PlayerTags] pt
+                  WHERE pt.[PlayerId] = p.[PlayerId] AND pt.[TagId] = {activeTagId}
+              )", cancellationToken).ConfigureAwait(false);
 
-        // Process active players
-        foreach (var playerId in activePlayers)
-        {
-            // Remove inactive tag if exists
-            var existingInactiveTag = existingPlayerTags
-                .FirstOrDefault(pt => pt.PlayerId == playerId && pt.TagId == inactiveTag.TagId);
-
-            if (existingInactiveTag != null)
-            {
-                context.PlayerTags.Remove(existingInactiveTag);
-            }
-
-            // Add active tag if not exists
-            var hasActiveTag = existingPlayerTags
-                .Any(pt => pt.PlayerId == playerId && pt.TagId == activeTag.TagId);
-
-            if (!hasActiveTag)
-            {
-                context.PlayerTags.Add(new PlayerTag
-                {
-                    PlayerTagId = Guid.NewGuid(),
-                    PlayerId = playerId,
-                    TagId = activeTag.TagId,
-                    Assigned = DateTime.UtcNow
-                });
-            }
-        }
-
-        // Process inactive players
-        foreach (var playerId in inactivePlayers)
-        {
-            // Remove active tag if exists
-            var existingActiveTag = existingPlayerTags
-                .FirstOrDefault(pt => pt.PlayerId == playerId && pt.TagId == activeTag.TagId);
-
-            if (existingActiveTag != null)
-            {
-                context.PlayerTags.Remove(existingActiveTag);
-            }
-
-            // Add inactive tag if not exists
-            var hasInactiveTag = existingPlayerTags
-                .Any(pt => pt.PlayerId == playerId && pt.TagId == inactiveTag.TagId);
-
-            if (!hasInactiveTag)
-            {
-                context.PlayerTags.Add(new PlayerTag
-                {
-                    PlayerTagId = Guid.NewGuid(),
-                    PlayerId = playerId,
-                    TagId = inactiveTag.TagId,
-                    Assigned = DateTime.UtcNow
-                });
-            }
-        }
-
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        // Add inactive tag to inactive players who don't already have it
+        await context.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO [dbo].[PlayerTags] ([PlayerTagId], [PlayerId], [TagId], [Assigned])
+            SELECT NEWID(), p.[PlayerId], {inactiveTagId}, {now}
+            FROM [dbo].[Players] p
+            WHERE p.[LastSeen] < {twoWeeksAgo}
+              AND NOT EXISTS (
+                  SELECT 1 FROM [dbo].[PlayerTags] pt
+                  WHERE pt.[PlayerId] = p.[PlayerId] AND pt.[TagId] = {inactiveTagId}
+              )", cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }

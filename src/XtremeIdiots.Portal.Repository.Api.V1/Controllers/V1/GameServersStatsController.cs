@@ -64,15 +64,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the game server statistics were created.</returns>
         async Task<ApiResult> IGameServersStatsApi.CreateGameServerStats(List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken)
         {
+            // Batch-fetch the latest stat per game server in a single query instead of N+1
+            var gameServerIds = createGameServerStatDtos.Select(dto => dto.GameServerId).Distinct().ToList();
+
+            var latestStats = await context.GameServerStats
+                .AsNoTracking()
+                .Where(gss => gss.GameServerId != null && gameServerIds.Contains(gss.GameServerId.Value))
+                .GroupBy(gss => gss.GameServerId!.Value)
+                .Select(g => g.OrderByDescending(gss => gss.Timestamp).First())
+                .ToDictionaryAsync(gss => gss.GameServerId!.Value, cancellationToken).ConfigureAwait(false);
+
             List<GameServerStat> gameServerStats = [];
 
             foreach (var createGameServerStatDto in createGameServerStatDtos)
             {
-                var lastStat = await context.GameServerStats
-                    .AsNoTracking()
-                    .Where(gss => gss.GameServerId == createGameServerStatDto.GameServerId)
-                    .OrderBy(gss => gss.Timestamp)
-                    .LastOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+                latestStats.TryGetValue(createGameServerStatDto.GameServerId, out var lastStat);
 
                 if (lastStat == null || lastStat.PlayerCount != createGameServerStatDto.PlayerCount || lastStat.MapName != createGameServerStatDto.MapName)
                 {

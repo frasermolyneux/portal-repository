@@ -125,21 +125,23 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     /// <returns>An API result containing a paginated collection of chat messages.</returns>
     async Task<ApiResult<CollectionModel<ChatMessageDto>>> IChatMessagesApi.GetChatMessages(GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly, CancellationToken cancellationToken)
     {
-        var baseQuery = context.ChatMessages
+        // Use a lightweight query without includes for counting
+        var countQuery = context.ChatMessages.AsNoTracking().AsQueryable();
+        var totalCount = await countQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        // Apply filtering to the count query (without includes)
+        var filteredCountQuery = ApplyFilter(countQuery, gameType, gameServerId, playerId, filterString, lockedOnly);
+        var filteredCount = await filteredCountQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        // Build the data query with includes only for the paginated results
+        var dataQuery = context.ChatMessages
             .Include(cl => cl.GameServer)
             .Include(cl => cl.Player)
             .AsNoTracking()
             .AsQueryable();
 
-        // Calculate total count before applying filtering
-        var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-
-        // Apply filtering
-        var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, playerId, filterString, lockedOnly);
-        var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-
-        // Apply ordering and pagination
-        var orderedQuery = ApplyOrderAndLimits(filteredQuery, skipEntries, takeEntries, order);
+        var filteredDataQuery = ApplyFilter(dataQuery, gameType, gameServerId, playerId, filterString, lockedOnly);
+        var orderedQuery = ApplyOrderAndLimits(filteredDataQuery, skipEntries, takeEntries, order);
         var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var entries = results.Select(cm => cm.ToDto()).ToList();

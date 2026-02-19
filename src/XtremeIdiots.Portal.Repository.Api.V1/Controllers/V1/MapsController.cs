@@ -441,27 +441,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map popularity was rebuilt.</returns>
         async Task<ApiResult> IMapsApi.RebuildMapPopularity(CancellationToken cancellationToken)
         {
-            var maps = await context.Maps.Include(m => m.MapVotes).ToListAsync(cancellationToken).ConfigureAwait(false);
-
-            foreach (var map in maps)
-            {
-                map.TotalLikes = map.MapVotes.Count(mv => mv.Like);
-                map.TotalDislikes = map.MapVotes.Count(mv => !mv.Like);
-                map.TotalVotes = map.MapVotes.Count;
-
-                if (map.TotalVotes > 0)
-                {
-                    map.LikePercentage = (double)map.TotalLikes / map.TotalVotes * 100;
-                    map.DislikePercentage = (double)map.TotalDislikes / map.TotalVotes * 100;
-                }
-                else
-                {
-                    map.LikePercentage = 0;
-                    map.DislikePercentage = 0;
-                }
-            }
-
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            // Use a single SQL statement to compute and update aggregates server-side
+            // instead of loading all Maps + MapVotes into memory.
+            await context.Database.ExecuteSqlRawAsync(@"
+                UPDATE m SET
+                    m.[TotalLikes] = ISNULL(v.Likes, 0),
+                    m.[TotalDislikes] = ISNULL(v.Dislikes, 0),
+                    m.[TotalVotes] = ISNULL(v.Total, 0),
+                    m.[LikePercentage] = CASE WHEN ISNULL(v.Total, 0) > 0 THEN CAST(ISNULL(v.Likes, 0) AS FLOAT) / v.Total * 100 ELSE 0 END,
+                    m.[DislikePercentage] = CASE WHEN ISNULL(v.Total, 0) > 0 THEN CAST(ISNULL(v.Dislikes, 0) AS FLOAT) / v.Total * 100 ELSE 0 END
+                FROM [dbo].[Maps] m
+                LEFT JOIN (
+                    SELECT [MapId],
+                           SUM(CASE WHEN [Like] = 1 THEN 1 ELSE 0 END) AS Likes,
+                           SUM(CASE WHEN [Like] = 0 THEN 1 ELSE 0 END) AS Dislikes,
+                           COUNT(*) AS Total
+                    FROM [dbo].[MapVotes]
+                    GROUP BY [MapId]
+                ) v ON m.[MapId] = v.[MapId]", cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

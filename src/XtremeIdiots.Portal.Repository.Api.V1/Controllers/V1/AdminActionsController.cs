@@ -115,21 +115,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             AdminActionOrder? order,
             CancellationToken cancellationToken)
         {
-            var baseQuery = context.AdminActions
+            // Use lightweight query without includes for counting
+            var countQuery = context.AdminActions.AsNoTracking().AsQueryable();
+            var totalCount = await countQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            var filteredCountQuery = ApplyFilters(countQuery, gameType, playerId, adminId, filter);
+            var filteredCount = await filteredCountQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            // Build data query with includes only for the paginated results
+            var dataQuery = context.AdminActions
                 .Include(a => a.Player)
                 .Include(a => a.UserProfile)
                 .AsNoTracking()
                 .AsQueryable();
 
-            // Calculate total count before applying filters
-            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-
-            // Apply filters
-            var filteredQuery = ApplyFilters(baseQuery, gameType, playerId, adminId, filter);
-            var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-
-            // Apply ordering and pagination
-            var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
+            var filteredDataQuery = ApplyFilters(dataQuery, gameType, playerId, adminId, filter);
+            var orderedQuery = ApplyOrderingAndPagination(filteredDataQuery, skipEntries, takeEntries, order);
             var adminActions = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var entries = adminActions.Select(aa => aa.ToDto()).ToList();

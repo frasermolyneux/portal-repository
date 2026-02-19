@@ -44,7 +44,10 @@ if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
 
 builder.Services.AddSingleton<ITelemetryInitializer, TelemetryInitializer>();
 builder.Services.AddLogging();
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024;
+});
 
 //https://learn.microsoft.com/en-us/azure/azure-monitor/app/sampling-classic-api#configure-sampling-settings
 builder.Services.Configure<TelemetryConfiguration>(telemetryConfiguration =>

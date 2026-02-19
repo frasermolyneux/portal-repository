@@ -49,6 +49,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var counts = await memoryCache.GetOrCreateAsync(TagPlayerCountsCacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
+                entry.Size = 1;
 
                 return await context.PlayerTags
                     .AsNoTracking()
