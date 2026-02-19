@@ -13,7 +13,7 @@ using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
-using XtremeIdiots.CallOfDuty.DemoReader.Models;
+using MX.CodDemoReader.Models;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;

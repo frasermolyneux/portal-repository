@@ -1,4 +1,4 @@
-using XtremeIdiots.CallOfDuty.DemoReader.Models;
+using MX.CodDemoReader.Models;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Extensions

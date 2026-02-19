@@ -266,7 +266,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             Convert.FromBase64String("MRMoR2jCIgtFK2zpmGOPRQ==")
         ];
         var removedHashMatches = 0;
-        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken).ConfigureAwait(false))
+        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix: null, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
             var contentHash = blobItem.Properties.ContentHash;
             if (contentHash != null && targetHashes.Any(th => contentHash.SequenceEqual(th)))
@@ -302,7 +302,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         //   - Else, set proper image content type and metadata (mapId, gameType, mapName) if resolvable
         var updatedMaps = 0;
         var normalizedBlobs = 0;
-        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, cancellationToken: cancellationToken).ConfigureAwait(false))
+        await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix: null, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
             if (!string.Equals(blobItem.Properties.ContentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
                 continue; // only process unknown content types
