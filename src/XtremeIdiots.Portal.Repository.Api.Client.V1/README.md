@@ -7,7 +7,7 @@ This is a unified versioned client for the Portal Repository API that provides a
 - **Unified Client**: Single client interface providing access to all APIs
 - **Version Selectors**: Access different API versions using intuitive syntax
 - **Dependency Injection**: Full DI support for easy integration
-- **Clean Namespace Structure**: Organized namespaces for V1 and V1.1 APIs
+- **Clean Namespace Structure**: Organized namespaces for V1 APIs
 
 ## Installation
 

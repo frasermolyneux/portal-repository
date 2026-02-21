@@ -11,7 +11,7 @@ resource "azurerm_api_management_product_policy" "api_product_policy" {
       <base/>
       <cache-lookup vary-by-developer="false" vary-by-developer-groups="false" downstream-caching-type="none" />
       <choose>
-          <when condition="@(context.Request.Url.Path.EndsWith("/health") || context.Request.Url.Path.EndsWith("/info"))">
+          <when condition="@(System.Text.RegularExpressions.Regex.IsMatch(context.Request.Url.Path, @"/v\d+(\.\d+)?/(health|info)$"))">
               <!-- Allow anonymous access to health and info endpoints -->
           </when>
           <otherwise>

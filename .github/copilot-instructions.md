@@ -10,7 +10,7 @@ Libraries, clients, and tests multi-target `net9.0` and `net10.0`. API hosts tar
 
 ## Architecture
 
-APIs use attribute-routed ASP.NET Core controllers with `Asp.Versioning.Mvc` for URL segment versioning. V1 and V2 hosts run as separate App Services behind Azure API Management. Controller routes use `v{version:apiVersion}/[controller]` (no `/api/` prefix). The `GroupNameFormat` is `'v'VV` (always includes minor version: `v1.0`, `v1.1`, `v2.0`). Responses standardise on `ApiResponse`/`CollectionResult` envelopes from the `MX.Api.Abstractions` package. V2 endpoints support OData-like query options (`$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$skip`, `$count`)—see `docs/api-design-v2.md`.
+APIs use attribute-routed ASP.NET Core controllers with `Asp.Versioning.Mvc` for URL segment versioning. V1 and V2 hosts run as separate App Services behind Azure API Management. Controller routes use `v{version:apiVersion}/[controller]` (no `/api/` prefix). The `GroupNameFormat` is `'v'VV` (always includes minor version: `v1.0`, `v2.0`). Responses standardise on `ApiResponse`/`CollectionResult` envelopes from the `MX.Api.Abstractions` package. V2 endpoints support OData-like query options (`$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$skip`, `$count`)—see `docs/api-design-v2.md`.
 
 ## OpenAPI & Interactive Docs
 
@@ -19,7 +19,7 @@ Both hosts use native ASP.NET Core OpenAPI (`AddOpenApi()`) with two document tr
 - **`StripVersionPrefixTransformer`** — strips the version prefix from spec paths (e.g. `/v1.0/players/...` → `/players/...`) so APIM segment versioning manages the prefix without duplication.
 - **`BearerSecuritySchemeTransformer`** — adds Bearer JWT security scheme to all operations.
 
-Specs are served at runtime: `/openapi/v1.0.json`, `/openapi/v1.1.json` (V1 host), `/openapi/v2.0.json` (V2 host). No build-time spec generation. Scalar provides interactive API docs at `/scalar` on both hosts.
+Specs are served at runtime: `/openapi/v1.0.json` (V1 host), `/openapi/v2.0.json` (V2 host). No build-time spec generation. Scalar provides interactive API docs at `/scalar` on both hosts.
 
 ## Key Endpoints
 

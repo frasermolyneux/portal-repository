@@ -6,14 +6,14 @@ This document describes how API versioning, path routing, OpenAPI spec generatio
 
 The API uses `Asp.Versioning` with URL segment versioning across two separate hosts:
 
-- **V1 Host** (`Api.V1`): Serves v1.0 and v1.1 endpoints
+- **V1 Host** (`Api.V1`): Serves v1.0 endpoints
 - **V2 Host** (`Api.V2`): Serves v2.0 endpoints
 
 Both hosts use identical patterns:
 
 - **Controller routes**: `[Route("v{version:apiVersion}/[controller]")]` + action routes
 - **Version reader**: `UrlSegmentApiVersionReader` extracts the version from the URL path
-- **Group name format**: `'v'VV` — always includes the minor version (`v1.0`, `v1.1`, `v2.0`) to ensure unambiguous OpenAPI document grouping
+- **Group name format**: `'v'VV` — always includes the minor version (`v1.0`, `v2.0`) to ensure unambiguous OpenAPI document grouping
 - **Info endpoint**: `ApiInfoController` returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host) with anonymous access
 - **Health endpoint**: `HealthController` exposes `/v1.0/health` (V1 host) and `/v2.0/health` (V2 host) with anonymous access
 
@@ -23,7 +23,6 @@ Three OpenAPI documents are served at runtime across the two hosts:
 
 **V1 Host:**
 - `/openapi/v1.0.json` — v1.0 endpoints
-- `/openapi/v1.1.json` — v1.1 endpoints
 
 **V2 Host:**
 - `/openapi/v2.0.json` — v2.0 endpoints
@@ -49,7 +48,7 @@ The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for de
 ### Terraform-managed resources
 
 - **APIM instance**: Consumption tier
-- **Version set**: `repository-api` with `Segment` versioning scheme — APIM manages the version segment (e.g. `/v1`, `/v1.1`, `/v2`) in the consumer-facing URL
+- **Version set**: `repository-api` with `Segment` versioning scheme — APIM manages the version segment (e.g. `/v1`, `/v2`) in the consumer-facing URL
 - **Product**: `repository-api` with subscription required
 - **Product policy**: JWT validation (Entra ID) and request forwarding
 - **Diagnostic / logger**: Application Insights logging
@@ -58,14 +57,14 @@ The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for de
 
 The API definitions are imported via `az apim api import` after the App Services are deployed. All three specs are imported:
 
-| Parameter | v1 | v1.1 | v2 |
-|---|---|---|---|
-| `--api-id` | `repository-api-v1` | `repository-api-v1-1` | `repository-api-v2` |
-| `--api-version` | `v1` | `v1.1` | `v2` |
-| `--api-version-set-id` | `repository-api` | `repository-api` | `repository-api` |
-| `--specification-url` | `...v1-host/openapi/v1.0.json` | `...v1-host/openapi/v1.1.json` | `...v2-host/openapi/v2.0.json` |
-| `--service-url` | `...v1-host/v1` | `...v1-host/v1.1` | `...v2-host/v2` |
-| `--path` | `repository` | `repository` | `repository` |
+| Parameter | v1 | v2 |
+|---|---|---|
+| `--api-id` | `repository-api-v1` | `repository-api-v2` |
+| `--api-version` | `v1` | `v2` |
+| `--api-version-set-id` | `repository-api` | `repository-api` |
+| `--specification-url` | `...v1-host/openapi/v1.0.json` | `...v2-host/openapi/v2.0.json` |
+| `--service-url` | `...v1-host/v1` | `...v2-host/v2` |
+| `--path` | `repository` | `repository` |
 
 All APIs share the same `--path` and version set — APIM requires this for segment versioning to work. The `--service-url` routes v1.x requests to the V1 App Service and v2.x requests to the V2 App Service.
 
@@ -102,17 +101,17 @@ Backend matches:
   [Route("v{version:apiVersion}/[controller]")] + [Route("{gameType}/{guid}")] ✅
 ```
 
-The same flow applies to v1.1 (routed to V1 App Service) and v2 (routed to V2 App Service).
+The same flow applies to v2 (routed to V2 App Service).
 
 ## Key Design Decisions
 
-1. **Two-host architecture** — V1 and V2 hosts are separate App Services. The V1 host serves both v1.0 and v1.1, while V2 serves v2.0. APIM's `--service-url` routes to the correct host.
+1. **Two-host architecture** — V1 and V2 hosts are separate App Services. The V1 host serves v1.0, while V2 serves v2.0. APIM's `--service-url` routes to the correct host.
 
 2. **Spec paths are version-free** — The `StripVersionPrefixTransformer` removes the version prefix from the OpenAPI spec so APIM segment versioning can own the version prefix without duplication.
 
-3. **Service URL includes the version** — Because the spec paths are version-free but the backend controllers still expect `/v1.0/...`, `/v1.1/...`, or `/v2.0/...`, the APIM service URL must include the version suffix to bridge the gap.
+3. **Service URL includes the version** — Because the spec paths are version-free but the backend controllers still expect `/v1.0/...` or `/v2.0/...`, the APIM service URL must include the version suffix to bridge the gap.
 
-4. **Group name format uses `'v'VV`** — Always includes the minor version (`v1.0`, `v1.1`, `v2.0`) to prevent ambiguous prefix matching. Using `'v'V` would produce `v1` for version 1.0 which prefix-matches both `v1` and `v1.1` documents.
+4. **Group name format uses `'v'VV`** — Always includes the minor version (`v1.0`, `v2.0`) to ensure unambiguous OpenAPI document grouping.
 
 5. **No Terraform-managed backends or API definitions** — APIM backends and API imports are fully managed by the deploy workflow using `az apim api import --service-url`. Terraform only manages the version set, product, product policy, and diagnostics.
 

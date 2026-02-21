@@ -102,19 +102,13 @@ builder.Services.AddApiVersioning(options =>
 })
 .AddApiExplorer(options =>
 {
-    // Format the version as "'v'major.minor" (e.g. v1.0, v1.1)
+    // Format the version as "'v'major.minor" (e.g. v1.0)
     options.GroupNameFormat = "'v'VV";
     options.SubstituteApiVersionInUrl = true;
 });
 
 // Configure OpenAPI
 builder.Services.AddOpenApi("v1.0", options =>
-{
-    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
-    options.AddDocumentTransformer<StripVersionPrefixTransformer>();
-});
-
-builder.Services.AddOpenApi("v1.1", options =>
 {
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
     options.AddDocumentTransformer<StripVersionPrefixTransformer>();
