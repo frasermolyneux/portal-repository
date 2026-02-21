@@ -2,15 +2,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V2
 {
     /// <summary>
     /// Unified repository API client providing access to all V2 APIs.
-    /// Use like: client.Root.V2
     /// </summary>
     public class RepositoryApiClient : IRepositoryApiClient
     {
-        public RepositoryApiClient(IVersionedRootApi root)
+        public RepositoryApiClient(IVersionedApiHealthApi apiHealth, IVersionedApiInfoApi apiInfo)
         {
-            Root = root;
+            ApiHealth = apiHealth;
+            ApiInfo = apiInfo;
         }
 
-        public IVersionedRootApi Root { get; }
+        public IVersionedApiHealthApi ApiHealth { get; }
+        public IVersionedApiInfoApi ApiInfo { get; }
     }
 }

@@ -21,7 +21,9 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V1\XtremeIdiots.Portal.Repository.Abstractions.V1.csproj" />
-		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V2\XtremeIdiots.Portal.Repository.Abstractions.V2.csproj" />
+		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V2\XtremeIdiots.Portal.Repository.Abstractions.V2.csproj">
+			<Aliases>V2Abstractions</Aliases>
+		</ProjectReference>
 		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Api.Client.V1\XtremeIdiots.Portal.Repository.Api.Client.V1.csproj" />
 		<ProjectReference Include="..\XtremeIdiots.Portal.Repository.Api.Client.V2\XtremeIdiots.Portal.Repository.Api.Client.V2.csproj" />
 	</ItemGroup>

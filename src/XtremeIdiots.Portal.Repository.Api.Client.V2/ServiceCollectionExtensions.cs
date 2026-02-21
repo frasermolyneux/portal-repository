@@ -16,11 +16,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V2
             this IServiceCollection serviceCollection,
             Action<RepositoryApiOptionsBuilder> configureOptions)
         {
-            // Register V2 API implementations using the new typed pattern
-            serviceCollection.AddTypedApiClient<IRootApi, RootApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            // Register API info endpoint
+            serviceCollection.AddTypedApiClient<IApiInfoApi, ApiInfoApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+
+            // Register API health endpoint
+            serviceCollection.AddTypedApiClient<IApiHealthApi, ApiHealthApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
             // Register version selectors as scoped
-            serviceCollection.AddScoped<IVersionedRootApi, VersionedRootApi>();
+            serviceCollection.AddScoped<IVersionedApiHealthApi, VersionedApiHealthApi>();
+            serviceCollection.AddScoped<IVersionedApiInfoApi, VersionedApiInfoApi>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();

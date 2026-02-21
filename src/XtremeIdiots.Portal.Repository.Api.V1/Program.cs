@@ -143,6 +143,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapGet("/", () => Results.Ok()).ExcludeFromDescription();
+
 app.Run();
 
 public partial class Program { }

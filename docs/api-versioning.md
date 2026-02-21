@@ -15,7 +15,7 @@ Both hosts use identical patterns:
 - **Version reader**: `UrlSegmentApiVersionReader` extracts the version from the URL path
 - **Group name format**: `'v'VV` — always includes the minor version (`v1.0`, `v1.1`, `v2.0`) to ensure unambiguous OpenAPI document grouping
 - **Info endpoint**: `ApiInfoController` returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host) with anonymous access
-- **Health endpoint**: Both hosts expose `/health`
+- **Health endpoint**: `HealthController` exposes `/v1.0/health` (V1 host) and `/v2.0/health` (V2 host) with anonymous access
 
 ## OpenAPI Spec Generation
 

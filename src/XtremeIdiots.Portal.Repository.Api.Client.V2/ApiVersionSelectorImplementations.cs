@@ -2,13 +2,23 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V2;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V2
 {
-    public class VersionedRootApi : IVersionedRootApi
+    public class VersionedApiHealthApi : IVersionedApiHealthApi
     {
-        public VersionedRootApi(IRootApi v2Api)
+        public VersionedApiHealthApi(IApiHealthApi v2Api)
         {
             V2 = v2Api;
         }
 
-        public IRootApi V2 { get; }
+        public IApiHealthApi V2 { get; }
+    }
+
+    public class VersionedApiInfoApi : IVersionedApiInfoApi
+    {
+        public VersionedApiInfoApi(IApiInfoApi v2Api)
+        {
+            V2 = v2Api;
+        }
+
+        public IApiInfoApi V2 { get; }
     }
 }

@@ -33,12 +33,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddTypedApiClient<IPlayersApi, PlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IRecentPlayersApi, RecentPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IReportsApi, ReportsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IRootApi, RootApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<ITagsApi, TagsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IUserProfileApi, UserProfileApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
-            // Register V1.1 API implementations
-            serviceCollection.AddTypedApiClient<XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1.IRootApi, XtremeIdiots.Portal.Repository.Api.Client.V1_1.RootApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            // Register API info endpoint
+            serviceCollection.AddTypedApiClient<IApiInfoApi, ApiInfoApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+
+            // Register API health endpoint
+            serviceCollection.AddTypedApiClient<IApiHealthApi, ApiHealthApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
@@ -59,7 +61,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedReportsApi, VersionedReportsApi>();
             serviceCollection.AddScoped<IVersionedTagsApi, VersionedTagsApi>();
             serviceCollection.AddScoped<IVersionedUserProfileApi, VersionedUserProfileApi>();
-            serviceCollection.AddScoped<IVersionedRootApi, VersionedRootApi>();
+            serviceCollection.AddScoped<IVersionedApiHealthApi, VersionedApiHealthApi>();
+            serviceCollection.AddScoped<IVersionedApiInfoApi, VersionedApiInfoApi>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();

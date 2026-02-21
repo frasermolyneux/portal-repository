@@ -5,28 +5,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V2
 {
     public class RepositoryApiClientTests
     {
+        private readonly Mock<IVersionedApiHealthApi> _apiHealth = new();
+        private readonly Mock<IVersionedApiInfoApi> _apiInfo = new();
+
+        private RepositoryApiClient CreateClient() => new(_apiHealth.Object, _apiInfo.Object);
+
         [Fact]
-        public void Constructor_StoresRootProperty()
+        public void Constructor_StoresApiHealthProperty()
         {
-            var mockRoot = new Mock<IVersionedRootApi>();
-            var client = new RepositoryApiClient(mockRoot.Object);
-            Assert.Same(mockRoot.Object, client.Root);
+            var client = CreateClient();
+            Assert.Same(_apiHealth.Object, client.ApiHealth);
         }
 
         [Fact]
-        public void Constructor_RootIsNotNull()
+        public void Constructor_StoresApiInfoProperty()
         {
-            var mockRoot = new Mock<IVersionedRootApi>();
-            var client = new RepositoryApiClient(mockRoot.Object);
-            Assert.NotNull(client.Root);
+            var client = CreateClient();
+            Assert.Same(_apiInfo.Object, client.ApiInfo);
         }
 
         [Fact]
-        public void Root_ReturnsCorrectType()
+        public void Constructor_NoPropertyIsNull()
         {
-            var mockRoot = new Mock<IVersionedRootApi>();
-            var client = new RepositoryApiClient(mockRoot.Object);
-            Assert.IsAssignableFrom<IVersionedRootApi>(client.Root);
+            var client = CreateClient();
+            Assert.NotNull(client.ApiHealth);
+            Assert.NotNull(client.ApiInfo);
+        }
+
+        [Fact]
+        public void Properties_ReturnCorrectTypes()
+        {
+            var client = CreateClient();
+            Assert.IsAssignableFrom<IVersionedApiHealthApi>(client.ApiHealth);
+            Assert.IsAssignableFrom<IVersionedApiInfoApi>(client.ApiInfo);
         }
     }
 }

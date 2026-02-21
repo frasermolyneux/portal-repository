@@ -12,7 +12,7 @@ This package provides a strongly-typed HTTP client for the XtremeIdiots Portal R
 ## Usage
 
 ```csharp
-services.AddRepositoryApiClientV2(options =>
+services.AddRepositoryApiClient(options =>
 {
     options.BaseUrl = "https://your-api-url.com";
     options.Timeout = TimeSpan.FromSeconds(30);
@@ -20,5 +20,6 @@ services.AddRepositoryApiClientV2(options =>
 
 // Use the client
 var client = serviceProvider.GetService<IRepositoryApiClient>();
-var result = await client.Root.V2.GetRoot();
+var healthResult = await client.ApiHealth.V2.CheckHealth();
+var infoResult = await client.ApiInfo.V2.GetApiInfo();
 ```

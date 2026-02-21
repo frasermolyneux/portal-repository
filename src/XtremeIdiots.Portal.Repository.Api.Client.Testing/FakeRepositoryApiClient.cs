@@ -2,8 +2,6 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
-using V1_1Interfaces = XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1;
-
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing;
 
 public class FakeVersionedAdminActionsApi : IVersionedAdminActionsApi
@@ -114,16 +112,16 @@ public class FakeVersionedUserProfileApi : IVersionedUserProfileApi
     public IUserProfileApi V1 { get; }
 }
 
-public class FakeVersionedRootApi : IVersionedRootApi
+public class FakeVersionedApiHealthApi : IVersionedApiHealthApi
 {
-    public FakeVersionedRootApi(FakeRootApi rootApi)
-    {
-        V1 = rootApi;
-        V1_1 = rootApi;
-    }
+    public FakeVersionedApiHealthApi(FakeApiHealthApi v1) => V1 = v1;
+    public IApiHealthApi V1 { get; }
+}
 
-    public IRootApi V1 { get; }
-    public V1_1Interfaces.IRootApi V1_1 { get; }
+public class FakeVersionedApiInfoApi : IVersionedApiInfoApi
+{
+    public FakeVersionedApiInfoApi(FakeApiInfoApi v1) => V1 = v1;
+    public IApiInfoApi V1 { get; }
 }
 
 /// <summary>
@@ -148,10 +146,11 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakePlayersApi PlayersApi { get; } = new();
     public FakeRecentPlayersApi RecentPlayersApi { get; } = new();
     public FakeReportsApi ReportsApi { get; } = new();
-    public FakeRootApi RootApi { get; } = new();
     public FakeUserProfileApi UserProfilesApi { get; } = new();
     public FakeTagsApi TagsApi { get; } = new();
     public FakeGameServersSecretsApi GameServersSecretsApi { get; } = new();
+    public FakeApiHealthApi HealthApi { get; } = new();
+    public FakeApiInfoApi InfoApi { get; } = new();
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -169,9 +168,10 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedPlayersApi> _players;
     private readonly Lazy<FakeVersionedRecentPlayersApi> _recentPlayers;
     private readonly Lazy<FakeVersionedReportsApi> _reports;
-    private readonly Lazy<FakeVersionedRootApi> _root;
     private readonly Lazy<FakeVersionedUserProfileApi> _userProfiles;
     private readonly Lazy<FakeVersionedTagsApi> _tags;
+    private readonly Lazy<FakeVersionedApiHealthApi> _apiHealth;
+    private readonly Lazy<FakeVersionedApiInfoApi> _apiInfo;
 
     public FakeRepositoryApiClient()
     {
@@ -191,9 +191,10 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _players = new Lazy<FakeVersionedPlayersApi>(() => new FakeVersionedPlayersApi(PlayersApi));
         _recentPlayers = new Lazy<FakeVersionedRecentPlayersApi>(() => new FakeVersionedRecentPlayersApi(RecentPlayersApi));
         _reports = new Lazy<FakeVersionedReportsApi>(() => new FakeVersionedReportsApi(ReportsApi));
-        _root = new Lazy<FakeVersionedRootApi>(() => new FakeVersionedRootApi(RootApi));
         _userProfiles = new Lazy<FakeVersionedUserProfileApi>(() => new FakeVersionedUserProfileApi(UserProfilesApi));
         _tags = new Lazy<FakeVersionedTagsApi>(() => new FakeVersionedTagsApi(TagsApi));
+        _apiHealth = new Lazy<FakeVersionedApiHealthApi>(() => new FakeVersionedApiHealthApi(HealthApi));
+        _apiInfo = new Lazy<FakeVersionedApiInfoApi>(() => new FakeVersionedApiInfoApi(InfoApi));
     }
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
@@ -212,9 +213,10 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedPlayersApi Players => _players.Value;
     public IVersionedRecentPlayersApi RecentPlayers => _recentPlayers.Value;
     public IVersionedReportsApi Reports => _reports.Value;
-    public IVersionedRootApi Root => _root.Value;
     public IVersionedUserProfileApi UserProfiles => _userProfiles.Value;
     public IVersionedTagsApi Tags => _tags.Value;
+    public IVersionedApiHealthApi ApiHealth => _apiHealth.Value;
+    public IVersionedApiInfoApi ApiInfo => _apiInfo.Value;
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,
@@ -238,7 +240,6 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         PlayersApi.Reset();
         RecentPlayersApi.Reset();
         ReportsApi.Reset();
-        RootApi.Reset();
         UserProfilesApi.Reset();
         TagsApi.Reset();
         GameServersSecretsApi.Reset();

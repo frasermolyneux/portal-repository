@@ -125,22 +125,13 @@ public class RepositoryDtoFactoryTests
     }
 
     [Fact]
-    public void CreateRootV1_WithDefaults_CreatesNonNullDto()
+    public void CreateApiInfo_WithDefaults_CreatesNonNullDto()
     {
-        var root = RepositoryDtoFactory.CreateRootV1();
+        var info = RepositoryDtoFactory.CreateApiInfo();
 
-        Assert.Equal("Portal Repository API", root.Name);
-        Assert.Equal("v1", root.Version);
-        Assert.Equal("XtremeIdiots Portal Repository API", root.Description);
-    }
-
-    [Fact]
-    public void CreateRootV1_1_WithDefaults_CreatesNonNullDto()
-    {
-        var root = RepositoryDtoFactory.CreateRootV1_1();
-
-        Assert.Equal("Portal Repository API", root.Name);
-        Assert.Equal("v1.1", root.Version);
+        Assert.Equal("1.0.0", info.Version);
+        Assert.Equal("1.0.0.1", info.BuildVersion);
+        Assert.Equal("1.0.0.0", info.AssemblyVersion);
     }
 
     [Fact]

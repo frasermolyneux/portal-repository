@@ -151,14 +151,19 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         }
 
         [Fact]
-        public void VersionedRootApi_ExposesV1AndV1_1()
+        public void VersionedApiHealthApi_ExposesV1()
         {
-            var mockV1 = new Mock<IRootApi>();
-            var mockV1_1 = new Mock<XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1.IRootApi>();
-            var selector = new VersionedRootApi(mockV1.Object, mockV1_1.Object);
+            var mock = new Mock<IApiHealthApi>();
+            var selector = new VersionedApiHealthApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
 
-            Assert.Same(mockV1.Object, selector.V1);
-            Assert.Same(mockV1_1.Object, selector.V1_1);
+        [Fact]
+        public void VersionedApiInfoApi_ExposesV1()
+        {
+            var mock = new Mock<IApiInfoApi>();
+            var selector = new VersionedApiInfoApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
         }
     }
 }

@@ -13,8 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 
-using V1RootDto = XtremeIdiots.Portal.Repository.Abstractions.V1.Models.Root.RootDto;
-using V1_1RootDto = XtremeIdiots.Portal.Repository.Abstractions.V1_1.Models.Root.RootDto;
+using XtremeIdiots.Portal.Repository.Abstractions.Models;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing;
 
@@ -370,33 +369,16 @@ public static class RepositoryDtoFactory
         };
     }
 
-    public static V1RootDto CreateRootV1(
-        string name = "Portal Repository API",
-        string version = "v1",
-        string description = "XtremeIdiots Portal Repository API",
-        string? documentationUrl = null)
+    public static ApiInfoDto CreateApiInfo(
+        string version = "1.0.0",
+        string buildVersion = "1.0.0.1",
+        string assemblyVersion = "1.0.0.0")
     {
-        return new V1RootDto
+        return new ApiInfoDto
         {
-            Name = name,
             Version = version,
-            Description = description,
-            DocumentationUrl = documentationUrl
-        };
-    }
-
-    public static V1_1RootDto CreateRootV1_1(
-        string name = "Portal Repository API",
-        string version = "v1.1",
-        string description = "XtremeIdiots Portal Repository API",
-        string? documentationUrl = null)
-    {
-        return new V1_1RootDto
-        {
-            Name = name,
-            Version = version,
-            Description = description,
-            DocumentationUrl = documentationUrl
+            BuildVersion = buildVersion,
+            AssemblyVersion = assemblyVersion
         };
     }
 
