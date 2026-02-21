@@ -49,9 +49,9 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
     }
 
     [Fact]
-    public async Task GetRoot_ReturnsOk()
+    public async Task Root_ReturnsOk()
     {
-        var response = await _client.GetAsync("/v1.0");
+        var response = await _client.GetAsync("/");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

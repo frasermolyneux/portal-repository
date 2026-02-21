@@ -7,7 +7,7 @@ This is a unified versioned client for the Portal Repository API that provides a
 - **Unified Client**: Single client interface providing access to all APIs
 - **Version Selectors**: Access different API versions using intuitive syntax
 - **Dependency Injection**: Full DI support for easy integration
-- **Clean Namespace Structure**: Organized namespaces for V1 and V1.1 APIs
+- **Clean Namespace Structure**: Organized namespaces for V1 APIs
 
 ## Installation
 
@@ -55,11 +55,9 @@ public class YourService
         var adminActions = await _client.AdminActions.V1.GetAdminActionsAsync();
         var gameServers = await _client.GameServers.V1.GetGameServersAsync();
         
-        // Access V1.1 APIs (currently only Root API has V1.1)
-        var rootInfo = await _client.Root.V1_1.GetAsync();
-        
-        // Access V1 Root API
-        var rootInfoV1 = await _client.Root.V1.GetAsync();
+        // Check API health and info
+        var healthResult = await _client.ApiHealth.V1.CheckHealth();
+        var infoResult = await _client.ApiInfo.V1.GetApiInfo();
     }
 }
 ```
@@ -86,9 +84,9 @@ public class YourService
 - `client.Tags.V1`
 - `client.UserProfiles.V1`
 
-### APIs with Multiple Versions
-- `client.Root.V1` - V1 Root API
-- `client.Root.V1_1` - V1.1 Root API
+### Infrastructure APIs
+- `client.ApiHealth.V1` - Health check endpoint
+- `client.ApiInfo.V1` - Build/version info endpoint
 
 ## Migration from Legacy Client
 

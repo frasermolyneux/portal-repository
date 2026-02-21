@@ -93,9 +93,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IUserProfileApi V1 { get; }
     }
 
-    public interface IVersionedRootApi
+    public interface IVersionedApiHealthApi
     {
-        IRootApi V1 { get; }
-        Abstractions.Interfaces.V1_1.IRootApi V1_1 { get; }
+        IApiHealthApi V1 { get; }
+    }
+
+    public interface IVersionedApiInfoApi
+    {
+        IApiInfoApi V1 { get; }
     }
 }

@@ -4,8 +4,6 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
-using V1_1Interfaces = XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1;
-
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing;
 
 /// <summary>
@@ -45,9 +43,12 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IVersionedPlayersApi>();
         services.RemoveAll<IVersionedRecentPlayersApi>();
         services.RemoveAll<IVersionedReportsApi>();
-        services.RemoveAll<IVersionedRootApi>();
         services.RemoveAll<IVersionedTagsApi>();
         services.RemoveAll<IVersionedUserProfileApi>();
+        services.RemoveAll<IVersionedApiHealthApi>();
+        services.RemoveAll<IVersionedApiInfoApi>();
+        services.RemoveAll<IApiHealthApi>();
+        services.RemoveAll<IApiInfoApi>();
 
         // Remove all actual API implementations
         services.RemoveAll<IAdminActionsApi>();
@@ -67,8 +68,6 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IPlayersApi>();
         services.RemoveAll<IRecentPlayersApi>();
         services.RemoveAll<IReportsApi>();
-        services.RemoveAll<IRootApi>();
-        services.RemoveAll<V1_1Interfaces.IRootApi>();
         services.RemoveAll<ITagsApi>();
         services.RemoveAll<IUserProfileApi>();
 
@@ -91,9 +90,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVersionedPlayersApi>(fakeClient.Players);
         services.AddSingleton<IVersionedRecentPlayersApi>(fakeClient.RecentPlayers);
         services.AddSingleton<IVersionedReportsApi>(fakeClient.Reports);
-        services.AddSingleton<IVersionedRootApi>(fakeClient.Root);
         services.AddSingleton<IVersionedTagsApi>(fakeClient.Tags);
         services.AddSingleton<IVersionedUserProfileApi>(fakeClient.UserProfiles);
+        services.AddSingleton<IVersionedApiHealthApi>(fakeClient.ApiHealth);
+        services.AddSingleton<IVersionedApiInfoApi>(fakeClient.ApiInfo);
+        services.AddSingleton<IApiHealthApi>(fakeClient.HealthApi);
+        services.AddSingleton<IApiInfoApi>(fakeClient.InfoApi);
 
         services.AddSingleton<IAdminActionsApi>(fakeClient.AdminActionsApi);
         services.AddSingleton<IBanFileMonitorsApi>(fakeClient.BanFileMonitorsApi);
@@ -112,8 +114,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPlayersApi>(fakeClient.PlayersApi);
         services.AddSingleton<IRecentPlayersApi>(fakeClient.RecentPlayersApi);
         services.AddSingleton<IReportsApi>(fakeClient.ReportsApi);
-        services.AddSingleton<IRootApi>(fakeClient.RootApi);
-        services.AddSingleton<V1_1Interfaces.IRootApi>(fakeClient.RootApi);
         services.AddSingleton<ITagsApi>(fakeClient.TagsApi);
         services.AddSingleton<IUserProfileApi>(fakeClient.UserProfilesApi);
 

@@ -6,7 +6,7 @@ This document describes how APIM routes requests to the correct backend App Serv
 
 The Portal Repository API runs as two separate App Services:
 
-- **V1 Host** — serves v1.0 and v1.1 endpoints
+- **V1 Host** — serves v1.0 endpoints
 - **V2 Host** — serves v2.0 endpoints
 
 APIM routes requests to the correct backend using the `--service-url` parameter during `az apim api import`. No Terraform-managed APIM backends or rewrite policies are needed.
@@ -18,7 +18,6 @@ Each API version is imported into APIM with a `--service-url` pointing to the co
 | API Version | Service URL | App Service |
 |---|---|---|
 | v1 | `https://{v1-app-service}.azurewebsites.net/v1` | V1 Host |
-| v1.1 | `https://{v1-app-service}.azurewebsites.net/v1.1` | V1 Host |
 | v2 | `https://{v2-app-service}.azurewebsites.net/v2` | V2 Host |
 
 The service URL includes the version path because the OpenAPI specs have their version prefix stripped by `StripVersionPrefixTransformer`. APIM concatenates the service URL with the operation path from the spec to form the full backend request URL.
@@ -26,9 +25,9 @@ The service URL includes the version path because the OpenAPI specs have their v
 ## Request Routing Example
 
 ```
-Consumer → APIM:  GET /repository/v1.1/players/{gameType}/{guid}
-APIM → Backend:   GET https://{v1-app-service}.azurewebsites.net/v1.1/players/{gameType}/{guid}
-                       └─ service-url ─────────────────────────────┘└─ operation path from spec ─┘
+Consumer → APIM:  GET /repository/v1/players/{gameType}/{guid}
+APIM → Backend:   GET https://{v1-app-service}.azurewebsites.net/v1/players/{gameType}/{guid}
+                       └─ service-url ────────────────────────────┘└─ operation path from spec ─┘
 ```
 
 ## Adding a New Major Version

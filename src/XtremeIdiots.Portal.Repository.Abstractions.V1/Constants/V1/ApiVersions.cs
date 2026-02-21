@@ -6,6 +6,5 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 public static class ApiVersions
 {
     public const string V1 = "1.0";
-    public const string V1_1 = "1.1";
     public const string V2 = "2.0";
 }

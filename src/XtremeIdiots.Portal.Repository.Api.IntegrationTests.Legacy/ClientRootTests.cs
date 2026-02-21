@@ -15,7 +15,7 @@ public class ClientRootTests : IClassFixture<CustomWebApplicationFactory>, IAsyn
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _httpClient;
-    private readonly RootApi _rootApi;
+    private readonly ApiHealthApi _apiHealthApi;
 
     public ClientRootTests(CustomWebApplicationFactory factory)
     {
@@ -24,7 +24,7 @@ public class ClientRootTests : IClassFixture<CustomWebApplicationFactory>, IAsyn
         var restClientService = new TestServerRestClientService(_httpClient);
         var options = new RepositoryApiClientOptions { BaseUrl = "http://localhost" };
 
-        _rootApi = new RootApi(
+        _apiHealthApi = new ApiHealthApi(
             Mock.Of<ILogger<BaseApi<RepositoryApiClientOptions>>>(),
             Mock.Of<IApiTokenProvider>(),
             restClientService,
@@ -40,9 +40,9 @@ public class ClientRootTests : IClassFixture<CustomWebApplicationFactory>, IAsyn
     }
 
     [Fact]
-    public async Task GetRoot_ReturnsOkWithRootDto()
+    public async Task CheckHealth_ReturnsOk()
     {
-        var result = await _rootApi.GetRoot();
+        var result = await _apiHealthApi.CheckHealth();
 
         Assert.NotNull(result);
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);

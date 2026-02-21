@@ -2,7 +2,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     /// <summary>
     /// Unified repository API client providing access to all APIs with version selectors.
-    /// Use like: client.Players.V1 or client.Root.V1_1
+    /// Use like: client.Players.V1
     /// </summary>
     public class RepositoryApiClient : IRepositoryApiClient
     {
@@ -23,9 +23,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedPlayersApi players,
             IVersionedRecentPlayersApi recentPlayers,
             IVersionedReportsApi reports,
-            IVersionedRootApi root,
             IVersionedUserProfileApi userProfiles,
-            IVersionedTagsApi tags)
+            IVersionedTagsApi tags,
+            IVersionedApiHealthApi apiHealth,
+            IVersionedApiInfoApi apiInfo)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -43,9 +44,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             Players = players;
             RecentPlayers = recentPlayers;
             Reports = reports;
-            Root = root;
             UserProfiles = userProfiles;
             Tags = tags;
+            ApiHealth = apiHealth;
+            ApiInfo = apiInfo;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -64,8 +66,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedPlayersApi Players { get; }
         public IVersionedRecentPlayersApi RecentPlayers { get; }
         public IVersionedReportsApi Reports { get; }
-        public IVersionedRootApi Root { get; }
         public IVersionedUserProfileApi UserProfiles { get; }
         public IVersionedTagsApi Tags { get; }
+        public IVersionedApiHealthApi ApiHealth { get; }
+        public IVersionedApiInfoApi ApiInfo { get; }
     }
 }

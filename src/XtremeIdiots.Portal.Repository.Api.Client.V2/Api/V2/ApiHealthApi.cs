@@ -1,0 +1,42 @@
+using Microsoft.Extensions.Logging;
+
+using MX.Api.Abstractions;
+using MX.Api.Client;
+using MX.Api.Client.Auth;
+using MX.Api.Client.Extensions;
+
+using RestSharp;
+
+using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V2;
+
+namespace XtremeIdiots.Portal.Repository.Api.Client.V2
+{
+    public class ApiHealthApi : BaseApi<RepositoryApiClientOptions>, IApiHealthApi
+    {
+        public ApiHealthApi(
+            ILogger<BaseApi<RepositoryApiClientOptions>> logger,
+            IApiTokenProvider? apiTokenProvider,
+            IRestClientService restClientService,
+            RepositoryApiClientOptions options)
+            : base(logger, apiTokenProvider, restClientService, options)
+        {
+        }
+
+        public async Task<ApiResult> CheckHealth(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var request = await CreateRequestAsync("v2/health", Method.Get, cancellationToken);
+                var response = await ExecuteAsync(request, cancellationToken);
+
+                return response.ToApiResult();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                var errorResponse = new ApiResponse(
+                    new ApiError("CLIENT_ERROR", "Failed to check API health"));
+                return new ApiResult(System.Net.HttpStatusCode.InternalServerError, errorResponse);
+            }
+        }
+    }
+}

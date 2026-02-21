@@ -3,8 +3,6 @@ using XtremeIdiots.Portal.Repository.Api.Client.Testing;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
-using V1_1Interfaces = XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1;
-
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 
 [Trait("Category", "Unit")]
@@ -30,7 +28,8 @@ public class ServiceCollectionExtensionsTests
 
         Assert.NotNull(provider.GetRequiredService<IVersionedPlayersApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedGameServersApi>());
-        Assert.NotNull(provider.GetRequiredService<IVersionedRootApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedApiHealthApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedApiInfoApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedAdminActionsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedTagsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedReportsApi>());
@@ -46,8 +45,8 @@ public class ServiceCollectionExtensionsTests
 
         Assert.NotNull(provider.GetRequiredService<IPlayersApi>());
         Assert.NotNull(provider.GetRequiredService<IGameServersApi>());
-        Assert.NotNull(provider.GetRequiredService<IRootApi>());
-        Assert.NotNull(provider.GetRequiredService<V1_1Interfaces.IRootApi>());
+        Assert.NotNull(provider.GetRequiredService<IApiHealthApi>());
+        Assert.NotNull(provider.GetRequiredService<IApiInfoApi>());
         Assert.NotNull(provider.GetRequiredService<ITagsApi>());
         Assert.NotNull(provider.GetRequiredService<IAdminActionsApi>());
     }

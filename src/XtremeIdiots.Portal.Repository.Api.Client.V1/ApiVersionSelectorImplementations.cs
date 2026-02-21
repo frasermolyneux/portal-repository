@@ -183,15 +183,23 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IUserProfileApi V1 { get; }
     }
 
-    public class VersionedRootApi : IVersionedRootApi
+    public class VersionedApiHealthApi : IVersionedApiHealthApi
     {
-        public VersionedRootApi(IRootApi v1Api, Abstractions.Interfaces.V1_1.IRootApi v1_1Api)
+        public VersionedApiHealthApi(IApiHealthApi v1Api)
         {
             V1 = v1Api;
-            V1_1 = v1_1Api;
         }
 
-        public IRootApi V1 { get; }
-        public Abstractions.Interfaces.V1_1.IRootApi V1_1 { get; }
+        public IApiHealthApi V1 { get; }
+    }
+
+    public class VersionedApiInfoApi : IVersionedApiInfoApi
+    {
+        public VersionedApiInfoApi(IApiInfoApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IApiInfoApi V1 { get; }
     }
 }

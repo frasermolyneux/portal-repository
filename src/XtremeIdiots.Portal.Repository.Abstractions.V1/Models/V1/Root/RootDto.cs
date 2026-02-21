@@ -18,7 +18,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.V1.Models.Root
         /// API version
         /// </summary>
         [JsonProperty]
-        public string Version { get; set; } = "v1.1";
+        public string Version { get; set; } = "v1.0";
 
         /// <summary>
         /// API description

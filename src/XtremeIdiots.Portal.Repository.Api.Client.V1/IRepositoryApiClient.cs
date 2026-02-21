@@ -20,8 +20,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedPlayersApi Players { get; }
         IVersionedRecentPlayersApi RecentPlayers { get; }
         IVersionedReportsApi Reports { get; }
-        IVersionedRootApi Root { get; }
         IVersionedUserProfileApi UserProfiles { get; }
         IVersionedTagsApi Tags { get; }
+        IVersionedApiHealthApi ApiHealth { get; }
+        IVersionedApiInfoApi ApiInfo { get; }
     }
 }

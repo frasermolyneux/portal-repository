@@ -21,9 +21,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedPlayersApi> _players = new();
         private readonly Mock<IVersionedRecentPlayersApi> _recentPlayers = new();
         private readonly Mock<IVersionedReportsApi> _reports = new();
-        private readonly Mock<IVersionedRootApi> _root = new();
         private readonly Mock<IVersionedUserProfileApi> _userProfiles = new();
         private readonly Mock<IVersionedTagsApi> _tags = new();
+        private readonly Mock<IVersionedApiHealthApi> _apiHealth = new();
+        private readonly Mock<IVersionedApiInfoApi> _apiInfo = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -42,9 +43,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _players.Object,
             _recentPlayers.Object,
             _reports.Object,
-            _root.Object,
             _userProfiles.Object,
-            _tags.Object);
+            _tags.Object,
+            _apiHealth.Object,
+            _apiInfo.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -67,9 +69,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_players.Object, client.Players);
             Assert.Same(_recentPlayers.Object, client.RecentPlayers);
             Assert.Same(_reports.Object, client.Reports);
-            Assert.Same(_root.Object, client.Root);
             Assert.Same(_userProfiles.Object, client.UserProfiles);
             Assert.Same(_tags.Object, client.Tags);
+            Assert.Same(_apiHealth.Object, client.ApiHealth);
+            Assert.Same(_apiInfo.Object, client.ApiInfo);
         }
 
         [Fact]
@@ -93,9 +96,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.Players);
             Assert.NotNull(client.RecentPlayers);
             Assert.NotNull(client.Reports);
-            Assert.NotNull(client.Root);
             Assert.NotNull(client.UserProfiles);
             Assert.NotNull(client.Tags);
+            Assert.NotNull(client.ApiHealth);
+            Assert.NotNull(client.ApiInfo);
         }
 
         [Fact]
@@ -119,9 +123,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedPlayersApi>(client.Players);
             Assert.IsAssignableFrom<IVersionedRecentPlayersApi>(client.RecentPlayers);
             Assert.IsAssignableFrom<IVersionedReportsApi>(client.Reports);
-            Assert.IsAssignableFrom<IVersionedRootApi>(client.Root);
             Assert.IsAssignableFrom<IVersionedUserProfileApi>(client.UserProfiles);
             Assert.IsAssignableFrom<IVersionedTagsApi>(client.Tags);
+            Assert.IsAssignableFrom<IVersionedApiHealthApi>(client.ApiHealth);
+            Assert.IsAssignableFrom<IVersionedApiInfoApi>(client.ApiInfo);
         }
     }
 }

@@ -217,23 +217,6 @@ jobs:
             --service-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/v1" \
             --subscription-required false
 
-      - name: Import OpenAPI v1.1 spec into APIM
-        shell: bash
-        run: |
-          az apim api import \
-            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
-            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
-            --api-id repository-api-v1-1 \
-            --display-name "Repository API" \
-            --path repository \
-            --api-version v1.1 \
-            --api-version-set-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_version_set_id }}" \
-            --protocols https \
-            --specification-format OpenApiJson \
-            --specification-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/openapi/v1.1.json" \
-            --service-url "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/v1.1" \
-            --subscription-required false
-
       - name: Import OpenAPI v2 spec into APIM
         shell: bash
         run: |
@@ -259,15 +242,6 @@ jobs:
             --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
             --product-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_product_id }}" \
             --api-id repository-api-v1 || true
-
-      - name: Add v1.1 API to product
-        shell: bash
-        run: |
-          az apim product api add \
-            --resource-group "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_resource_group_name }}" \
-            --service-name "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_name }}" \
-            --product-id "${{ needs.terraform-plan-and-apply-dev.outputs.api_management_product_id }}" \
-            --api-id repository-api-v1-1 || true
 
       - name: Add v2 API to product
         shell: bash

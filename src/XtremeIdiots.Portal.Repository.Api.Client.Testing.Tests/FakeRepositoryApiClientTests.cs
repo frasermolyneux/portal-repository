@@ -28,9 +28,10 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.Players);
         Assert.NotNull(client.RecentPlayers);
         Assert.NotNull(client.Reports);
-        Assert.NotNull(client.Root);
         Assert.NotNull(client.UserProfiles);
         Assert.NotNull(client.Tags);
+        Assert.NotNull(client.ApiHealth);
+        Assert.NotNull(client.ApiInfo);
     }
 
     [Fact]
@@ -40,7 +41,8 @@ public class FakeRepositoryApiClientTests
 
         Assert.NotNull(client.AdminActions);
         Assert.NotNull(client.Players);
-        Assert.NotNull(client.Root);
+        Assert.NotNull(client.ApiHealth);
+        Assert.NotNull(client.ApiInfo);
         Assert.NotNull(client.Tags);
     }
 
@@ -53,19 +55,13 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
-    public void Root_V1_ReturnsFakeRootApiInstance()
+    public async Task ApiHealth_CheckHealth_ReturnsOkByDefault()
     {
         var client = new FakeRepositoryApiClient();
 
-        Assert.Same(client.RootApi, client.Root.V1);
-    }
+        var result = await client.ApiHealth.V1.CheckHealth();
 
-    [Fact]
-    public void Root_V1_1_ReturnsFakeRootApiInstance()
-    {
-        var client = new FakeRepositoryApiClient();
-
-        Assert.Same(client.RootApi, client.Root.V1_1);
+        Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
     }
 
     [Fact]

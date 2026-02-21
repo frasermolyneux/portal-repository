@@ -19,8 +19,6 @@ The `XtremeIdiots.Portal.Repository.Api.V1` project contains the V1 versioned ab
 ### Interfaces
 - **XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1**
   - Contains V1.0 API interfaces
-- **XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1_1**
-  - Contains V1.1 API interfaces (for features added in version 1.1)
 
 ### Models
 - **XtremeIdiots.Portal.Repository.Abstractions.Models.V1**
@@ -57,15 +55,13 @@ The `XtremeIdiots.Portal.Repository.Api.V1` project contains the V1 versioned ab
 All classes and interfaces have been copied from the original `XtremeIdiots.Portal.Repository.Api.V1` project with the following changes:
 
 1. **Namespace Updates**: All namespaces now include `.V1` to indicate versioning
-2. **Interface Versioning**: Interfaces are separated into V1 and V1_1 namespaces
-3. **Package Identity**: Project generates `XtremeIdiots.Portal.Repository.Abstractions.V1` package
+2. **Package Identity**: Project generates `XtremeIdiots.Portal.Repository.Abstractions.V1` package
 
 ## API Versioning
 
 The project supports multiple API versions:
 - **V1 (1.0)**: Base version interfaces and models
-- **V1_1 (1.1)**: Enhanced version with additional features
-- **V2 (2.0)**: Future version (constant defined for forward compatibility)
+- **V2 (2.0)**: Version 2 interfaces and models
 
 ## Example Usage
 
