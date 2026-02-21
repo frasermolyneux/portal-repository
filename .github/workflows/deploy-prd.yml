@@ -82,7 +82,7 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - if: needs.detect-changes.outputs.terraform != 'true'
-        uses: frasermolyneux/actions/terraform-output/v1.0
+        uses: frasermolyneux/actions/terraform-output@terraform-output/v1.0
         with:
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/dev.tfvars"
@@ -348,7 +348,7 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - if: needs.detect-changes.outputs.terraform != 'true'
-        uses: frasermolyneux/actions/terraform-output/v1.0
+        uses: frasermolyneux/actions/terraform-output@terraform-output/v1.0
         with:
           terraform-folder: "terraform"
           terraform-var-file: "tfvars/prd.tfvars"
