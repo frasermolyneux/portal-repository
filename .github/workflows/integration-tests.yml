@@ -99,7 +99,7 @@ jobs:
     #    echo "int_test_client_tenant_id=$client_tenant_id" >> $GITHUB_ENV
     #    echo "int_test_api_key=$api_key" >> $GITHUB_ENV
 
-    #- uses: frasermolyneux/actions/run-api-integration-tests@main
+    #- uses: frasermolyneux/actions/run-api-integration-tests@run-api-integration-tests/v1.2 
     #  with:
     #    dotnet-version: 9.0.x
     #    src-folder: "src"
