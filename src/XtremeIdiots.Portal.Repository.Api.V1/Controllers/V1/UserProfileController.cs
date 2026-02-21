@@ -482,16 +482,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (createUserProfileClaimDtos == null)
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)).ToBadRequestResult().ToHttpResult();
 
-            // Reject duplicate claim types in request
-            var duplicateClaimTypes = createUserProfileClaimDtos
-                .GroupBy(c => c.ClaimType, StringComparer.OrdinalIgnoreCase)
+            // Reject duplicate claim type+value pairs in request
+            var duplicateClaims = createUserProfileClaimDtos
+                .GroupBy(c => new { ClaimType = c.ClaimType.ToUpperInvariant(), ClaimValue = c.ClaimValue.ToUpperInvariant() })
                 .Where(g => g.Count() > 1)
-                .Select(g => g.Key)
+                .Select(g => g.Key.ClaimType)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (duplicateClaimTypes.Any())
+            if (duplicateClaims.Any())
             {
-                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, $"Duplicate claim types: {string.Join(", ", duplicateClaimTypes)}"));
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, $"Duplicate claims: {string.Join(", ", duplicateClaims)}"));
                 return err.ToBadRequestResult().ToHttpResult();
             }
             var response = await ((IUserProfileApi)this).SetUserProfileClaims(userProfileId, createUserProfileClaimDtos, cancellationToken).ConfigureAwait(false);

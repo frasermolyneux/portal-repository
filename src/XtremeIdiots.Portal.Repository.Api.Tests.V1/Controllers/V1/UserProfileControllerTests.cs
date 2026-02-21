@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -162,5 +164,176 @@ public class UserProfileControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.Single(context.UserProfiles);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_WithNullBody_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+
+        var result = await controller.SetUserProfileClaims(Guid.NewGuid(), null!);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_WithDuplicateClaimTypeAndValue_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var userProfileId = Guid.NewGuid();
+
+        var claims = new List<CreateUserProfileClaimDto>
+        {
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty2.ToString(), true),
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty2.ToString(), true)
+        };
+
+        var result = await controller.SetUserProfileClaims(userProfileId, claims);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_WithSameClaimTypeDifferentValues_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var userProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "TestUser"
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        var claims = new List<CreateUserProfileClaimDto>
+        {
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty2.ToString(), true),
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty4.ToString(), true),
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty5.ToString(), true)
+        };
+
+        var result = await controller.SetUserProfileClaims(userProfileId, claims);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status200OK, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_WithNonExistentUserProfile_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var userProfileId = Guid.NewGuid();
+
+        var claims = new List<CreateUserProfileClaimDto>
+        {
+            new(userProfileId, UserProfileClaimType.XtremeIdiotsId, "12345", true)
+        };
+
+        var result = await controller.SetUserProfileClaims(userProfileId, claims);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_WithValidClaims_SavesClaimsToDatabase()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var userProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "TestUser"
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        var claims = new List<CreateUserProfileClaimDto>
+        {
+            new(userProfileId, UserProfileClaimType.XtremeIdiotsId, "12345", true),
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty2.ToString(), true)
+        };
+
+        await controller.SetUserProfileClaims(userProfileId, claims);
+
+        var savedClaims = context.UserProfileClaims.Where(c => c.UserProfileId == userProfileId).ToList();
+        Assert.Equal(2, savedClaims.Count);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_ReplacesExistingClaims()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var userProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "TestUser",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = userProfileId,
+                    ClaimType = UserProfileClaimType.SeniorAdmin,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true
+                }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        var newClaims = new List<CreateUserProfileClaimDto>
+        {
+            new(userProfileId, UserProfileClaimType.HeadAdmin, GameType.CallOfDuty2.ToString(), true)
+        };
+
+        await controller.SetUserProfileClaims(userProfileId, newClaims);
+
+        var savedClaims = context.UserProfileClaims.Where(c => c.UserProfileId == userProfileId).ToList();
+        Assert.Single(savedClaims);
+        Assert.Equal(UserProfileClaimType.HeadAdmin, savedClaims[0].ClaimType);
+    }
+
+    [Fact]
+    public async Task SetUserProfileClaims_WithEmptyList_ClearsAllClaims()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var userProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "TestUser",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = userProfileId,
+                    ClaimType = UserProfileClaimType.SeniorAdmin,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true
+                }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        var result = await controller.SetUserProfileClaims(userProfileId, []);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status200OK, statusCodeResult.StatusCode);
+        Assert.Empty(context.UserProfileClaims.Where(c => c.UserProfileId == userProfileId));
     }
 }
