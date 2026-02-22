@@ -31,9 +31,30 @@ jobs:
             terraform:terraform/**
             database:src/XtremeIdiots.Portal.Repository.Database/**
 
+  terraform-state-check-dev:
+    permissions:
+      contents: read
+      id-token: write
+    environment: Development
+    runs-on: ubuntu-latest
+    outputs:
+      has_resources: ${{ steps.state-check.outputs.has_resources }}
+    steps:
+      - id: state-check
+        uses: frasermolyneux/actions/terraform-state-check@terraform-state-check/v1.0
+        with:
+          terraform-folder: "terraform"
+          terraform-var-file: "tfvars/dev.tfvars"
+          terraform-backend-file: "backends/dev.backend.hcl"
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
   build-and-test:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.src == 'true'
+    needs:
+      - detect-changes
+      - terraform-state-check-dev
+    if: needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.has_resources != 'true'
     permissions:
       contents: read
       id-token: write
@@ -66,12 +87,14 @@ jobs:
       contents: read
       id-token: write
     environment: Development
-    needs: detect-changes
+    needs:
+      - detect-changes
+      - terraform-state-check-dev
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - if: needs.detect-changes.outputs.terraform == 'true'
+      - if: needs.detect-changes.outputs.terraform == 'true' || needs.terraform-state-check-dev.outputs.has_resources != 'true'
         uses: frasermolyneux/actions/terraform-plan-and-apply@terraform-plan-and-apply/v1.4
         with:
           terraform-folder: "terraform"
@@ -81,7 +104,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - if: needs.detect-changes.outputs.terraform != 'true'
+      - if: needs.detect-changes.outputs.terraform != 'true' && needs.terraform-state-check-dev.outputs.has_resources == 'true'
         uses: frasermolyneux/actions/terraform-output@terraform-output/v1.0
         with:
           terraform-folder: "terraform"
@@ -131,11 +154,12 @@ jobs:
     environment: Development
     needs:
       - detect-changes
+      - terraform-state-check-dev
       - build-and-test
       - terraform-plan-and-apply-dev
     if: |
       !failure() && !cancelled() &&
-      needs.detect-changes.outputs.database == 'true'
+      (needs.detect-changes.outputs.database == 'true' || needs.terraform-state-check-dev.outputs.has_resources != 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -158,12 +182,13 @@ jobs:
     environment: Development
     needs:
       - detect-changes
+      - terraform-state-check-dev
       - build-and-test
       - terraform-plan-and-apply-dev
       - deploy-sql-database-dev
     if: |
       !failure() && !cancelled() &&
-      needs.detect-changes.outputs.src == 'true'
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.has_resources != 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -184,12 +209,13 @@ jobs:
     environment: Development
     needs:
       - detect-changes
+      - terraform-state-check-dev
       - build-and-test
       - terraform-plan-and-apply-dev
       - deploy-sql-database-dev
     if: |
       !failure() && !cancelled() &&
-      needs.detect-changes.outputs.src == 'true'
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.has_resources != 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -210,13 +236,14 @@ jobs:
     environment: Development
     needs:
       - detect-changes
+      - terraform-state-check-dev
       - build-and-test
       - terraform-plan-and-apply-dev
       - app-service-deploy-v1-dev
       - app-service-deploy-v2-dev
     if: |
       !failure() && !cancelled() &&
-      needs.detect-changes.outputs.src == 'true'
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.has_resources != 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
