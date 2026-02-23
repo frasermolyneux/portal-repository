@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System.Linq;
 using System.Net;
 using Azure.Identity;
@@ -29,16 +30,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 {
     private readonly PortalDbContext context;
+    private readonly IConfiguration configuration;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DataMaintenanceController"/> class.
     /// </summary>
     /// <param name="context">The database context for data operations.</param>
     /// <exception cref="ArgumentNullException">Thrown when context is null.</exception>
-    public DataMaintenanceController(PortalDbContext context)
+    public DataMaintenanceController(PortalDbContext context, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(context);
             this.context = context;
+        this.configuration = configuration;
     }
 
     /// <summary>
@@ -144,7 +147,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.PruneRecentPlayers(CancellationToken cancellationToken)
     {
-        var cutoffDate = DateTime.UtcNow.AddDays(-7);
+        var recentPlayersDays = int.TryParse(configuration["DataRetention:RecentPlayersDays"], out var rpd) ? rpd : 7;
+        var cutoffDate = DateTime.UtcNow.AddDays(-recentPlayersDays);
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
@@ -172,7 +176,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.ResetSystemAssignedPlayerTags(CancellationToken cancellationToken)
     {
-        var twoWeeksAgo = DateTime.UtcNow.AddDays(-14);
+        var inactivePlayerDays = int.TryParse(configuration["DataRetention:InactivePlayerDays"], out var ipd) ? ipd : 14;
+        var twoWeeksAgo = DateTime.UtcNow.AddDays(-inactivePlayerDays);
 
         // Get the tag IDs by name
         var activeTag = await context.Tags

@@ -11,31 +11,31 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V2;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V2.OpenApi;
-using Azure.Core;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var appConfigurationEndpoint = builder.Configuration["AzureAppConfiguration:Endpoint"];
+var appConfigEndpoint = builder.Configuration["AzureAppConfiguration:Endpoint"];
 var isAzureAppConfigurationEnabled = false;
 
-if (!string.IsNullOrWhiteSpace(appConfigurationEndpoint))
+if (!string.IsNullOrWhiteSpace(appConfigEndpoint))
 {
     var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
-    TokenCredential identityCredential = string.IsNullOrWhiteSpace(managedIdentityClientId)
-        ? new DefaultAzureCredential()
-        : new ManagedIdentityCredential(managedIdentityClientId);
+    var environmentLabel = builder.Configuration["AzureAppConfiguration:Environment"];
+
+    var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+    {
+        ManagedIdentityClientId = managedIdentityClientId,
+    });
 
     builder.Configuration.AddAzureAppConfiguration(options =>
     {
-        options.Connect(new Uri(appConfigurationEndpoint), identityCredential)
-               .Select("XtremeIdiots.Portal.Repository.Api.V2:*", labelFilter: builder.Configuration["AzureAppConfiguration:Environment"])
-               .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V2:");
+        options.Connect(new Uri(appConfigEndpoint), credential)
+            .Select("XtremeIdiots.Portal.Repository.Api.V2:*", environmentLabel)
+            .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V2:")
+            .Select("SqlResilience:*", environmentLabel);
 
-        options.ConfigureKeyVault(keyVaultOptions =>
-        {
-            keyVaultOptions.SetCredential(identityCredential);
-        });
+        options.ConfigureKeyVault(kv => kv.SetCredential(credential));
     });
 
     builder.Services.AddAzureAppConfiguration();
@@ -54,9 +54,9 @@ builder.Services.Configure<TelemetryConfiguration>(telemetryConfiguration =>
     telemetryProcessorChainBuilder.UseAdaptiveSampling(
         settings: new SamplingPercentageEstimatorSettings
         {
-            InitialSamplingPercentage = 5,
-            MinSamplingPercentage = 5,
-            MaxSamplingPercentage = 60
+            InitialSamplingPercentage = double.TryParse(builder.Configuration["ApplicationInsights:InitialSamplingPercentage"], out var initPct) ? initPct : 5,
+            MinSamplingPercentage = double.TryParse(builder.Configuration["ApplicationInsights:MinSamplingPercentage"], out var minPct) ? minPct : 5,
+            MaxSamplingPercentage = double.TryParse(builder.Configuration["ApplicationInsights:MaxSamplingPercentage"], out var maxPct) ? maxPct : 60
         },
         callback: null,
         excludedTypes: "Exception");
@@ -72,10 +72,14 @@ builder.Services.AddServiceProfiler();
 
 builder.Services.AddDbContext<PortalDbContext>(options =>
 {
+    var retryCount = int.TryParse(builder.Configuration["SqlResilience:RetryCount"], out var rc) ? rc : 3;
+    var retryDelay = int.TryParse(builder.Configuration["SqlResilience:RetryDelaySeconds"], out var rd) ? rd : 5;
+    var commandTimeout = int.TryParse(builder.Configuration["SqlResilience:CommandTimeoutSeconds"], out var ct) ? ct : 180;
+
     options.UseSqlServer(builder.Configuration["sql_connection_string"], sqlOptions =>
     {
-        sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null);
-        sqlOptions.CommandTimeout(180);
+        sqlOptions.EnableRetryOnFailure(retryCount, TimeSpan.FromSeconds(retryDelay), null);
+        sqlOptions.CommandTimeout(commandTimeout);
     });
 });
 

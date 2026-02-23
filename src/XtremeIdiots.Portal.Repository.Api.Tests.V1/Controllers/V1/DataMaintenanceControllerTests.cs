@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -10,15 +11,17 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class DataMaintenanceControllerTests
 {
+    private static readonly IConfiguration EmptyConfiguration = new ConfigurationBuilder().Build();
+
     private DataMaintenanceController CreateController(PortalDbContext context)
     {
-        return new DataMaintenanceController(context);
+        return new DataMaintenanceController(context, EmptyConfiguration);
     }
 
     [Fact]
     public void Constructor_WithNullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => new DataMaintenanceController(null!));
+        Assert.Throws<ArgumentNullException>(() => new DataMaintenanceController(null!, EmptyConfiguration));
     }
 
     [Fact(Skip = "Uses ExecuteSqlInterpolatedAsync which is not supported by the InMemory provider")]
