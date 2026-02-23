@@ -134,7 +134,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             bool gametrackerFallback,
             CancellationToken cancellationToken)
         {
-            var gameTrackerImageUrl = $"https://cache.gametracker.com/server_info/{ipAddress}:{queryPort}/{imageName}";
+            var gameTrackerBannerBaseUrl = (configuration["GameTracker:BannerBaseUrl"] ?? "https://cache.gametracker.com/server_info/").TrimEnd('/') + "/";
+            var gameTrackerImageUrl = $"{gameTrackerBannerBaseUrl}{ipAddress}:{queryPort}/{imageName}";
 
             try
             {
