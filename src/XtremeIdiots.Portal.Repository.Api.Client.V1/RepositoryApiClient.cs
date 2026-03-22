@@ -26,7 +26,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedUserProfileApi userProfiles,
             IVersionedTagsApi tags,
             IVersionedApiHealthApi apiHealth,
-            IVersionedApiInfoApi apiInfo)
+            IVersionedApiInfoApi apiInfo,
+            IVersionedNotificationTypesApi notificationTypes,
+            IVersionedNotificationPreferencesApi notificationPreferences,
+            IVersionedNotificationsApi notifications)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -48,6 +51,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             Tags = tags;
             ApiHealth = apiHealth;
             ApiInfo = apiInfo;
+            NotificationTypes = notificationTypes;
+            NotificationPreferences = notificationPreferences;
+            Notifications = notifications;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -70,5 +76,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedTagsApi Tags { get; }
         public IVersionedApiHealthApi ApiHealth { get; }
         public IVersionedApiInfoApi ApiInfo { get; }
+        public IVersionedNotificationTypesApi NotificationTypes { get; }
+        public IVersionedNotificationPreferencesApi NotificationPreferences { get; }
+        public IVersionedNotificationsApi Notifications { get; }
     }
 }

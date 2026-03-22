@@ -24,5 +24,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedTagsApi Tags { get; }
         IVersionedApiHealthApi ApiHealth { get; }
         IVersionedApiInfoApi ApiInfo { get; }
+        IVersionedNotificationTypesApi NotificationTypes { get; }
+        IVersionedNotificationPreferencesApi NotificationPreferences { get; }
+        IVersionedNotificationsApi Notifications { get; }
     }
 }
