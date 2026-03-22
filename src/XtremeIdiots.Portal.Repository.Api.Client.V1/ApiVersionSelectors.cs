@@ -102,4 +102,19 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         IApiInfoApi V1 { get; }
     }
+
+    public interface IVersionedNotificationTypesApi
+    {
+        INotificationTypesApi V1 { get; }
+    }
+
+    public interface IVersionedNotificationPreferencesApi
+    {
+        INotificationPreferencesApi V1 { get; }
+    }
+
+    public interface IVersionedNotificationsApi
+    {
+        INotificationsApi V1 { get; }
+    }
 }

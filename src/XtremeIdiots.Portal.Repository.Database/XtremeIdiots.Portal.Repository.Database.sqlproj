@@ -82,11 +82,16 @@
     <Build Include="dbo\Tables\PlayerTags.sql">
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
-    </Build>  </ItemGroup>
+    </Build>
+    <Build Include="dbo\Tables\NotificationTypes.sql" />
+    <Build Include="dbo\Tables\NotificationPreferences.sql" />
+    <Build Include="dbo\Tables\Notifications.sql" />
+  </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\Script.PostDeployment.sql" />
     <None Include="Scripts\Script.PostDeploymentPermissions.sql" />
     <None Include="Scripts\Script.PostDeploymentTags.sql" />
+    <None Include="Scripts\Script.PostDeploymentNotificationTypes.sql" />
     <None Include="Scripts\AlterReportsTableAnsiNulls.sql" />
   </ItemGroup>
   <ItemGroup>

@@ -25,6 +25,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedTagsApi> _tags = new();
         private readonly Mock<IVersionedApiHealthApi> _apiHealth = new();
         private readonly Mock<IVersionedApiInfoApi> _apiInfo = new();
+        private readonly Mock<IVersionedNotificationTypesApi> _notificationTypes = new();
+        private readonly Mock<IVersionedNotificationPreferencesApi> _notificationPreferences = new();
+        private readonly Mock<IVersionedNotificationsApi> _notifications = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -46,7 +49,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _userProfiles.Object,
             _tags.Object,
             _apiHealth.Object,
-            _apiInfo.Object);
+            _apiInfo.Object,
+            _notificationTypes.Object,
+            _notificationPreferences.Object,
+            _notifications.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -73,6 +79,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_tags.Object, client.Tags);
             Assert.Same(_apiHealth.Object, client.ApiHealth);
             Assert.Same(_apiInfo.Object, client.ApiInfo);
+            Assert.Same(_notificationTypes.Object, client.NotificationTypes);
+            Assert.Same(_notificationPreferences.Object, client.NotificationPreferences);
+            Assert.Same(_notifications.Object, client.Notifications);
         }
 
         [Fact]
@@ -100,6 +109,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.Tags);
             Assert.NotNull(client.ApiHealth);
             Assert.NotNull(client.ApiInfo);
+            Assert.NotNull(client.NotificationTypes);
+            Assert.NotNull(client.NotificationPreferences);
+            Assert.NotNull(client.Notifications);
         }
 
         [Fact]
@@ -127,6 +139,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedTagsApi>(client.Tags);
             Assert.IsAssignableFrom<IVersionedApiHealthApi>(client.ApiHealth);
             Assert.IsAssignableFrom<IVersionedApiInfoApi>(client.ApiInfo);
+            Assert.IsAssignableFrom<IVersionedNotificationTypesApi>(client.NotificationTypes);
+            Assert.IsAssignableFrom<IVersionedNotificationPreferencesApi>(client.NotificationPreferences);
+            Assert.IsAssignableFrom<IVersionedNotificationsApi>(client.Notifications);
         }
     }
 }

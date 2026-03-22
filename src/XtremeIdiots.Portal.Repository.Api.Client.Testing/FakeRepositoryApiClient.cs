@@ -124,6 +124,24 @@ public class FakeVersionedApiInfoApi : IVersionedApiInfoApi
     public IApiInfoApi V1 { get; }
 }
 
+public class FakeVersionedNotificationTypesApi : IVersionedNotificationTypesApi
+{
+    public FakeVersionedNotificationTypesApi(FakeNotificationTypesApi v1) => V1 = v1;
+    public INotificationTypesApi V1 { get; }
+}
+
+public class FakeVersionedNotificationPreferencesApi : IVersionedNotificationPreferencesApi
+{
+    public FakeVersionedNotificationPreferencesApi(FakeNotificationPreferencesApi v1) => V1 = v1;
+    public INotificationPreferencesApi V1 { get; }
+}
+
+public class FakeVersionedNotificationsApi : IVersionedNotificationsApi
+{
+    public FakeVersionedNotificationsApi(FakeNotificationsApi v1) => V1 = v1;
+    public INotificationsApi V1 { get; }
+}
+
 /// <summary>
 /// In-memory fake of <see cref="IRepositoryApiClient"/> for unit and integration tests.
 /// Eliminates the need for nested mock hierarchies.
@@ -151,6 +169,9 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeGameServersSecretsApi GameServersSecretsApi { get; } = new();
     public FakeApiHealthApi HealthApi { get; } = new();
     public FakeApiInfoApi InfoApi { get; } = new();
+    public FakeNotificationTypesApi NotificationTypesApi { get; } = new();
+    public FakeNotificationPreferencesApi NotificationPreferencesApi { get; } = new();
+    public FakeNotificationsApi NotificationsApi { get; } = new();
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -172,6 +193,9 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedTagsApi> _tags;
     private readonly Lazy<FakeVersionedApiHealthApi> _apiHealth;
     private readonly Lazy<FakeVersionedApiInfoApi> _apiInfo;
+    private readonly Lazy<FakeVersionedNotificationTypesApi> _notificationTypes;
+    private readonly Lazy<FakeVersionedNotificationPreferencesApi> _notificationPreferences;
+    private readonly Lazy<FakeVersionedNotificationsApi> _notifications;
 
     public FakeRepositoryApiClient()
     {
@@ -195,6 +219,9 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _tags = new Lazy<FakeVersionedTagsApi>(() => new FakeVersionedTagsApi(TagsApi));
         _apiHealth = new Lazy<FakeVersionedApiHealthApi>(() => new FakeVersionedApiHealthApi(HealthApi));
         _apiInfo = new Lazy<FakeVersionedApiInfoApi>(() => new FakeVersionedApiInfoApi(InfoApi));
+        _notificationTypes = new Lazy<FakeVersionedNotificationTypesApi>(() => new FakeVersionedNotificationTypesApi(NotificationTypesApi));
+        _notificationPreferences = new Lazy<FakeVersionedNotificationPreferencesApi>(() => new FakeVersionedNotificationPreferencesApi(NotificationPreferencesApi));
+        _notifications = new Lazy<FakeVersionedNotificationsApi>(() => new FakeVersionedNotificationsApi(NotificationsApi));
     }
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
@@ -217,6 +244,9 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedTagsApi Tags => _tags.Value;
     public IVersionedApiHealthApi ApiHealth => _apiHealth.Value;
     public IVersionedApiInfoApi ApiInfo => _apiInfo.Value;
+    public IVersionedNotificationTypesApi NotificationTypes => _notificationTypes.Value;
+    public IVersionedNotificationPreferencesApi NotificationPreferences => _notificationPreferences.Value;
+    public IVersionedNotificationsApi Notifications => _notifications.Value;
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,
@@ -243,6 +273,9 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         UserProfilesApi.Reset();
         TagsApi.Reset();
         GameServersSecretsApi.Reset();
+        NotificationTypesApi.Reset();
+        NotificationPreferencesApi.Reset();
+        NotificationsApi.Reset();
         return this;
     }
 }

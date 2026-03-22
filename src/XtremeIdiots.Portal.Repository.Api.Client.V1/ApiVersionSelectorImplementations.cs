@@ -202,4 +202,34 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IApiInfoApi V1 { get; }
     }
+
+    public class VersionedNotificationTypesApi : IVersionedNotificationTypesApi
+    {
+        public VersionedNotificationTypesApi(INotificationTypesApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public INotificationTypesApi V1 { get; }
+    }
+
+    public class VersionedNotificationPreferencesApi : IVersionedNotificationPreferencesApi
+    {
+        public VersionedNotificationPreferencesApi(INotificationPreferencesApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public INotificationPreferencesApi V1 { get; }
+    }
+
+    public class VersionedNotificationsApi : IVersionedNotificationsApi
+    {
+        public VersionedNotificationsApi(INotificationsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public INotificationsApi V1 { get; }
+    }
 }

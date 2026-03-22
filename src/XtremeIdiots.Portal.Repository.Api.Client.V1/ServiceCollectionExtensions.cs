@@ -42,6 +42,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             // Register API health endpoint
             serviceCollection.AddTypedApiClient<IApiHealthApi, ApiHealthApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
+            // Register Notification API implementations
+            serviceCollection.AddTypedApiClient<INotificationTypesApi, NotificationTypesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<INotificationPreferencesApi, NotificationPreferencesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<INotificationsApi, NotificationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
             serviceCollection.AddScoped<IVersionedBanFileMonitorsApi, VersionedBanFileMonitorsApi>();
@@ -63,6 +68,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedUserProfileApi, VersionedUserProfileApi>();
             serviceCollection.AddScoped<IVersionedApiHealthApi, VersionedApiHealthApi>();
             serviceCollection.AddScoped<IVersionedApiInfoApi, VersionedApiInfoApi>();
+            serviceCollection.AddScoped<IVersionedNotificationTypesApi, VersionedNotificationTypesApi>();
+            serviceCollection.AddScoped<IVersionedNotificationPreferencesApi, VersionedNotificationPreferencesApi>();
+            serviceCollection.AddScoped<IVersionedNotificationsApi, VersionedNotificationsApi>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();

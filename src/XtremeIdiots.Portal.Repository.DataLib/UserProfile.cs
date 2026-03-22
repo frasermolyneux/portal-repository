@@ -62,4 +62,10 @@ public partial class UserProfile
 
     [InverseProperty("UserProfile")]
     public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; } = [];
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<NotificationPreference> NotificationPreferences { get; set; } = [];
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<Notification> Notifications { get; set; } = [];
 }
