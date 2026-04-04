@@ -67,6 +67,15 @@ public class RepositoryDtoFactoryTests
         Assert.Equal(GameType.CallOfDuty4, server.GameType);
         Assert.Equal("127.0.0.1", server.Hostname);
         Assert.Equal(28960, server.QueryPort);
+        Assert.False(server.AgentEnabled);
+    }
+
+    [Fact]
+    public void CreateGameServer_WithAgentEnabled_SetsValue()
+    {
+        var server = RepositoryDtoFactory.CreateGameServer(agentEnabled: true);
+
+        Assert.True(server.AgentEnabled);
     }
 
     [Fact]

@@ -39,6 +39,8 @@ public partial class GameServer
 
     public bool BotEnabled { get; set; }
 
+    public bool AgentEnabled { get; set; }
+
     public bool BannerServerListEnabled { get; set; }
 
     public bool PortalServerListEnabled { get; set; }

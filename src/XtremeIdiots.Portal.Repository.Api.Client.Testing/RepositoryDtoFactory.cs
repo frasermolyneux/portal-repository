@@ -66,8 +66,10 @@ public static class RepositoryDtoFactory
         int queryPort = 28960,
         bool portalServerListEnabled = true,
         bool bannerServerListEnabled = false,
+        bool botEnabled = false,
         bool chatLogEnabled = false,
         bool liveTrackingEnabled = false,
+        bool agentEnabled = false,
         int serverListPosition = 0)
     {
         return new GameServerDto
@@ -79,8 +81,10 @@ public static class RepositoryDtoFactory
             QueryPort = queryPort,
             PortalServerListEnabled = portalServerListEnabled,
             BannerServerListEnabled = bannerServerListEnabled,
+            BotEnabled = botEnabled,
             ChatLogEnabled = chatLogEnabled,
             LiveTrackingEnabled = liveTrackingEnabled,
+            AgentEnabled = agentEnabled,
             ServerListPosition = serverListPosition
         };
     }

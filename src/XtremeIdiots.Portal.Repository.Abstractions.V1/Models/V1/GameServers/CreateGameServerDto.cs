@@ -57,6 +57,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool BotEnabled { get; set; }
 
         [JsonProperty]
+        public bool AgentEnabled { get; set; }
+
+        [JsonProperty]
         public bool BannerServerListEnabled { get; set; }
 
         [JsonProperty]

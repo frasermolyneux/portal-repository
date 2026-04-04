@@ -24,6 +24,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 HtmlBanner = entity.HtmlBanner,
                 ServerListPosition = entity.ServerListPosition,
                 BotEnabled = entity.BotEnabled,
+                AgentEnabled = entity.AgentEnabled,
                 BannerServerListEnabled = entity.BannerServerListEnabled,
                 PortalServerListEnabled = entity.PortalServerListEnabled,
                 ChatLogEnabled = entity.ChatLogEnabled,
@@ -55,7 +56,15 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 FtpPort = dto.FtpPort,
                 FtpUsername = dto.FtpUsername,
                 FtpPassword = dto.FtpPassword,
-                RconPassword = dto.RconPassword
+                RconPassword = dto.RconPassword,
+                ServerListPosition = dto.ServerListPosition,
+                HtmlBanner = dto.HtmlBanner,
+                BotEnabled = dto.BotEnabled,
+                AgentEnabled = dto.AgentEnabled,
+                BannerServerListEnabled = dto.BannerServerListEnabled,
+                PortalServerListEnabled = dto.PortalServerListEnabled,
+                ChatLogEnabled = dto.ChatLogEnabled,
+                LiveTrackingEnabled = dto.LiveTrackingEnabled
             };
         }
 
@@ -100,6 +109,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.ServerListPosition is not null) entity.ServerListPosition = dto.ServerListPosition.Value;
             if (dto.HtmlBanner is not null) entity.HtmlBanner = dto.HtmlBanner;
             if (dto.BotEnabled is not null) entity.BotEnabled = dto.BotEnabled.Value;
+            if (dto.AgentEnabled is not null) entity.AgentEnabled = dto.AgentEnabled.Value;
             if (dto.BannerServerListEnabled is not null) entity.BannerServerListEnabled = dto.BannerServerListEnabled.Value;
             if (dto.PortalServerListEnabled is not null) entity.PortalServerListEnabled = dto.PortalServerListEnabled.Value;
             if (dto.ChatLogEnabled is not null) entity.ChatLogEnabled = dto.ChatLogEnabled.Value;

@@ -13,6 +13,7 @@
     [ServerListPosition] INT DEFAULT 0 NOT NULL,
     [HtmlBanner] NVARCHAR (MAX) NULL,
     [BotEnabled] BIT DEFAULT 0 NOT NULL,
+    [AgentEnabled] BIT DEFAULT 0 NOT NULL,
     [BannerServerListEnabled] BIT DEFAULT 0 NOT NULL,
     [PortalServerListEnabled] BIT DEFAULT 0 NOT NULL,
     [ChatLogEnabled] BIT DEFAULT 0 NOT NULL,

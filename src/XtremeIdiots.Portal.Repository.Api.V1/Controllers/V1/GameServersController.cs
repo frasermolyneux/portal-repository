@@ -335,6 +335,7 @@ public class GameServersController : ControllerBase, IGameServersApi
                 GameServerFilter.BannerServerListEnabled => query.Where(s => s.BannerServerListEnabled && !string.IsNullOrWhiteSpace(s.HtmlBanner)),
                 GameServerFilter.LiveTrackingEnabled => query.Where(s => s.LiveTrackingEnabled),
                 GameServerFilter.BotEnabled => query.Where(s => s.BotEnabled),
+                GameServerFilter.AgentEnabled => query.Where(s => s.AgentEnabled),
                 _ => query
             };
         }

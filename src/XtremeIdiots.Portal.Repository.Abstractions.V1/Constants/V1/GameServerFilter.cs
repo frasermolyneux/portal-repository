@@ -5,6 +5,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         LiveTrackingEnabled,
         PortalServerListEnabled,
         BannerServerListEnabled,
-        BotEnabled
+        BotEnabled,
+        AgentEnabled
     }
 }
