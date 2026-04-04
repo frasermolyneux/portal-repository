@@ -7,7 +7,6 @@
 [![Deploy Prd](https://github.com/frasermolyneux/portal-repository/actions/workflows/deploy-prd.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/deploy-prd.yml)
 [![Destroy Development](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-development.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-development.yml)
 [![Destroy Environment](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-environment.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/destroy-environment.yml)
-[![Integration Tests](https://github.com/frasermolyneux/portal-repository/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/integration-tests.yml)
 [![PR Verify](https://github.com/frasermolyneux/portal-repository/actions/workflows/pr-verify.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/pr-verify.yml)
 [![Release Publish NuGet](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-publish-nuget.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-publish-nuget.yml)
 [![Release Version and Tag](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-version-and-tag.yml/badge.svg)](https://github.com/frasermolyneux/portal-repository/actions/workflows/release-version-and-tag.yml)

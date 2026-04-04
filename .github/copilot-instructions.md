@@ -52,7 +52,7 @@ Terraform (AzureRM v4, AzureAD v3) provisions API Management (version set, produ
 
 ## CI/CD Workflows
 
-GitHub Actions workflows in `.github/workflows/` cover build-and-test, code quality, PR verification, dev/prd deploys, environment destroy, NuGet publishing, integration tests, and dashboard updates. Versioning is handled by Nerdbank.GitVersioning (`version.json`). The CI job outputs `build_version`.
+GitHub Actions workflows in `.github/workflows/` cover build-and-test, code quality, PR verification, dev/prd deploys, environment destroy, NuGet publishing, and dashboard updates. Versioning is handled by Nerdbank.GitVersioning (`version.json`). The CI job outputs `build_version`.
 
 Deploy workflows perform version verification (polling `/v1.0/info` and `/v2.0/info` until the deployed build matches the expected version), then import OpenAPI specs into APIM via `az apim api import --specification-url` from the live App Services.
 
