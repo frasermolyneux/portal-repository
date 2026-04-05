@@ -8,7 +8,7 @@ Add these NuGet packages to your .csproj based on your selections:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.5" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.13" />
 </ItemGroup>
 ```
 
@@ -26,7 +26,7 @@ Add these NuGet packages to your .csproj based on your selections:
     ```json
     {
         "ConnectionStrings": {
-            "DefaultConnection": "data source=(local);initial catalog=XtremeIdiots.Portal.Repository.Database;integrated security=true;encrypt=false"
+            "DefaultConnection": "The_Connection_String_You_Supplied_With_The_Reverse_Engineering_Command"
         }
     }
     ```

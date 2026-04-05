@@ -66,9 +66,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool PortalServerListEnabled { get; set; }
 
         [JsonProperty]
-        public bool ChatLogEnabled { get; set; }
-
-        [JsonProperty]
         public bool LiveTrackingEnabled { get; set; }
 
         [JsonIgnore]

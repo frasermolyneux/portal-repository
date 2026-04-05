@@ -16,7 +16,6 @@
     [AgentEnabled] BIT DEFAULT 0 NOT NULL,
     [BannerServerListEnabled] BIT DEFAULT 0 NOT NULL,
     [PortalServerListEnabled] BIT DEFAULT 0 NOT NULL,
-    [ChatLogEnabled] BIT DEFAULT 0 NOT NULL,
     [LiveTrackingEnabled] BIT NOT NULL DEFAULT 0,
     [LiveTitle] NVARCHAR (MAX) NULL,
     [LiveMap] NVARCHAR (MAX) NULL,

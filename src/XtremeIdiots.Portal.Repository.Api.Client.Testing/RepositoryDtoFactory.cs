@@ -67,7 +67,6 @@ public static class RepositoryDtoFactory
         bool portalServerListEnabled = true,
         bool bannerServerListEnabled = false,
         bool botEnabled = false,
-        bool chatLogEnabled = false,
         bool liveTrackingEnabled = false,
         bool agentEnabled = false,
         int serverListPosition = 0)
@@ -82,7 +81,6 @@ public static class RepositoryDtoFactory
             PortalServerListEnabled = portalServerListEnabled,
             BannerServerListEnabled = bannerServerListEnabled,
             BotEnabled = botEnabled,
-            ChatLogEnabled = chatLogEnabled,
             LiveTrackingEnabled = liveTrackingEnabled,
             AgentEnabled = agentEnabled,
             ServerListPosition = serverListPosition

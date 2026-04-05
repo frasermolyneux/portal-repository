@@ -29,11 +29,11 @@ public partial class NotificationPreference
     [Column(TypeName = "datetime")]
     public DateTime LastModified { get; set; }
 
-    [ForeignKey("UserProfileId")]
-    [InverseProperty("NotificationPreferences")]
-    public virtual UserProfile UserProfile { get; set; } = null!;
-
     [ForeignKey("NotificationTypeId")]
     [InverseProperty("NotificationPreferences")]
     public virtual NotificationType NotificationType { get; set; } = null!;
+
+    [ForeignKey("UserProfileId")]
+    [InverseProperty("NotificationPreferences")]
+    public virtual UserProfile UserProfile { get; set; } = null!;
 }

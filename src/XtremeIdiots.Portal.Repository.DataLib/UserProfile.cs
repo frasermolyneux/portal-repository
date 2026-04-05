@@ -43,29 +43,29 @@ public partial class UserProfile
     public string? TimeZone { get; set; }
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<AdminAction> AdminActions { get; set; } = [];
+    public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<Demo> Demos { get; set; } = [];
+    public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = [];
+    public virtual ICollection<NotificationPreference> NotificationPreferences { get; set; } = new List<NotificationPreference>();
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = new List<PlayerTag>();
 
     [InverseProperty("CreatedByUserProfile")]
-    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = [];
+    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = new List<ProtectedName>();
 
     [InverseProperty("AdminUserProfile")]
-    public virtual ICollection<Report> ReportAdminUserProfiles { get; set; } = [];
+    public virtual ICollection<Report> ReportAdminUserProfiles { get; set; } = new List<Report>();
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<Report> ReportUserProfiles { get; set; } = [];
+    public virtual ICollection<Report> ReportUserProfiles { get; set; } = new List<Report>();
 
     [InverseProperty("UserProfile")]
-    public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; } = [];
-
-    [InverseProperty("UserProfile")]
-    public virtual ICollection<NotificationPreference> NotificationPreferences { get; set; } = [];
-
-    [InverseProperty("UserProfile")]
-    public virtual ICollection<Notification> Notifications { get; set; } = [];
+    public virtual ICollection<UserProfileClaim> UserProfileClaims { get; set; } = new List<UserProfileClaim>();
 }

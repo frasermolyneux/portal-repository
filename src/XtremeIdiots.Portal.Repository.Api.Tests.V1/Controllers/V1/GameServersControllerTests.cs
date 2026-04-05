@@ -189,7 +189,6 @@ public class GameServersControllerTests
             AgentEnabled = true,
             BannerServerListEnabled = true,
             PortalServerListEnabled = true,
-            ChatLogEnabled = true,
             LiveTrackingEnabled = true
         };
 
@@ -212,7 +211,6 @@ public class GameServersControllerTests
         Assert.True(entity.AgentEnabled);
         Assert.True(entity.BannerServerListEnabled);
         Assert.True(entity.PortalServerListEnabled);
-        Assert.True(entity.ChatLogEnabled);
         Assert.True(entity.LiveTrackingEnabled);
     }
 

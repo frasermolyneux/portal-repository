@@ -40,32 +40,32 @@ public partial class Player
     public string? IpAddress { get; set; }
 
     [InverseProperty("Player")]
-    public virtual ICollection<AdminAction> AdminActions { get; set; } = [];
+    public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = [];
+    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = [];
+    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<MapVote> MapVotes { get; set; } = [];
+    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<PlayerAlias> PlayerAliases { get; set; } = [];
+    public virtual ICollection<PlayerAlias> PlayerAliases { get; set; } = new List<PlayerAlias>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; } = [];
+    public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; } = new List<PlayerIpAddress>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = [];
+    public virtual ICollection<PlayerTag> PlayerTags { get; set; } = new List<PlayerTag>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = [];
+    public virtual ICollection<ProtectedName> ProtectedNames { get; set; } = new List<ProtectedName>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = [];
+    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<Report> Reports { get; set; } = [];
+    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 }

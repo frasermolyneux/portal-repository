@@ -20,6 +20,7 @@
     "use-many-to-many-entity": false,
     "use-nullable-reference-types": true,
     "use-prefix-navigation-naming": false,
+    "use-typed-tvp-parameters": true,
     "use-t4": false,
     "use-t4-split": false
   },
@@ -99,6 +100,15 @@
     },
     {
       "name": "[dbo].[Tags]"
+    },
+    {
+      "name": "[dbo].[NotificationPreferences]"
+    },
+    {
+      "name": "[dbo].[Notifications]"
+    },
+    {
+      "name": "[dbo].[NotificationTypes]"
     }
   ]
 }

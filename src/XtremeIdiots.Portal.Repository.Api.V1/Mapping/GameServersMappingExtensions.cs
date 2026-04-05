@@ -27,7 +27,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 AgentEnabled = entity.AgentEnabled,
                 BannerServerListEnabled = entity.BannerServerListEnabled,
                 PortalServerListEnabled = entity.PortalServerListEnabled,
-                ChatLogEnabled = entity.ChatLogEnabled,
                 LiveTrackingEnabled = entity.LiveTrackingEnabled,
                 LiveTitle = entity.LiveTitle,
                 LiveMod = entity.LiveMod,
@@ -63,7 +62,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 AgentEnabled = dto.AgentEnabled,
                 BannerServerListEnabled = dto.BannerServerListEnabled,
                 PortalServerListEnabled = dto.PortalServerListEnabled,
-                ChatLogEnabled = dto.ChatLogEnabled,
                 LiveTrackingEnabled = dto.LiveTrackingEnabled
             };
         }
@@ -112,7 +110,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.AgentEnabled is not null) entity.AgentEnabled = dto.AgentEnabled.Value;
             if (dto.BannerServerListEnabled is not null) entity.BannerServerListEnabled = dto.BannerServerListEnabled.Value;
             if (dto.PortalServerListEnabled is not null) entity.PortalServerListEnabled = dto.PortalServerListEnabled.Value;
-            if (dto.ChatLogEnabled is not null) entity.ChatLogEnabled = dto.ChatLogEnabled.Value;
             if (dto.LiveTrackingEnabled is not null) entity.LiveTrackingEnabled = dto.LiveTrackingEnabled.Value;
             if (dto.LiveTitle is not null) entity.LiveTitle = dto.LiveTitle;
             if (dto.LiveMap is not null) entity.LiveMap = dto.LiveMap;

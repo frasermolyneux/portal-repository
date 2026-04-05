@@ -45,8 +45,6 @@ public partial class GameServer
 
     public bool PortalServerListEnabled { get; set; }
 
-    public bool ChatLogEnabled { get; set; }
-
     public bool LiveTrackingEnabled { get; set; }
 
     public string? LiveTitle { get; set; }

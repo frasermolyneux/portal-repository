@@ -8,10 +8,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
+[Index("CreatedAt", Name = "IX_Notifications_CreatedAt")]
+[Index("NotificationTypeId", Name = "IX_Notifications_NotificationTypeId")]
 [Index("UserProfileId", Name = "IX_Notifications_UserProfileId")]
 [Index("UserProfileId", "IsRead", Name = "IX_Notifications_UserProfileId_IsRead")]
-[Index("NotificationTypeId", Name = "IX_Notifications_NotificationTypeId")]
-[Index("CreatedAt", Name = "IX_Notifications_CreatedAt")]
 public partial class Notification
 {
     [Key]
@@ -45,11 +45,11 @@ public partial class Notification
     [Column(TypeName = "datetime")]
     public DateTime? EmailSentAt { get; set; }
 
-    [ForeignKey("UserProfileId")]
-    [InverseProperty("Notifications")]
-    public virtual UserProfile UserProfile { get; set; } = null!;
-
     [ForeignKey("NotificationTypeId")]
     [InverseProperty("Notifications")]
     public virtual NotificationType NotificationType { get; set; } = null!;
+
+    [ForeignKey("UserProfileId")]
+    [InverseProperty("Notifications")]
+    public virtual UserProfile UserProfile { get; set; } = null!;
 }

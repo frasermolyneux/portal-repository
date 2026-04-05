@@ -37,6 +37,12 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<MapVote> MapVotes { get; set; }
 
+    public virtual DbSet<Notification> Notifications { get; set; }
+
+    public virtual DbSet<NotificationPreference> NotificationPreferences { get; set; }
+
+    public virtual DbSet<NotificationType> NotificationTypes { get; set; }
+
     public virtual DbSet<Player> Players { get; set; }
 
     public virtual DbSet<PlayerAlias> PlayerAliases { get; set; }
@@ -56,12 +62,6 @@ public partial class PortalDbContext : DbContext
     public virtual DbSet<UserProfile> UserProfiles { get; set; }
 
     public virtual DbSet<UserProfileClaim> UserProfileClaims { get; set; }
-
-    public virtual DbSet<Notification> Notifications { get; set; }
-
-    public virtual DbSet<NotificationPreference> NotificationPreferences { get; set; }
-
-    public virtual DbSet<NotificationType> NotificationTypes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -197,6 +197,43 @@ public partial class PortalDbContext : DbContext
                 .HasConstraintName("FK_dbo.MapVotes_dbo.Players_PlayerId");
         });
 
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.NotificationId).HasName("PK_dbo.Notifications");
+
+            entity.Property(e => e.NotificationId).HasDefaultValueSql("newsequentialid()");
+
+            entity.HasOne(d => d.NotificationType).WithMany(p => p.Notifications)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.Notifications_dbo.NotificationTypes_NotificationTypeId");
+
+            entity.HasOne(d => d.UserProfile).WithMany(p => p.Notifications)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.Notifications_dbo.UserProfiles_UserProfileId");
+        });
+
+        modelBuilder.Entity<NotificationPreference>(entity =>
+        {
+            entity.HasKey(e => e.NotificationPreferenceId).HasName("PK_dbo.NotificationPreferences");
+
+            entity.Property(e => e.NotificationPreferenceId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.EmailEnabled).HasDefaultValue(true);
+            entity.Property(e => e.InSiteEnabled).HasDefaultValue(true);
+
+            entity.HasOne(d => d.NotificationType).WithMany(p => p.NotificationPreferences)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.NotificationPreferences_dbo.NotificationTypes_NotificationTypeId");
+
+            entity.HasOne(d => d.UserProfile).WithMany(p => p.NotificationPreferences)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.NotificationPreferences_dbo.UserProfiles_UserProfileId");
+        });
+
+        modelBuilder.Entity<NotificationType>(entity =>
+        {
+            entity.HasKey(e => e.NotificationTypeId).HasName("PK_dbo.NotificationTypes");
+        });
+
         modelBuilder.Entity<Player>(entity =>
         {
             entity.HasKey(e => e.PlayerId).HasName("PK_dbo.Players");
@@ -295,41 +332,6 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.UserProfile).WithMany(p => p.UserProfileClaims)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.UserProfileClaims_dbo.UserProfiles_Id");
-        });
-
-        modelBuilder.Entity<NotificationType>(entity =>
-        {
-            entity.HasKey(e => e.NotificationTypeId).HasName("PK_dbo.NotificationTypes");
-        });
-
-        modelBuilder.Entity<NotificationPreference>(entity =>
-        {
-            entity.HasKey(e => e.NotificationPreferenceId).HasName("PK_dbo.NotificationPreferences");
-
-            entity.Property(e => e.NotificationPreferenceId).HasDefaultValueSql("newsequentialid()");
-
-            entity.HasOne(d => d.UserProfile).WithMany(p => p.NotificationPreferences)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_dbo.NotificationPreferences_dbo.UserProfiles_UserProfileId");
-
-            entity.HasOne(d => d.NotificationType).WithMany(p => p.NotificationPreferences)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_dbo.NotificationPreferences_dbo.NotificationTypes_NotificationTypeId");
-        });
-
-        modelBuilder.Entity<Notification>(entity =>
-        {
-            entity.HasKey(e => e.NotificationId).HasName("PK_dbo.Notifications");
-
-            entity.Property(e => e.NotificationId).HasDefaultValueSql("newsequentialid()");
-
-            entity.HasOne(d => d.UserProfile).WithMany(p => p.Notifications)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_dbo.Notifications_dbo.UserProfiles_UserProfileId");
-
-            entity.HasOne(d => d.NotificationType).WithMany(p => p.Notifications)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_dbo.Notifications_dbo.NotificationTypes_NotificationTypeId");
         });
 
         OnModelCreatingPartial(modelBuilder);

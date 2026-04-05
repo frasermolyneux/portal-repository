@@ -35,8 +35,8 @@ public partial class NotificationType
     public int SortOrder { get; set; }
 
     [InverseProperty("NotificationType")]
-    public virtual ICollection<NotificationPreference> NotificationPreferences { get; set; } = [];
+    public virtual ICollection<NotificationPreference> NotificationPreferences { get; set; } = new List<NotificationPreference>();
 
     [InverseProperty("NotificationType")]
-    public virtual ICollection<Notification> Notifications { get; set; } = [];
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
