@@ -53,3 +53,7 @@ output "resource_group_name" {
 output "staging_dashboard_name" {
   value = var.environment == "dev" ? azurerm_portal_dashboard.staging_dashboard[0].name : ""
 }
+
+output "backup_storage_account_name" {
+  value = azurerm_storage_account.sql_backup_storage.name
+}

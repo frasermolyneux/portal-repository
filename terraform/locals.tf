@@ -40,9 +40,11 @@ locals {
   sql_server                   = data.terraform_remote_state.portal_core.outputs.sql_server
 
   # Local Resource Naming
-  web_app_name_v1      = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.environment_id.hex}"
-  web_app_name_v2      = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.environment_id.hex}"
-  sql_database_name    = "portal-repo-${random_id.environment_id.hex}"
-  web_api_storage_name = "saad${random_id.environment_id.hex}"
-  dashboard_name       = "portal-repository-${var.environment}"
+  web_app_name_v1            = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.environment_id.hex}"
+  web_app_name_v2            = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.environment_id.hex}"
+  sql_database_name          = "portal-repo-${random_id.environment_id.hex}"
+  web_api_storage_name       = "saad${random_id.environment_id.hex}"
+  sql_backup_storage_name    = "sasqlbackup${random_id.environment_id.hex}"
+  dashboard_name             = "portal-repository-${var.environment}"
+  workload_service_principal = data.terraform_remote_state.platform_workloads.outputs.workload_service_principals[var.workload_name][var.environment]
 }

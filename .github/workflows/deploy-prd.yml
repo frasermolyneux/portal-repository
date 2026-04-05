@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      allow-data-loss:
+        description: "Allow SQL schema changes that may cause data loss. Triggers a pre-deploy database export first."
+        type: boolean
+        default: false
   schedule:
     - cron: "0 3 * * 3"
 
@@ -133,6 +138,7 @@ jobs:
           echo "api_management_resource_group_name=$(terraform output -raw api_management_resource_group_name)" >> $GITHUB_OUTPUT
           echo "api_management_product_id=$(terraform output -raw api_management_product_id)" >> $GITHUB_OUTPUT
           echo "api_version_set_id=$(terraform output -raw api_version_set_id)" >> $GITHUB_OUTPUT
+          echo "backup_storage_account_name=$(terraform output -raw backup_storage_account_name)" >> $GITHUB_OUTPUT
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -151,6 +157,7 @@ jobs:
       api_management_resource_group_name: ${{ steps.terraform-output-dev.outputs.api_management_resource_group_name }}
       api_management_product_id: ${{ steps.terraform-output-dev.outputs.api_management_product_id }}
       api_version_set_id: ${{ steps.terraform-output-dev.outputs.api_version_set_id }}
+      backup_storage_account_name: ${{ steps.terraform-output-dev.outputs.backup_storage_account_name }}
 
   deploy-sql-database-dev:
     permissions:
@@ -170,13 +177,15 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-sql-database@deploy-sql-database/v1.2
+      - uses: frasermolyneux/actions/deploy-sql-database@deploy-sql-database/v1.3
         with:
           sql-args: /Variables:env=dev /Variables:instance=01
           sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
           sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
           project-folder: "src/XtremeIdiots.Portal.Repository.Database"
           project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
+          allow-data-loss: ${{ github.event.inputs.allow-data-loss && 'true' || 'false' }}
+          backup-storage-account-name: ${{ needs.terraform-plan-and-apply-dev.outputs.backup_storage_account_name }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -346,6 +355,7 @@ jobs:
           echo "api_management_resource_group_name=$(terraform output -raw api_management_resource_group_name)" >> $GITHUB_OUTPUT
           echo "api_management_product_id=$(terraform output -raw api_management_product_id)" >> $GITHUB_OUTPUT
           echo "api_version_set_id=$(terraform output -raw api_version_set_id)" >> $GITHUB_OUTPUT
+          echo "backup_storage_account_name=$(terraform output -raw backup_storage_account_name)" >> $GITHUB_OUTPUT
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -364,6 +374,7 @@ jobs:
       api_management_resource_group_name: ${{ steps.terraform-output-prd.outputs.api_management_resource_group_name }}
       api_management_product_id: ${{ steps.terraform-output-prd.outputs.api_management_product_id }}
       api_version_set_id: ${{ steps.terraform-output-prd.outputs.api_version_set_id }}
+      backup_storage_account_name: ${{ steps.terraform-output-prd.outputs.backup_storage_account_name }}
 
   deploy-sql-database-prd:
     permissions:
@@ -382,13 +393,15 @@ jobs:
       needs.terraform-plan-and-apply-prd.result == 'success' &&
       needs.detect-changes.outputs.database == 'true'
     steps:
-      - uses: frasermolyneux/actions/deploy-sql-database@deploy-sql-database/v1.2
+      - uses: frasermolyneux/actions/deploy-sql-database@deploy-sql-database/v1.3
         with:
           sql-args: /Variables:env=prd /Variables:instance=01
           sql-server-fqdn: ${{ needs.terraform-plan-and-apply-prd.outputs.sql_server_fqdn }}
           sql-database-name: ${{ needs.terraform-plan-and-apply-prd.outputs.sql_database_name }}
           project-folder: "src/XtremeIdiots.Portal.Repository.Database"
           project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
+          allow-data-loss: ${{ github.event.inputs.allow-data-loss && 'true' || 'false' }}
+          backup-storage-account-name: ${{ needs.terraform-plan-and-apply-prd.outputs.backup_storage_account_name }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
