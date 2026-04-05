@@ -20,6 +20,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult> DeleteMap(Guid mapId, CancellationToken cancellationToken = default);
         Task<ApiResult> RebuildMapPopularity(CancellationToken cancellationToken = default);
 
+        Task<ApiResult<CollectionModel<MapVoteDto>>> GetMapVotes(GameType? gameType, Guid? mapId, int skipEntries, int takeEntries, MapVotesOrder? order, CancellationToken cancellationToken = default);
+
         Task<ApiResult> UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default);
         Task<ApiResult> UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken = default);
 

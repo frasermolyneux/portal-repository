@@ -10,15 +10,25 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 public class FakeMapsApi : IMapsApi
 {
     private readonly ConcurrentDictionary<Guid, MapDto> _maps = new();
+    private readonly ConcurrentDictionary<Guid, MapVoteDto> _mapVotes = new();
     private readonly ConcurrentDictionary<string, (HttpStatusCode StatusCode, ApiError Error)> _errorResponses = new(StringComparer.OrdinalIgnoreCase);
 
     public FakeMapsApi AddMap(MapDto map) { _maps[map.MapId] = map; return this; }
+    public FakeMapsApi AddMapVote(MapVoteDto mapVote)
+    {
+        // Auto-resolve Map navigation from _maps store if not already set
+        if (mapVote.Map is null && _maps.TryGetValue(mapVote.MapId, out var map))
+            mapVote = mapVote with { Map = map };
+
+        _mapVotes[mapVote.MapVoteId] = mapVote;
+        return this;
+    }
     public FakeMapsApi AddErrorResponse(string operationKey, HttpStatusCode statusCode, string errorCode, string errorMessage)
     {
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
         return this;
     }
-    public FakeMapsApi Reset() { _maps.Clear(); _errorResponses.Clear(); return this; }
+    public FakeMapsApi Reset() { _maps.Clear(); _mapVotes.Clear(); _errorResponses.Clear(); return this; }
 
     public Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default)
     {
@@ -43,6 +53,35 @@ public class FakeMapsApi : IMapsApi
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<MapDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapDto>>(collection)));
+    }
+
+    public Task<ApiResult<CollectionModel<MapVoteDto>>> GetMapVotes(GameType? gameType, Guid? mapId, int skipEntries, int takeEntries, MapVotesOrder? order, CancellationToken cancellationToken = default)
+    {
+        // Resolve Map navigation from _maps store at query time to avoid order-of-insertion issues
+        var items = _mapVotes.Values.Select(mv =>
+            mv.Map is null && _maps.TryGetValue(mv.MapId, out var map) ? mv with { Map = map } : mv);
+
+        if (gameType.HasValue) items = items.Where(mv => mv.Map?.GameType == gameType.Value);
+        if (mapId.HasValue) items = items.Where(mv => mv.MapId == mapId.Value);
+
+        var totalCount = _mapVotes.Count;
+        var filteredCount = items.Count();
+
+        items = order switch
+        {
+            MapVotesOrder.TimestampAsc => items.OrderBy(mv => mv.Timestamp).ThenBy(mv => mv.MapVoteId),
+            MapVotesOrder.MapNameAsc => items.OrderBy(mv => mv.Map?.MapName).ThenBy(mv => mv.MapVoteId),
+            MapVotesOrder.MapNameDesc => items.OrderByDescending(mv => mv.Map?.MapName).ThenBy(mv => mv.MapVoteId),
+            _ => items.OrderByDescending(mv => mv.Timestamp).ThenBy(mv => mv.MapVoteId)
+        };
+
+        var list = items.Skip(skipEntries).Take(takeEntries).ToList();
+        var collection = new CollectionModel<MapVoteDto> { Items = list };
+        var response = new ApiResponse<CollectionModel<MapVoteDto>>(collection)
+        {
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+        };
+        return Task.FromResult(new ApiResult<CollectionModel<MapVoteDto>>(HttpStatusCode.OK, response));
     }
 
     public Task<ApiResult> CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));

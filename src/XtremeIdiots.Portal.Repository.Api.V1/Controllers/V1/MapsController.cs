@@ -421,6 +421,85 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
+        /// Retrieves a paginated list of map votes with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="mapId">Optional filter by specific map.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
+        /// <param name="takeEntries">Number of entries to take for pagination (default: 20).</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A paginated collection of map votes.</returns>
+        [HttpGet("maps/votes")]
+        [ProducesResponseType<CollectionModel<MapVoteDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMapVotes(GameType? gameType, Guid? mapId, int? skipEntries, int? takeEntries, MapVotesOrder? order, CancellationToken cancellationToken = default)
+        {
+            if (!skipEntries.HasValue)
+                skipEntries = 0;
+
+            if (!takeEntries.HasValue)
+                takeEntries = 20;
+
+            var response = await ((IMapsApi)this).GetMapVotes(gameType, mapId, skipEntries.Value, takeEntries.Value, order, cancellationToken).ConfigureAwait(false);
+
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Retrieves a paginated list of map votes with optional filtering and sorting.
+        /// </summary>
+        /// <param name="gameType">Optional filter by game type.</param>
+        /// <param name="mapId">Optional filter by specific map.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of map votes.</returns>
+        async Task<ApiResult<CollectionModel<MapVoteDto>>> IMapsApi.GetMapVotes(GameType? gameType, Guid? mapId, int skipEntries, int takeEntries, MapVotesOrder? order, CancellationToken cancellationToken)
+        {
+            var baseQuery = context.MapVotes.AsNoTracking().AsQueryable();
+
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            // Apply filters (without Include for efficient counting)
+            if (gameType.HasValue)
+                baseQuery = baseQuery.Where(mv => mv.Map.GameType == gameType.Value.ToGameTypeInt());
+
+            if (mapId.HasValue)
+                baseQuery = baseQuery.Where(mv => mv.MapId == mapId.Value);
+
+            var filteredCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            // Apply ordering with stable tiebreaker
+            var orderedQuery = order switch
+            {
+                MapVotesOrder.TimestampAsc => baseQuery.OrderBy(mv => mv.Timestamp).ThenBy(mv => mv.MapVoteId),
+                MapVotesOrder.MapNameAsc => baseQuery.OrderBy(mv => mv.Map.MapName).ThenBy(mv => mv.MapVoteId),
+                MapVotesOrder.MapNameDesc => baseQuery.OrderByDescending(mv => mv.Map.MapName).ThenBy(mv => mv.MapVoteId),
+                _ => baseQuery.OrderByDescending(mv => mv.Timestamp).ThenBy(mv => mv.MapVoteId)
+            };
+
+            // Include navigation properties only for the final paged query
+            var pagedQuery = orderedQuery
+                .Include(mv => mv.Map)
+                .Include(mv => mv.Player)
+                .Include(mv => mv.GameServer)
+                .Skip(skipEntries)
+                .Take(takeEntries);
+
+            var results = await pagedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var entries = results.Select(mv => mv.ToDto()).ToList();
+
+            var data = new CollectionModel<MapVoteDto>(entries);
+
+            return new ApiResponse<CollectionModel<MapVoteDto>>(data)
+            {
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+            }.ToApiResult();
+        }
+
+        /// <summary>
         /// Rebuilds the popularity statistics for all maps based on vote data.
         /// </summary>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>

@@ -122,6 +122,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        public async Task<ApiResult<CollectionModel<MapVoteDto>>> GetMapVotes(GameType? gameType, Guid? mapId, int skipEntries, int takeEntries, MapVotesOrder? order, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/maps/votes", Method.Get).ConfigureAwait(false);
+
+            if (gameType.HasValue)
+                request.AddQueryParameter("gameType", gameType.ToString());
+
+            if (mapId.HasValue)
+                request.AddQueryParameter("mapId", mapId.ToString());
+
+            request.AddQueryParameter("skipEntries", skipEntries.ToString());
+            request.AddQueryParameter("takeEntries", takeEntries.ToString());
+
+            if (order.HasValue)
+                request.AddQueryParameter("order", order.ToString());
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult<CollectionModel<MapVoteDto>>();
+        }
+
         public async Task<ApiResult> UpsertMapVote(UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/maps/votes", Method.Post).ConfigureAwait(false);
