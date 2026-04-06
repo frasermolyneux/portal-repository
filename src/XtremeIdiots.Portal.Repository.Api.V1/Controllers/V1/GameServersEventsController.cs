@@ -12,6 +12,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
+using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -36,6 +37,65 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     {
         ArgumentNullException.ThrowIfNull(context);
             this.context = context;
+    }
+
+    /// <summary>
+    /// Retrieves paginated game server events with optional filtering.
+    /// </summary>
+    /// <param name="gameType">Optional game type filter.</param>
+    /// <param name="gameServerId">Optional game server ID filter.</param>
+    /// <param name="eventType">Optional event type filter.</param>
+    /// <param name="skipEntries">Number of entries to skip.</param>
+    /// <param name="takeEntries">Number of entries to take.</param>
+    /// <param name="order">Sort order for results.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A paginated collection of game server events.</returns>
+    [HttpGet("game-server-events")]
+    [ProducesResponseType<CollectionModel<GameServerEventDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGameServerEvents(
+        [FromQuery] GameType? gameType = null,
+        [FromQuery] Guid? gameServerId = null,
+        [FromQuery] string? eventType = null,
+        [FromQuery] int skipEntries = 0,
+        [FromQuery] int takeEntries = 20,
+        [FromQuery] GameServerEventOrder? order = null,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IGameServersEventsApi)this).GetGameServerEvents(gameType, gameServerId, eventType, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<CollectionModel<GameServerEventDto>>> IGameServersEventsApi.GetGameServerEvents(
+        GameType? gameType,
+        Guid? gameServerId,
+        string? eventType,
+        int skipEntries,
+        int takeEntries,
+        GameServerEventOrder? order,
+        CancellationToken cancellationToken)
+    {
+        var countQuery = context.GameServerEvents.AsNoTracking().AsQueryable();
+        var totalCount = await countQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        var filteredCountQuery = ApplyFilter(countQuery, gameType, gameServerId, eventType);
+        var filteredCount = await filteredCountQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        var dataQuery = context.GameServerEvents
+            .Include(gse => gse.GameServer)
+            .AsNoTracking()
+            .AsQueryable();
+
+        var filteredDataQuery = ApplyFilter(dataQuery, gameType, gameServerId, eventType);
+        var orderedQuery = ApplyOrderAndLimits(filteredDataQuery, skipEntries, takeEntries, order);
+        var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var entries = results.Select(gse => gse.ToDto()).ToList();
+        var data = new CollectionModel<GameServerEventDto>(entries);
+
+        return new ApiResponse<CollectionModel<GameServerEventDto>>(data)
+        {
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+        }.ToApiResult();
     }
 
     /// <summary>
@@ -105,6 +165,35 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+    }
+
+    private static IQueryable<GameServerEvent> ApplyFilter(IQueryable<GameServerEvent> query, GameType? gameType, Guid? gameServerId, string? eventType)
+    {
+        if (gameType.HasValue)
+            query = query.Where(gse => gse.GameServer.GameType == gameType.Value.ToGameTypeInt());
+
+        if (gameServerId.HasValue)
+            query = query.Where(gse => gse.GameServerId == gameServerId);
+
+        if (!string.IsNullOrWhiteSpace(eventType))
+            query = query.Where(gse => gse.EventType == eventType);
+
+        return query;
+    }
+
+    private static IQueryable<GameServerEvent> ApplyOrderAndLimits(IQueryable<GameServerEvent> query, int skipEntries, int takeEntries, GameServerEventOrder? order)
+    {
+        skipEntries = Math.Max(0, skipEntries);
+        takeEntries = Math.Clamp(takeEntries, 1, 100);
+
+        var orderedQuery = order switch
+        {
+            GameServerEventOrder.TimestampAsc => query.OrderBy(gse => gse.Timestamp),
+            GameServerEventOrder.TimestampDesc => query.OrderByDescending(gse => gse.Timestamp),
+            _ => query.OrderByDescending(gse => gse.Timestamp)
+        };
+
+        return orderedQuery.Skip(skipEntries).Take(takeEntries);
     }
 }
 
