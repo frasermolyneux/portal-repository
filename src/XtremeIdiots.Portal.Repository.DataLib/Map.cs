@@ -36,5 +36,8 @@ public partial class Map
     public virtual ICollection<MapPackMap> MapPackMaps { get; set; } = new List<MapPackMap>();
 
     [InverseProperty("Map")]
+    public virtual ICollection<MapRotationMap> MapRotationMaps { get; set; } = new List<MapRotationMap>();
+
+    [InverseProperty("Map")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 }

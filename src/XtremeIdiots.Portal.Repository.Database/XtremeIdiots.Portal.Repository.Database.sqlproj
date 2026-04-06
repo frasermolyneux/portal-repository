@@ -74,6 +74,10 @@
       <QuotedIdentifier>On</QuotedIdentifier>
     </Build>
     <Build Include="dbo\Tables\MapPacks.sql" />    <Build Include="dbo\Tables\MapPackMaps.sql" />
+    <Build Include="dbo\Tables\MapRotations.sql" />
+    <Build Include="dbo\Tables\MapRotationMaps.sql" />
+    <Build Include="dbo\Tables\MapRotationServerAssignments.sql" />
+    <Build Include="dbo\Tables\MapRotationAssignmentOperations.sql" />
     <Build Include="dbo\Tables\ProtectedNames.sql" />
     <Build Include="dbo\Tables\Tags.sql">
       <AnsiNulls>On</AnsiNulls>

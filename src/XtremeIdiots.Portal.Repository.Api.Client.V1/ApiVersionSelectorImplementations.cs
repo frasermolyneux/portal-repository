@@ -232,4 +232,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public INotificationsApi V1 { get; }
     }
+
+    public class VersionedMapRotationsApi : IVersionedMapRotationsApi
+    {
+        public VersionedMapRotationsApi(IMapRotationsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IMapRotationsApi V1 { get; }
+    }
 }

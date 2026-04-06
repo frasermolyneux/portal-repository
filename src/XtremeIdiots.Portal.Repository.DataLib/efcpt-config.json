@@ -109,6 +109,18 @@
     },
     {
       "name": "[dbo].[NotificationTypes]"
+    },
+    {
+      "name": "[dbo].[MapRotations]"
+    },
+    {
+      "name": "[dbo].[MapRotationMaps]"
+    },
+    {
+      "name": "[dbo].[MapRotationServerAssignments]"
+    },
+    {
+      "name": "[dbo].[MapRotationAssignmentOperations]"
     }
   ]
 }

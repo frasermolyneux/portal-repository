@@ -28,6 +28,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedNotificationTypesApi> _notificationTypes = new();
         private readonly Mock<IVersionedNotificationPreferencesApi> _notificationPreferences = new();
         private readonly Mock<IVersionedNotificationsApi> _notifications = new();
+        private readonly Mock<IVersionedMapRotationsApi> _mapRotations = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -52,7 +53,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _apiInfo.Object,
             _notificationTypes.Object,
             _notificationPreferences.Object,
-            _notifications.Object);
+            _notifications.Object,
+            _mapRotations.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -82,6 +84,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_notificationTypes.Object, client.NotificationTypes);
             Assert.Same(_notificationPreferences.Object, client.NotificationPreferences);
             Assert.Same(_notifications.Object, client.Notifications);
+            Assert.Same(_mapRotations.Object, client.MapRotations);
         }
 
         [Fact]
@@ -112,8 +115,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.NotificationTypes);
             Assert.NotNull(client.NotificationPreferences);
             Assert.NotNull(client.Notifications);
+            Assert.NotNull(client.MapRotations);
         }
-
         [Fact]
         public void Properties_ReturnCorrectTypes()
         {
@@ -142,6 +145,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedNotificationTypesApi>(client.NotificationTypes);
             Assert.IsAssignableFrom<IVersionedNotificationPreferencesApi>(client.NotificationPreferences);
             Assert.IsAssignableFrom<IVersionedNotificationsApi>(client.Notifications);
+            Assert.IsAssignableFrom<IVersionedMapRotationsApi>(client.MapRotations);
         }
     }
 }

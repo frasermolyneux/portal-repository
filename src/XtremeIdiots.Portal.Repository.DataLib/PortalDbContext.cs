@@ -35,6 +35,14 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<MapPackMap> MapPackMaps { get; set; }
 
+    public virtual DbSet<MapRotation> MapRotations { get; set; }
+
+    public virtual DbSet<MapRotationAssignmentOperation> MapRotationAssignmentOperations { get; set; }
+
+    public virtual DbSet<MapRotationMap> MapRotationMaps { get; set; }
+
+    public virtual DbSet<MapRotationServerAssignment> MapRotationServerAssignments { get; set; }
+
     public virtual DbSet<MapVote> MapVotes { get; set; }
 
     public virtual DbSet<Notification> Notifications { get; set; }
@@ -178,6 +186,60 @@ public partial class PortalDbContext : DbContext
                 .HasConstraintName("FK_dbo.MapPackMap_dbo.Maps_MapId");
 
             entity.HasOne(d => d.MapPack).WithMany(p => p.MapPackMaps).HasConstraintName("FK_dbo.MapPackMap_dbo.MapPacks_MapPackId");
+        });
+
+        modelBuilder.Entity<MapRotation>(entity =>
+        {
+            entity.HasKey(e => e.MapRotationId).HasName("PK_dbo.MapRotations");
+
+            entity.Property(e => e.MapRotationId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.Version).HasDefaultValue(1);
+        });
+
+        modelBuilder.Entity<MapRotationAssignmentOperation>(entity =>
+        {
+            entity.HasKey(e => e.MapRotationAssignmentOperationId).HasName("PK_dbo.MapRotationAssignmentOperations");
+
+            entity.Property(e => e.MapRotationAssignmentOperationId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.StartedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasOne(d => d.MapRotationServerAssignment).WithMany(p => p.MapRotationAssignmentOperations)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.MapRotationAssignmentOperations_dbo.MapRotationServerAssignments");
+        });
+
+        modelBuilder.Entity<MapRotationMap>(entity =>
+        {
+            entity.HasKey(e => e.MapRotationMapId).HasName("PK_dbo.MapRotationMaps");
+
+            entity.Property(e => e.MapRotationMapId).HasDefaultValueSql("newsequentialid()");
+
+            entity.HasOne(d => d.Map).WithMany(p => p.MapRotationMaps)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.MapRotationMaps_dbo.Maps_MapId");
+
+            entity.HasOne(d => d.MapRotation).WithMany(p => p.MapRotationMaps)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.MapRotationMaps_dbo.MapRotations_MapRotationId");
+        });
+
+        modelBuilder.Entity<MapRotationServerAssignment>(entity =>
+        {
+            entity.HasKey(e => e.MapRotationServerAssignmentId).HasName("PK_dbo.MapRotationServerAssignments");
+
+            entity.Property(e => e.MapRotationServerAssignmentId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.MapRotationServerAssignments)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.MapRotationServerAssignments_dbo.GameServers_GameServerId");
+
+            entity.HasOne(d => d.MapRotation).WithMany(p => p.MapRotationServerAssignments)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.MapRotationServerAssignments_dbo.MapRotations_MapRotationId");
         });
 
         modelBuilder.Entity<MapVote>(entity =>

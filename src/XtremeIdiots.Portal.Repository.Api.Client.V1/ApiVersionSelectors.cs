@@ -117,4 +117,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         INotificationsApi V1 { get; }
     }
+
+    public interface IVersionedMapRotationsApi
+    {
+        IMapRotationsApi V1 { get; }
+    }
 }

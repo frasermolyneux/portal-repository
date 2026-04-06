@@ -27,5 +27,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedNotificationTypesApi NotificationTypes { get; }
         IVersionedNotificationPreferencesApi NotificationPreferences { get; }
         IVersionedNotificationsApi Notifications { get; }
+        IVersionedMapRotationsApi MapRotations { get; }
     }
 }

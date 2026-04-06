@@ -29,7 +29,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedApiInfoApi apiInfo,
             IVersionedNotificationTypesApi notificationTypes,
             IVersionedNotificationPreferencesApi notificationPreferences,
-            IVersionedNotificationsApi notifications)
+            IVersionedNotificationsApi notifications,
+            IVersionedMapRotationsApi mapRotations)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -54,6 +55,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             NotificationTypes = notificationTypes;
             NotificationPreferences = notificationPreferences;
             Notifications = notifications;
+            MapRotations = mapRotations;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -79,5 +81,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedNotificationTypesApi NotificationTypes { get; }
         public IVersionedNotificationPreferencesApi NotificationPreferences { get; }
         public IVersionedNotificationsApi Notifications { get; }
+        public IVersionedMapRotationsApi MapRotations { get; }
     }
 }

@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IVersionedLivePlayersApi>();
         services.RemoveAll<IVersionedMapsApi>();
         services.RemoveAll<IVersionedMapPacksApi>();
+        services.RemoveAll<IVersionedMapRotationsApi>();
         services.RemoveAll<IVersionedPlayerAnalyticsApi>();
         services.RemoveAll<IVersionedPlayersApi>();
         services.RemoveAll<IVersionedRecentPlayersApi>();
@@ -63,6 +64,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IGameTrackerBannerApi>();
         services.RemoveAll<ILivePlayersApi>();
         services.RemoveAll<IMapPacksApi>();
+        services.RemoveAll<IMapRotationsApi>();
         services.RemoveAll<IMapsApi>();
         services.RemoveAll<IPlayerAnalyticsApi>();
         services.RemoveAll<IPlayersApi>();
@@ -86,6 +88,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVersionedLivePlayersApi>(fakeClient.LivePlayers);
         services.AddSingleton<IVersionedMapsApi>(fakeClient.Maps);
         services.AddSingleton<IVersionedMapPacksApi>(fakeClient.MapPacks);
+        services.AddSingleton<IVersionedMapRotationsApi>(fakeClient.MapRotations);
         services.AddSingleton<IVersionedPlayerAnalyticsApi>(fakeClient.PlayerAnalytics);
         services.AddSingleton<IVersionedPlayersApi>(fakeClient.Players);
         services.AddSingleton<IVersionedRecentPlayersApi>(fakeClient.RecentPlayers);
@@ -109,6 +112,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGameTrackerBannerApi>(fakeClient.GameTrackerBannerApi);
         services.AddSingleton<ILivePlayersApi>(fakeClient.LivePlayersApi);
         services.AddSingleton<IMapPacksApi>(fakeClient.MapPacksApi);
+        services.AddSingleton<IMapRotationsApi>(fakeClient.MapRotationsApi);
         services.AddSingleton<IMapsApi>(fakeClient.MapsApi);
         services.AddSingleton<IPlayerAnalyticsApi>(fakeClient.PlayerAnalyticsApi);
         services.AddSingleton<IPlayersApi>(fakeClient.PlayersApi);

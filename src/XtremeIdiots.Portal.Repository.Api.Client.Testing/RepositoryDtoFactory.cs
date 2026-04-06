@@ -6,6 +6,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameTracker;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapRotations;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RecentPlayers;
@@ -473,6 +474,100 @@ public static class RepositoryDtoFactory
             MapPackMapId = mapPackMapId ?? Guid.NewGuid(),
             MapId = mapId ?? Guid.NewGuid()
         };
+    }
+
+    public static MapRotationDto CreateMapRotation(
+        Guid? mapRotationId = null,
+        GameType gameType = GameType.CallOfDuty4,
+        string title = "Test Map Rotation",
+        string? description = "Test description",
+        string gameMode = "war",
+        int version = 1,
+        string? contentHash = null,
+        DateTime? createdAt = null,
+        DateTime? updatedAt = null,
+        List<MapRotationMapDto>? mapRotationMaps = null,
+        List<MapRotationServerAssignmentDto>? serverAssignments = null)
+    {
+        return new MapRotationDto(
+            mapRotationId ?? Guid.NewGuid(),
+            gameType,
+            title,
+            description,
+            gameMode,
+            version,
+            contentHash,
+            createdAt ?? DateTime.UtcNow,
+            updatedAt ?? DateTime.UtcNow,
+            mapRotationMaps ?? [],
+            serverAssignments ?? []);
+    }
+
+    public static MapRotationMapDto CreateMapRotationMap(
+        Guid? mapRotationMapId = null,
+        Guid? mapId = null,
+        int sortOrder = 0)
+    {
+        return new MapRotationMapDto
+        {
+            MapRotationMapId = mapRotationMapId ?? Guid.NewGuid(),
+            MapId = mapId ?? Guid.NewGuid(),
+            SortOrder = sortOrder
+        };
+    }
+
+    public static MapRotationServerAssignmentDto CreateMapRotationServerAssignment(
+        Guid? mapRotationServerAssignmentId = null,
+        Guid? mapRotationId = null,
+        Guid? gameServerId = null,
+        DeploymentState deploymentState = DeploymentState.Pending,
+        ActivationState activationState = ActivationState.Inactive,
+        int? deployedVersion = null,
+        int? activatedVersion = null,
+        string? configFilePath = null,
+        string? configVariableName = null,
+        string? lastError = null,
+        DateTime? lastErrorAt = null,
+        DateTime? createdAt = null,
+        DateTime? updatedAt = null,
+        DateTime? unassignedAt = null)
+    {
+        return new MapRotationServerAssignmentDto(
+            mapRotationServerAssignmentId ?? Guid.NewGuid(),
+            mapRotationId ?? Guid.NewGuid(),
+            gameServerId ?? Guid.NewGuid(),
+            deploymentState,
+            activationState,
+            deployedVersion,
+            activatedVersion,
+            configFilePath,
+            configVariableName,
+            lastError,
+            lastErrorAt,
+            createdAt ?? DateTime.UtcNow,
+            updatedAt ?? DateTime.UtcNow,
+            unassignedAt);
+    }
+
+    public static MapRotationAssignmentOperationDto CreateMapRotationAssignmentOperation(
+        Guid? mapRotationAssignmentOperationId = null,
+        Guid? mapRotationServerAssignmentId = null,
+        AssignmentOperationType operationType = AssignmentOperationType.Sync,
+        AssignmentOperationStatus status = AssignmentOperationStatus.InProgress,
+        string? durableFunctionInstanceId = null,
+        DateTime? startedAt = null,
+        DateTime? completedAt = null,
+        string? error = null)
+    {
+        return new MapRotationAssignmentOperationDto(
+            mapRotationAssignmentOperationId ?? Guid.NewGuid(),
+            mapRotationServerAssignmentId ?? Guid.NewGuid(),
+            operationType,
+            status,
+            durableFunctionInstanceId,
+            startedAt ?? DateTime.UtcNow,
+            completedAt,
+            error);
     }
 
     public static UserProfileClaimDto CreateUserProfileClaim(

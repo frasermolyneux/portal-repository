@@ -65,29 +65,32 @@ public partial class GameServer
     public bool Deleted { get; set; }
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; } = [];
+    public virtual ICollection<BanFileMonitor> BanFileMonitors { get; set; } = new List<BanFileMonitor>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = [];
+    public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<GameServerEvent> GameServerEvents { get; set; } = [];
+    public virtual ICollection<GameServerEvent> GameServerEvents { get; set; } = new List<GameServerEvent>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<GameServerStat> GameServerStats { get; set; } = [];
+    public virtual ICollection<GameServerStat> GameServerStats { get; set; } = new List<GameServerStat>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = [];
+    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<MapPack> MapPacks { get; set; } = [];
+    public virtual ICollection<MapPack> MapPacks { get; set; } = new List<MapPack>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<MapVote> MapVotes { get; set; } = [];
+    public virtual ICollection<MapRotationServerAssignment> MapRotationServerAssignments { get; set; } = new List<MapRotationServerAssignment>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = [];
+    public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
     [InverseProperty("GameServer")]
-    public virtual ICollection<Report> Reports { get; set; } = [];
+    public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 }

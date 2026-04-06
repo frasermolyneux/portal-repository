@@ -46,6 +46,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddTypedApiClient<INotificationTypesApi, NotificationTypesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<INotificationPreferencesApi, NotificationPreferencesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<INotificationsApi, NotificationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IMapRotationsApi, MapRotationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
@@ -71,6 +72,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedNotificationTypesApi, VersionedNotificationTypesApi>();
             serviceCollection.AddScoped<IVersionedNotificationPreferencesApi, VersionedNotificationPreferencesApi>();
             serviceCollection.AddScoped<IVersionedNotificationsApi, VersionedNotificationsApi>();
+            serviceCollection.AddScoped<IVersionedMapRotationsApi, VersionedMapRotationsApi>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();
