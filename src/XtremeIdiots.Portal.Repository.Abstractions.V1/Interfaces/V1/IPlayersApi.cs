@@ -18,7 +18,25 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult> CreatePlayer(CreatePlayerDto createPlayerDto);
         Task<ApiResult> CreatePlayers(List<CreatePlayerDto> createPlayerDtos);
 
+        [Obsolete("Use UpdatePlayerIpAddress, UpdatePlayerUsername, or RecordPlayerSession instead.")]
         Task<ApiResult> UpdatePlayer(EditPlayerDto editPlayerDto);
+
+        /// <summary>
+        /// Updates only the player's IP address and IP history. Does not modify aliases or LastSeen.
+        /// </summary>
+        Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto);
+
+        /// <summary>
+        /// Updates only the player's username and alias history. Does not modify IP or LastSeen.
+        /// </summary>
+        Task<ApiResult> UpdatePlayerUsername(UpdatePlayerUsernameDto dto);
+
+        /// <summary>
+        /// Records a player session start: updates LastSeen and username/alias.
+        /// IP updates are handled separately via UpdatePlayerIpAddress.
+        /// Preferred replacement for UpdatePlayer in the "player connected" flow.
+        /// </summary>
+        Task<ApiResult> RecordPlayerSession(RecordPlayerSessionDto dto);
 
         // Player Aliases methods
         Task<ApiResult<CollectionModel<PlayerAliasDto>>> GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries);

@@ -120,6 +120,36 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        public async Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
+        {
+            var request = await CreateRequestAsync($"v1/players/{dto.PlayerId}/ip-address", Method.Patch).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
+        public async Task<ApiResult> UpdatePlayerUsername(UpdatePlayerUsernameDto dto)
+        {
+            var request = await CreateRequestAsync($"v1/players/{dto.PlayerId}/username", Method.Patch).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
+        public async Task<ApiResult> RecordPlayerSession(RecordPlayerSessionDto dto)
+        {
+            var request = await CreateRequestAsync($"v1/players/{dto.PlayerId}/session", Method.Post).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
         #region Protected Names
 
         public async Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries)

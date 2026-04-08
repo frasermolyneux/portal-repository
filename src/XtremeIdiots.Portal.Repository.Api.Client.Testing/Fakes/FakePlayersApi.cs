@@ -95,6 +95,27 @@ public class FakePlayersApi : IPlayersApi
     public Task<ApiResult> CreatePlayers(List<CreatePlayerDto> createPlayerDtos) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> UpdatePlayer(EditPlayerDto editPlayerDto) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
 
+    public Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
+    {
+        if (_players.TryGetValue(dto.PlayerId, out _))
+            return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
+    }
+
+    public Task<ApiResult> UpdatePlayerUsername(UpdatePlayerUsernameDto dto)
+    {
+        if (_players.TryGetValue(dto.PlayerId, out _))
+            return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
+    }
+
+    public Task<ApiResult> RecordPlayerSession(RecordPlayerSessionDto dto)
+    {
+        if (_players.TryGetValue(dto.PlayerId, out _))
+            return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
+    }
+
     public Task<ApiResult<CollectionModel<PlayerAliasDto>>> GetPlayerAliases(Guid playerId, int skipEntries, int takeEntries)
     {
         var items = _playerAliases.TryGetValue(playerId, out var aliases) ? aliases.Skip(skipEntries).Take(takeEntries).ToList() : [];

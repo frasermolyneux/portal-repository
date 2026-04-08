@@ -170,4 +170,325 @@ public class PlayersControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
     }
+
+    #region UpdatePlayerIpAddress Tests
+
+    [Fact]
+    public async Task UpdatePlayerIpAddress_WithValidIp_UpdatesPlayerAndHistory()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(playerId, "192.168.1.100"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("192.168.1.100", player.IpAddress);
+        Assert.Single(context.PlayerIpAddresses.Where(ip => ip.PlayerId == playerId));
+    }
+
+    [Fact]
+    public async Task UpdatePlayerIpAddress_WithInvalidIp_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(playerId, "not-an-ip"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerIpAddress_WithEmptyIp_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(Guid.NewGuid(), ""));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerIpAddress_NonExistentPlayer_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(Guid.NewGuid(), "192.168.1.1"));
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerIpAddress_DuplicateIp_IncrementsConfidence()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            IpAddress = "192.168.1.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerIpAddresses.Add(new PlayerIpAddress
+        {
+            PlayerIpAddressId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Address = "192.168.1.1",
+            Added = DateTime.UtcNow.AddDays(-10),
+            LastUsed = DateTime.UtcNow.AddDays(-1),
+            ConfidenceScore = 5
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(playerId, "192.168.1.1"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var ipEntry = context.PlayerIpAddresses.First(ip => ip.PlayerId == playerId);
+        Assert.Equal(6, ipEntry.ConfidenceScore);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerIpAddress_DoesNotModifyLastSeen()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var originalLastSeen = DateTime.UtcNow.AddDays(-1);
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = originalLastSeen
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        await api.UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(playerId, "10.0.0.1"));
+
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal(originalLastSeen, player.LastSeen);
+    }
+
+    #endregion
+
+    #region UpdatePlayerUsername Tests
+
+    [Fact]
+    public async Task UpdatePlayerUsername_WithNewName_CreatesAlias()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "OldName",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerUsername(new UpdatePlayerUsernameDto(playerId, "NewName"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("NewName", player.Username);
+        Assert.Single(context.PlayerAliases.Where(a => a.PlayerId == playerId && a.Name == "NewName"));
+    }
+
+    [Fact]
+    public async Task UpdatePlayerUsername_WithExistingName_IncrementsConfidence()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "SameName",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Name = "SameName",
+            Added = DateTime.UtcNow.AddDays(-10),
+            LastUsed = DateTime.UtcNow.AddDays(-1),
+            ConfidenceScore = 3
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerUsername(new UpdatePlayerUsernameDto(playerId, "SameName"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var alias = context.PlayerAliases.First(a => a.PlayerId == playerId);
+        Assert.Equal(4, alias.ConfidenceScore);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerUsername_WithEmptyName_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerUsername(new UpdatePlayerUsernameDto(Guid.NewGuid(), ""));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerUsername_NonExistentPlayer_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.UpdatePlayerUsername(new UpdatePlayerUsernameDto(Guid.NewGuid(), "Name"));
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerUsername_DoesNotModifyIpOrLastSeen()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var originalLastSeen = DateTime.UtcNow.AddDays(-1);
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "OldName",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = originalLastSeen
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        await api.UpdatePlayerUsername(new UpdatePlayerUsernameDto(playerId, "NewName"));
+
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("10.0.0.1", player.IpAddress);
+        Assert.Equal(originalLastSeen, player.LastSeen);
+    }
+
+    #endregion
+
+    #region RecordPlayerSession Tests
+
+    [Fact]
+    public async Task RecordPlayerSession_UpdatesLastSeenAndAlias()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var oldLastSeen = DateTime.UtcNow.AddDays(-5);
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "OldName",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = oldLastSeen
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(playerId, "NewName"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("NewName", player.Username);
+        Assert.True(player.LastSeen > oldLastSeen);
+        Assert.Single(context.PlayerAliases.Where(a => a.PlayerId == playerId));
+    }
+
+    [Fact]
+    public async Task RecordPlayerSession_WithIp_DoesNotUpdateIp()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(playerId, "Player"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("10.0.0.1", player.IpAddress);
+        Assert.Empty(context.PlayerIpAddresses.Where(ip => ip.PlayerId == playerId));
+    }
+
+    [Fact]
+    public async Task RecordPlayerSession_WithEmptyUsername_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(Guid.NewGuid(), ""));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task RecordPlayerSession_NonExistentPlayer_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(Guid.NewGuid(), "Name"));
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    #endregion
 }

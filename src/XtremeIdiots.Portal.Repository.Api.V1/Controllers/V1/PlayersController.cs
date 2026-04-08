@@ -642,8 +642,18 @@ public class PlayersController : ControllerBase, IPlayersApi
             return new ApiResult(HttpStatusCode.NotFound);
 
         player.Username = editPlayerDto.Username;
-        player.IpAddress = editPlayerDto.IpAddress ?? null;
         player.LastSeen = DateTime.UtcNow;
+
+        // Only update IP address when a valid, parseable value is provided;
+        // callers that don't have the IP (e.g. log-parse events) send empty/null
+        // and must not erase the previously-known address.
+        string? normalizedIp = null;
+        if (!string.IsNullOrWhiteSpace(editPlayerDto.IpAddress) &&
+            IPAddress.TryParse(editPlayerDto.IpAddress, out var parsedIp))
+        {
+            normalizedIp = parsedIp.ToString();
+            player.IpAddress = normalizedIp;
+        }
 
         var playerAlias = player.PlayerAliases.FirstOrDefault(a => a.Name == editPlayerDto.Username);
         if (playerAlias != null)
@@ -662,17 +672,80 @@ public class PlayersController : ControllerBase, IPlayersApi
             });
         }
 
-        var playerIpAddress = player.PlayerIpAddresses.FirstOrDefault(a => a.Address == editPlayerDto.IpAddress);
-        if (playerIpAddress != null)
+        if (normalizedIp != null)
         {
-            playerIpAddress.LastUsed = DateTime.UtcNow;
-            playerIpAddress.ConfidenceScore++;
+            var playerIpAddress = player.PlayerIpAddresses.FirstOrDefault(a => a.Address == normalizedIp);
+            if (playerIpAddress != null)
+            {
+                playerIpAddress.LastUsed = DateTime.UtcNow;
+                playerIpAddress.ConfidenceScore++;
+            }
+            else
+            {
+                player.PlayerIpAddresses.Add(new PlayerIpAddress
+                {
+                    Address = normalizedIp,
+                    Added = DateTime.UtcNow,
+                    LastUsed = DateTime.UtcNow,
+                    ConfidenceScore = 1
+                });
+            }
+        }
+
+        await context.SaveChangesAsync().ConfigureAwait(false);
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
+    /// Updates only a player's IP address and IP history.
+    /// </summary>
+    [HttpPatch("players/{playerId:guid}/ip-address")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePlayerIpAddress(Guid playerId, [FromBody] UpdatePlayerIpAddressDto dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult().ToHttpResult();
+
+        if (dto.PlayerId != playerId)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))
+                .ToBadRequestResult().ToHttpResult();
+
+        var response = await ((IPlayersApi)this).UpdatePlayerIpAddress(dto).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult> IPlayersApi.UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.IpAddress) || !IPAddress.TryParse(dto.IpAddress, out var parsedIp))
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, "A valid IP address is required."))
+                .ToBadRequestResult();
+
+        var normalizedIp = parsedIp.ToString();
+
+        var player = await context.Players
+            .Include(p => p.PlayerIpAddresses)
+            .FirstOrDefaultAsync(p => p.PlayerId == dto.PlayerId).ConfigureAwait(false);
+
+        if (player == null)
+            return new ApiResult(HttpStatusCode.NotFound);
+
+        player.IpAddress = normalizedIp;
+
+        var existing = player.PlayerIpAddresses.FirstOrDefault(a => a.Address == normalizedIp);
+        if (existing != null)
+        {
+            existing.LastUsed = DateTime.UtcNow;
+            existing.ConfidenceScore++;
         }
         else
         {
             player.PlayerIpAddresses.Add(new PlayerIpAddress
             {
-                Address = editPlayerDto.IpAddress,
+                Address = normalizedIp,
                 Added = DateTime.UtcNow,
                 LastUsed = DateTime.UtcNow,
                 ConfidenceScore = 1
@@ -680,9 +753,125 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
 
         await context.SaveChangesAsync().ConfigureAwait(false);
-
         return new ApiResponse().ToApiResult();
     }
+
+    /// <summary>
+    /// Updates only a player's username and alias history.
+    /// </summary>
+    [HttpPatch("players/{playerId:guid}/username")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePlayerUsername(Guid playerId, [FromBody] UpdatePlayerUsernameDto dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult().ToHttpResult();
+
+        if (dto.PlayerId != playerId)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))
+                .ToBadRequestResult().ToHttpResult();
+
+        var response = await ((IPlayersApi)this).UpdatePlayerUsername(dto).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult> IPlayersApi.UpdatePlayerUsername(UpdatePlayerUsernameDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Username))
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, "A non-empty username is required."))
+                .ToBadRequestResult();
+
+        var player = await context.Players
+            .Include(p => p.PlayerAliases)
+            .FirstOrDefaultAsync(p => p.PlayerId == dto.PlayerId).ConfigureAwait(false);
+
+        if (player == null)
+            return new ApiResult(HttpStatusCode.NotFound);
+
+        player.Username = dto.Username;
+
+        var alias = player.PlayerAliases.FirstOrDefault(a => a.Name == dto.Username);
+        if (alias != null)
+        {
+            alias.LastUsed = DateTime.UtcNow;
+            alias.ConfidenceScore++;
+        }
+        else
+        {
+            player.PlayerAliases.Add(new PlayerAlias
+            {
+                Name = dto.Username,
+                Added = DateTime.UtcNow,
+                LastUsed = DateTime.UtcNow,
+                ConfidenceScore = 1
+            });
+        }
+
+        await context.SaveChangesAsync().ConfigureAwait(false);
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
+    /// Records a player session start: updates LastSeen, username/alias, and optionally IP.
+    /// </summary>
+    [HttpPost("players/{playerId:guid}/session")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RecordPlayerSession(Guid playerId, [FromBody] RecordPlayerSessionDto dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult().ToHttpResult();
+
+        if (dto.PlayerId != playerId)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))
+                .ToBadRequestResult().ToHttpResult();
+
+        var response = await ((IPlayersApi)this).RecordPlayerSession(dto).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult> IPlayersApi.RecordPlayerSession(RecordPlayerSessionDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Username))
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, "A non-empty username is required."))
+                .ToBadRequestResult();
+
+        var player = await context.Players
+            .Include(p => p.PlayerAliases)
+            .FirstOrDefaultAsync(p => p.PlayerId == dto.PlayerId).ConfigureAwait(false);
+
+        if (player == null)
+            return new ApiResult(HttpStatusCode.NotFound);
+
+        player.Username = dto.Username;
+        player.LastSeen = DateTime.UtcNow;
+
+        // Alias tracking
+        var alias = player.PlayerAliases.FirstOrDefault(a => a.Name == dto.Username);
+        if (alias != null)
+        {
+            alias.LastUsed = DateTime.UtcNow;
+            alias.ConfidenceScore++;
+        }
+        else
+        {
+            player.PlayerAliases.Add(new PlayerAlias
+            {
+                Name = dto.Username,
+                Added = DateTime.UtcNow,
+                LastUsed = DateTime.UtcNow,
+                ConfidenceScore = 1
+            });
+        }
+
+        await context.SaveChangesAsync().ConfigureAwait(false);
+        return new ApiResponse().ToApiResult();
+    }
+
     private IQueryable<Player> ApplyFilter(IQueryable<Player> query, GameType? gameType, PlayersFilter? filter, string? filterString)
     {
         if (gameType.HasValue)
