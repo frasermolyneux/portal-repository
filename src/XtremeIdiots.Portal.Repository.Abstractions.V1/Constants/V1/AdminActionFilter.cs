@@ -52,6 +52,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         /// <summary>
         /// Non-ban actions (observations, warnings, kicks).
         /// </summary>
-        NonBan = 9
+        NonBan = 9,
+
+        /// <summary>
+        /// Admin actions of any type that have not yet been associated with a user profile.
+        /// </summary>
+        UnclaimedActions = 10
     }
 }

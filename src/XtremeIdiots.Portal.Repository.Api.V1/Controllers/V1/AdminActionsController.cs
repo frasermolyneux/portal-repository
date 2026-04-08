@@ -171,6 +171,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     AdminActionFilter.AllBans => query.Where(a => a.Type == (int)AdminActionType.Ban || a.Type == (int)AdminActionType.TempBan),
                     AdminActionFilter.Disciplinary => query.Where(a => a.Type == (int)AdminActionType.Warning || a.Type == (int)AdminActionType.Kick || a.Type == (int)AdminActionType.Ban || a.Type == (int)AdminActionType.TempBan),
                     AdminActionFilter.NonBan => query.Where(a => a.Type == (int)AdminActionType.Observation || a.Type == (int)AdminActionType.Warning || a.Type == (int)AdminActionType.Kick),
+                    AdminActionFilter.UnclaimedActions => query.Where(a => a.UserProfile == null),
                     _ => query
                 };
             }

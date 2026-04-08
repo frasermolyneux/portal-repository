@@ -333,8 +333,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (entity == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
-            // Block delete if any assignments are not in Removed state
-            if (entity.MapRotationServerAssignments.Any(a => a.DeploymentState != (int)DeploymentState.Removed))
+            // Block delete if any assignments are actively deployed (allow Removed and Failed)
+            if (entity.MapRotationServerAssignments.Any(a => a.DeploymentState != (int)DeploymentState.Removed && a.DeploymentState != (int)DeploymentState.Failed))
                 return new ApiResult(HttpStatusCode.BadRequest,
                     new ApiResponse(new ApiError("HAS_ACTIVE_ASSIGNMENTS", "Cannot delete a map rotation that has active server assignments. Unassign all servers first.")));
 
