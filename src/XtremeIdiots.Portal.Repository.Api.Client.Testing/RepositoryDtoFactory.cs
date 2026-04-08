@@ -2,6 +2,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Dashboard;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameTracker;
@@ -652,6 +653,91 @@ public static class RepositoryDtoFactory
             GameServerId = gameServerId,
             Like = like,
             Timestamp = timestamp ?? DateTime.UtcNow
+        };
+    }
+
+    public static DashboardSummaryDto CreateDashboardSummary(
+        int totalServers = 17,
+        int onlineServerCount = 16,
+        int offlineServerCount = 1,
+        int totalPlayersOnline = 42,
+        int unclaimedBanCount = 3,
+        int openReportCount = 1,
+        AdminActionCountsDto? recentActions24h = null,
+        AdminActionCountsDto? recentActions7d = null)
+    {
+        return new DashboardSummaryDto
+        {
+            TotalServers = totalServers,
+            OnlineServerCount = onlineServerCount,
+            OfflineServerCount = offlineServerCount,
+            TotalPlayersOnline = totalPlayersOnline,
+            UnclaimedBanCount = unclaimedBanCount,
+            OpenReportCount = openReportCount,
+            RecentActions24h = recentActions24h ?? new AdminActionCountsDto(),
+            RecentActions7d = recentActions7d ?? new AdminActionCountsDto()
+        };
+    }
+
+    public static AdminLeaderboardEntryDto CreateAdminLeaderboardEntry(
+        Guid? adminId = null,
+        string displayName = "TestAdmin",
+        int bans = 5,
+        int tempBans = 3,
+        int kicks = 10,
+        int warnings = 8,
+        int observations = 15)
+    {
+        return new AdminLeaderboardEntryDto
+        {
+            AdminId = adminId ?? Guid.NewGuid(),
+            DisplayName = displayName,
+            Bans = bans,
+            TempBans = tempBans,
+            Kicks = kicks,
+            Warnings = warnings,
+            Observations = observations,
+            Total = bans + tempBans + kicks + warnings + observations
+        };
+    }
+
+    public static ModerationTrendDataPointDto CreateModerationTrendDataPoint(
+        DateTime? date = null,
+        int bans = 1,
+        int tempBans = 2,
+        int kicks = 5,
+        int warnings = 3,
+        int observations = 4)
+    {
+        return new ModerationTrendDataPointDto
+        {
+            Date = date ?? DateTime.UtcNow.Date,
+            Bans = bans,
+            TempBans = tempBans,
+            Kicks = kicks,
+            Warnings = warnings,
+            Observations = observations
+        };
+    }
+
+    public static ServerUtilizationDto CreateServerUtilization(
+        Guid? serverId = null,
+        string title = "Test Server",
+        string gameType = "CallOfDuty4",
+        double avgPlayers = 12.5,
+        int peakPlayers = 28,
+        int maxPlayers = 34,
+        double utilization = 0.368)
+    {
+        return new ServerUtilizationDto
+        {
+            ServerId = serverId ?? Guid.NewGuid(),
+            Title = title,
+            GameType = gameType,
+            AvgPlayers = avgPlayers,
+            PeakPlayers = peakPlayers,
+            MaxPlayers = maxPlayers,
+            Utilization = utilization
         };
     }
 }

@@ -29,6 +29,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedNotificationPreferencesApi> _notificationPreferences = new();
         private readonly Mock<IVersionedNotificationsApi> _notifications = new();
         private readonly Mock<IVersionedMapRotationsApi> _mapRotations = new();
+        private readonly Mock<IVersionedDashboardApi> _dashboard = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -54,7 +55,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _notificationTypes.Object,
             _notificationPreferences.Object,
             _notifications.Object,
-            _mapRotations.Object);
+            _mapRotations.Object,
+            _dashboard.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -85,6 +87,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_notificationPreferences.Object, client.NotificationPreferences);
             Assert.Same(_notifications.Object, client.Notifications);
             Assert.Same(_mapRotations.Object, client.MapRotations);
+            Assert.Same(_dashboard.Object, client.Dashboard);
         }
 
         [Fact]

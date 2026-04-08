@@ -122,4 +122,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         IMapRotationsApi V1 { get; }
     }
+
+    public interface IVersionedDashboardApi
+    {
+        IDashboardApi V1 { get; }
+    }
 }

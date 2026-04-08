@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IVersionedMapsApi>();
         services.RemoveAll<IVersionedMapPacksApi>();
         services.RemoveAll<IVersionedMapRotationsApi>();
+        services.RemoveAll<IVersionedDashboardApi>();
         services.RemoveAll<IVersionedPlayerAnalyticsApi>();
         services.RemoveAll<IVersionedPlayersApi>();
         services.RemoveAll<IVersionedRecentPlayersApi>();
@@ -65,6 +66,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<ILivePlayersApi>();
         services.RemoveAll<IMapPacksApi>();
         services.RemoveAll<IMapRotationsApi>();
+        services.RemoveAll<IDashboardApi>();
         services.RemoveAll<IMapsApi>();
         services.RemoveAll<IPlayerAnalyticsApi>();
         services.RemoveAll<IPlayersApi>();
@@ -89,6 +91,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVersionedMapsApi>(fakeClient.Maps);
         services.AddSingleton<IVersionedMapPacksApi>(fakeClient.MapPacks);
         services.AddSingleton<IVersionedMapRotationsApi>(fakeClient.MapRotations);
+        services.AddSingleton<IVersionedDashboardApi>(fakeClient.Dashboard);
         services.AddSingleton<IVersionedPlayerAnalyticsApi>(fakeClient.PlayerAnalytics);
         services.AddSingleton<IVersionedPlayersApi>(fakeClient.Players);
         services.AddSingleton<IVersionedRecentPlayersApi>(fakeClient.RecentPlayers);
@@ -113,6 +116,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILivePlayersApi>(fakeClient.LivePlayersApi);
         services.AddSingleton<IMapPacksApi>(fakeClient.MapPacksApi);
         services.AddSingleton<IMapRotationsApi>(fakeClient.MapRotationsApi);
+        services.AddSingleton<IDashboardApi>(fakeClient.DashboardApi);
         services.AddSingleton<IMapsApi>(fakeClient.MapsApi);
         services.AddSingleton<IPlayerAnalyticsApi>(fakeClient.PlayerAnalyticsApi);
         services.AddSingleton<IPlayersApi>(fakeClient.PlayersApi);

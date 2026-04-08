@@ -148,6 +148,12 @@ public class FakeVersionedMapRotationsApi : IVersionedMapRotationsApi
     public IMapRotationsApi V1 { get; }
 }
 
+public class FakeVersionedDashboardApi : IVersionedDashboardApi
+{
+    public FakeVersionedDashboardApi(FakeDashboardApi v1) => V1 = v1;
+    public IDashboardApi V1 { get; }
+}
+
 /// <summary>
 /// In-memory fake of <see cref="IRepositoryApiClient"/> for unit and integration tests.
 /// Eliminates the need for nested mock hierarchies.
@@ -179,6 +185,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeNotificationPreferencesApi NotificationPreferencesApi { get; } = new();
     public FakeNotificationsApi NotificationsApi { get; } = new();
     public FakeMapRotationsApi MapRotationsApi { get; } = new();
+    public FakeDashboardApi DashboardApi { get; } = new();
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -204,6 +211,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedNotificationPreferencesApi> _notificationPreferences;
     private readonly Lazy<FakeVersionedNotificationsApi> _notifications;
     private readonly Lazy<FakeVersionedMapRotationsApi> _mapRotations;
+    private readonly Lazy<FakeVersionedDashboardApi> _dashboard;
 
     public FakeRepositoryApiClient()
     {
@@ -231,6 +239,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _notificationPreferences = new Lazy<FakeVersionedNotificationPreferencesApi>(() => new FakeVersionedNotificationPreferencesApi(NotificationPreferencesApi));
         _notifications = new Lazy<FakeVersionedNotificationsApi>(() => new FakeVersionedNotificationsApi(NotificationsApi));
         _mapRotations = new Lazy<FakeVersionedMapRotationsApi>(() => new FakeVersionedMapRotationsApi(MapRotationsApi));
+        _dashboard = new Lazy<FakeVersionedDashboardApi>(() => new FakeVersionedDashboardApi(DashboardApi));
     }
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
@@ -257,6 +266,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedNotificationPreferencesApi NotificationPreferences => _notificationPreferences.Value;
     public IVersionedNotificationsApi Notifications => _notifications.Value;
     public IVersionedMapRotationsApi MapRotations => _mapRotations.Value;
+    public IVersionedDashboardApi Dashboard => _dashboard.Value;
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,
@@ -287,6 +297,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         NotificationPreferencesApi.Reset();
         NotificationsApi.Reset();
         MapRotationsApi.Reset();
+        DashboardApi.Reset();
         return this;
     }
 }

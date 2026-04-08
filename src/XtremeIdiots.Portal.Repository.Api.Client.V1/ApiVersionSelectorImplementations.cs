@@ -242,4 +242,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IMapRotationsApi V1 { get; }
     }
+
+    public class VersionedDashboardApi : IVersionedDashboardApi
+    {
+        public VersionedDashboardApi(IDashboardApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IDashboardApi V1 { get; }
+    }
 }
