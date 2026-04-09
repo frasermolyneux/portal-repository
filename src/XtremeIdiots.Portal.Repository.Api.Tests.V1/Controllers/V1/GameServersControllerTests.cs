@@ -189,7 +189,11 @@ public class GameServersControllerTests
             AgentEnabled = true,
             BannerServerListEnabled = true,
             PortalServerListEnabled = true,
-            LiveTrackingEnabled = true
+            LiveTrackingEnabled = true,
+            FtpEnabled = true,
+            RconEnabled = true,
+            BanFileSyncEnabled = true,
+            ServerListEnabled = true
         };
 
         var result = await api.CreateGameServer(dto);
@@ -212,6 +216,10 @@ public class GameServersControllerTests
         Assert.True(entity.BannerServerListEnabled);
         Assert.True(entity.PortalServerListEnabled);
         Assert.True(entity.LiveTrackingEnabled);
+        Assert.True(entity.FtpEnabled);
+        Assert.True(entity.RconEnabled);
+        Assert.True(entity.BanFileSyncEnabled);
+        Assert.True(entity.ServerListEnabled);
     }
 
     [Fact]

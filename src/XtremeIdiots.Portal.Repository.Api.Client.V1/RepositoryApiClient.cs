@@ -31,7 +31,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedNotificationPreferencesApi notificationPreferences,
             IVersionedNotificationsApi notifications,
             IVersionedMapRotationsApi mapRotations,
-            IVersionedDashboardApi dashboard)
+            IVersionedDashboardApi dashboard,
+            IVersionedGlobalConfigurationsApi globalConfigurations,
+            IVersionedGameServerConfigurationsApi gameServerConfigurations)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -58,6 +60,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             Notifications = notifications;
             MapRotations = mapRotations;
             Dashboard = dashboard;
+            GlobalConfigurations = globalConfigurations;
+            GameServerConfigurations = gameServerConfigurations;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -85,5 +89,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedNotificationsApi Notifications { get; }
         public IVersionedMapRotationsApi MapRotations { get; }
         public IVersionedDashboardApi Dashboard { get; }
+        public IVersionedGlobalConfigurationsApi GlobalConfigurations { get; }
+        public IVersionedGameServerConfigurationsApi GameServerConfigurations { get; }
     }
 }

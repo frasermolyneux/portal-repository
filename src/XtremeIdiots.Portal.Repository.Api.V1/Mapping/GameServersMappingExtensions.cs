@@ -28,6 +28,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 BannerServerListEnabled = entity.BannerServerListEnabled,
                 PortalServerListEnabled = entity.PortalServerListEnabled,
                 LiveTrackingEnabled = entity.LiveTrackingEnabled,
+                FtpEnabled = entity.FtpEnabled,
+                RconEnabled = entity.RconEnabled,
+                BanFileSyncEnabled = entity.BanFileSyncEnabled,
+                ServerListEnabled = entity.ServerListEnabled,
                 LiveTitle = entity.LiveTitle,
                 LiveMod = entity.LiveMod,
                 LiveMap = entity.LiveMap,
@@ -62,7 +66,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 AgentEnabled = dto.AgentEnabled,
                 BannerServerListEnabled = dto.BannerServerListEnabled,
                 PortalServerListEnabled = dto.PortalServerListEnabled,
-                LiveTrackingEnabled = dto.LiveTrackingEnabled
+                LiveTrackingEnabled = dto.LiveTrackingEnabled,
+                FtpEnabled = dto.FtpEnabled,
+                RconEnabled = dto.RconEnabled,
+                BanFileSyncEnabled = dto.BanFileSyncEnabled,
+                ServerListEnabled = dto.ServerListEnabled
             };
         }
 
@@ -111,6 +119,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.BannerServerListEnabled is not null) entity.BannerServerListEnabled = dto.BannerServerListEnabled.Value;
             if (dto.PortalServerListEnabled is not null) entity.PortalServerListEnabled = dto.PortalServerListEnabled.Value;
             if (dto.LiveTrackingEnabled is not null) entity.LiveTrackingEnabled = dto.LiveTrackingEnabled.Value;
+            if (dto.FtpEnabled is not null) entity.FtpEnabled = dto.FtpEnabled.Value;
+            if (dto.RconEnabled is not null) entity.RconEnabled = dto.RconEnabled.Value;
+            if (dto.BanFileSyncEnabled is not null) entity.BanFileSyncEnabled = dto.BanFileSyncEnabled.Value;
+            if (dto.ServerListEnabled is not null) entity.ServerListEnabled = dto.ServerListEnabled.Value;
             if (dto.LiveTitle is not null) entity.LiveTitle = dto.LiveTitle;
             if (dto.LiveMap is not null) entity.LiveMap = dto.LiveMap;
             if (dto.LiveMod is not null) entity.LiveMod = dto.LiveMod;

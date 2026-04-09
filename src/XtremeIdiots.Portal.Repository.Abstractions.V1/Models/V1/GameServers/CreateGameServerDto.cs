@@ -68,6 +68,18 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         [JsonProperty]
         public bool LiveTrackingEnabled { get; set; }
 
+        [JsonProperty]
+        public bool FtpEnabled { get; set; }
+
+        [JsonProperty]
+        public bool RconEnabled { get; set; }
+
+        [JsonProperty]
+        public bool BanFileSyncEnabled { get; set; }
+
+        [JsonProperty]
+        public bool ServerListEnabled { get; set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {

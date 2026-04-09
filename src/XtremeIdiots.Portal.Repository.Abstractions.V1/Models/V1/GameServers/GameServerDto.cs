@@ -91,6 +91,18 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public DateTime? LiveLastUpdated { get; internal set; }
 
         [JsonProperty]
+        public bool FtpEnabled { get; internal set; }
+
+        [JsonProperty]
+        public bool RconEnabled { get; internal set; }
+
+        [JsonProperty]
+        public bool BanFileSyncEnabled { get; internal set; }
+
+        [JsonProperty]
+        public bool ServerListEnabled { get; internal set; }
+
+        [JsonProperty]
         public bool Deleted { get; internal set; }
 
         [JsonProperty]

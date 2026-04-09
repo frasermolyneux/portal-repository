@@ -252,4 +252,24 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IDashboardApi V1 { get; }
     }
+
+    public class VersionedGlobalConfigurationsApi : IVersionedGlobalConfigurationsApi
+    {
+        public VersionedGlobalConfigurationsApi(IGlobalConfigurationsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IGlobalConfigurationsApi V1 { get; }
+    }
+
+    public class VersionedGameServerConfigurationsApi : IVersionedGameServerConfigurationsApi
+    {
+        public VersionedGameServerConfigurationsApi(IGameServerConfigurationsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IGameServerConfigurationsApi V1 { get; }
+    }
 }

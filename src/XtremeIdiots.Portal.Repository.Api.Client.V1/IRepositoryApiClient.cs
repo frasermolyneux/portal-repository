@@ -29,5 +29,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedNotificationsApi Notifications { get; }
         IVersionedMapRotationsApi MapRotations { get; }
         IVersionedDashboardApi Dashboard { get; }
+        IVersionedGlobalConfigurationsApi GlobalConfigurations { get; }
+        IVersionedGameServerConfigurationsApi GameServerConfigurations { get; }
     }
 }

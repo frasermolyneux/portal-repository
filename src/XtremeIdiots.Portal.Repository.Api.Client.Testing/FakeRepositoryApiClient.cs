@@ -154,6 +154,18 @@ public class FakeVersionedDashboardApi : IVersionedDashboardApi
     public IDashboardApi V1 { get; }
 }
 
+public class FakeVersionedGlobalConfigurationsApi : IVersionedGlobalConfigurationsApi
+{
+    public FakeVersionedGlobalConfigurationsApi(FakeGlobalConfigurationsApi v1) => V1 = v1;
+    public IGlobalConfigurationsApi V1 { get; }
+}
+
+public class FakeVersionedGameServerConfigurationsApi : IVersionedGameServerConfigurationsApi
+{
+    public FakeVersionedGameServerConfigurationsApi(FakeGameServerConfigurationsApi v1) => V1 = v1;
+    public IGameServerConfigurationsApi V1 { get; }
+}
+
 /// <summary>
 /// In-memory fake of <see cref="IRepositoryApiClient"/> for unit and integration tests.
 /// Eliminates the need for nested mock hierarchies.
@@ -186,6 +198,8 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeNotificationsApi NotificationsApi { get; } = new();
     public FakeMapRotationsApi MapRotationsApi { get; } = new();
     public FakeDashboardApi DashboardApi { get; } = new();
+    public FakeGlobalConfigurationsApi GlobalConfigurationsApi { get; } = new();
+    public FakeGameServerConfigurationsApi GameServerConfigurationsApi { get; } = new();
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -212,6 +226,8 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedNotificationsApi> _notifications;
     private readonly Lazy<FakeVersionedMapRotationsApi> _mapRotations;
     private readonly Lazy<FakeVersionedDashboardApi> _dashboard;
+    private readonly Lazy<FakeVersionedGlobalConfigurationsApi> _globalConfigurations;
+    private readonly Lazy<FakeVersionedGameServerConfigurationsApi> _gameServerConfigurations;
 
     public FakeRepositoryApiClient()
     {
@@ -240,6 +256,8 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _notifications = new Lazy<FakeVersionedNotificationsApi>(() => new FakeVersionedNotificationsApi(NotificationsApi));
         _mapRotations = new Lazy<FakeVersionedMapRotationsApi>(() => new FakeVersionedMapRotationsApi(MapRotationsApi));
         _dashboard = new Lazy<FakeVersionedDashboardApi>(() => new FakeVersionedDashboardApi(DashboardApi));
+        _globalConfigurations = new Lazy<FakeVersionedGlobalConfigurationsApi>(() => new FakeVersionedGlobalConfigurationsApi(GlobalConfigurationsApi));
+        _gameServerConfigurations = new Lazy<FakeVersionedGameServerConfigurationsApi>(() => new FakeVersionedGameServerConfigurationsApi(GameServerConfigurationsApi));
     }
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
@@ -267,6 +285,8 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedNotificationsApi Notifications => _notifications.Value;
     public IVersionedMapRotationsApi MapRotations => _mapRotations.Value;
     public IVersionedDashboardApi Dashboard => _dashboard.Value;
+    public IVersionedGlobalConfigurationsApi GlobalConfigurations => _globalConfigurations.Value;
+    public IVersionedGameServerConfigurationsApi GameServerConfigurations => _gameServerConfigurations.Value;
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,
@@ -298,6 +318,8 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         NotificationsApi.Reset();
         MapRotationsApi.Reset();
         DashboardApi.Reset();
+        GlobalConfigurationsApi.Reset();
+        GameServerConfigurationsApi.Reset();
         return this;
     }
 }

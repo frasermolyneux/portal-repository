@@ -121,6 +121,12 @@
     },
     {
       "name": "[dbo].[MapRotationAssignmentOperations]"
+    },
+    {
+      "name": "[dbo].[GlobalConfigurations]"
+    },
+    {
+      "name": "[dbo].[GameServerConfigurations]"
     }
   ]
 }

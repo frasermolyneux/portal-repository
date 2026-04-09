@@ -16,6 +16,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Models;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing;
 
@@ -71,6 +72,10 @@ public static class RepositoryDtoFactory
         bool botEnabled = false,
         bool liveTrackingEnabled = false,
         bool agentEnabled = false,
+        bool ftpEnabled = false,
+        bool rconEnabled = false,
+        bool banFileSyncEnabled = false,
+        bool serverListEnabled = false,
         int serverListPosition = 0)
     {
         return new GameServerDto
@@ -85,6 +90,10 @@ public static class RepositoryDtoFactory
             BotEnabled = botEnabled,
             LiveTrackingEnabled = liveTrackingEnabled,
             AgentEnabled = agentEnabled,
+            FtpEnabled = ftpEnabled,
+            RconEnabled = rconEnabled,
+            BanFileSyncEnabled = banFileSyncEnabled,
+            ServerListEnabled = serverListEnabled,
             ServerListPosition = serverListPosition
         };
     }
@@ -738,6 +747,28 @@ public static class RepositoryDtoFactory
             PeakPlayers = peakPlayers,
             MaxPlayers = maxPlayers,
             Utilization = utilization
+        };
+    }
+
+    public static ConfigurationDto CreateConfiguration(
+        string ns = "test-namespace",
+        string configuration = "{}",
+        DateTime? lastModifiedUtc = null)
+    {
+        return new ConfigurationDto
+        {
+            Namespace = ns,
+            Configuration = configuration,
+            LastModifiedUtc = lastModifiedUtc ?? DateTime.UtcNow
+        };
+    }
+
+    public static UpsertConfigurationDto CreateUpsertConfiguration(
+        string configuration = "{}")
+    {
+        return new UpsertConfigurationDto
+        {
+            Configuration = configuration
         };
     }
 }

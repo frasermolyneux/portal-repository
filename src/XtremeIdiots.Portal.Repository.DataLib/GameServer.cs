@@ -37,11 +37,19 @@ public partial class GameServer
 
     public string? HtmlBanner { get; set; }
 
+    public bool FtpEnabled { get; set; }
+
+    public bool RconEnabled { get; set; }
+
     public bool BotEnabled { get; set; }
 
     public bool AgentEnabled { get; set; }
 
+    public bool BanFileSyncEnabled { get; set; }
+
     public bool BannerServerListEnabled { get; set; }
+
+    public bool ServerListEnabled { get; set; }
 
     public bool PortalServerListEnabled { get; set; }
 
@@ -69,6 +77,9 @@ public partial class GameServer
 
     [InverseProperty("GameServer")]
     public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<GameServerConfiguration> GameServerConfigurations { get; set; } = new List<GameServerConfiguration>();
 
     [InverseProperty("GameServer")]
     public virtual ICollection<GameServerEvent> GameServerEvents { get; set; } = new List<GameServerEvent>();

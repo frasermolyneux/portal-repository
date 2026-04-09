@@ -30,6 +30,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedNotificationsApi> _notifications = new();
         private readonly Mock<IVersionedMapRotationsApi> _mapRotations = new();
         private readonly Mock<IVersionedDashboardApi> _dashboard = new();
+        private readonly Mock<IVersionedGlobalConfigurationsApi> _globalConfigurations = new();
+        private readonly Mock<IVersionedGameServerConfigurationsApi> _gameServerConfigurations = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -56,7 +58,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _notificationPreferences.Object,
             _notifications.Object,
             _mapRotations.Object,
-            _dashboard.Object);
+            _dashboard.Object,
+            _globalConfigurations.Object,
+            _gameServerConfigurations.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -88,6 +92,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_notifications.Object, client.Notifications);
             Assert.Same(_mapRotations.Object, client.MapRotations);
             Assert.Same(_dashboard.Object, client.Dashboard);
+            Assert.Same(_globalConfigurations.Object, client.GlobalConfigurations);
+            Assert.Same(_gameServerConfigurations.Object, client.GameServerConfigurations);
         }
 
         [Fact]
@@ -119,6 +125,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.NotificationPreferences);
             Assert.NotNull(client.Notifications);
             Assert.NotNull(client.MapRotations);
+            Assert.NotNull(client.GlobalConfigurations);
+            Assert.NotNull(client.GameServerConfigurations);
         }
         [Fact]
         public void Properties_ReturnCorrectTypes()
@@ -149,6 +157,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedNotificationPreferencesApi>(client.NotificationPreferences);
             Assert.IsAssignableFrom<IVersionedNotificationsApi>(client.Notifications);
             Assert.IsAssignableFrom<IVersionedMapRotationsApi>(client.MapRotations);
+            Assert.IsAssignableFrom<IVersionedGlobalConfigurationsApi>(client.GlobalConfigurations);
+            Assert.IsAssignableFrom<IVersionedGameServerConfigurationsApi>(client.GameServerConfigurations);
         }
     }
 }

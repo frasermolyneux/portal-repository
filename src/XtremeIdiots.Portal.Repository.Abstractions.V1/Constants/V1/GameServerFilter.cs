@@ -6,6 +6,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         PortalServerListEnabled,
         BannerServerListEnabled,
         BotEnabled,
-        AgentEnabled
+        AgentEnabled,
+        FtpEnabled,
+        RconEnabled,
+        BanFileSyncEnabled,
+        ServerListEnabled
     }
 }

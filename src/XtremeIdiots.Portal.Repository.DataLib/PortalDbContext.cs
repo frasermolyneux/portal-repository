@@ -23,9 +23,13 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<GameServer> GameServers { get; set; }
 
+    public virtual DbSet<GameServerConfiguration> GameServerConfigurations { get; set; }
+
     public virtual DbSet<GameServerEvent> GameServerEvents { get; set; }
 
     public virtual DbSet<GameServerStat> GameServerStats { get; set; }
+
+    public virtual DbSet<GlobalConfiguration> GlobalConfigurations { get; set; }
 
     public virtual DbSet<LivePlayer> LivePlayers { get; set; }
 
@@ -132,6 +136,15 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.LiveMaxPlayers).HasDefaultValue(0);
         });
 
+        modelBuilder.Entity<GameServerConfiguration>(entity =>
+        {
+            entity.Property(e => e.LastModifiedUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.GameServerConfigurations)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_GameServerConfigurations_GameServers");
+        });
+
         modelBuilder.Entity<GameServerEvent>(entity =>
         {
             entity.Property(e => e.GameServerEventId).HasDefaultValueSql("newsequentialid()");
@@ -146,6 +159,11 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.GameServerStatId).HasDefaultValueSql("newsequentialid()");
 
             entity.HasOne(d => d.GameServer).WithMany(p => p.GameServerStats).HasConstraintName("FK_GameServerStats_GameServer");
+        });
+
+        modelBuilder.Entity<GlobalConfiguration>(entity =>
+        {
+            entity.Property(e => e.LastModifiedUtc).HasDefaultValueSql("SYSUTCDATETIME()");
         });
 
         modelBuilder.Entity<LivePlayer>(entity =>

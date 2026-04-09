@@ -48,6 +48,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddTypedApiClient<INotificationsApi, NotificationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IMapRotationsApi, MapRotationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IDashboardApi, DashboardApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGlobalConfigurationsApi, GlobalConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGameServerConfigurationsApi, GameServerConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
@@ -75,6 +77,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedNotificationsApi, VersionedNotificationsApi>();
             serviceCollection.AddScoped<IVersionedMapRotationsApi, VersionedMapRotationsApi>();
             serviceCollection.AddScoped<IVersionedDashboardApi, VersionedDashboardApi>();
+            serviceCollection.AddScoped<IVersionedGlobalConfigurationsApi, VersionedGlobalConfigurationsApi>();
+            serviceCollection.AddScoped<IVersionedGameServerConfigurationsApi, VersionedGameServerConfigurationsApi>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();

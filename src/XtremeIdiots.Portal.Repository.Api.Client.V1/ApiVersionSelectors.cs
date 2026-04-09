@@ -127,4 +127,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         IDashboardApi V1 { get; }
     }
+
+    public interface IVersionedGlobalConfigurationsApi
+    {
+        IGlobalConfigurationsApi V1 { get; }
+    }
+
+    public interface IVersionedGameServerConfigurationsApi
+    {
+        IGameServerConfigurationsApi V1 { get; }
+    }
 }

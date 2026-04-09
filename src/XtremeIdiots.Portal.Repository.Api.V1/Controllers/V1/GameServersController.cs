@@ -336,6 +336,10 @@ public class GameServersController : ControllerBase, IGameServersApi
                 GameServerFilter.LiveTrackingEnabled => query.Where(s => s.LiveTrackingEnabled),
                 GameServerFilter.BotEnabled => query.Where(s => s.BotEnabled),
                 GameServerFilter.AgentEnabled => query.Where(s => s.AgentEnabled),
+                GameServerFilter.FtpEnabled => query.Where(s => s.FtpEnabled),
+                GameServerFilter.RconEnabled => query.Where(s => s.RconEnabled),
+                GameServerFilter.BanFileSyncEnabled => query.Where(s => s.BanFileSyncEnabled),
+                GameServerFilter.ServerListEnabled => query.Where(s => s.ServerListEnabled),
                 _ => query
             };
         }

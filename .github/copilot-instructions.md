@@ -64,3 +64,18 @@ Deploy workflows perform version verification (polling `/v1.0/info` and `/v2.0/i
 - Use C# 13 language features (set in `Directory.Build.props`).
 - Controller routes use `v{version:apiVersion}/...` — no `/api/` prefix.
 - Reference `docs/` for detailed guidance on versioning and backend mapping.
+
+## Configuration System
+
+Game server configuration uses a namespace-scoped JSON document model stored in two tables:
+
+- **`GlobalConfigurations`** — fleet-wide defaults keyed by namespace (e.g. `agent`, `banfiles`, `moderation`, `events`).
+- **`GameServerConfigurations`** — per-server overrides keyed by `(GameServerId, Namespace)` (e.g. `ftp`, `rcon`, `agent`, `serverlist`).
+
+Feature toggles (`FtpEnabled`, `RconEnabled`, `AgentEnabled`, `BanFileSyncEnabled`, `ServerListEnabled`) remain as indexed columns on `GameServers` for efficient API filtering. Each toggle gates a configuration block and corresponding UI tab.
+
+Configuration endpoints:
+- `GET/PUT/DELETE v1/configurations/{namespace}` — global config CRUD
+- `GET/PUT/DELETE v1/game-servers/{id}/configurations/{namespace}` — per-server config CRUD
+
+Consumers resolve settings with: **per-server override → global config → built-in C# default**.
