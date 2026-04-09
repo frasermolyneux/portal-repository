@@ -29,6 +29,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // Date/Time Validation Errors
         public const string InvalidCutoffDate = "INVALID_CUTOFF_DATE";
 
+        // Toggle Dependency Errors
+        public const string ToggleDependencyViolation = "TOGGLE_DEPENDENCY_VIOLATION";
+
         // Server Errors
         public const string InternalServerError = "INTERNAL_SERVER_ERROR";
     }

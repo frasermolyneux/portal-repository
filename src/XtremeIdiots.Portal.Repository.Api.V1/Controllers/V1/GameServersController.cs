@@ -164,6 +164,11 @@ public class GameServersController : ControllerBase, IGameServersApi
     async Task<ApiResult> IGameServersApi.CreateGameServer(CreateGameServerDto createGameServerDto, CancellationToken cancellationToken)
     {
         var gameServer = createGameServerDto.ToEntity();
+
+        var validationError = ValidateToggleDependencies(gameServer);
+        if (validationError != null)
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.ToggleDependencyViolation, validationError)));
+
         context.GameServers.Add(gameServer);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
@@ -212,6 +217,13 @@ public class GameServersController : ControllerBase, IGameServersApi
     async Task<ApiResult> IGameServersApi.CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken)
     {
         var gameServers = createGameServerDtos.Select(gs => gs.ToEntity()).ToList();
+
+        foreach (var gameServer in gameServers)
+        {
+            var validationError = ValidateToggleDependencies(gameServer);
+            if (validationError != null)
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.ToggleDependencyViolation, validationError)));
+        }
 
         await context.GameServers.AddRangeAsync(gameServers, cancellationToken).ConfigureAwait(false);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -273,6 +285,12 @@ public class GameServersController : ControllerBase, IGameServersApi
             return new ApiResult(HttpStatusCode.NotFound);
 
         editGameServerDto.ApplyTo(gameServer);
+
+        ApplyToggleCascade(gameServer);
+        var validationError = ValidateToggleDependencies(gameServer);
+        if (validationError != null)
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.ToggleDependencyViolation, validationError)));
+
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
@@ -314,6 +332,38 @@ public class GameServersController : ControllerBase, IGameServersApi
         gameServer.Deleted = true;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
+    }
+
+    private static void ApplyToggleCascade(GameServer entity)
+    {
+        if (!entity.FtpEnabled)
+        {
+            entity.AgentEnabled = false;
+            entity.BanFileSyncEnabled = false;
+        }
+
+        if (!entity.RconEnabled)
+        {
+            entity.AgentEnabled = false;
+        }
+
+        if (!entity.AgentEnabled)
+        {
+            entity.BanFileSyncEnabled = false;
+        }
+    }
+
+    private static string? ValidateToggleDependencies(GameServer entity)
+    {
+        if (entity.AgentEnabled && !entity.FtpEnabled)
+            return "AgentEnabled requires FtpEnabled to be true.";
+        if (entity.AgentEnabled && !entity.RconEnabled)
+            return "AgentEnabled requires RconEnabled to be true.";
+        if (entity.BanFileSyncEnabled && !entity.FtpEnabled)
+            return "BanFileSyncEnabled requires FtpEnabled to be true.";
+        if (entity.BanFileSyncEnabled && !entity.AgentEnabled)
+            return "BanFileSyncEnabled requires AgentEnabled to be true.";
+        return null;
     }
 
     private IQueryable<GameServer> ApplyFilters(IQueryable<GameServer> query, GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter)

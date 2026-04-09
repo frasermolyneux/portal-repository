@@ -231,7 +231,9 @@ public class GameServersControllerTests
 
         var dto = new CreateGameServerDto("Agent Server", GameType.CallOfDuty4, "newhost", 28960)
         {
-            AgentEnabled = true
+            AgentEnabled = true,
+            FtpEnabled = true,
+            RconEnabled = true
         };
 
         var result = await api.CreateGameServer(dto);
@@ -300,7 +302,9 @@ public class GameServersControllerTests
             GameType = (int)GameType.CallOfDuty4,
             Hostname = "localhost",
             QueryPort = 28960,
-            AgentEnabled = false
+            AgentEnabled = false,
+            FtpEnabled = true,
+            RconEnabled = true
         });
         await context.SaveChangesAsync();
 
@@ -382,5 +386,258 @@ public class GameServersControllerTests
         Assert.Single(items);
         Assert.Equal("Agent Server", items[0].Title);
         Assert.True(items[0].AgentEnabled);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_AgentEnabledWithoutFtp_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            AgentEnabled = true,
+            FtpEnabled = false,
+            RconEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServers);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_AgentEnabledWithoutRcon_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            AgentEnabled = true,
+            FtpEnabled = true,
+            RconEnabled = false
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServers);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_BanFileSyncWithoutAgent_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            BanFileSyncEnabled = true,
+            AgentEnabled = false,
+            FtpEnabled = true,
+            RconEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServers);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_BanFileSyncWithoutFtp_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            BanFileSyncEnabled = true,
+            AgentEnabled = true,
+            FtpEnabled = false,
+            RconEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServers);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_ValidToggleCombination_Succeeds()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            FtpEnabled = true,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true,
+            ServerListEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FtpEnabled);
+        Assert.True(entity.RconEnabled);
+        Assert.True(entity.AgentEnabled);
+        Assert.True(entity.BanFileSyncEnabled);
+        Assert.True(entity.ServerListEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_DisablingFtp_CascadesAgentAndBanFileSync()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            FtpEnabled = false
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.False(entity.FtpEnabled);
+        Assert.False(entity.AgentEnabled);
+        Assert.False(entity.BanFileSyncEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_DisablingRcon_CascadesAgent()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            RconEnabled = false
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FtpEnabled);
+        Assert.False(entity.RconEnabled);
+        Assert.False(entity.AgentEnabled);
+        Assert.False(entity.BanFileSyncEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_DisablingAgent_CascadesBanFileSync()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            AgentEnabled = false
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FtpEnabled);
+        Assert.True(entity.RconEnabled);
+        Assert.False(entity.AgentEnabled);
+        Assert.False(entity.BanFileSyncEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_EnableAgentWithPrereqs_Succeeds()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            RconEnabled = true,
+            AgentEnabled = false,
+            BanFileSyncEnabled = false
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            AgentEnabled = true
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.AgentEnabled);
     }
 }
