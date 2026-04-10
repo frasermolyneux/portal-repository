@@ -33,40 +33,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public int QueryPort { get; set; }
 
         [JsonProperty]
-        public string? FtpHostname { get; set; }
-
-        [JsonProperty]
-        public int? FtpPort { get; set; }
-
-        [JsonProperty]
-        public string? FtpUsername { get; set; }
-
-        [JsonProperty]
-        public string? FtpPassword { get; set; }
-
-        [JsonProperty]
-        public string? RconPassword { get; set; }
-
-        [JsonProperty]
         public int ServerListPosition { get; set; }
 
         [JsonProperty]
-        public string? HtmlBanner { get; set; }
-
-        [JsonProperty]
-        public bool BotEnabled { get; set; }
-
-        [JsonProperty]
         public bool AgentEnabled { get; set; }
-
-        [JsonProperty]
-        public bool BannerServerListEnabled { get; set; }
-
-        [JsonProperty]
-        public bool PortalServerListEnabled { get; set; }
-
-        [JsonProperty]
-        public bool LiveTrackingEnabled { get; set; }
 
         [JsonProperty]
         public bool FtpEnabled { get; set; }

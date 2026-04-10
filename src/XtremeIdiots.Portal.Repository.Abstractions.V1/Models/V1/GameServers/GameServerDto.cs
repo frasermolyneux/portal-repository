@@ -34,40 +34,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public int QueryPort { get; internal set; }
 
         [JsonProperty]
-        public string? FtpHostname { get; internal set; }
-
-        [JsonProperty]
-        public int? FtpPort { get; internal set; }
-
-        [JsonProperty]
-        public string? FtpUsername { get; internal set; }
-
-        [JsonProperty]
-        public string? FtpPassword { get; internal set; }
-
-        [JsonProperty]
-        public string? RconPassword { get; internal set; }
-
-        [JsonProperty]
         public int ServerListPosition { get; internal set; }
 
         [JsonProperty]
-        public string? HtmlBanner { get; internal set; }
-
-        [JsonProperty]
-        public bool BotEnabled { get; internal set; }
-
-        [JsonProperty]
         public bool AgentEnabled { get; internal set; }
-
-        [JsonProperty]
-        public bool BannerServerListEnabled { get; internal set; }
-
-        [JsonProperty]
-        public bool PortalServerListEnabled { get; internal set; }
-
-        [JsonProperty]
-        public bool LiveTrackingEnabled { get; internal set; }
 
         [JsonProperty]
         public string? LiveTitle { get; internal set; }
@@ -77,9 +47,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
 
         [JsonProperty]
         public string? LiveMod { get; internal set; }
-
-        [JsonProperty]
-        public string? LiveLogFile { get; internal set; }
 
         [JsonProperty]
         public int? LiveMaxPlayers { get; internal set; }
@@ -110,18 +77,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
 
         [JsonProperty]
         public List<LivePlayerDto> LivePlayers { get; internal set; } = [];
-
-        public void ClearFtpCredentials()
-        {
-            FtpHostname = null;
-            FtpUsername = null;
-            FtpPassword = null;
-        }
-
-        public void ClearRconCredentials()
-        {
-            RconPassword = null;
-        }
 
         public void ClearNoPermissionBanFileMonitors(GameType[] gameTypes, Guid[] banFileMonitorIds)
         {

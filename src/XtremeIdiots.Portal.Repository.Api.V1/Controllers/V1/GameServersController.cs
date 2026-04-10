@@ -381,10 +381,6 @@ public class GameServersController : ControllerBase, IGameServersApi
         {
             query = filter.Value switch
             {
-                GameServerFilter.PortalServerListEnabled => query.Where(s => s.PortalServerListEnabled),
-                GameServerFilter.BannerServerListEnabled => query.Where(s => s.BannerServerListEnabled && !string.IsNullOrWhiteSpace(s.HtmlBanner)),
-                GameServerFilter.LiveTrackingEnabled => query.Where(s => s.LiveTrackingEnabled),
-                GameServerFilter.BotEnabled => query.Where(s => s.BotEnabled),
                 GameServerFilter.AgentEnabled => query.Where(s => s.AgentEnabled),
                 GameServerFilter.FtpEnabled => query.Where(s => s.FtpEnabled),
                 GameServerFilter.RconEnabled => query.Where(s => s.RconEnabled),

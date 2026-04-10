@@ -130,7 +130,6 @@ public partial class PortalDbContext : DbContext
             entity.HasKey(e => e.GameServerId).HasName("PK_dbo.GameServers");
 
             entity.Property(e => e.GameServerId).HasDefaultValueSql("newsequentialid()");
-            entity.Property(e => e.FtpPort).HasDefaultValue(21);
             entity.Property(e => e.LiveCurrentPlayers).HasDefaultValue(0);
             entity.Property(e => e.LiveLastUpdated).HasDefaultValue(new DateTime(1900, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
             entity.Property(e => e.LiveMaxPlayers).HasDefaultValue(0);

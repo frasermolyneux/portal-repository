@@ -23,45 +23,23 @@ public partial class GameServer
 
     public int QueryPort { get; set; }
 
-    public string? FtpHostname { get; set; }
-
-    public int? FtpPort { get; set; }
-
-    public string? FtpUsername { get; set; }
-
-    public string? FtpPassword { get; set; }
-
-    public string? RconPassword { get; set; }
-
     public int ServerListPosition { get; set; }
-
-    public string? HtmlBanner { get; set; }
 
     public bool FtpEnabled { get; set; }
 
     public bool RconEnabled { get; set; }
 
-    public bool BotEnabled { get; set; }
-
     public bool AgentEnabled { get; set; }
 
     public bool BanFileSyncEnabled { get; set; }
 
-    public bool BannerServerListEnabled { get; set; }
-
     public bool ServerListEnabled { get; set; }
-
-    public bool PortalServerListEnabled { get; set; }
-
-    public bool LiveTrackingEnabled { get; set; }
 
     public string? LiveTitle { get; set; }
 
     public string? LiveMap { get; set; }
 
     public string? LiveMod { get; set; }
-
-    public string? LiveLogFile { get; set; }
 
     public int? LiveMaxPlayers { get; set; }
 

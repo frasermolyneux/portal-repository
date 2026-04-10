@@ -178,18 +178,8 @@ public class GameServersControllerTests
 
         var dto = new CreateGameServerDto("Full Server", GameType.CallOfDuty4, "fullhost", 28960)
         {
-            FtpHostname = "ftp.example.com",
-            FtpPort = 2121,
-            FtpUsername = "user",
-            FtpPassword = "pass",
-            RconPassword = "rcon",
             ServerListPosition = 5,
-            HtmlBanner = "<img src='banner.png' />",
-            BotEnabled = true,
             AgentEnabled = true,
-            BannerServerListEnabled = true,
-            PortalServerListEnabled = true,
-            LiveTrackingEnabled = true,
             FtpEnabled = true,
             RconEnabled = true,
             BanFileSyncEnabled = true,
@@ -204,18 +194,8 @@ public class GameServersControllerTests
         Assert.Equal("fullhost", entity.Hostname);
         Assert.Equal(28960, entity.QueryPort);
         Assert.Equal((int)GameType.CallOfDuty4, entity.GameType);
-        Assert.Equal("ftp.example.com", entity.FtpHostname);
-        Assert.Equal(2121, entity.FtpPort);
-        Assert.Equal("user", entity.FtpUsername);
-        Assert.Equal("pass", entity.FtpPassword);
-        Assert.Equal("rcon", entity.RconPassword);
         Assert.Equal(5, entity.ServerListPosition);
-        Assert.Equal("<img src='banner.png' />", entity.HtmlBanner);
-        Assert.True(entity.BotEnabled);
         Assert.True(entity.AgentEnabled);
-        Assert.True(entity.BannerServerListEnabled);
-        Assert.True(entity.PortalServerListEnabled);
-        Assert.True(entity.LiveTrackingEnabled);
         Assert.True(entity.FtpEnabled);
         Assert.True(entity.RconEnabled);
         Assert.True(entity.BanFileSyncEnabled);
