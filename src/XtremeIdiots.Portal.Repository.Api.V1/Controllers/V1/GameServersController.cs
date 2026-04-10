@@ -312,6 +312,87 @@ public class GameServersController : ControllerBase, IGameServersApi
     }
 
     /// <summary>
+    /// Updates the display order of game servers.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>A success response if the order was updated; otherwise, a 400 Bad Request response.</returns>
+    [HttpPut("game-servers/order")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateGameServerOrder(CancellationToken cancellationToken = default)
+    {
+        var requestBody = await new StreamReader(Request.Body).ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
+        UpdateGameServerOrderDto? updateGameServerOrderDto;
+        try
+        {
+            updateGameServerOrderDto = JsonConvert.DeserializeObject<UpdateGameServerOrderDto>(requestBody);
+        }
+        catch
+        {
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, ApiErrorMessages.InvalidRequestBodyMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
+        }
+
+        if (updateGameServerOrderDto == null)
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
+
+        var response = await ((IGameServersApi)this).UpdateGameServerOrder(updateGameServerOrderDto, cancellationToken).ConfigureAwait(false);
+
+        return response.ToHttpResult();
+    }
+
+    /// <summary>
+    /// Updates the display order of game servers.
+    /// </summary>
+    /// <param name="updateGameServerOrderDto">The ordered list of game server IDs.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating success; otherwise, a 400 Bad Request with validation errors.</returns>
+    async Task<ApiResult> IGameServersApi.UpdateGameServerOrder(UpdateGameServerOrderDto updateGameServerOrderDto, CancellationToken cancellationToken)
+    {
+        var requestedIds = updateGameServerOrderDto.GameServerIds;
+
+        if (requestedIds is null)
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "GameServerIds cannot be null")));
+
+        // Validate no duplicate IDs
+        if (requestedIds.Distinct().Count() != requestedIds.Count)
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "Duplicate game server IDs in request")));
+
+        // Get all non-deleted game servers
+        var allServers = await context.GameServers
+            .Where(gs => !gs.Deleted)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var allServerIds = allServers.Select(gs => gs.GameServerId).ToHashSet();
+
+        // Validate the request contains the complete set
+        if (requestedIds.Count != allServerIds.Count)
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "Request must contain all non-deleted game server IDs")));
+
+        // Validate all requested IDs exist
+        var missingIds = requestedIds.Where(id => !allServerIds.Contains(id)).ToList();
+        if (missingIds.Count > 0)
+            return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, $"Game server IDs not found: {string.Join(", ", missingIds)}")));
+
+        // Build a lookup for quick access
+        var serverLookup = allServers.ToDictionary(gs => gs.GameServerId);
+
+        // Update positions based on list order
+        for (var i = 0; i < requestedIds.Count; i++)
+        {
+            serverLookup[requestedIds[i]].ServerListPosition = i;
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
     /// Deletes a game server by its unique identifier.
     /// </summary>
     /// <param name="gameServerId">The unique identifier of the game server to delete.</param>

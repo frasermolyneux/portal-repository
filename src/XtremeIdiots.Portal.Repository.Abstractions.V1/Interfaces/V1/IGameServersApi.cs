@@ -14,6 +14,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult> CreateGameServers(List<CreateGameServerDto> createGameServerDtos, CancellationToken cancellationToken = default);
 
         Task<ApiResult> UpdateGameServer(EditGameServerDto editGameServerDto, CancellationToken cancellationToken = default);
+        Task<ApiResult> UpdateGameServerOrder(UpdateGameServerOrderDto updateGameServerOrderDto, CancellationToken cancellationToken = default);
 
         Task<ApiResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default);
     }

@@ -620,4 +620,124 @@ public class GameServersControllerTests
         var entity = context.GameServers.Single();
         Assert.True(entity.AgentEnabled);
     }
+
+    [Fact]
+    public async Task UpdateGameServerOrder_HappyPath_UpdatesPositions()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var id3 = Guid.NewGuid();
+
+        context.GameServers.AddRange(
+            new GameServer { GameServerId = id1, Title = "Server 1", GameType = (int)GameType.CallOfDuty4, Hostname = "host1", QueryPort = 28960, ServerListPosition = 0 },
+            new GameServer { GameServerId = id2, Title = "Server 2", GameType = (int)GameType.CallOfDuty2, Hostname = "host2", QueryPort = 28961, ServerListPosition = 1 },
+            new GameServer { GameServerId = id3, Title = "Server 3", GameType = (int)GameType.CallOfDuty4, Hostname = "host3", QueryPort = 28962, ServerListPosition = 2 }
+        );
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new UpdateGameServerOrderDto { GameServerIds = [id3, id1, id2] };
+        var result = await api.UpdateGameServerOrder(dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(0, context.GameServers.Single(gs => gs.GameServerId == id3).ServerListPosition);
+        Assert.Equal(1, context.GameServers.Single(gs => gs.GameServerId == id1).ServerListPosition);
+        Assert.Equal(2, context.GameServers.Single(gs => gs.GameServerId == id2).ServerListPosition);
+    }
+
+    [Fact]
+    public async Task UpdateGameServerOrder_DuplicateIds_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var id1 = Guid.NewGuid();
+        context.GameServers.Add(new GameServer { GameServerId = id1, Title = "Server 1", GameType = (int)GameType.CallOfDuty4, Hostname = "host1", QueryPort = 28960 });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new UpdateGameServerOrderDto { GameServerIds = [id1, id1] };
+        var result = await api.UpdateGameServerOrder(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGameServerOrder_MissingServers_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        context.GameServers.AddRange(
+            new GameServer { GameServerId = id1, Title = "Server 1", GameType = (int)GameType.CallOfDuty4, Hostname = "host1", QueryPort = 28960 },
+            new GameServer { GameServerId = id2, Title = "Server 2", GameType = (int)GameType.CallOfDuty4, Hostname = "host2", QueryPort = 28961 }
+        );
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        // Only send one of two servers — incomplete set
+        var dto = new UpdateGameServerOrderDto { GameServerIds = [id1] };
+        var result = await api.UpdateGameServerOrder(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGameServerOrder_NonExistentId_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var id1 = Guid.NewGuid();
+        context.GameServers.Add(new GameServer { GameServerId = id1, Title = "Server 1", GameType = (int)GameType.CallOfDuty4, Hostname = "host1", QueryPort = 28960 });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        // Send a non-existent ID plus one real one — count matches but ID is wrong
+        var dto = new UpdateGameServerOrderDto { GameServerIds = [Guid.NewGuid()] };
+        var result = await api.UpdateGameServerOrder(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGameServerOrder_IncludesDeletedServer_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        context.GameServers.AddRange(
+            new GameServer { GameServerId = id1, Title = "Active", GameType = (int)GameType.CallOfDuty4, Hostname = "host1", QueryPort = 28960, Deleted = false },
+            new GameServer { GameServerId = id2, Title = "Deleted", GameType = (int)GameType.CallOfDuty4, Hostname = "host2", QueryPort = 28961, Deleted = true }
+        );
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        // Sending both IDs — but id2 is deleted so the set doesn't match non-deleted count
+        var dto = new UpdateGameServerOrderDto { GameServerIds = [id1, id2] };
+        var result = await api.UpdateGameServerOrder(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGameServerOrder_EmptyListWithNoServers_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new UpdateGameServerOrderDto { GameServerIds = [] };
+        var result = await api.UpdateGameServerOrder(dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
 }

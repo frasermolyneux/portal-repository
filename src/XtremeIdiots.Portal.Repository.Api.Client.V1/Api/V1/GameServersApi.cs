@@ -85,6 +85,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        public async Task<ApiResult> UpdateGameServerOrder(UpdateGameServerOrderDto updateGameServerOrderDto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/game-servers/order", Method.Put).ConfigureAwait(false);
+            request.AddJsonBody(updateGameServerOrderDto);
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
         public async Task<ApiResult> DeleteGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}", Method.Delete).ConfigureAwait(false);
