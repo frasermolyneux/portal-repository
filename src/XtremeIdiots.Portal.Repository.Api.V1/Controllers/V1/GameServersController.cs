@@ -402,7 +402,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         // Apply ordering
         var orderedQuery = order switch
         {
-            GameServerOrder.BannerServerListPosition => query.OrderBy(gs => gs.ServerListPosition),
+            GameServerOrder.ServerListPosition => query.OrderBy(gs => gs.ServerListPosition),
             GameServerOrder.GameType => query.OrderBy(gs => gs.GameType),
             _ => query
         };

@@ -303,7 +303,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             // Apply ordering using modern switch expression
             var orderedQuery = order switch
             {
-                BanFileMonitorOrder.BannerServerListPosition => query.OrderBy(bfm => bfm.GameServer.ServerListPosition),
+                BanFileMonitorOrder.ServerListPosition => query.OrderBy(bfm => bfm.GameServer.ServerListPosition),
                 BanFileMonitorOrder.GameType => query.OrderBy(bfm => bfm.GameServer.GameType),
                 _ => query.OrderBy(bfm => bfm.BanFileMonitorId)
             };
