@@ -22,7 +22,13 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
         public string MapName { get; internal set; } = string.Empty;
 
         [JsonProperty]
+        public string? DisplayName { get; internal set; }
+
+        [JsonProperty]
         public string MapImageUri { get; internal set; } = string.Empty;
+
+        [JsonProperty]
+        public MapHealthStatus MapStatus { get; internal set; } = MapHealthStatus.OK;
 
         [JsonProperty]
         public int TotalLikes { get; internal set; } = 0;

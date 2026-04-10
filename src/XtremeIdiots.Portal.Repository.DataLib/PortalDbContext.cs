@@ -35,6 +35,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<Map> Maps { get; set; }
 
+    public virtual DbSet<MapFlag> MapFlags { get; set; }
+
     public virtual DbSet<MapPack> MapPacks { get; set; }
 
     public virtual DbSet<MapPackMap> MapPackMaps { get; set; }
@@ -183,6 +185,16 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.MapId).HasDefaultValueSql("newsequentialid()");
         });
 
+        modelBuilder.Entity<MapFlag>(entity =>
+        {
+            entity.HasKey(e => e.MapFlagId).HasName("PK_dbo.MapFlags");
+
+            entity.Property(e => e.MapFlagId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasOne(d => d.Map).WithMany(p => p.MapFlags).HasConstraintName("FK_dbo.MapFlags_dbo.Maps_MapId");
+        });
+
         modelBuilder.Entity<MapPack>(entity =>
         {
             entity.HasKey(e => e.MapPackId).HasName("PK_dbo.MapPacks");
@@ -213,6 +225,10 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.Version).HasDefaultValue(1);
+
+            entity.HasOne(d => d.CreatedByUser).WithMany(p => p.MapRotations)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_dbo.MapRotations_dbo.UserProfiles_CreatedByUserId");
         });
 
         modelBuilder.Entity<MapRotationAssignmentOperation>(entity =>

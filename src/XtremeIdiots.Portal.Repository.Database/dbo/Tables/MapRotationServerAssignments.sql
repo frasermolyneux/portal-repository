@@ -9,6 +9,8 @@ CREATE TABLE [dbo].[MapRotationServerAssignments]
     [ActivatedVersion] INT NULL,
     [ConfigFilePath] NVARCHAR(256) NULL,
     [ConfigVariableName] NVARCHAR(256) NULL,
+    [PlayerCountMin] INT NULL,
+    [PlayerCountMax] INT NULL,
     [LastError] NVARCHAR(MAX) NULL,
     [LastErrorAt] DATETIME2 NULL,
     [CreatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),

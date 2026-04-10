@@ -23,6 +23,12 @@ public record CreateMapRotationServerAssignmentDto : IDto
     [JsonProperty]
     public string? ConfigVariableName { get; set; }
 
+    [JsonProperty]
+    public int? PlayerCountMin { get; set; }
+
+    [JsonProperty]
+    public int? PlayerCountMax { get; set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

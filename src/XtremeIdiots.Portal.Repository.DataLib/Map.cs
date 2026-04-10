@@ -18,9 +18,14 @@ public partial class Map
 
     public string? MapName { get; set; }
 
+    [StringLength(256)]
+    public string? DisplayName { get; set; }
+
     public string? MapImageUri { get; set; }
 
     public string? MapFiles { get; set; }
+
+    public int MapStatus { get; set; }
 
     public int TotalLikes { get; set; }
 
@@ -31,6 +36,9 @@ public partial class Map
     public double LikePercentage { get; set; }
 
     public double DislikePercentage { get; set; }
+
+    [InverseProperty("Map")]
+    public virtual ICollection<MapFlag> MapFlags { get; set; } = new List<MapFlag>();
 
     [InverseProperty("Map")]
     public virtual ICollection<MapPackMap> MapPackMaps { get; set; } = new List<MapPackMap>();

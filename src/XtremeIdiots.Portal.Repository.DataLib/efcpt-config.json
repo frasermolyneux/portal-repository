@@ -127,6 +127,9 @@
     },
     {
       "name": "[dbo].[GameServerConfigurations]"
+    },
+    {
+      "name": "[dbo].[MapFlags]"
     }
   ]
 }

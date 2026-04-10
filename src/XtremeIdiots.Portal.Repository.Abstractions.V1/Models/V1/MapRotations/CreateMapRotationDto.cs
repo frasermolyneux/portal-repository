@@ -26,6 +26,18 @@ public record CreateMapRotationDto : IDto
     public string GameMode { get; set; }
 
     [JsonProperty]
+    public MapRotationStatus? Status { get; set; }
+
+    [JsonProperty]
+    public string? Category { get; set; }
+
+    [JsonProperty]
+    public int? SequenceOrder { get; set; }
+
+    [JsonProperty]
+    public Guid? CreatedByUserId { get; set; }
+
+    [JsonProperty]
     public List<Guid> MapIds { get; set; } = [];
 
     [JsonIgnore]

@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
@@ -37,7 +38,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 MapId = entity.MapId,
                 GameType = entity.GameType.ToGameType(),
                 MapName = entity.MapName ?? string.Empty,
+                DisplayName = entity.DisplayName,
                 MapImageUri = entity.MapImageUri ?? string.Empty,
+                MapStatus = (MapHealthStatus)entity.MapStatus,
                 TotalLikes = entity.TotalLikes,
                 TotalDislikes = entity.TotalDislikes,
                 TotalVotes = entity.TotalVotes,

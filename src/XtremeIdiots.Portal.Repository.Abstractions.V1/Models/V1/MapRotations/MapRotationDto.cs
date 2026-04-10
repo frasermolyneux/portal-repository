@@ -37,10 +37,22 @@ public record MapRotationDto : IDto
     public string GameMode { get; set; }
 
     [JsonProperty]
+    public MapRotationStatus Status { get; set; }
+
+    [JsonProperty]
+    public string? Category { get; set; }
+
+    [JsonProperty]
+    public int? SequenceOrder { get; set; }
+
+    [JsonProperty]
     public int Version { get; set; }
 
     [JsonProperty]
     public string? ContentHash { get; set; }
+
+    [JsonProperty]
+    public Guid? CreatedByUserId { get; set; }
 
     [JsonProperty]
     public DateTime CreatedAt { get; set; }

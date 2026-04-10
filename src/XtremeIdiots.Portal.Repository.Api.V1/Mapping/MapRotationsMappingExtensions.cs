@@ -31,7 +31,13 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 (expand && entity.MapRotationServerAssignments is not null)
                     ? entity.MapRotationServerAssignments.Select(a => a.ToDto(false)).ToList()
                     : []
-            );
+            )
+            {
+                Status = (MapRotationStatus)entity.Status,
+                Category = entity.Category,
+                SequenceOrder = entity.SequenceOrder,
+                CreatedByUserId = entity.CreatedByUserId
+            };
         }
 
         public static MapRotation ToEntity(this CreateMapRotationDto dto)
@@ -44,6 +50,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Title = dto.Title,
                 Description = dto.Description,
                 GameMode = dto.GameMode,
+                Status = dto.Status.HasValue ? (int)dto.Status.Value : 0,
+                Category = dto.Category,
+                SequenceOrder = dto.SequenceOrder,
+                CreatedByUserId = dto.CreatedByUserId,
                 Version = 1,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -58,6 +68,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.Title is not null) entity.Title = dto.Title;
             if (dto.Description is not null) entity.Description = dto.Description;
             if (dto.GameMode is not null) entity.GameMode = dto.GameMode;
+            if (dto.Status.HasValue) entity.Status = (int)dto.Status.Value;
+            if (dto.Category is not null) entity.Category = dto.Category;
+            if (dto.SequenceOrder.HasValue) entity.SequenceOrder = dto.SequenceOrder.Value;
 
             entity.UpdatedAt = DateTime.UtcNow;
         }
@@ -93,7 +106,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.CreatedAt,
                 entity.UpdatedAt,
                 entity.UnassignedAt
-            );
+            )
+            {
+                PlayerCountMin = entity.PlayerCountMin,
+                PlayerCountMax = entity.PlayerCountMax
+            };
         }
 
         public static MapRotationServerAssignment ToEntity(this CreateMapRotationServerAssignmentDto dto)
@@ -108,6 +125,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 ActivationState = (int)ActivationState.Inactive,
                 ConfigFilePath = dto.ConfigFilePath,
                 ConfigVariableName = dto.ConfigVariableName,
+                PlayerCountMin = dto.PlayerCountMin,
+                PlayerCountMax = dto.PlayerCountMax,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -124,6 +143,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.ActivatedVersion.HasValue) entity.ActivatedVersion = dto.ActivatedVersion.Value;
             if (dto.ConfigFilePath is not null) entity.ConfigFilePath = dto.ConfigFilePath;
             if (dto.ConfigVariableName is not null) entity.ConfigVariableName = dto.ConfigVariableName;
+            if (dto.PlayerCountMin.HasValue) entity.PlayerCountMin = dto.PlayerCountMin.Value;
+            if (dto.PlayerCountMax.HasValue) entity.PlayerCountMax = dto.PlayerCountMax.Value;
             if (dto.LastError is not null) entity.LastError = dto.LastError;
             if (dto.LastErrorAt.HasValue) entity.LastErrorAt = dto.LastErrorAt.Value;
             if (dto.UnassignedAt.HasValue) entity.UnassignedAt = dto.UnassignedAt.Value;

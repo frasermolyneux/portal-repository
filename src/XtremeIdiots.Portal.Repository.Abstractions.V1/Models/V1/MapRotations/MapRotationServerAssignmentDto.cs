@@ -52,6 +52,12 @@ public record MapRotationServerAssignmentDto : IDto
     public string? ConfigVariableName { get; set; }
 
     [JsonProperty]
+    public int? PlayerCountMin { get; set; }
+
+    [JsonProperty]
+    public int? PlayerCountMax { get; set; }
+
+    [JsonProperty]
     public string? LastError { get; set; }
 
     [JsonProperty]

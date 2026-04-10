@@ -34,6 +34,10 @@ public partial class MapRotationServerAssignment
     [StringLength(256)]
     public string? ConfigVariableName { get; set; }
 
+    public int? PlayerCountMin { get; set; }
+
+    public int? PlayerCountMax { get; set; }
+
     public string? LastError { get; set; }
 
     public DateTime? LastErrorAt { get; set; }

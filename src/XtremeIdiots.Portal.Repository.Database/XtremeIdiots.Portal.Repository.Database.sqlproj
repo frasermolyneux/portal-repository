@@ -78,6 +78,7 @@
     <Build Include="dbo\Tables\MapRotationMaps.sql" />
     <Build Include="dbo\Tables\MapRotationServerAssignments.sql" />
     <Build Include="dbo\Tables\MapRotationAssignmentOperations.sql" />
+    <Build Include="dbo\Tables\MapFlags.sql" />
     <Build Include="dbo\Tables\ProtectedNames.sql" />
     <Build Include="dbo\Tables\Tags.sql">
       <AnsiNulls>On</AnsiNulls>

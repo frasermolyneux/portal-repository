@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("GameType", Name = "IX_MapRotations_GameType")]
+[Index("Status", Name = "IX_MapRotations_Status")]
 public partial class MapRotation
 {
     [Key]
@@ -24,14 +25,27 @@ public partial class MapRotation
     [StringLength(50)]
     public string GameMode { get; set; } = null!;
 
+    public int Status { get; set; }
+
+    [StringLength(50)]
+    public string? Category { get; set; }
+
+    public int? SequenceOrder { get; set; }
+
     public int Version { get; set; }
 
     [StringLength(64)]
     public string? ContentHash { get; set; }
 
+    public Guid? CreatedByUserId { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    [ForeignKey("CreatedByUserId")]
+    [InverseProperty("MapRotations")]
+    public virtual UserProfile? CreatedByUser { get; set; }
 
     [InverseProperty("MapRotation")]
     public virtual ICollection<MapRotationMap> MapRotationMaps { get; set; } = new List<MapRotationMap>();
