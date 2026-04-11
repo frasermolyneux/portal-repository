@@ -39,12 +39,34 @@ resource "azurerm_storage_container" "gametracker_container" {
   container_access_type = "blob"
 }
 
+resource "azurerm_storage_account" "table_storage" {
+  name = local.table_storage_name
+
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  account_kind                    = "StorageV2"
+  access_tier                     = "Hot"
+  allow_nested_items_to_be_public = false
+
+  https_traffic_only_enabled = true
+  min_tls_version            = "TLS1_2"
+
+  local_user_enabled = false
+  # shared_access_key_enabled intentionally not set to false:
+  # azurerm_storage_table requires shared key auth for ACL management
+
+  tags = var.tags
+}
+
 resource "azurerm_storage_table" "game_server_live_status" {
   name                 = "GameServerLiveStatus"
-  storage_account_name = azurerm_storage_account.web_api_storage.name
+  storage_account_name = azurerm_storage_account.table_storage.name
 }
 
 resource "azurerm_storage_table" "game_server_live_players" {
   name                 = "GameServerLivePlayers"
-  storage_account_name = azurerm_storage_account.web_api_storage.name
+  storage_account_name = azurerm_storage_account.table_storage.name
 }
