@@ -137,4 +137,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         IGameServerConfigurationsApi V1 { get; }
     }
+
+    public interface IVersionedLiveStatusApi
+    {
+        ILiveStatusApi V1 { get; }
+    }
 }

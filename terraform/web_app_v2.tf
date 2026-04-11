@@ -44,8 +44,9 @@ resource "azurerm_linux_web_app" "app_v2" {
     "ASPNETCORE_ENVIRONMENT"                     = var.environment == "prd" ? "Production" : "Development"
     "WEBSITE_RUN_FROM_PACKAGE"                   = "1"
 
-    "sql_connection_string"         = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;User ID=%s;", data.azurerm_mssql_server.sql_server.fully_qualified_domain_name, local.sql_database_name, local.repository_identity.client_id)
-    "appdata_storage_blob_endpoint" = azurerm_storage_account.web_api_storage.primary_blob_endpoint
+    "sql_connection_string"          = format("Server=tcp:%s;Authentication=Active Directory Default; Database=%s;User ID=%s;", data.azurerm_mssql_server.sql_server.fully_qualified_domain_name, local.sql_database_name, local.repository_identity.client_id)
+    "appdata_storage_blob_endpoint"  = azurerm_storage_account.web_api_storage.primary_blob_endpoint
+    "appdata_storage_table_endpoint" = azurerm_storage_account.web_api_storage.primary_table_endpoint
 
     // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler
     "APPINSIGHTS_PROFILERFEATURE_VERSION"  = "1.0.0"

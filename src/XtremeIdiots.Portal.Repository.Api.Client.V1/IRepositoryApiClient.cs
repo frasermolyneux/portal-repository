@@ -31,5 +31,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedDashboardApi Dashboard { get; }
         IVersionedGlobalConfigurationsApi GlobalConfigurations { get; }
         IVersionedGameServerConfigurationsApi GameServerConfigurations { get; }
+        IVersionedLiveStatusApi LiveStatus { get; }
     }
 }

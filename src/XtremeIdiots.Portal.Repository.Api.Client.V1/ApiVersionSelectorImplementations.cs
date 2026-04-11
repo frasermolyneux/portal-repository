@@ -272,4 +272,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IGameServerConfigurationsApi V1 { get; }
     }
+
+    public class VersionedLiveStatusApi : IVersionedLiveStatusApi
+    {
+        public VersionedLiveStatusApi(ILiveStatusApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public ILiveStatusApi V1 { get; }
+    }
 }

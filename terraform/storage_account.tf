@@ -38,3 +38,13 @@ resource "azurerm_storage_container" "gametracker_container" {
   storage_account_id    = azurerm_storage_account.web_api_storage.id
   container_access_type = "blob"
 }
+
+resource "azurerm_storage_table" "game_server_live_status" {
+  name                 = "GameServerLiveStatus"
+  storage_account_name = azurerm_storage_account.web_api_storage.name
+}
+
+resource "azurerm_storage_table" "game_server_live_players" {
+  name                 = "GameServerLivePlayers"
+  storage_account_name = azurerm_storage_account.web_api_storage.name
+}

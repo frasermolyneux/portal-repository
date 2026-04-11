@@ -1,4 +1,5 @@
 using Azure.Identity;
+using Azure.Data.Tables;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.ApplicationInsights.WindowsServer.Channel.Implementation;
@@ -10,6 +11,7 @@ using Newtonsoft.Json.Converters;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V1;
+using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V1.OpenApi;
 using Scalar.AspNetCore;
@@ -135,6 +137,33 @@ builder.Services.AddHealthChecks()
     .AddCheck<XtremeIdiots.Portal.Repository.Api.V1.HealthChecks.SqlDatabaseHealthCheck>(
         name: "sql-database",
         tags: ["dependency"]);
+
+// Register Table Storage for live status
+var tableEndpoint = builder.Configuration["appdata_storage_table_endpoint"];
+if (!string.IsNullOrWhiteSpace(tableEndpoint))
+{
+    var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
+    var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+    {
+        ManagedIdentityClientId = managedIdentityClientId,
+    });
+    builder.Services.AddSingleton(new TableServiceClient(new Uri(tableEndpoint), credential));
+    builder.Services.AddSingleton<ILiveStatusStore, TableStorageLiveStatusStore>();
+}
+else
+{
+    // Development fallback: use Azurite or connection string
+    var connectionString = builder.Configuration["appdata_storage_connection_string"];
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        builder.Services.AddSingleton(new TableServiceClient(connectionString));
+        builder.Services.AddSingleton<ILiveStatusStore, TableStorageLiveStatusStore>();
+    }
+    else
+    {
+        builder.Services.AddSingleton<ILiveStatusStore, NullLiveStatusStore>();
+    }
+}
 
 var app = builder.Build();
 

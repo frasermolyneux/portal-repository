@@ -33,7 +33,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedMapRotationsApi mapRotations,
             IVersionedDashboardApi dashboard,
             IVersionedGlobalConfigurationsApi globalConfigurations,
-            IVersionedGameServerConfigurationsApi gameServerConfigurations)
+            IVersionedGameServerConfigurationsApi gameServerConfigurations,
+            IVersionedLiveStatusApi liveStatus)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -62,6 +63,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             Dashboard = dashboard;
             GlobalConfigurations = globalConfigurations;
             GameServerConfigurations = gameServerConfigurations;
+            LiveStatus = liveStatus;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -91,5 +93,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedDashboardApi Dashboard { get; }
         public IVersionedGlobalConfigurationsApi GlobalConfigurations { get; }
         public IVersionedGameServerConfigurationsApi GameServerConfigurations { get; }
+        public IVersionedLiveStatusApi LiveStatus { get; }
     }
 }
