@@ -15,5 +15,6 @@ public class GameServerLiveStatusEntity : ITableEntity
     public string? Mod { get; set; }
     public int MaxPlayers { get; set; }
     public int CurrentPlayers { get; set; }
+    public int GameType { get; set; }
     public DateTime LastUpdated { get; set; }
 }

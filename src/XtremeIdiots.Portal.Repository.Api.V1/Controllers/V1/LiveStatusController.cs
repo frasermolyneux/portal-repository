@@ -69,6 +69,7 @@ public class LiveStatusController : ControllerBase, ILiveStatusApi
             Title = dto.Title,
             Map = dto.Map,
             Mod = dto.Mod,
+            GameType = dto.GameType.ToGameTypeInt(),
             MaxPlayers = dto.MaxPlayers,
             CurrentPlayers = dto.CurrentPlayers,
             LastUpdated = DateTime.UtcNow
@@ -78,21 +79,28 @@ public class LiveStatusController : ControllerBase, ILiveStatusApi
 
         if (dto.Players.Count > 0)
         {
-            var playerEntities = dto.Players.Select(p => new GameServerLivePlayerEntity
+            var playerEntities = dto.Players.Select(p =>
             {
-                Name = p.Name ?? string.Empty,
-                Score = p.Score,
-                Ping = p.Ping,
-                Num = p.Num,
-                Rate = p.Rate,
-                Team = p.Team,
-                Time = p.Time.ToString(),
-                IpAddress = p.IpAddress,
-                Lat = p.Lat,
-                Long = p.Long,
-                CountryCode = p.CountryCode,
-                GameType = p.GameType.ToGameTypeInt(),
-                PlayerId = p.PlayerId
+                var geoJson = p.GeoIntelligence is not null
+                    ? JsonConvert.SerializeObject(p.GeoIntelligence)
+                    : null;
+
+                return new GameServerLivePlayerEntity
+                {
+                    Name = p.Name ?? string.Empty,
+                    Score = p.Score,
+                    Ping = p.Ping,
+                    Num = p.Num,
+                    Rate = p.Rate,
+                    Team = p.Team,
+                    Time = p.Time.ToString(),
+                    IpAddress = p.IpAddress,
+                    ConnectedAtUtc = p.ConnectedAtUtc,
+                    GameType = p.GameType.ToGameTypeInt(),
+                    PlayerId = p.PlayerId,
+                    // Table Storage string properties have a 64KB limit; drop if oversized
+                    GeoIntelligenceJson = geoJson?.Length <= 60_000 ? geoJson : null
+                };
             }).ToList();
 
             await _store.SetLivePlayersAsync(gameServerId, playerEntities, cancellationToken).ConfigureAwait(false);

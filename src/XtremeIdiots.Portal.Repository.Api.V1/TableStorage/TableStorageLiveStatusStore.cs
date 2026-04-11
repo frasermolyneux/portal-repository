@@ -1,6 +1,10 @@
 using Azure;
 using Azure.Data.Tables;
 
+using MX.GeoLocation.Abstractions.Models.V1_1;
+
+using Newtonsoft.Json;
+
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.LiveStatus;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
@@ -137,6 +141,7 @@ public class TableStorageLiveStatusStore : ILiveStatusStore
             Title = entity.Title,
             Map = entity.Map,
             Mod = entity.Mod,
+            GameType = entity.GameType.ToGameType(),
             MaxPlayers = entity.MaxPlayers,
             CurrentPlayers = entity.CurrentPlayers,
             LastUpdated = lastUpdated,
@@ -146,6 +151,19 @@ public class TableStorageLiveStatusStore : ILiveStatusStore
 
     private static LivePlayerDto MapPlayerToDto(GameServerLivePlayerEntity entity, Guid serverId)
     {
+        IpIntelligenceDto? geoIntelligence = null;
+        if (!string.IsNullOrWhiteSpace(entity.GeoIntelligenceJson))
+        {
+            try
+            {
+                geoIntelligence = JsonConvert.DeserializeObject<IpIntelligenceDto>(entity.GeoIntelligenceJson);
+            }
+            catch (JsonException)
+            {
+                // Ignore malformed JSON — leave as null
+            }
+        }
+
         return new LivePlayerDto
         {
             LivePlayerId = Guid.NewGuid(),
@@ -157,9 +175,8 @@ public class TableStorageLiveStatusStore : ILiveStatusStore
             Team = entity.Team,
             Time = TimeSpan.TryParse(entity.Time, out var time) ? time : TimeSpan.Zero,
             IpAddress = entity.IpAddress,
-            Lat = entity.Lat,
-            Long = entity.Long,
-            CountryCode = entity.CountryCode,
+            ConnectedAtUtc = entity.ConnectedAtUtc,
+            GeoIntelligence = geoIntelligence,
             GameType = entity.GameType.ToGameType(),
             PlayerId = entity.PlayerId,
             GameServerServerId = serverId

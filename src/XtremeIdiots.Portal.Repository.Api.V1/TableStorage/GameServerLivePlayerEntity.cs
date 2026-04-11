@@ -19,8 +19,7 @@ public class GameServerLivePlayerEntity : ITableEntity
     public string? Team { get; set; }
     public string Time { get; set; } = string.Empty;
     public string? IpAddress { get; set; }
-    public double? Lat { get; set; }
-    public double? Long { get; set; }
-    public string? CountryCode { get; set; }
+    public DateTime? ConnectedAtUtc { get; set; }
     public int GameType { get; set; }
+    public string? GeoIntelligenceJson { get; set; }
 }

@@ -1,3 +1,7 @@
+using MX.GeoLocation.Abstractions.Models.V1_1;
+
+using Newtonsoft.Json;
+
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
@@ -19,6 +23,18 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         {
             ArgumentNullException.ThrowIfNull(entity);
 
+            IpIntelligenceDto? geoIntelligence = null;
+            if (entity.Lat.HasValue && entity.Long.HasValue)
+            {
+                var json = JsonConvert.SerializeObject(new
+                {
+                    Latitude = entity.Lat.Value,
+                    Longitude = entity.Long.Value,
+                    CountryCode = entity.CountryCode
+                });
+                geoIntelligence = JsonConvert.DeserializeObject<IpIntelligenceDto>(json);
+            }
+
             return new LivePlayerDto
             {
                 LivePlayerId = entity.LivePlayerId,
@@ -30,9 +46,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Team = entity.Team,
                 Time = entity.Time,
                 IpAddress = entity.IpAddress,
-                Lat = entity.Lat,
-                Long = entity.Long,
-                CountryCode = entity.CountryCode,
+                GeoIntelligence = geoIntelligence,
                 GameType = entity.GameType.ToGameType(),
                 PlayerId = entity.PlayerId,
                 GameServerServerId = entity.GameServerId,
@@ -61,9 +75,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Team = dto.Team,
                 Time = dto.Time,
                 IpAddress = dto.IpAddress,
-                Lat = dto.Lat,
-                Long = dto.Long,
-                CountryCode = dto.CountryCode,
+                Lat = dto.GeoIntelligence?.Latitude,
+                Long = dto.GeoIntelligence?.Longitude,
+                CountryCode = dto.GeoIntelligence?.CountryCode,
                 GameType = dto.GameType.ToGameTypeInt()
             };
         }

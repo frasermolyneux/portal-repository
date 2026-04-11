@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+using MX.GeoLocation.Abstractions.Models.V1_1;
+
 using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -40,13 +42,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         public string? IpAddress { get; internal set; }
 
         [JsonProperty]
-        public double? Lat { get; internal set; }
+        public IpIntelligenceDto? GeoIntelligence { get; internal set; }
 
         [JsonProperty]
-        public double? Long { get; internal set; }
-
-        [JsonProperty]
-        public string? CountryCode { get; internal set; }
+        public DateTime? ConnectedAtUtc { get; internal set; }
 
         [JsonProperty]
         [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]

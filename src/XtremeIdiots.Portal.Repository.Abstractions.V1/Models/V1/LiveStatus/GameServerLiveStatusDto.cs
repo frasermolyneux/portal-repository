@@ -2,6 +2,8 @@ using System.Text.Json.Serialization;
 
 using Newtonsoft.Json;
 
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.LiveStatus
 {
     public record GameServerLiveStatusDto : IDto
@@ -17,6 +19,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.LiveStatus
 
         [JsonProperty]
         public string? Mod { get; internal set; }
+
+        [JsonProperty]
+        [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
+        public GameType GameType { get; internal set; }
 
         [JsonProperty]
         public int MaxPlayers { get; internal set; }
