@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors;
-using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 
 using JsonIgnoreAttribute = Newtonsoft.Json.JsonIgnoreAttribute;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
@@ -40,24 +39,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool AgentEnabled { get; internal set; }
 
         [JsonProperty]
-        public string? LiveTitle { get; internal set; }
-
-        [JsonProperty]
-        public string? LiveMap { get; internal set; }
-
-        [JsonProperty]
-        public string? LiveMod { get; internal set; }
-
-        [JsonProperty]
-        public int? LiveMaxPlayers { get; internal set; }
-
-        [JsonProperty]
-        public int? LiveCurrentPlayers { get; internal set; }
-
-        [JsonProperty]
-        public DateTime? LiveLastUpdated { get; internal set; }
-
-        [JsonProperty]
         public bool FtpEnabled { get; internal set; }
 
         [JsonProperty]
@@ -74,9 +55,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
 
         [JsonProperty]
         public List<BanFileMonitorDto> BanFileMonitors { get; internal set; } = [];
-
-        [JsonProperty]
-        public List<LivePlayerDto> LivePlayers { get; internal set; } = [];
 
         public void ClearNoPermissionBanFileMonitors(GameType[] gameTypes, Guid[] banFileMonitorIds)
         {

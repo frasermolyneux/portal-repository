@@ -22,16 +22,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 RconEnabled = entity.RconEnabled,
                 BanFileSyncEnabled = entity.BanFileSyncEnabled,
                 ServerListEnabled = entity.ServerListEnabled,
-                LiveTitle = entity.LiveTitle,
-                LiveMod = entity.LiveMod,
-                LiveMap = entity.LiveMap,
-                LiveMaxPlayers = entity.LiveMaxPlayers,
-                LiveCurrentPlayers = entity.LiveCurrentPlayers,
-                LiveLastUpdated = entity.LiveLastUpdated,
                 Deleted = entity.Deleted,
-                LivePlayers = expand && entity.LivePlayers is { Count: > 0 }
-                    ? entity.LivePlayers.Select(lp => lp.ToDto(false)).ToList()
-                    : null!
             };
         }
 
@@ -92,12 +83,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.RconEnabled is not null) entity.RconEnabled = dto.RconEnabled.Value;
             if (dto.BanFileSyncEnabled is not null) entity.BanFileSyncEnabled = dto.BanFileSyncEnabled.Value;
             if (dto.ServerListEnabled is not null) entity.ServerListEnabled = dto.ServerListEnabled.Value;
-            if (dto.LiveTitle is not null) entity.LiveTitle = dto.LiveTitle;
-            if (dto.LiveMap is not null) entity.LiveMap = dto.LiveMap;
-            if (dto.LiveMod is not null) entity.LiveMod = dto.LiveMod;
-            if (dto.LiveMaxPlayers is not null) entity.LiveMaxPlayers = dto.LiveMaxPlayers;
-            if (dto.LiveCurrentPlayers is not null) entity.LiveCurrentPlayers = dto.LiveCurrentPlayers;
-            if (dto.LiveLastUpdated is not null) entity.LiveLastUpdated = dto.LiveLastUpdated;
             if (dto.Deleted is not null) entity.Deleted = dto.Deleted.Value;
         }
     }

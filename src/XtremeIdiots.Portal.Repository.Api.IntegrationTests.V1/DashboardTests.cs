@@ -66,9 +66,6 @@ public class DashboardTests : IClassFixture<CustomWebApplicationFactory>, IAsync
                 Hostname = "127.0.0.1",
                 QueryPort = 28960,
                 AgentEnabled = true,
-                LiveCurrentPlayers = 12,
-                LiveMaxPlayers = 34,
-                LiveLastUpdated = DateTime.UtcNow
             });
 
             ctx.Players.Add(new Player
@@ -131,7 +128,6 @@ public class DashboardTests : IClassFixture<CustomWebApplicationFactory>, IAsync
 
         Assert.NotNull(result?.Data);
         Assert.True(result.Data.TotalServers >= 1);
-        Assert.True(result.Data.TotalPlayersOnline >= 12);
         Assert.True(result.Data.UnclaimedBanCount >= 1);
         Assert.True(result.Data.OpenReportCount >= 1);
         Assert.True(result.Data.RecentActions24h.Bans >= 2);

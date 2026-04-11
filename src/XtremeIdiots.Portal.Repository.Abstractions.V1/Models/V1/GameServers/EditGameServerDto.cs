@@ -41,24 +41,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool? ServerListEnabled { get; set; }
 
         [JsonProperty]
-        public string? LiveTitle { get; set; }
-
-        [JsonProperty]
-        public string? LiveMap { get; set; }
-
-        [JsonProperty]
-        public string? LiveMod { get; set; }
-
-        [JsonProperty]
-        public int? LiveMaxPlayers { get; set; }
-
-        [JsonProperty]
-        public int? LiveCurrentPlayers { get; set; }
-
-        [JsonProperty]
-        public DateTime? LiveLastUpdated { get; set; }
-
-        [JsonProperty]
         public bool? Deleted { get; set; }
 
         [JsonIgnore]

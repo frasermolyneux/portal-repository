@@ -62,7 +62,6 @@ public class GameServersController : ControllerBase, IGameServersApi
     {
         var gameServer = await context.GameServers
             .Include(gs => gs.BanFileMonitors)
-            .Include(gs => gs.LivePlayers)
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
 
@@ -130,7 +129,6 @@ public class GameServersController : ControllerBase, IGameServersApi
     {
         var baseQuery = context.GameServers
             .Include(gs => gs.BanFileMonitors)
-            .Include(gs => gs.LivePlayers)
             .Where(gs => !gs.Deleted)
             .AsNoTracking();
 
@@ -408,7 +406,6 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[LivePlayers] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
 
         gameServer.Deleted = true;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

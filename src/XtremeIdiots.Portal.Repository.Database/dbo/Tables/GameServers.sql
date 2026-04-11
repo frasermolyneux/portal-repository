@@ -11,13 +11,7 @@
     [AgentEnabled] BIT DEFAULT 0 NOT NULL,
     [BanFileSyncEnabled] BIT DEFAULT 0 NOT NULL,
     [ServerListEnabled] BIT DEFAULT 0 NOT NULL,
-    [LiveTitle] NVARCHAR (MAX) NULL,
-    [LiveMap] NVARCHAR (MAX) NULL,
-    [LiveMod] NVARCHAR (MAX) NULL,
-    [LiveMaxPlayers] INT DEFAULT 0 NULL,
-    [LiveCurrentPlayers] INT DEFAULT 0 NULL,
-    [LiveLastUpdated] DATETIME DEFAULT ('1900-01-01T00:00:00.000') NULL,
-    [Deleted] BIT NOT NULL DEFAULT 0,  
+    [Deleted] BIT NOT NULL DEFAULT 0,
     CONSTRAINT [PK_dbo.GameServers] PRIMARY KEY CLUSTERED ([GameServerId] ASC)
 );
 

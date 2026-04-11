@@ -93,16 +93,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IGameTrackerBannerApi V1 { get; }
     }
 
-    public class VersionedLivePlayersApi : IVersionedLivePlayersApi
-    {
-        public VersionedLivePlayersApi(ILivePlayersApi v1Api)
-        {
-            V1 = v1Api;
-        }
-
-        public ILivePlayersApi V1 { get; }
-    }
-
     public class VersionedMapsApi : IVersionedMapsApi
     {
         public VersionedMapsApi(IMapsApi v1Api)

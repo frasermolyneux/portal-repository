@@ -74,7 +74,7 @@ public class YourService
 - `client.GameServersEvents.V1`
 - `client.GameServersStats.V1`
 - `client.GameTrackerBanner.V1`
-- `client.LivePlayers.V1`
+- `client.LiveStatus.V1`
 - `client.Maps.V1`
 - `client.PlayerAnalytics.V1`
 - `client.Players.V1`

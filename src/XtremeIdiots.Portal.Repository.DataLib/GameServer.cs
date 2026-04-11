@@ -35,19 +35,6 @@ public partial class GameServer
 
     public bool ServerListEnabled { get; set; }
 
-    public string? LiveTitle { get; set; }
-
-    public string? LiveMap { get; set; }
-
-    public string? LiveMod { get; set; }
-
-    public int? LiveMaxPlayers { get; set; }
-
-    public int? LiveCurrentPlayers { get; set; }
-
-    [Column(TypeName = "datetime")]
-    public DateTime? LiveLastUpdated { get; set; }
-
     public bool Deleted { get; set; }
 
     [InverseProperty("GameServer")]
@@ -64,9 +51,6 @@ public partial class GameServer
 
     [InverseProperty("GameServer")]
     public virtual ICollection<GameServerStat> GameServerStats { get; set; } = new List<GameServerStat>();
-
-    [InverseProperty("GameServer")]
-    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
 
     [InverseProperty("GameServer")]
     public virtual ICollection<MapRotationServerAssignment> MapRotationServerAssignments { get; set; } = new List<MapRotationServerAssignment>();

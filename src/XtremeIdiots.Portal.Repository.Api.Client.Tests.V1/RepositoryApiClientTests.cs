@@ -14,7 +14,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedGameServersEventsApi> _gameServersEvents = new();
         private readonly Mock<IVersionedGameServersStatsApi> _gameServersStats = new();
         private readonly Mock<IVersionedGameTrackerBannerApi> _gameTrackerBanner = new();
-        private readonly Mock<IVersionedLivePlayersApi> _livePlayers = new();
         private readonly Mock<IVersionedMapsApi> _maps = new();
 
         private readonly Mock<IVersionedPlayerAnalyticsApi> _playerAnalytics = new();
@@ -44,7 +43,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _gameServersEvents.Object,
             _gameServersStats.Object,
             _gameTrackerBanner.Object,
-            _livePlayers.Object,
             _maps.Object,
 
             _playerAnalytics.Object,
@@ -78,7 +76,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_gameServersEvents.Object, client.GameServersEvents);
             Assert.Same(_gameServersStats.Object, client.GameServersStats);
             Assert.Same(_gameTrackerBanner.Object, client.GameTrackerBanner);
-            Assert.Same(_livePlayers.Object, client.LivePlayers);
             Assert.Same(_maps.Object, client.Maps);
 
             Assert.Same(_playerAnalytics.Object, client.PlayerAnalytics);
@@ -113,7 +110,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.GameServersEvents);
             Assert.NotNull(client.GameServersStats);
             Assert.NotNull(client.GameTrackerBanner);
-            Assert.NotNull(client.LivePlayers);
             Assert.NotNull(client.Maps);
 
             Assert.NotNull(client.PlayerAnalytics);
@@ -147,7 +143,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedGameServersEventsApi>(client.GameServersEvents);
             Assert.IsAssignableFrom<IVersionedGameServersStatsApi>(client.GameServersStats);
             Assert.IsAssignableFrom<IVersionedGameTrackerBannerApi>(client.GameTrackerBanner);
-            Assert.IsAssignableFrom<IVersionedLivePlayersApi>(client.LivePlayers);
             Assert.IsAssignableFrom<IVersionedMapsApi>(client.Maps);
 
             Assert.IsAssignableFrom<IVersionedPlayerAnalyticsApi>(client.PlayerAnalytics);

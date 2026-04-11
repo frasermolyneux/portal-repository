@@ -16,7 +16,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedGameServersEventsApi gameServersEvents,
             IVersionedGameServersStatsApi gameServersStats,
             IVersionedGameTrackerBannerApi gameTrackerBanner,
-            IVersionedLivePlayersApi livePlayers,
             IVersionedMapsApi maps,
 
             IVersionedPlayerAnalyticsApi playerAnalytics,
@@ -45,7 +44,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             GameServersEvents = gameServersEvents;
             GameServersStats = gameServersStats;
             GameTrackerBanner = gameTrackerBanner;
-            LivePlayers = livePlayers;
             Maps = maps;
 
             PlayerAnalytics = playerAnalytics;
@@ -75,7 +73,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedGameServersEventsApi GameServersEvents { get; }
         public IVersionedGameServersStatsApi GameServersStats { get; }
         public IVersionedGameTrackerBannerApi GameTrackerBanner { get; }
-        public IVersionedLivePlayersApi LivePlayers { get; }
         public IVersionedMapsApi Maps { get; }
 
         public IVersionedPlayerAnalyticsApi PlayerAnalytics { get; }

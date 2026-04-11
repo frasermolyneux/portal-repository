@@ -48,11 +48,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IGameTrackerBannerApi V1 { get; }
     }
 
-    public interface IVersionedLivePlayersApi
-    {
-        ILivePlayersApi V1 { get; }
-    }
-
     public interface IVersionedMapsApi
     {
         IMapsApi V1 { get; }

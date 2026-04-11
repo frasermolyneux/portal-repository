@@ -57,9 +57,6 @@
       "name": "[dbo].[GameServerStats]"
     },
     {
-      "name": "[dbo].[LivePlayers]"
-    },
-    {
       "name": "[dbo].[Maps]"
     },
     {

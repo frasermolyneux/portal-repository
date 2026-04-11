@@ -12,6 +12,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Dashboard;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -26,11 +27,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class DashboardController : ControllerBase, IDashboardApi
 {
     private readonly PortalDbContext context;
+    private readonly ILiveStatusStore liveStatusStore;
 
-    public DashboardController(PortalDbContext context)
+    public DashboardController(PortalDbContext context, ILiveStatusStore liveStatusStore)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(liveStatusStore);
         this.context = context;
+        this.liveStatusStore = liveStatusStore;
     }
 
     /// <summary>
@@ -47,20 +51,17 @@ public class DashboardController : ControllerBase, IDashboardApi
 
     async Task<ApiResult<DashboardSummaryDto>> IDashboardApi.GetDashboardSummary(CancellationToken cancellationToken)
     {
-        var fiveMinutesAgo = DateTime.UtcNow.AddMinutes(-5);
         var oneDayAgo = DateTime.UtcNow.AddDays(-1);
         var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
 
-        // Server health
-        var servers = await context.GameServers
+        // Server health from Table Storage live status
+        var totalServers = await context.GameServers
             .AsNoTracking()
-            .Where(gs => !gs.Deleted && gs.AgentEnabled)
-            .Select(gs => new { gs.LiveCurrentPlayers, gs.LiveLastUpdated })
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .CountAsync(gs => !gs.Deleted && gs.AgentEnabled, cancellationToken).ConfigureAwait(false);
 
-        var totalServers = servers.Count;
-        var onlineCount = servers.Count(s => s.LiveLastUpdated >= fiveMinutesAgo);
-        var totalPlayers = servers.Sum(s => s.LiveCurrentPlayers ?? 0);
+        var liveStatuses = await liveStatusStore.GetAllServerLiveStatusesAsync(cancellationToken).ConfigureAwait(false);
+        var onlineCount = liveStatuses.Count(s => s.IsOnline);
+        var totalPlayers = liveStatuses.Where(s => s.IsOnline).Sum(s => s.CurrentPlayers);
 
         // Unclaimed ban count: permanent bans (Type == Ban) with no admin assigned
         var unclaimedBanCount = await context.AdminActions
@@ -235,11 +236,13 @@ public class DashboardController : ControllerBase, IDashboardApi
             {
                 gs.GameServerId,
                 gs.Title,
-                gs.LiveTitle,
                 gs.GameType,
-                gs.LiveMaxPlayers
             })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        // Get live status for server titles and max players
+        var liveStatuses = await liveStatusStore.GetAllServerLiveStatusesAsync(cancellationToken).ConfigureAwait(false);
+        var liveStatusLookup = liveStatuses.ToDictionary(s => s.ServerId);
 
         // Get aggregated stats per server for the last 24 hours
         var statsAggregates = await context.GameServerStats
@@ -259,13 +262,14 @@ public class DashboardController : ControllerBase, IDashboardApi
         var serverDtos = servers.Select(gs =>
         {
             var hasStats = statsLookup.TryGetValue(gs.GameServerId, out var stats);
-            var maxPlayers = gs.LiveMaxPlayers ?? 0;
+            var hasLiveStatus = liveStatusLookup.TryGetValue(gs.GameServerId, out var liveStatus);
+            var maxPlayers = hasLiveStatus ? liveStatus!.MaxPlayers : 0;
             var avg = hasStats ? stats!.AvgPlayers : 0;
 
             return new ServerUtilizationDto
             {
                 ServerId = gs.GameServerId,
-                Title = string.IsNullOrWhiteSpace(gs.LiveTitle) ? gs.Title : gs.LiveTitle,
+                Title = hasLiveStatus && !string.IsNullOrWhiteSpace(liveStatus!.Title) ? liveStatus.Title : gs.Title,
                 GameType = gs.GameType.ToGameType().ToString(),
                 AvgPlayers = Math.Round(avg, 1),
                 PeakPlayers = hasStats ? stats!.PeakPlayers : 0,

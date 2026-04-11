@@ -36,7 +36,6 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IVersionedGameServersEventsApi>();
         services.RemoveAll<IVersionedGameServersStatsApi>();
         services.RemoveAll<IVersionedGameTrackerBannerApi>();
-        services.RemoveAll<IVersionedLivePlayersApi>();
         services.RemoveAll<IVersionedMapsApi>();
 
         services.RemoveAll<IVersionedMapRotationsApi>();
@@ -64,7 +63,6 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IGameServersSecretsApi>();
         services.RemoveAll<IGameServersStatsApi>();
         services.RemoveAll<IGameTrackerBannerApi>();
-        services.RemoveAll<ILivePlayersApi>();
         services.RemoveAll<ILiveStatusApi>();
 
         services.RemoveAll<IMapRotationsApi>();
@@ -89,7 +87,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVersionedGameServersEventsApi>(fakeClient.GameServersEvents);
         services.AddSingleton<IVersionedGameServersStatsApi>(fakeClient.GameServersStats);
         services.AddSingleton<IVersionedGameTrackerBannerApi>(fakeClient.GameTrackerBanner);
-        services.AddSingleton<IVersionedLivePlayersApi>(fakeClient.LivePlayers);
         services.AddSingleton<IVersionedMapsApi>(fakeClient.Maps);
 
         services.AddSingleton<IVersionedMapRotationsApi>(fakeClient.MapRotations);
@@ -116,7 +113,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGameServersSecretsApi>(fakeClient.GameServersSecretsApi);
         services.AddSingleton<IGameServersStatsApi>(fakeClient.GameServersStatsApi);
         services.AddSingleton<IGameTrackerBannerApi>(fakeClient.GameTrackerBannerApi);
-        services.AddSingleton<ILivePlayersApi>(fakeClient.LivePlayersApi);
         services.AddSingleton<ILiveStatusApi>(fakeClient.LiveStatusApi);
 
         services.AddSingleton<IMapRotationsApi>(fakeClient.MapRotationsApi);

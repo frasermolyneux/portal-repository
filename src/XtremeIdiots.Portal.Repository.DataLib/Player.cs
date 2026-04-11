@@ -46,9 +46,6 @@ public partial class Player
     public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 
     [InverseProperty("Player")]
-    public virtual ICollection<LivePlayer> LivePlayers { get; set; } = new List<LivePlayer>();
-
-    [InverseProperty("Player")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
     [InverseProperty("Player")]

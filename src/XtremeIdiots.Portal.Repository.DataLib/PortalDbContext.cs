@@ -31,8 +31,6 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<GlobalConfiguration> GlobalConfigurations { get; set; }
 
-    public virtual DbSet<LivePlayer> LivePlayers { get; set; }
-
     public virtual DbSet<Map> Maps { get; set; }
 
     public virtual DbSet<MapFlag> MapFlags { get; set; }
@@ -129,9 +127,6 @@ public partial class PortalDbContext : DbContext
             entity.HasKey(e => e.GameServerId).HasName("PK_dbo.GameServers");
 
             entity.Property(e => e.GameServerId).HasDefaultValueSql("newsequentialid()");
-            entity.Property(e => e.LiveCurrentPlayers).HasDefaultValue(0);
-            entity.Property(e => e.LiveLastUpdated).HasDefaultValue(new DateTime(1900, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
-            entity.Property(e => e.LiveMaxPlayers).HasDefaultValue(0);
         });
 
         modelBuilder.Entity<GameServerConfiguration>(entity =>
@@ -162,17 +157,6 @@ public partial class PortalDbContext : DbContext
         modelBuilder.Entity<GlobalConfiguration>(entity =>
         {
             entity.Property(e => e.LastModifiedUtc).HasDefaultValueSql("SYSUTCDATETIME()");
-        });
-
-        modelBuilder.Entity<LivePlayer>(entity =>
-        {
-            entity.HasKey(e => e.LivePlayerId).HasName("PK_dbo.LivePlayers");
-
-            entity.Property(e => e.LivePlayerId).HasDefaultValueSql("newsequentialid()");
-
-            entity.HasOne(d => d.GameServer).WithMany(p => p.LivePlayers).HasConstraintName("FK_dbo.LivePlayers_dbo.GameServers_GameServer_GameServerId");
-
-            entity.HasOne(d => d.Player).WithMany(p => p.LivePlayers).HasConstraintName("FK_dbo.LivePlayers_dbo.Players_PlayerId");
         });
 
         modelBuilder.Entity<Map>(entity =>
