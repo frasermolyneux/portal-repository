@@ -85,6 +85,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] string? gameMode = null,
             [FromQuery] MapRotationStatus? status = null,
             [FromQuery] string? filterString = null,
+            [FromQuery] Guid? createdByUserId = null,
             [FromQuery] MapRotationsFilter? filter = null,
             [FromQuery] int skipEntries = 0,
             [FromQuery] int takeEntries = 20,
@@ -107,7 +108,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 gameTypesFilter = parsed.ToArray();
             }
 
-            var response = await ((IMapRotationsApi)this).GetMapRotations(gameTypesFilter, gameMode, status, filterString, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+            var response = await ((IMapRotationsApi)this).GetMapRotations(gameTypesFilter, gameMode, status, filterString, createdByUserId, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -131,7 +132,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             MapRotationsOrder? order,
             CancellationToken cancellationToken)
         {
-            return await ((IMapRotationsApi)this).GetMapRotations(gameTypes, gameMode, null, null, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+            return await ((IMapRotationsApi)this).GetMapRotations(gameTypes, gameMode, null, null, null, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
         }
 
         async Task<ApiResult<CollectionModel<MapRotationDto>>> IMapRotationsApi.GetMapRotations(
@@ -145,11 +146,26 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             MapRotationsOrder? order,
             CancellationToken cancellationToken)
         {
+            return await ((IMapRotationsApi)this).GetMapRotations(gameTypes, gameMode, status, filterString, null, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+        }
+
+        async Task<ApiResult<CollectionModel<MapRotationDto>>> IMapRotationsApi.GetMapRotations(
+            GameType[]? gameTypes,
+            string? gameMode,
+            MapRotationStatus? status,
+            string? filterString,
+            Guid? createdByUserId,
+            MapRotationsFilter? filter,
+            int skipEntries,
+            int takeEntries,
+            MapRotationsOrder? order,
+            CancellationToken cancellationToken)
+        {
             var baseQuery = context.MapRotations.AsNoTracking();
 
             var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
-            var filteredQuery = ApplyFilters(baseQuery, gameTypes, gameMode, status, filterString, filter);
+            var filteredQuery = ApplyFilters(baseQuery, gameTypes, gameMode, status, filterString, createdByUserId, filter);
             var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             var orderedQuery = ApplyOrderingAndPagination(filteredQuery, skipEntries, takeEntries, order);
@@ -157,6 +173,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(mr => mr.MapRotationMaps)
                 .Include(mr => mr.MapRotationServerAssignments)
                 .Include(mr => mr.CreatedByUser)
+                .Include(mr => mr.LastModifiedByUser)
                 .AsSplitQuery()
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
 
@@ -773,7 +790,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         // ───────────────────────── Private Helpers ─────────────────────────
 
-        private static IQueryable<MapRotation> ApplyFilters(IQueryable<MapRotation> query, GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, MapRotationsFilter? filter)
+        private static IQueryable<MapRotation> ApplyFilters(IQueryable<MapRotation> query, GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, Guid? createdByUserId, MapRotationsFilter? filter)
         {
             if (gameTypes?.Length > 0)
             {
@@ -795,6 +812,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (!string.IsNullOrWhiteSpace(filterString))
             {
                 query = query.Where(mr => mr.Title.Contains(filterString) || (mr.Description != null && mr.Description.Contains(filterString)));
+            }
+
+            if (createdByUserId.HasValue)
+            {
+                query = query.Where(mr => mr.CreatedByUserId == createdByUserId.Value);
             }
 
             return filter switch
@@ -822,6 +844,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 MapRotationsOrder.CreatedAtDesc => query.OrderByDescending(mr => mr.CreatedAt),
                 MapRotationsOrder.UpdatedAtAsc => query.OrderBy(mr => mr.UpdatedAt),
                 MapRotationsOrder.UpdatedAtDesc => query.OrderByDescending(mr => mr.UpdatedAt),
+                MapRotationsOrder.CreatedByAsc => query.OrderBy(mr => mr.CreatedByUser != null ? mr.CreatedByUser.DisplayName : ""),
+                MapRotationsOrder.CreatedByDesc => query.OrderByDescending(mr => mr.CreatedByUser != null ? mr.CreatedByUser.DisplayName : ""),
                 _ => query.OrderBy(mr => mr.Title)
             };
 

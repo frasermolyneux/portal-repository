@@ -39,13 +39,19 @@ public partial class MapRotation
 
     public Guid? CreatedByUserId { get; set; }
 
+    public Guid? LastModifiedByUserId { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
 
     [ForeignKey("CreatedByUserId")]
-    [InverseProperty("MapRotations")]
+    [InverseProperty("MapRotationCreatedByUsers")]
     public virtual UserProfile? CreatedByUser { get; set; }
+
+    [ForeignKey("LastModifiedByUserId")]
+    [InverseProperty("MapRotationLastModifiedByUsers")]
+    public virtual UserProfile? LastModifiedByUser { get; set; }
 
     [InverseProperty("MapRotation")]
     public virtual ICollection<MapRotationMap> MapRotationMaps { get; set; } = new List<MapRotationMap>();

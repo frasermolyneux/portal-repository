@@ -35,6 +35,9 @@ public record UpdateMapRotationDto : IDto
     [JsonProperty]
     public List<Guid>? MapIds { get; set; }
 
+    [JsonProperty]
+    public Guid? LastModifiedByUserId { get; set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

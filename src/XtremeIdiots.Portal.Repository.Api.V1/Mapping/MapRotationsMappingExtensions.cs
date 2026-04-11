@@ -37,7 +37,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Category = entity.Category,
                 SequenceOrder = entity.SequenceOrder,
                 CreatedByUserId = entity.CreatedByUserId,
-                CreatedByDisplayName = entity.CreatedByUser?.DisplayName
+                CreatedByDisplayName = entity.CreatedByUser?.DisplayName,
+                LastModifiedByUserId = entity.LastModifiedByUserId,
+                LastModifiedByDisplayName = entity.LastModifiedByUser?.DisplayName
             };
         }
 
@@ -72,6 +74,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.Status.HasValue) entity.Status = (int)dto.Status.Value;
             if (dto.Category is not null) entity.Category = dto.Category;
             if (dto.SequenceOrder.HasValue) entity.SequenceOrder = dto.SequenceOrder.Value;
+            if (dto.LastModifiedByUserId.HasValue) entity.LastModifiedByUserId = dto.LastModifiedByUserId.Value;
 
             entity.UpdatedAt = DateTime.UtcNow;
         }

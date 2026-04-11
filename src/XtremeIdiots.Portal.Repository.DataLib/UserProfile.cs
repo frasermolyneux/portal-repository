@@ -49,7 +49,10 @@ public partial class UserProfile
     public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
 
     [InverseProperty("CreatedByUser")]
-    public virtual ICollection<MapRotation> MapRotations { get; set; } = new List<MapRotation>();
+    public virtual ICollection<MapRotation> MapRotationCreatedByUsers { get; set; } = new List<MapRotation>();
+
+    [InverseProperty("LastModifiedByUser")]
+    public virtual ICollection<MapRotation> MapRotationLastModifiedByUsers { get; set; } = new List<MapRotation>();
 
     [InverseProperty("UserProfile")]
     public virtual ICollection<NotificationPreference> NotificationPreferences { get; set; } = new List<NotificationPreference>();

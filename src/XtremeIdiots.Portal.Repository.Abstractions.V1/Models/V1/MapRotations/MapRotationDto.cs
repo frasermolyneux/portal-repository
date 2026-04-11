@@ -58,6 +58,12 @@ public record MapRotationDto : IDto
     public string? CreatedByDisplayName { get; set; }
 
     [JsonProperty]
+    public Guid? LastModifiedByUserId { get; set; }
+
+    [JsonProperty]
+    public string? LastModifiedByDisplayName { get; set; }
+
+    [JsonProperty]
     public DateTime CreatedAt { get; set; }
 
     [JsonProperty]

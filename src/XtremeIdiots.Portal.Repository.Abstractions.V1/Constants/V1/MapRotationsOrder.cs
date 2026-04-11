@@ -13,5 +13,7 @@ public enum MapRotationsOrder
     CreatedAtAsc,
     CreatedAtDesc,
     UpdatedAtAsc,
-    UpdatedAtDesc
+    UpdatedAtDesc,
+    CreatedByAsc,
+    CreatedByDesc
 }

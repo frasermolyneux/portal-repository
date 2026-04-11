@@ -11,10 +11,12 @@ CREATE TABLE [dbo].[MapRotations]
     [Version] INT NOT NULL DEFAULT 1,
     [ContentHash] NVARCHAR(64) NULL,
     [CreatedByUserId] UNIQUEIDENTIFIER NULL,
+    [LastModifiedByUserId] UNIQUEIDENTIFIER NULL,
     [CreatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     [UpdatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT [PK_dbo.MapRotations] PRIMARY KEY CLUSTERED ([MapRotationId] ASC),
-    CONSTRAINT [FK_dbo.MapRotations_dbo.UserProfiles_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId]) ON DELETE SET NULL
+    CONSTRAINT [FK_dbo.MapRotations_dbo.UserProfiles_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId]) ON DELETE SET NULL,
+    CONSTRAINT [FK_dbo.MapRotations_dbo.UserProfiles_LastModifiedByUserId] FOREIGN KEY ([LastModifiedByUserId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId]) ON DELETE NO ACTION
 )
 
 GO

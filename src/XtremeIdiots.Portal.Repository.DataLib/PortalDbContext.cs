@@ -226,9 +226,11 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.Version).HasDefaultValue(1);
 
-            entity.HasOne(d => d.CreatedByUser).WithMany(p => p.MapRotations)
+            entity.HasOne(d => d.CreatedByUser).WithMany(p => p.MapRotationCreatedByUsers)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_dbo.MapRotations_dbo.UserProfiles_CreatedByUserId");
+
+            entity.HasOne(d => d.LastModifiedByUser).WithMany(p => p.MapRotationLastModifiedByUsers).HasConstraintName("FK_dbo.MapRotations_dbo.UserProfiles_LastModifiedByUserId");
         });
 
         modelBuilder.Entity<MapRotationAssignmentOperation>(entity =>
