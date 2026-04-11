@@ -6,7 +6,6 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Dashboard;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameTracker;
-using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapRotations;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
@@ -226,28 +225,6 @@ public static class RepositoryDtoFactory
         };
     }
 
-    public static MapPackDto CreateMapPack(
-        Guid? mapPackId = null,
-        Guid? gameServerId = null,
-        string title = "Test Map Pack",
-        string description = "Test description",
-        string gameMode = "war",
-        bool syncToGameServer = false,
-        bool syncCompleted = false,
-        bool deleted = false,
-        List<MapPackMapDto>? mapPackMaps = null)
-    {
-        return new MapPackDto(
-            mapPackId ?? Guid.NewGuid(),
-            gameServerId ?? Guid.NewGuid(),
-            title,
-            description,
-            gameMode,
-            syncToGameServer,
-            syncCompleted,
-            deleted,
-            mapPackMaps ?? []);
-    }
 
     public static TagDto CreateTag(
         Guid? tagId = null,
@@ -467,16 +444,6 @@ public static class RepositoryDtoFactory
         return new MapFileDto(fileName, url);
     }
 
-    public static MapPackMapDto CreateMapPackMap(
-        Guid? mapPackMapId = null,
-        Guid? mapId = null)
-    {
-        return new MapPackMapDto
-        {
-            MapPackMapId = mapPackMapId ?? Guid.NewGuid(),
-            MapId = mapId ?? Guid.NewGuid()
-        };
-    }
 
     public static MapRotationDto CreateMapRotation(
         Guid? mapRotationId = null,

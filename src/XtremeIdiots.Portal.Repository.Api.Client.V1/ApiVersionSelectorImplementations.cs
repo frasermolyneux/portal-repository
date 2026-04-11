@@ -113,15 +113,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IMapsApi V1 { get; }
     }
 
-    public class VersionedMapPacksApi : IVersionedMapPacksApi
-    {
-        public VersionedMapPacksApi(IMapPacksApi v1Api)
-        {
-            V1 = v1Api;
-        }
-
-        public IMapPacksApi V1 { get; }
-    }
 
     public class VersionedPlayerAnalyticsApi : IVersionedPlayerAnalyticsApi
     {

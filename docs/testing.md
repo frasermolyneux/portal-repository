@@ -24,7 +24,6 @@ IRepositoryApiClient
 ├── .GameServerStats   (IVersionedGameServerStatsApi)
 ├── .LivePlayers       (IVersionedLivePlayersApi)
 ├── .Maps              (IVersionedMapsApi)
-├── .MapPacks          (IVersionedMapPacksApi)
 ├── .Players           (IVersionedPlayersApi)
 ├── .Reports           (IVersionedReportsApi)
 ├── .Tags              (IVersionedTagsApi)
@@ -150,7 +149,6 @@ All factory methods use named parameters with sensible defaults — only specify
 | `CreateChatMessage(...)` | `ChatMessageDto` | `chatMessageId`, `playerId`, `message` |
 | `CreateDemo(...)` | `DemoDto` | `demoId`, `gameServerId`, `title` |
 | `CreateMap(...)` | `MapDto` | `mapId`, `gameType`, `mapName` |
-| `CreateMapPack(...)` | `MapPackDto` | `mapPackId`, `title` |
 | `CreateTag(...)` | `TagDto` | `tagId`, `name` |
 | `CreateUserProfile(...)` | `UserProfileDto` | `userProfileId`, `displayName` |
 | `CreateLivePlayer(...)` | `LivePlayerDto` | `livePlayerId`, `gameServerId` |

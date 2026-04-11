@@ -37,9 +37,6 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<MapFlag> MapFlags { get; set; }
 
-    public virtual DbSet<MapPack> MapPacks { get; set; }
-
-    public virtual DbSet<MapPackMap> MapPackMaps { get; set; }
 
     public virtual DbSet<MapRotation> MapRotations { get; set; }
 
@@ -195,27 +192,6 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Map).WithMany(p => p.MapFlags).HasConstraintName("FK_dbo.MapFlags_dbo.Maps_MapId");
         });
 
-        modelBuilder.Entity<MapPack>(entity =>
-        {
-            entity.HasKey(e => e.MapPackId).HasName("PK_dbo.MapPacks");
-
-            entity.Property(e => e.MapPackId).HasDefaultValueSql("newsequentialid()");
-
-            entity.HasOne(d => d.GameServer).WithMany(p => p.MapPacks).HasConstraintName("FK_MapPacks_GameServer");
-        });
-
-        modelBuilder.Entity<MapPackMap>(entity =>
-        {
-            entity.HasKey(e => e.MapPackMapId).HasName("PK_dbo.MapPackMap");
-
-            entity.Property(e => e.MapPackMapId).HasDefaultValueSql("newsequentialid()");
-
-            entity.HasOne(d => d.Map).WithMany(p => p.MapPackMaps)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_dbo.MapPackMap_dbo.Maps_MapId");
-
-            entity.HasOne(d => d.MapPack).WithMany(p => p.MapPackMaps).HasConstraintName("FK_dbo.MapPackMap_dbo.MapPacks_MapPackId");
-        });
 
         modelBuilder.Entity<MapRotation>(entity =>
         {

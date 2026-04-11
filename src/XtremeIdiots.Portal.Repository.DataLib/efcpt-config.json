@@ -60,12 +60,6 @@
       "name": "[dbo].[LivePlayers]"
     },
     {
-      "name": "[dbo].[MapPackMaps]"
-    },
-    {
-      "name": "[dbo].[MapPacks]"
-    },
-    {
       "name": "[dbo].[Maps]"
     },
     {

@@ -76,7 +76,6 @@ public class YourService
 - `client.GameTrackerBanner.V1`
 - `client.LivePlayers.V1`
 - `client.Maps.V1`
-- `client.MapPacks.V1`
 - `client.PlayerAnalytics.V1`
 - `client.Players.V1`
 - `client.RecentPlayers.V1`

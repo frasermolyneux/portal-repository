@@ -15,7 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedGameTrackerBannerApi GameTrackerBanner { get; }
         IVersionedLivePlayersApi LivePlayers { get; }
         IVersionedMapsApi Maps { get; }
-        IVersionedMapPacksApi MapPacks { get; }
+
         IVersionedPlayerAnalyticsApi PlayerAnalytics { get; }
         IVersionedPlayersApi Players { get; }
         IVersionedRecentPlayersApi RecentPlayers { get; }

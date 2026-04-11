@@ -35,8 +35,6 @@ The `XtremeIdiots.Portal.Repository.Api.V1` project contains the V1 versioned ab
   - Game server DTOs and related models
 - **XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameTracker**
   - Game tracker DTOs and related models
-- **XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapPacks**
-  - Map pack DTOs and related models
 - **XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps**
   - Map DTOs and related models
 - **XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players**

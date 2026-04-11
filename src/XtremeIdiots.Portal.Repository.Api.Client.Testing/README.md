@@ -78,7 +78,6 @@ The `FakeRepositoryApiClient` exposes fake implementations for all API surfaces:
 | `ReportsApi` | Player reports |
 | `DemosApi` | Demo file management |
 | `MapsApi` | Map data and voting |
-| `MapPacksApi` | Map pack management |
 | `LivePlayersApi` | Real-time player tracking |
 | `ChatMessagesApi` | Chat log retrieval |
 | `GameServersStatsApi` | Server statistics |

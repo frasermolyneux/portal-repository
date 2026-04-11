@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IVersionedGameTrackerBannerApi>();
         services.RemoveAll<IVersionedLivePlayersApi>();
         services.RemoveAll<IVersionedMapsApi>();
-        services.RemoveAll<IVersionedMapPacksApi>();
+
         services.RemoveAll<IVersionedMapRotationsApi>();
         services.RemoveAll<IVersionedDashboardApi>();
         services.RemoveAll<IVersionedPlayerAnalyticsApi>();
@@ -66,7 +66,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IGameTrackerBannerApi>();
         services.RemoveAll<ILivePlayersApi>();
         services.RemoveAll<ILiveStatusApi>();
-        services.RemoveAll<IMapPacksApi>();
+
         services.RemoveAll<IMapRotationsApi>();
         services.RemoveAll<IDashboardApi>();
         services.RemoveAll<IMapsApi>();
@@ -91,7 +91,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVersionedGameTrackerBannerApi>(fakeClient.GameTrackerBanner);
         services.AddSingleton<IVersionedLivePlayersApi>(fakeClient.LivePlayers);
         services.AddSingleton<IVersionedMapsApi>(fakeClient.Maps);
-        services.AddSingleton<IVersionedMapPacksApi>(fakeClient.MapPacks);
+
         services.AddSingleton<IVersionedMapRotationsApi>(fakeClient.MapRotations);
         services.AddSingleton<IVersionedDashboardApi>(fakeClient.Dashboard);
         services.AddSingleton<IVersionedPlayerAnalyticsApi>(fakeClient.PlayerAnalytics);
@@ -118,7 +118,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGameTrackerBannerApi>(fakeClient.GameTrackerBannerApi);
         services.AddSingleton<ILivePlayersApi>(fakeClient.LivePlayersApi);
         services.AddSingleton<ILiveStatusApi>(fakeClient.LiveStatusApi);
-        services.AddSingleton<IMapPacksApi>(fakeClient.MapPacksApi);
+
         services.AddSingleton<IMapRotationsApi>(fakeClient.MapRotationsApi);
         services.AddSingleton<IDashboardApi>(fakeClient.DashboardApi);
         services.AddSingleton<IMapsApi>(fakeClient.MapsApi);

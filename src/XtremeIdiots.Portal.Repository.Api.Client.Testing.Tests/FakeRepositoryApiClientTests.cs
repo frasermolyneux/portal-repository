@@ -23,7 +23,7 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.GameTrackerBanner);
         Assert.NotNull(client.LivePlayers);
         Assert.NotNull(client.Maps);
-        Assert.NotNull(client.MapPacks);
+
         Assert.NotNull(client.PlayerAnalytics);
         Assert.NotNull(client.Players);
         Assert.NotNull(client.RecentPlayers);

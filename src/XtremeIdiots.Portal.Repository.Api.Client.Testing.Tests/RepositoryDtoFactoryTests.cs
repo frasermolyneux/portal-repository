@@ -172,14 +172,6 @@ public class RepositoryDtoFactoryTests
         Assert.Equal("test.dm_1", demo.FileName);
     }
 
-    [Fact]
-    public void CreateMapPack_WithDefaults_CreatesNonNullDto()
-    {
-        var pack = RepositoryDtoFactory.CreateMapPack();
-
-        Assert.NotEqual(Guid.Empty, pack.MapPackId);
-        Assert.Equal("Test Map Pack", pack.Title);
-    }
 
     [Fact]
     public void CreateGameServerStat_WithDefaults_CreatesNonNullDto()

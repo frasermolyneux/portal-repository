@@ -59,11 +59,6 @@ All collection endpoints will support the following query parameters:
 | `/v2/maps/{mapId}/votes`                            | GET, POST               | Get all votes for a map or add a new vote                    |
 | `/v2/maps/{mapId}/image`                            | GET, POST               | Get or upload map image                                      |
 | `/v2/maps/by-name/{gameType}/{mapName}`             | GET                     | Get a map by game type and name                              |
-| **Map Packs Resource Group**                        |                         |                                                              |
-| `/v2/map-packs`                                     | GET, POST               | Get all map packs or create new map packs                    |
-| `/v2/map-packs/$count`                              | GET                     | Get count of map packs matching the filter                   |
-| `/v2/map-packs/{mapPackId}`                         | GET, PUT, PATCH, DELETE | Get, update, or delete a single map pack                     |
-| `/v2/map-packs/{mapPackId}/maps`                    | GET, POST, DELETE       | Get, add, or remove maps from a map pack                     |
 | **Reports Resource Group**                          |                         |                                                              |
 | `/v2/reports`                                       | GET, POST               | Get all reports or create new reports                        |
 | `/v2/reports/$count`                                | GET                     | Get count of reports matching the filter                     |
