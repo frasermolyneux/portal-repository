@@ -61,12 +61,30 @@ resource "azurerm_storage_account" "table_storage" {
   tags = var.tags
 }
 
-resource "azurerm_storage_table" "game_server_live_status" {
+# Tables were previously created against the hardened blob storage account
+# which failed (shared_access_key_enabled = false). Use new resource names
+# so Terraform creates fresh on the new table_storage account.
+# Remove stale state for the old resource addresses.
+removed {
+  from = azurerm_storage_table.game_server_live_status
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = azurerm_storage_table.game_server_live_players
+  lifecycle {
+    destroy = false
+  }
+}
+
+resource "azurerm_storage_table" "live_status" {
   name                 = "GameServerLiveStatus"
   storage_account_name = azurerm_storage_account.table_storage.name
 }
 
-resource "azurerm_storage_table" "game_server_live_players" {
+resource "azurerm_storage_table" "live_players" {
   name                 = "GameServerLivePlayers"
   storage_account_name = azurerm_storage_account.table_storage.name
 }
