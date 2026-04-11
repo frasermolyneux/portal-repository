@@ -35,6 +35,7 @@ if (!string.IsNullOrWhiteSpace(appConfigEndpoint))
             .Select("XtremeIdiots.Portal.Repository.Api.V2:*", environmentLabel)
             .TrimKeyPrefix("XtremeIdiots.Portal.Repository.Api.V2:")
             .Select("SqlResilience:*", environmentLabel)
+            .Select("ApplicationInsights:*", environmentLabel)
             .ConfigureRefresh(refresh =>
             {
                 refresh.Register("Sentinel", environmentLabel, refreshAll: true)
@@ -67,7 +68,7 @@ var samplingSettings = new SamplingPercentageEstimatorSettings
 builder.Services.Configure<TelemetryConfiguration>(telemetryConfiguration =>
 {
     var telemetryProcessorChainBuilder = telemetryConfiguration.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
-    telemetryProcessorChainBuilder.Use(next => new SqlDependencyFilterTelemetryProcessor(next));
+    telemetryProcessorChainBuilder.Use(next => new DependencyFilterTelemetryProcessor(next, builder.Configuration));
     telemetryProcessorChainBuilder.UseAdaptiveSampling(
         settings: samplingSettings,
         callback: null,
