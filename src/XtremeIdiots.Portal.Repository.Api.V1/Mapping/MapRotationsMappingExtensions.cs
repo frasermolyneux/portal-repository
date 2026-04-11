@@ -36,7 +36,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Status = (MapRotationStatus)entity.Status,
                 Category = entity.Category,
                 SequenceOrder = entity.SequenceOrder,
-                CreatedByUserId = entity.CreatedByUserId
+                CreatedByUserId = entity.CreatedByUserId,
+                CreatedByDisplayName = entity.CreatedByUser?.DisplayName
             };
         }
 

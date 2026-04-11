@@ -50,6 +50,36 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<CollectionModel<MapRotationDto>>();
         }
 
+        public async Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/map-rotations", Method.Get).ConfigureAwait(false);
+
+            if (gameTypes != null)
+                request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
+
+            if (gameMode != null)
+                request.AddQueryParameter("gameMode", gameMode);
+
+            if (status.HasValue)
+                request.AddQueryParameter("status", status.ToString());
+
+            if (!string.IsNullOrWhiteSpace(filterString))
+                request.AddQueryParameter("filterString", filterString);
+
+            if (filter.HasValue)
+                request.AddQueryParameter("filter", filter.ToString());
+
+            request.AddQueryParameter("skipEntries", skipEntries.ToString());
+            request.AddQueryParameter("takeEntries", takeEntries.ToString());
+
+            if (order.HasValue)
+                request.AddQueryParameter("order", order.ToString());
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult<CollectionModel<MapRotationDto>>();
+        }
+
         public async Task<ApiResult<MapRotationDto>> CreateMapRotation(CreateMapRotationDto createMapRotationDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/map-rotations", Method.Post).ConfigureAwait(false);

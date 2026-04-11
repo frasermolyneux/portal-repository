@@ -5,6 +5,13 @@ public enum MapRotationsOrder
     TitleAsc,
     TitleDesc,
     GameModeAsc,
+    GameModeDesc,
+    MapCountAsc,
+    MapCountDesc,
+    ServerCountAsc,
+    ServerCountDesc,
+    CreatedAtAsc,
     CreatedAtDesc,
+    UpdatedAtAsc,
     UpdatedAtDesc
 }

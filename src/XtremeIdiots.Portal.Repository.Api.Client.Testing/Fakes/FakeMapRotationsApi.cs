@@ -43,6 +43,18 @@ public class FakeMapRotationsApi : IMapRotationsApi
         return Task.FromResult(new ApiResult<CollectionModel<MapRotationDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapRotationDto>>(collection)));
     }
 
+    public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
+    {
+        var items = _mapRotations.Values.AsEnumerable();
+        if (gameTypes != null) items = items.Where(mr => gameTypes.Contains(mr.GameType));
+        if (gameMode != null) items = items.Where(mr => mr.GameMode == gameMode);
+        if (status.HasValue) items = items.Where(mr => mr.Status == status.Value);
+        if (!string.IsNullOrWhiteSpace(filterString)) items = items.Where(mr => mr.Title.Contains(filterString, StringComparison.OrdinalIgnoreCase));
+        var list = items.Skip(skipEntries).Take(takeEntries).ToList();
+        var collection = new CollectionModel<MapRotationDto> { Items = list };
+        return Task.FromResult(new ApiResult<CollectionModel<MapRotationDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapRotationDto>>(collection)));
+    }
+
     public Task<ApiResult<MapRotationDto>> CreateMapRotation(CreateMapRotationDto createMapRotationDto, CancellationToken cancellationToken = default)
     {
         var dto = new MapRotationDto(Guid.NewGuid(), createMapRotationDto.GameType, createMapRotationDto.Title, createMapRotationDto.Description, createMapRotationDto.GameMode, 1, null, DateTime.UtcNow, DateTime.UtcNow, [], []);

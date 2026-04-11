@@ -55,6 +55,9 @@ public record MapRotationDto : IDto
     public Guid? CreatedByUserId { get; set; }
 
     [JsonProperty]
+    public string? CreatedByDisplayName { get; set; }
+
+    [JsonProperty]
     public DateTime CreatedAt { get; set; }
 
     [JsonProperty]
