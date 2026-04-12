@@ -3,13 +3,13 @@
   "isRoot": true,
   "tools": {
     "swashbuckle.aspnetcore.cli": {
-      "version": "10.1.4",
+      "version": "10.1.7",
       "commands": [
         "swagger"
       ]
     },
     "dotnet-outdated-tool": {
-      "version": "4.7.0",
+      "version": "4.7.1",
       "commands": [
         "dotnet-outdated"
       ]
