@@ -169,15 +169,27 @@ public class FakePlayersApiTests
     public void CreateRelatedPlayer_WithNewFields_SetsProperties()
     {
         var lastSeen = DateTime.UtcNow.AddDays(-3);
+        var linkingLastUsedByPlayer = DateTime.UtcNow.AddDays(-2);
+        var linkingLastUsedByRelated = DateTime.UtcNow.AddDays(-1);
         var related = RepositoryDtoFactory.CreateRelatedPlayer(
             username: "BannedAlt",
             lastSeen: lastSeen,
             hasActiveBan: true,
-            adminActionCount: 2);
+            adminActionCount: 2,
+            linkingIpAddress: "10.0.0.5",
+            linkingIpLastUsedByPlayer: linkingLastUsedByPlayer,
+            linkingIpLastUsedByRelated: linkingLastUsedByRelated,
+            isCurrentIp: false,
+            sharedIpCount: 3);
 
         Assert.Equal("BannedAlt", related.Username);
         Assert.Equal(lastSeen, related.LastSeen);
         Assert.True(related.HasActiveBan);
         Assert.Equal(2, related.AdminActionCount);
+        Assert.Equal("10.0.0.5", related.LinkingIpAddress);
+        Assert.Equal(linkingLastUsedByPlayer, related.LinkingIpLastUsedByPlayer);
+        Assert.Equal(linkingLastUsedByRelated, related.LinkingIpLastUsedByRelated);
+        Assert.False(related.IsCurrentIp);
+        Assert.Equal(3, related.SharedIpCount);
     }
 }

@@ -32,10 +32,17 @@ Flags can be combined: `Aliases | Counts` returns alias list + all counts.
 
 **Count Properties:** When `Counts` is set, the response includes integer count fields on `PlayerDto`. If the corresponding collection flag is also set (e.g., `Aliases | Counts`), counts are derived from the loaded collection size, avoiding an extra database query.
 
-**RelatedPlayers enrichment:** Each `RelatedPlayerDto` includes:
+**RelatedPlayers enrichment:** Related players are found by matching **all historical IP addresses** (via the `PlayerIpAddresses` table), not just the current IP. This catches alt accounts that shared any IP at any point. Each `RelatedPlayerDto` includes:
 - `LastSeen` — when the related player was last active
 - `HasActiveBan` — `true` if the related player has an active permanent ban or unexpired temp ban
 - `AdminActionCount` — total number of admin actions on the related player
+- `LinkingIpAddress` — the most recently used IP address that connects the two players
+- `LinkingIpLastUsedByPlayer` — when the viewed player last used the linking IP
+- `LinkingIpLastUsedByRelated` — when the related player last used the linking IP
+- `IsCurrentIp` — whether the linking IP is the viewed player's current IP address
+- `SharedIpCount` — total number of distinct IP addresses shared between the two players
+
+Results are sorted: banned players first, then by shared IP count (descending), then by most recent linking IP usage.
 
 ---
 

@@ -130,14 +130,68 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.RelatedPlayers))
         {
-            var playerIpAddresses = await context.PlayerIpAddresses
+            // Get all IPs the viewed player has used
+            var viewedPlayerIps = await context.PlayerIpAddresses
                 .AsNoTracking()
-                .Include(ip => ip.Player)
-                .ThenInclude(p => p!.AdminActions)
-                .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
+                .Where(ip => ip.PlayerId == player.PlayerId)
                 .ToListAsync().ConfigureAwait(false);
 
-            result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
+            if (viewedPlayerIps.Count > 0)
+            {
+                var viewedIpAddresses = viewedPlayerIps
+                    .Select(ip => ip.Address)
+                    .Where(addr => !string.IsNullOrWhiteSpace(addr))
+                    .Distinct()
+                    .ToList();
+
+                // Find all other players who share any of those IPs
+                var sharedIpEntries = await context.PlayerIpAddresses
+                    .AsNoTracking()
+                    .Include(ip => ip.Player)
+                    .ThenInclude(p => p!.AdminActions)
+                    .Where(ip => viewedIpAddresses.Contains(ip.Address) && ip.PlayerId != null && ip.PlayerId != player.PlayerId)
+                    .ToListAsync().ConfigureAwait(false);
+
+                // Group by related player — pick most recently used shared IP as the linking IP
+                var viewedIpLookup = viewedPlayerIps
+                    .GroupBy(ip => ip.Address ?? string.Empty)
+                    .ToDictionary(g => g.Key, g => g.Max(ip => ip.LastUsed));
+
+                result.RelatedPlayers = sharedIpEntries
+                    .GroupBy(ip => ip.PlayerId)
+                    .Select(group =>
+                    {
+                        var mostRecentEntry = group.OrderByDescending(ip => ip.LastUsed).First();
+                        var allSharedIps = group.Select(ip => ip.Address).Distinct().ToList();
+                        var linkingIp = mostRecentEntry.Address ?? string.Empty;
+
+                        var adminActions = mostRecentEntry.Player?.AdminActions;
+                        var hasActiveBan = adminActions is { Count: > 0 } && adminActions.Any(aa =>
+                            (aa.Type == (int)AdminActionType.Ban && aa.Expires == null) ||
+                            (aa.Type == (int)AdminActionType.TempBan && aa.Expires > DateTime.UtcNow) ||
+                            (aa.Type == (int)AdminActionType.Ban && aa.Expires > DateTime.UtcNow));
+
+                        return new RelatedPlayerDto
+                        {
+                            GameType = mostRecentEntry.Player!.GameType.ToGameType(),
+                            Username = mostRecentEntry.Player.Username ?? string.Empty,
+                            PlayerId = mostRecentEntry.Player.PlayerId,
+                            IpAddress = mostRecentEntry.Player.IpAddress ?? string.Empty,
+                            LastSeen = mostRecentEntry.Player.LastSeen,
+                            HasActiveBan = hasActiveBan,
+                            AdminActionCount = adminActions?.Count ?? 0,
+                            LinkingIpAddress = linkingIp,
+                            LinkingIpLastUsedByPlayer = viewedIpLookup.GetValueOrDefault(linkingIp),
+                            LinkingIpLastUsedByRelated = mostRecentEntry.LastUsed,
+                            IsCurrentIp = linkingIp == player.IpAddress,
+                            SharedIpCount = allSharedIps.Count
+                        };
+                    })
+                    .OrderByDescending(rp => rp.HasActiveBan)
+                    .ThenByDescending(rp => rp.SharedIpCount)
+                    .ThenByDescending(rp => rp.LinkingIpLastUsedByRelated)
+                    .ToList();
+            }
         }
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Counts))
@@ -152,10 +206,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 ?? await context.ProtectedNames.CountAsync(pn => pn.PlayerId == player.PlayerId).ConfigureAwait(false);
             result.TagCount = result.Tags?.Count
                 ?? await context.PlayerTags.CountAsync(pt => pt.PlayerId == player.PlayerId).ConfigureAwait(false);
-            result.RelatedPlayerCount = result.RelatedPlayers?.Count
-                ?? (!string.IsNullOrWhiteSpace(player.IpAddress)
-                    ? await context.PlayerIpAddresses.CountAsync(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId).ConfigureAwait(false)
-                    : 0);
+            result.RelatedPlayerCount = result.RelatedPlayers?.Count ?? 0;
         }
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
@@ -287,14 +338,65 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.RelatedPlayers))
         {
-            var playerIpAddresses = await context.PlayerIpAddresses
+            var viewedPlayerIps = await context.PlayerIpAddresses
                 .AsNoTracking()
-                .Include(ip => ip.Player)
-                .ThenInclude(p => p!.AdminActions)
-                .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
+                .Where(ip => ip.PlayerId == player.PlayerId)
                 .ToListAsync().ConfigureAwait(false);
 
-            result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
+            if (viewedPlayerIps.Count > 0)
+            {
+                var viewedIpAddresses = viewedPlayerIps
+                    .Select(ip => ip.Address)
+                    .Where(addr => !string.IsNullOrWhiteSpace(addr))
+                    .Distinct()
+                    .ToList();
+
+                var sharedIpEntries = await context.PlayerIpAddresses
+                    .AsNoTracking()
+                    .Include(ip => ip.Player)
+                    .ThenInclude(p => p!.AdminActions)
+                    .Where(ip => viewedIpAddresses.Contains(ip.Address) && ip.PlayerId != null && ip.PlayerId != player.PlayerId)
+                    .ToListAsync().ConfigureAwait(false);
+
+                var viewedIpLookup = viewedPlayerIps
+                    .GroupBy(ip => ip.Address ?? string.Empty)
+                    .ToDictionary(g => g.Key, g => g.Max(ip => ip.LastUsed));
+
+                result.RelatedPlayers = sharedIpEntries
+                    .GroupBy(ip => ip.PlayerId)
+                    .Select(group =>
+                    {
+                        var mostRecentEntry = group.OrderByDescending(ip => ip.LastUsed).First();
+                        var allSharedIps = group.Select(ip => ip.Address).Distinct().ToList();
+                        var linkingIp = mostRecentEntry.Address ?? string.Empty;
+
+                        var adminActions = mostRecentEntry.Player?.AdminActions;
+                        var hasActiveBan = adminActions is { Count: > 0 } && adminActions.Any(aa =>
+                            (aa.Type == (int)AdminActionType.Ban && aa.Expires == null) ||
+                            (aa.Type == (int)AdminActionType.TempBan && aa.Expires > DateTime.UtcNow) ||
+                            (aa.Type == (int)AdminActionType.Ban && aa.Expires > DateTime.UtcNow));
+
+                        return new RelatedPlayerDto
+                        {
+                            GameType = mostRecentEntry.Player!.GameType.ToGameType(),
+                            Username = mostRecentEntry.Player.Username ?? string.Empty,
+                            PlayerId = mostRecentEntry.Player.PlayerId,
+                            IpAddress = mostRecentEntry.Player.IpAddress ?? string.Empty,
+                            LastSeen = mostRecentEntry.Player.LastSeen,
+                            HasActiveBan = hasActiveBan,
+                            AdminActionCount = adminActions?.Count ?? 0,
+                            LinkingIpAddress = linkingIp,
+                            LinkingIpLastUsedByPlayer = viewedIpLookup.GetValueOrDefault(linkingIp),
+                            LinkingIpLastUsedByRelated = mostRecentEntry.LastUsed,
+                            IsCurrentIp = linkingIp == player.IpAddress,
+                            SharedIpCount = allSharedIps.Count
+                        };
+                    })
+                    .OrderByDescending(rp => rp.HasActiveBan)
+                    .ThenByDescending(rp => rp.SharedIpCount)
+                    .ThenByDescending(rp => rp.LinkingIpLastUsedByRelated)
+                    .ToList();
+            }
         }
 
         // Map tags to DTO if requested  
@@ -313,10 +415,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 ?? await context.ProtectedNames.CountAsync(pn => pn.PlayerId == player.PlayerId).ConfigureAwait(false);
             result.TagCount = result.Tags?.Count
                 ?? await context.PlayerTags.CountAsync(pt => pt.PlayerId == player.PlayerId).ConfigureAwait(false);
-            result.RelatedPlayerCount = result.RelatedPlayers?.Count
-                ?? (!string.IsNullOrWhiteSpace(player.IpAddress)
-                    ? await context.PlayerIpAddresses.CountAsync(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId).ConfigureAwait(false)
-                    : 0);
+            result.RelatedPlayerCount = result.RelatedPlayers?.Count ?? 0;
         }
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
@@ -2045,3 +2144,5 @@ JOIN PlayerAlias a ON a.PlayerAliasId = ft.[Key]")
 }
 
 #endregion
+
+

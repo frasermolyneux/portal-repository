@@ -609,7 +609,12 @@ public static class RepositoryDtoFactory
         string ipAddress = "192.168.1.2",
         DateTime? lastSeen = null,
         bool hasActiveBan = false,
-        int adminActionCount = 0)
+        int adminActionCount = 0,
+        string linkingIpAddress = "192.168.1.2",
+        DateTime? linkingIpLastUsedByPlayer = null,
+        DateTime? linkingIpLastUsedByRelated = null,
+        bool isCurrentIp = true,
+        int sharedIpCount = 1)
     {
         return new RelatedPlayerDto
         {
@@ -619,7 +624,12 @@ public static class RepositoryDtoFactory
             IpAddress = ipAddress,
             LastSeen = lastSeen ?? DateTime.UtcNow,
             HasActiveBan = hasActiveBan,
-            AdminActionCount = adminActionCount
+            AdminActionCount = adminActionCount,
+            LinkingIpAddress = linkingIpAddress,
+            LinkingIpLastUsedByPlayer = linkingIpLastUsedByPlayer ?? DateTime.UtcNow,
+            LinkingIpLastUsedByRelated = linkingIpLastUsedByRelated ?? DateTime.UtcNow,
+            IsCurrentIp = isCurrentIp,
+            SharedIpCount = sharedIpCount
         };
     }
 

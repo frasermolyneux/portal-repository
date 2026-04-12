@@ -33,6 +33,36 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         [JsonProperty]
         public int AdminActionCount { get; internal set; }
 
+        /// <summary>
+        /// The most recently used IP address that links the viewed player to this related player.
+        /// </summary>
+        [JsonProperty]
+        public string LinkingIpAddress { get; internal set; } = string.Empty;
+
+        /// <summary>
+        /// When the viewed player last used the linking IP address.
+        /// </summary>
+        [JsonProperty]
+        public DateTime LinkingIpLastUsedByPlayer { get; internal set; }
+
+        /// <summary>
+        /// When this related player last used the linking IP address.
+        /// </summary>
+        [JsonProperty]
+        public DateTime LinkingIpLastUsedByRelated { get; internal set; }
+
+        /// <summary>
+        /// Whether the linking IP is the viewed player's current IP address.
+        /// </summary>
+        [JsonProperty]
+        public bool IsCurrentIp { get; internal set; }
+
+        /// <summary>
+        /// Total number of distinct IP addresses shared between the viewed player and this related player.
+        /// </summary>
+        [JsonProperty]
+        public int SharedIpCount { get; internal set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {
