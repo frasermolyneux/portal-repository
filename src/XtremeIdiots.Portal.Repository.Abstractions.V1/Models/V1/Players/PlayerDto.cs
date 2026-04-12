@@ -55,6 +55,24 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
 
         public List<PlayerTagDto> Tags { get; internal set; } = [];
 
+        [JsonProperty]
+        public int AliasCount { get; internal set; }
+
+        [JsonProperty]
+        public int IpAddressCount { get; internal set; }
+
+        [JsonProperty]
+        public int AdminActionCount { get; internal set; }
+
+        [JsonProperty]
+        public int RelatedPlayerCount { get; internal set; }
+
+        [JsonProperty]
+        public int ProtectedNameCount { get; internal set; }
+
+        [JsonProperty]
+        public int TagCount { get; internal set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {

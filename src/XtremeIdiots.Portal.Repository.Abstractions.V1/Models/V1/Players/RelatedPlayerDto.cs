@@ -24,6 +24,15 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         [JsonProperty]
         public string IpAddress { get; internal set; } = string.Empty;
 
+        [JsonProperty]
+        public DateTime LastSeen { get; internal set; }
+
+        [JsonProperty]
+        public bool HasActiveBan { get; internal set; }
+
+        [JsonProperty]
+        public int AdminActionCount { get; internal set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {

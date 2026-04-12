@@ -10,5 +10,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         RelatedPlayers = 8,
         ProtectedNames = 16,
         Tags = 32,
+        Counts = 64,
     }
 }

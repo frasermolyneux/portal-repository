@@ -137,12 +137,21 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (entity.Player is null)
                 throw new InvalidOperationException("Player navigation property is required for RelatedPlayerDto mapping");
 
+            var adminActions = entity.Player.AdminActions;
+            var hasActiveBan = adminActions is { Count: > 0 } && adminActions.Any(aa =>
+                (aa.Type == (int)Abstractions.Constants.V1.AdminActionType.Ban && aa.Expires == null) ||
+                (aa.Type == (int)Abstractions.Constants.V1.AdminActionType.TempBan && aa.Expires > DateTime.UtcNow) ||
+                (aa.Type == (int)Abstractions.Constants.V1.AdminActionType.Ban && aa.Expires > DateTime.UtcNow));
+
             return new RelatedPlayerDto
             {
                 GameType = entity.Player.GameType.ToGameType(),
                 Username = entity.Player.Username ?? string.Empty,
                 PlayerId = entity.Player.PlayerId,
-                IpAddress = entity.Address ?? string.Empty
+                IpAddress = entity.Address ?? string.Empty,
+                LastSeen = entity.Player.LastSeen,
+                HasActiveBan = hasActiveBan,
+                AdminActionCount = adminActions?.Count ?? 0
             };
         }
 

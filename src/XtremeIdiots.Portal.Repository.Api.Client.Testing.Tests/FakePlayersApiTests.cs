@@ -138,4 +138,46 @@ public class FakePlayersApiTests
 
         Assert.Same(fake, returned);
     }
+
+    [Fact]
+    public async Task CreatePlayer_WithCounts_RoundTrips()
+    {
+        var fake = new FakePlayersApi();
+        var player = RepositoryDtoFactory.CreatePlayer(
+            username: "CountPlayer",
+            aliasCount: 5,
+            ipAddressCount: 3,
+            adminActionCount: 2,
+            relatedPlayerCount: 1,
+            protectedNameCount: 1,
+            tagCount: 4);
+        fake.AddPlayer(player);
+
+        var result = await fake.GetPlayer(player.PlayerId, default);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var data = result.Result!.Data!;
+        Assert.Equal(5, data.AliasCount);
+        Assert.Equal(3, data.IpAddressCount);
+        Assert.Equal(2, data.AdminActionCount);
+        Assert.Equal(1, data.RelatedPlayerCount);
+        Assert.Equal(1, data.ProtectedNameCount);
+        Assert.Equal(4, data.TagCount);
+    }
+
+    [Fact]
+    public void CreateRelatedPlayer_WithNewFields_SetsProperties()
+    {
+        var lastSeen = DateTime.UtcNow.AddDays(-3);
+        var related = RepositoryDtoFactory.CreateRelatedPlayer(
+            username: "BannedAlt",
+            lastSeen: lastSeen,
+            hasActiveBan: true,
+            adminActionCount: 2);
+
+        Assert.Equal("BannedAlt", related.Username);
+        Assert.Equal(lastSeen, related.LastSeen);
+        Assert.True(related.HasActiveBan);
+        Assert.Equal(2, related.AdminActionCount);
+    }
 }

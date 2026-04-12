@@ -39,7 +39,13 @@ public static class RepositoryDtoFactory
         List<ReportDto>? reports = null,
         List<RelatedPlayerDto>? relatedPlayers = null,
         List<ProtectedNameDto>? protectedNames = null,
-        List<PlayerTagDto>? tags = null)
+        List<PlayerTagDto>? tags = null,
+        int aliasCount = 0,
+        int ipAddressCount = 0,
+        int adminActionCount = 0,
+        int relatedPlayerCount = 0,
+        int protectedNameCount = 0,
+        int tagCount = 0)
     {
         return new PlayerDto
         {
@@ -56,7 +62,13 @@ public static class RepositoryDtoFactory
             Reports = reports ?? [],
             RelatedPlayers = relatedPlayers ?? [],
             ProtectedNames = protectedNames ?? [],
-            Tags = tags ?? []
+            Tags = tags ?? [],
+            AliasCount = aliasCount,
+            IpAddressCount = ipAddressCount,
+            AdminActionCount = adminActionCount,
+            RelatedPlayerCount = relatedPlayerCount,
+            ProtectedNameCount = protectedNameCount,
+            TagCount = tagCount
         };
     }
 
@@ -594,14 +606,20 @@ public static class RepositoryDtoFactory
         Guid? playerId = null,
         GameType gameType = GameType.CallOfDuty4,
         string username = "RelatedPlayer",
-        string ipAddress = "192.168.1.2")
+        string ipAddress = "192.168.1.2",
+        DateTime? lastSeen = null,
+        bool hasActiveBan = false,
+        int adminActionCount = 0)
     {
         return new RelatedPlayerDto
         {
             PlayerId = playerId ?? Guid.NewGuid(),
             GameType = gameType,
             Username = username,
-            IpAddress = ipAddress
+            IpAddress = ipAddress,
+            LastSeen = lastSeen ?? DateTime.UtcNow,
+            HasActiveBan = hasActiveBan,
+            AdminActionCount = adminActionCount
         };
     }
 

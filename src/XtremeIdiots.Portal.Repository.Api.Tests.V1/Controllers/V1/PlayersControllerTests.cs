@@ -491,4 +491,296 @@ public class PlayersControllerTests
     }
 
     #endregion
+
+    #region Counts Tests
+
+    [Fact]
+    public async Task GetPlayer_WithCountsOption_ReturnsCounts()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerAliases.Add(new PlayerAlias { PlayerAliasId = Guid.NewGuid(), PlayerId = playerId, Name = "Alias1", LastUsed = DateTime.UtcNow });
+        context.PlayerAliases.Add(new PlayerAlias { PlayerAliasId = Guid.NewGuid(), PlayerId = playerId, Name = "Alias2", LastUsed = DateTime.UtcNow });
+        context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
+        context.AdminActions.Add(new AdminAction { AdminActionId = Guid.NewGuid(), PlayerId = playerId, Type = (int)AdminActionType.Warning, Text = "Test", Created = DateTime.UtcNow });
+        context.ProtectedNames.Add(new ProtectedName { ProtectedNameId = Guid.NewGuid(), PlayerId = playerId, Name = "PN1", CreatedOn = DateTime.UtcNow });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.Counts);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = result.Result!.Data!;
+        Assert.Equal(2, player.AliasCount);
+        Assert.Equal(1, player.IpAddressCount);
+        Assert.Equal(1, player.AdminActionCount);
+        Assert.Equal(1, player.ProtectedNameCount);
+    }
+
+    [Fact]
+    public async Task GetPlayer_WithCountsAndCollections_UsesLoadedCounts()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerAliases.Add(new PlayerAlias { PlayerAliasId = Guid.NewGuid(), PlayerId = playerId, Name = "Alias1", LastUsed = DateTime.UtcNow });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.Aliases | PlayerEntityOptions.Counts);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = result.Result!.Data!;
+        Assert.Equal(1, player.AliasCount);
+        Assert.Single(player.PlayerAliases);
+    }
+
+    [Fact]
+    public async Task GetPlayer_WithoutCountsOption_CountsAreZero()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerAliases.Add(new PlayerAlias { PlayerAliasId = Guid.NewGuid(), PlayerId = playerId, Name = "Alias1", LastUsed = DateTime.UtcNow });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.None);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = result.Result!.Data!;
+        Assert.Equal(0, player.AliasCount);
+    }
+
+    #endregion
+
+    #region RelatedPlayers Enrichment Tests
+
+    [Fact]
+    public async Task GetPlayer_WithRelatedPlayers_IncludesLastSeen()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var relatedPlayerId = Guid.NewGuid();
+        var relatedLastSeen = DateTime.UtcNow.AddDays(-2);
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "RelatedPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = relatedLastSeen
+        });
+        context.PlayerIpAddresses.Add(new PlayerIpAddress
+        {
+            PlayerIpAddressId = Guid.NewGuid(),
+            PlayerId = relatedPlayerId,
+            Address = "10.0.0.1",
+            LastUsed = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.RelatedPlayers);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var related = Assert.Single(result.Result!.Data!.RelatedPlayers);
+        Assert.Equal(relatedPlayerId, related.PlayerId);
+        Assert.Equal(relatedLastSeen, related.LastSeen);
+    }
+
+    [Fact]
+    public async Task GetPlayer_WithRelatedPlayers_DetectsActiveBan()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var relatedPlayerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "BannedRelated",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerIpAddresses.Add(new PlayerIpAddress
+        {
+            PlayerIpAddressId = Guid.NewGuid(),
+            PlayerId = relatedPlayerId,
+            Address = "10.0.0.1",
+            LastUsed = DateTime.UtcNow
+        });
+        context.AdminActions.Add(new AdminAction
+        {
+            AdminActionId = Guid.NewGuid(),
+            PlayerId = relatedPlayerId,
+            Type = (int)AdminActionType.Ban,
+            Text = "Permanent ban",
+            Created = DateTime.UtcNow.AddDays(-1),
+            Expires = null
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.RelatedPlayers);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var related = Assert.Single(result.Result!.Data!.RelatedPlayers);
+        Assert.True(related.HasActiveBan);
+        Assert.Equal(1, related.AdminActionCount);
+    }
+
+    [Fact]
+    public async Task GetPlayer_WithRelatedPlayers_ExpiredBanIsNotActive()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var relatedPlayerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ExpiredBanPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+        context.PlayerIpAddresses.Add(new PlayerIpAddress
+        {
+            PlayerIpAddressId = Guid.NewGuid(),
+            PlayerId = relatedPlayerId,
+            Address = "10.0.0.1",
+            LastUsed = DateTime.UtcNow
+        });
+        context.AdminActions.Add(new AdminAction
+        {
+            AdminActionId = Guid.NewGuid(),
+            PlayerId = relatedPlayerId,
+            Type = (int)AdminActionType.TempBan,
+            Text = "Temp ban expired",
+            Created = DateTime.UtcNow.AddDays(-10),
+            Expires = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.RelatedPlayers);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var related = Assert.Single(result.Result!.Data!.RelatedPlayers);
+        Assert.False(related.HasActiveBan);
+        Assert.Equal(1, related.AdminActionCount);
+    }
+
+    [Fact]
+    public async Task GetPlayer_WithCountsAndRelatedPlayers_CountsRelatedPlayers()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        for (var i = 0; i < 3; i++)
+        {
+            var rpId = Guid.NewGuid();
+            context.Players.Add(new Player
+            {
+                PlayerId = rpId,
+                GameType = (int)GameType.CallOfDuty4,
+                Username = $"Related{i}",
+                IpAddress = "10.0.0.1",
+                FirstSeen = DateTime.UtcNow.AddDays(-5),
+                LastSeen = DateTime.UtcNow
+            });
+            context.PlayerIpAddresses.Add(new PlayerIpAddress
+            {
+                PlayerIpAddressId = Guid.NewGuid(),
+                PlayerId = rpId,
+                Address = "10.0.0.1",
+                LastUsed = DateTime.UtcNow
+            });
+        }
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetPlayer(playerId, PlayerEntityOptions.RelatedPlayers | PlayerEntityOptions.Counts);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = result.Result!.Data!;
+        Assert.Equal(3, player.RelatedPlayerCount);
+        Assert.Equal(3, player.RelatedPlayers.Count);
+    }
+
+    #endregion
 }

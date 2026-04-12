@@ -6,6 +6,39 @@ The Player API provides focused endpoints for managing player data. Each endpoin
 
 ## Endpoints
 
+### Get Player
+
+Retrieves a player by ID with optional related entity expansion.
+
+```
+GET /v1/players/{playerId}?playerEntityOptions={flags}
+```
+
+**Query Parameters:**
+- `playerEntityOptions` — Flags enum controlling which related data to include:
+
+| Flag | Value | Description |
+|------|-------|-------------|
+| `None` | 0 | Base player only |
+| `Aliases` | 1 | Include `PlayerAliases` list |
+| `IpAddresses` | 2 | Include `PlayerIpAddresses` list |
+| `AdminActions` | 4 | Include `AdminActions` list with `UserProfile` |
+| `RelatedPlayers` | 8 | Include `RelatedPlayers` (other players sharing the same current IP) with `LastSeen`, `HasActiveBan`, and `AdminActionCount` |
+| `ProtectedNames` | 16 | Include `ProtectedNames` list with `CreatedByUserProfile` |
+| `Tags` | 32 | Include `Tags` list with `Tag` details |
+| `Counts` | 64 | Populate summary count properties (`AliasCount`, `IpAddressCount`, `AdminActionCount`, `RelatedPlayerCount`, `ProtectedNameCount`, `TagCount`). Uses already-loaded collections when available, otherwise runs efficient `COUNT(*)` queries. |
+
+Flags can be combined: `Aliases | Counts` returns alias list + all counts.
+
+**Count Properties:** When `Counts` is set, the response includes integer count fields on `PlayerDto`. If the corresponding collection flag is also set (e.g., `Aliases | Counts`), counts are derived from the loaded collection size, avoiding an extra database query.
+
+**RelatedPlayers enrichment:** Each `RelatedPlayerDto` includes:
+- `LastSeen` — when the related player was last active
+- `HasActiveBan` — `true` if the related player has an active permanent ban or unexpired temp ban
+- `AdminActionCount` — total number of admin actions on the related player
+
+---
+
 ### Update Player IP Address
 
 Updates only the player's current IP address and IP history. Does **not** modify aliases, username, or LastSeen.

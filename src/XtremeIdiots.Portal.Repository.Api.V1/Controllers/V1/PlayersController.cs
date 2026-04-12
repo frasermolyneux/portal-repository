@@ -133,10 +133,29 @@ public class PlayersController : ControllerBase, IPlayersApi
             var playerIpAddresses = await context.PlayerIpAddresses
                 .AsNoTracking()
                 .Include(ip => ip.Player)
+                .ThenInclude(p => p!.AdminActions)
                 .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
                 .ToListAsync().ConfigureAwait(false);
 
             result.RelatedPlayers = playerIpAddresses.Select(pip => pip.ToRelatedPlayerDto()).ToList();
+        }
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Counts))
+        {
+            result.AliasCount = result.PlayerAliases?.Count
+                ?? await context.PlayerAliases.CountAsync(pa => pa.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.IpAddressCount = result.PlayerIpAddresses?.Count
+                ?? await context.PlayerIpAddresses.CountAsync(pip => pip.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.AdminActionCount = result.AdminActions?.Count
+                ?? await context.AdminActions.CountAsync(aa => aa.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.ProtectedNameCount = result.ProtectedNames?.Count
+                ?? await context.ProtectedNames.CountAsync(pn => pn.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.TagCount = result.Tags?.Count
+                ?? await context.PlayerTags.CountAsync(pt => pt.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.RelatedPlayerCount = result.RelatedPlayers?.Count
+                ?? (!string.IsNullOrWhiteSpace(player.IpAddress)
+                    ? await context.PlayerIpAddresses.CountAsync(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId).ConfigureAwait(false)
+                    : 0);
         }
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
@@ -271,6 +290,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             var playerIpAddresses = await context.PlayerIpAddresses
                 .AsNoTracking()
                 .Include(ip => ip.Player)
+                .ThenInclude(p => p!.AdminActions)
                 .Where(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId)
                 .ToListAsync().ConfigureAwait(false);
 
@@ -280,6 +300,24 @@ public class PlayersController : ControllerBase, IPlayersApi
         // Map tags to DTO if requested  
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
             result.Tags = player.PlayerTags?.Select(pt => pt.ToDto()).ToList() ?? [];
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Counts))
+        {
+            result.AliasCount = result.PlayerAliases?.Count
+                ?? await context.PlayerAliases.CountAsync(pa => pa.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.IpAddressCount = result.PlayerIpAddresses?.Count
+                ?? await context.PlayerIpAddresses.CountAsync(pip => pip.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.AdminActionCount = result.AdminActions?.Count
+                ?? await context.AdminActions.CountAsync(aa => aa.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.ProtectedNameCount = result.ProtectedNames?.Count
+                ?? await context.ProtectedNames.CountAsync(pn => pn.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.TagCount = result.Tags?.Count
+                ?? await context.PlayerTags.CountAsync(pt => pt.PlayerId == player.PlayerId).ConfigureAwait(false);
+            result.RelatedPlayerCount = result.RelatedPlayers?.Count
+                ?? (!string.IsNullOrWhiteSpace(player.IpAddress)
+                    ? await context.PlayerIpAddresses.CountAsync(ip => ip.Address == player.IpAddress && ip.PlayerId != player.PlayerId).ConfigureAwait(false)
+                    : 0);
+        }
 
         return new ApiResponse<PlayerDto>(result).ToApiResult();
     }
