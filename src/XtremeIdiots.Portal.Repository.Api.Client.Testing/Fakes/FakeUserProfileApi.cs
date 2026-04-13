@@ -65,4 +65,9 @@ public class FakeUserProfileApi : IUserProfileApi
     public Task<ApiResult> CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    public Task<ApiResult<CollectionModel<PermissionReportEntryDto>>> GetPermissionsReport(GameType? gameType, string? claimType, CancellationToken cancellationToken = default)
+    {
+        var collection = new CollectionModel<PermissionReportEntryDto>(new List<PermissionReportEntryDto>());
+        return Task.FromResult(new ApiResult<CollectionModel<PermissionReportEntryDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PermissionReportEntryDto>>(collection)));
+    }
 }

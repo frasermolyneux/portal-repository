@@ -23,5 +23,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default);
 
         Task<ApiResult> DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken = default);
+
+        Task<ApiResult<CollectionModel<PermissionReportEntryDto>>> GetPermissionsReport(GameType? gameType, string? claimType, CancellationToken cancellationToken = default);
     }
 }

@@ -249,6 +249,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     UserProfileFilter.Moderators => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Moderator)),
                     UserProfileFilter.AnyAdmin => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator)),
                     UserProfileFilter.HasCustomPermissions => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.FtpCredentials || c.ClaimType == UserProfileClaimType.RconCredentials || c.ClaimType == UserProfileClaimType.GameServer || c.ClaimType == UserProfileClaimType.BanFileMonitor || c.ClaimType == UserProfileClaimType.RconMonitor || c.ClaimType == UserProfileClaimType.ServerAdmin || c.ClaimType == UserProfileClaimType.LiveRcon)),
+                    UserProfileFilter.HasAdditionalPermissions => query.Where(up => up.UserProfileClaims.Any(c => !c.SystemGenerated)),
                     _ => query
                 };
             }
@@ -444,6 +445,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the claims were created if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IUserProfileApi.CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
         {
+            var validationError = ValidateClaimPermissions(createUserProfileClaimDtos);
+            if (validationError != null)
+                return validationError;
+
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
@@ -508,6 +513,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the claims were set if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IUserProfileApi.SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
         {
+            var validationError = ValidateClaimPermissions(createUserProfileClaimDtos);
+            if (validationError != null)
+                return validationError;
+
             var userProfile = await context.UserProfiles
                 .Include(up => up.UserProfileClaims)
                 .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
@@ -561,11 +570,123 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (userProfileClaim == null)
                 return new ApiResult(HttpStatusCode.NotFound);
 
+            if (userProfileClaim.SystemGenerated)
+                return new ApiResponse(new ApiError(
+                    ApiErrorCodes.RequestEntityMismatch,
+                    "Cannot delete system-generated claims. These are managed by the portal-sync service."))
+                    .ToBadRequestResult();
+
             context.UserProfileClaims.Remove(userProfileClaim);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
+
+        /// <summary>
+        /// Retrieves a permissions report showing all manually assigned permission claims.
+        /// </summary>
+        /// <param name="gameType">Optional game type to filter claim values by.</param>
+        /// <param name="claimType">Optional claim type to filter by (exact match).</param>
+        /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+        /// <returns>A collection of permission report entries.</returns>
+        [HttpGet("user-profile/permissions-report")]
+        [ProducesResponseType<CollectionModel<PermissionReportEntryDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetPermissionsReport([FromQuery] GameType? gameType = null, [FromQuery] string? claimType = null, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IUserProfileApi)this).GetPermissionsReport(gameType, claimType, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        /// <summary>
+        /// Retrieves a permissions report showing all manually assigned permission claims.
+        /// </summary>
+        /// <param name="gameType">Optional game type to filter claim values by.</param>
+        /// <param name="claimType">Optional claim type to filter by (exact match).</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a collection of permission report entries.</returns>
+        async Task<ApiResult<CollectionModel<PermissionReportEntryDto>>> IUserProfileApi.GetPermissionsReport(GameType? gameType, string? claimType, CancellationToken cancellationToken)
+        {
+            var query = context.UserProfileClaims
+                .Include(c => c.UserProfile)
+                .AsNoTracking()
+                .Where(c => !c.SystemGenerated);
+
+            if (!string.IsNullOrWhiteSpace(claimType))
+                query = query.Where(c => c.ClaimType == claimType);
+
+            if (gameType.HasValue && gameType.Value != GameType.Unknown)
+                query = query.Where(c => c.ClaimValue == gameType.Value.ToString());
+
+            var results = await query.Select(c => new PermissionReportEntryDto
+            {
+                UserProfileId = c.UserProfileId,
+                DisplayName = c.UserProfile.DisplayName ?? string.Empty,
+                XtremeIdiotsForumId = c.UserProfile.XtremeIdiotsForumId,
+                ClaimType = c.ClaimType,
+                ClaimValue = c.ClaimValue,
+                SystemGenerated = c.SystemGenerated
+            }).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var data = new CollectionModel<PermissionReportEntryDto>(results);
+
+            return new ApiResponse<CollectionModel<PermissionReportEntryDto>>(data).ToApiResult();
+        }
+
+        /// <summary>
+        /// Validates that non-system-generated claims have allowed claim types and valid claim values.
+        /// </summary>
+        private static ApiResult? ValidateClaimPermissions(List<CreateUserProfileClaimDto> claims)
+        {
+            foreach (var dto in claims)
+            {
+                if (dto.SystemGenerated)
+                {
+                    if (!AdditionalPermission.IsSystemAllowed(dto.ClaimType))
+                    {
+                        return new ApiResponse(new ApiError(
+                            ApiErrorCodes.RequestEntityMismatch,
+                            $"Invalid system claim type: '{dto.ClaimType}'. " +
+                            $"Allowed system types: {string.Join(", ", AdditionalPermission.SystemAllowedTypes.Order())}"))
+                            .ToBadRequestResult();
+                    }
+                    continue;
+                }
+
+                if (!AdditionalPermission.IsAllowed(dto.ClaimType))
+                {
+                    return new ApiResponse(new ApiError(
+                        ApiErrorCodes.RequestEntityMismatch,
+                        $"Invalid additional permission type: '{dto.ClaimType}'. " +
+                        $"Allowed types: {string.Join(", ", AdditionalPermission.AllowedTypes.Order().Take(5))}..."))
+                        .ToBadRequestResult();
+                }
+
+                var definition = AdditionalPermission.GetDefinition(dto.ClaimType);
+                if (definition != null)
+                {
+                    var isGameType = Enum.TryParse<GameType>(dto.ClaimValue, out var gt) && gt != GameType.Unknown;
+                    var isGuid = Guid.TryParse(dto.ClaimValue, out _);
+
+                    var valid = definition.Scope switch
+                    {
+                        PermissionScope.Game => isGameType,
+                        PermissionScope.Server => isGuid,
+                        PermissionScope.GameOrServer => isGameType || isGuid,
+                        _ => false
+                    };
+
+                    if (!valid)
+                    {
+                        return new ApiResponse(new ApiError(
+                            ApiErrorCodes.RequestEntityMismatch,
+                            $"Invalid claim value '{dto.ClaimValue}' for permission '{dto.ClaimType}'. " +
+                            $"Expected scope: {definition.Scope}"))
+                            .ToBadRequestResult();
+                    }
+                }
+            }
+
+            return null;
+        }
     }
 }
-

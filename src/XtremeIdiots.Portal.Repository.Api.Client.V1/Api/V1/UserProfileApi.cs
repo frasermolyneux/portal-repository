@@ -141,6 +141,21 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
             return response.ToApiResult();
         }
+
+        public async Task<ApiResult<CollectionModel<PermissionReportEntryDto>>> GetPermissionsReport(GameType? gameType, string? claimType, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/user-profile/permissions-report", Method.Get).ConfigureAwait(false);
+
+            if (gameType.HasValue)
+                request.AddQueryParameter("gameType", gameType.Value.ToString());
+
+            if (!string.IsNullOrWhiteSpace(claimType))
+                request.AddQueryParameter("claimType", claimType);
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult<CollectionModel<PermissionReportEntryDto>>();
+        }
     }
 }
 
