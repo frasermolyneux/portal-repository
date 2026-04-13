@@ -118,19 +118,9 @@ POST /v1/players/{playerId}/session
 - All changes in a single `SaveChangesAsync` (atomic)
 - Does **not** modify IP address — use `UpdatePlayerIpAddress` separately
 
-**Use case:** Preferred replacement for `UpdatePlayer` when processing `PlayerConnected` events.
+**Use case:** Processing `PlayerConnected` events — records the session and updates username/alias tracking.
 
 ---
-
-### Update Player (Deprecated)
-
-```
-PATCH /v1/players/{playerId}
-```
-
-> **⚠️ Deprecated**: Use `UpdatePlayerIpAddress`, `UpdatePlayerUsername`, or `RecordPlayerSession` instead.
-
-This endpoint remains functional for backward compatibility but couples IP, username, alias, and LastSeen updates in a single operation, which can cause unintended confidence score inflation when called from periodic status updates.
 
 ## Response Codes
 
@@ -142,6 +132,6 @@ This endpoint remains functional for backward compatibility but couples IP, user
 
 ## Confidence Score Semantics
 
-After migrating to the new endpoints:
+After the endpoint split:
 - **Alias confidence** = number of sessions where this name was used (via `RecordPlayerSession` or `UpdatePlayerUsername`)
-- **IP confidence** = number of sessions from this IP (via `RecordPlayerSession` or `UpdatePlayerIpAddress`)
+- **IP confidence** = number of sessions from this IP (via `UpdatePlayerIpAddress`)

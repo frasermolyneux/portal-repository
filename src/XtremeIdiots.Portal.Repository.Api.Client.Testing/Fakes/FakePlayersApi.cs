@@ -93,8 +93,6 @@ public class FakePlayersApi : IPlayersApi
 
     public Task<ApiResult> CreatePlayer(CreatePlayerDto createPlayerDto) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> CreatePlayers(List<CreatePlayerDto> createPlayerDtos) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-    public Task<ApiResult> UpdatePlayer(EditPlayerDto editPlayerDto) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-
     public Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
     {
         if (_players.TryGetValue(dto.PlayerId, out _))

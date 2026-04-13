@@ -110,16 +110,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
-        public async Task<ApiResult> UpdatePlayer(EditPlayerDto editPlayerDto)
-        {
-            var request = await CreateRequestAsync($"v1/players/{editPlayerDto.PlayerId}", Method.Patch).ConfigureAwait(false);
-            request.AddJsonBody(editPlayerDto);
-
-            var response = await ExecuteAsync(request).ConfigureAwait(false);
-
-            return response.ToApiResult();
-        }
-
         public async Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
         {
             var request = await CreateRequestAsync($"v1/players/{dto.PlayerId}/ip-address", Method.Patch).ConfigureAwait(false);

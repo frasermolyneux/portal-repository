@@ -248,7 +248,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     UserProfileFilter.GameAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.GameAdmin)),
                     UserProfileFilter.Moderators => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Moderator)),
                     UserProfileFilter.AnyAdmin => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator)),
-                    UserProfileFilter.HasCustomPermissions => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.FtpCredentials || c.ClaimType == UserProfileClaimType.RconCredentials || c.ClaimType == UserProfileClaimType.GameServer || c.ClaimType == UserProfileClaimType.BanFileMonitor || c.ClaimType == UserProfileClaimType.RconMonitor || c.ClaimType == UserProfileClaimType.ServerAdmin || c.ClaimType == UserProfileClaimType.LiveRcon)),
                     UserProfileFilter.HasAdditionalPermissions => query.Where(up => up.UserProfileClaims.Any(c => !c.SystemGenerated)),
                     _ => query
                 };

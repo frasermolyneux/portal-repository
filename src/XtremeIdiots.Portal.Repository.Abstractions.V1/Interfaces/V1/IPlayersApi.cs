@@ -18,9 +18,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult> CreatePlayer(CreatePlayerDto createPlayerDto);
         Task<ApiResult> CreatePlayers(List<CreatePlayerDto> createPlayerDtos);
 
-        [Obsolete("Use UpdatePlayerIpAddress, UpdatePlayerUsername, or RecordPlayerSession instead.")]
-        Task<ApiResult> UpdatePlayer(EditPlayerDto editPlayerDto);
-
         /// <summary>
         /// Updates only the player's IP address and IP history. Does not modify aliases or LastSeen.
         /// </summary>

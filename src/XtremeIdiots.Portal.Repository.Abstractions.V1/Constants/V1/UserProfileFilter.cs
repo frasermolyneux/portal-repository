@@ -31,13 +31,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         AnyAdmin = 4,
 
         /// <summary>
-        /// User profiles that have any custom permission claim (FtpCredentials, RconCredentials, GameServer, BanFileMonitor, RconMonitor, ServerAdmin, LiveRcon).
-        /// </summary>
-        HasCustomPermissions = 5,
-
-        /// <summary>
         /// User profiles that have any non-system-generated (manually assigned) permission claim.
         /// </summary>
-        HasAdditionalPermissions = 6
+        HasAdditionalPermissions = 5
     }
 }
