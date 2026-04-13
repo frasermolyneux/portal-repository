@@ -65,6 +65,55 @@ Deploy workflows perform version verification (polling `/v1.0/info` and `/v2.0/i
 - Controller routes use `v{version:apiVersion}/...` — no `/api/` prefix.
 - Reference `docs/` for detailed guidance on versioning and backend mapping.
 
+## Permissions and Authorization
+
+### AdditionalPermission Class
+
+`Abstractions.V1/Constants/V1/AdditionalPermission.cs` defines all 43 assignable permission constants using `{Domain}.{Action}` naming (e.g., `MapRotations.Read`, `GameServers.Credentials.Ftp.Write`, `AdminActions.Claim`). Each constant has a corresponding `AdditionalPermissionDefinition` record providing:
+
+- `ClaimType` — The string identifier (matches `AuthPolicies` in portal-web)
+- `DisplayName` / `Description` — For UI rendering
+- `Domain` / `SubDomain` — Grouping (e.g., "Game Servers" / "Credentials")
+- `Scope` — `PermissionScope` enum value controlling claim value validation
+
+The class also exposes:
+- `Definitions` — `IReadOnlyList<AdditionalPermissionDefinition>` of all permission metadata
+- `AllowedTypes` — `HashSet<string>` for fast validation of assignable claim types
+- `SystemAllowedTypes` — `HashSet<string>` of system-generated claim types (from portal-sync)
+- `IsAllowed(claimType)` / `IsSystemAllowed(claimType)` / `GetDefinition(claimType)` — Validation helpers
+
+### PermissionScope Enum
+
+`Abstractions.V1/Constants/V1/PermissionScope.cs` defines three scoping modes:
+
+| Scope | Claim Value Must Be | Example |
+|-------|-------------------|---------|
+| `Game` | A valid `GameType` enum string (not `Unknown`) | `GameAdmin` claim with value `CallOfDuty4` |
+| `Server` | A valid GUID (game server ID) | `ChatLog.ReadServer` claim with a server GUID |
+| `GameOrServer` | Either a `GameType` string or a GUID | `GameServers.Read` — can be granted per-game or per-server |
+
+### Permissions Report API
+
+`GET /v1/user-profile/permissions-report` returns all manually assigned (non-system-generated) permission claims. Supports optional query parameters:
+- `gameType` — Filter by `GameType` enum value
+- `claimType` — Filter by specific claim type string
+
+This endpoint powers the Permissions Overview page in portal-web.
+
+### Claim Validation on Create/Set
+
+The `UserProfileController.SetUserProfileClaims` and `CreateUserProfileClaim` endpoints validate all claims through `ValidateClaimPermissions()`:
+
+1. **System-generated claims** (`SystemGenerated=true`) must have a claim type in `AdditionalPermission.SystemAllowedTypes`
+2. **Manually assigned claims** must have:
+   - A claim type in `AdditionalPermission.AllowedTypes`
+   - A claim value matching the permission's `PermissionScope`:
+     - `Game` scope → value must be a valid `GameType` enum (not `Unknown`)
+     - `Server` scope → value must be a valid GUID
+     - `GameOrServer` → either is accepted
+3. Duplicate claim type+value pairs in a single request are rejected
+4. Detailed error messages are returned for validation failures (unknown claim types, scope mismatches)
+
 ## Configuration System
 
 Game server configuration uses a namespace-scoped JSON document model stored in two tables:
