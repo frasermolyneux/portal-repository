@@ -7,5 +7,6 @@ public enum DeploymentState
     Synced = 2,
     Removing = 3,
     Removed = 4,
-    Failed = 5
+    Failed = 5,
+    PartiallyDeployed = 6
 }
