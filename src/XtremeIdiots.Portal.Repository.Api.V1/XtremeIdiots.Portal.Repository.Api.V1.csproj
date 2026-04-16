@@ -25,7 +25,7 @@
     <PackageReference Include="Microsoft.Identity.Web" Version="4.3.0" />
     <PackageReference Include="MX.Api.Abstractions" Version="2.3.25" />
     <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.25" />
-    <PackageReference Include="MX.Observability.ApplicationInsights" Version="1.0.3" />
+    <PackageReference Include="MX.Observability.ApplicationInsights" Version="1.0.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.12.46" />
     <PackageReference Include="MX.CodDemoReader" Version="1.0.15" />
@@ -37,4 +37,5 @@
   </ItemGroup>
 
 </Project>
+
 
