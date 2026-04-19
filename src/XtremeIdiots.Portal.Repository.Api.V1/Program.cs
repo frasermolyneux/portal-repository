@@ -12,7 +12,7 @@ using XtremeIdiots.Portal.Repository.Api.V1;
 using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V1.OpenApi;
-using MX.Observability.ApplicationInsights.Extensions;
+using MX.Observability.ApplicationInsights.AspNetCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);

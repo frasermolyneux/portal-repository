@@ -10,7 +10,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V2;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V2.OpenApi;
-using MX.Observability.ApplicationInsights.Extensions;
+using MX.Observability.ApplicationInsights.AspNetCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
