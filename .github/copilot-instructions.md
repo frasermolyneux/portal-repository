@@ -1,5 +1,10 @@
 # Copilot Instructions
 
+> Shared conventions:
+> - [`.github-copilot/.github/instructions/terraform.instructions.md`](../../.github-copilot/.github/instructions/terraform.instructions.md)  standard Terraform layout, providers, remote-state, validation, CI/CD.
+> - [`.github-copilot/.github/instructions/dotnet-nuget-library.instructions.md`](../../.github-copilot/.github/instructions/dotnet-nuget-library.instructions.md)  .NET NuGet library standards.
+> - [`.github-copilot/.github/instructions/dotnet-api-client-libraries.instructions.md`](../../.github-copilot/.github/instructions/dotnet-api-client-libraries.instructions.md)  typed API client patterns (three-package layout, fluent DI builder, `ApiResult<T>` envelope, authentication options, testing-package conventions).
+
 ## Solution Layout
 
 `src/XtremeIdiots.Portal.Repository.sln` contains API hosts (Api.V1, Api.V2), shared contracts (Abstractions.V1/V2), generated HTTP clients (Api.Client.V1/V2), the EF Core data layer (DataLib), a SQL database project (Database), and integration test suites (V1, V2).
