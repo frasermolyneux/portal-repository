@@ -48,6 +48,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool BanFileSyncEnabled { get; internal set; }
 
         [JsonProperty]
+#pragma warning disable CS8618
+        public string BanFileRootPath { get; internal set; } = "/";
+#pragma warning restore CS8618
+
+        [JsonProperty]
         public bool ServerListEnabled { get; internal set; }
 
         [JsonProperty]

@@ -19,6 +19,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             // Register V1 API implementations using the new typed pattern
             serviceCollection.AddTypedApiClient<IAdminActionsApi, AdminActionsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IBanFileMonitorsApi, BanFileMonitorsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<ICentralBanFileStatusApi, CentralBanFileStatusApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IChatMessagesApi, ChatMessagesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IDataMaintenanceApi, DataMaintenanceApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IDemosApi, DemosApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
@@ -54,6 +55,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
             serviceCollection.AddScoped<IVersionedBanFileMonitorsApi, VersionedBanFileMonitorsApi>();
+            serviceCollection.AddScoped<IVersionedCentralBanFileStatusApi, VersionedCentralBanFileStatusApi>();
             serviceCollection.AddScoped<IVersionedChatMessagesApi, VersionedChatMessagesApi>();
             serviceCollection.AddScoped<IVersionedDataMaintenanceApi, VersionedDataMaintenanceApi>();
             serviceCollection.AddScoped<IVersionedDemosApi, VersionedDemosApi>();

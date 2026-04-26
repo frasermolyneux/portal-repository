@@ -37,7 +37,48 @@ public class FakeBanFileMonitorsApi : IBanFileMonitorsApi
         return Task.FromResult(new ApiResult<CollectionModel<BanFileMonitorDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<BanFileMonitorDto>>(collection)));
     }
 
+    public Task<ApiResult<BanFileMonitorDto>> UpsertBanFileMonitorStatus(UpsertBanFileMonitorStatusDto upsertDto, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(upsertDto);
+
+        // Find an existing monitor for the game server, or create one keyed by a new GUID.
+        var existing = _monitors.Values.FirstOrDefault(m => m.GameServerId == upsertDto.GameServerId);
+        var created = existing is null;
+        existing ??= new BanFileMonitorDto { BanFileMonitorId = Guid.NewGuid(), GameServerId = upsertDto.GameServerId };
+
+        var updated = existing with
+        {
+            LastCheckUtc = upsertDto.LastCheckUtc ?? existing.LastCheckUtc,
+            LastCheckResult = upsertDto.LastCheckResult ?? existing.LastCheckResult,
+            LastCheckErrorMessage = upsertDto.LastCheckErrorMessage ?? existing.LastCheckErrorMessage,
+            RemoteFilePath = upsertDto.RemoteFilePath ?? existing.RemoteFilePath,
+            ResolvedForMod = upsertDto.ResolvedForMod ?? existing.ResolvedForMod,
+            RemoteFileSize = upsertDto.RemoteFileSize ?? existing.RemoteFileSize,
+            LastImportUtc = upsertDto.LastImportUtc ?? existing.LastImportUtc,
+            LastImportBanCount = upsertDto.LastImportBanCount ?? existing.LastImportBanCount,
+            LastImportSampleNames = upsertDto.LastImportSampleNames ?? existing.LastImportSampleNames,
+            LastPushUtc = upsertDto.LastPushUtc ?? existing.LastPushUtc,
+            LastPushedETag = upsertDto.LastPushedETag ?? existing.LastPushedETag,
+            LastPushedSize = upsertDto.LastPushedSize ?? existing.LastPushedSize,
+            LastCentralBlobETag = upsertDto.LastCentralBlobETag ?? existing.LastCentralBlobETag,
+            LastCentralBlobUtc = upsertDto.LastCentralBlobUtc ?? existing.LastCentralBlobUtc,
+            ConsecutiveFailureCount = upsertDto.ConsecutiveFailureCount ?? existing.ConsecutiveFailureCount,
+            RemoteTotalLineCount = upsertDto.RemoteTotalLineCount ?? existing.RemoteTotalLineCount,
+            RemoteUntaggedCount = upsertDto.RemoteUntaggedCount ?? existing.RemoteUntaggedCount,
+            RemoteBanSyncCount = upsertDto.RemoteBanSyncCount ?? existing.RemoteBanSyncCount,
+            RemoteExternalCount = upsertDto.RemoteExternalCount ?? existing.RemoteExternalCount
+        };
+
+        _monitors[updated.BanFileMonitorId] = updated;
+
+        return Task.FromResult(new ApiResult<BanFileMonitorDto>(
+            created ? HttpStatusCode.Created : HttpStatusCode.OK,
+            new ApiResponse<BanFileMonitorDto>(updated)));
+    }
+
+#pragma warning disable CS0618
     public Task<ApiResult> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+#pragma warning restore CS0618
 }

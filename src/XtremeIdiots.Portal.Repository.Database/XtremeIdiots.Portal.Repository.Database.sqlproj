@@ -87,12 +87,14 @@
     <Build Include="dbo\Tables\NotificationTypes.sql" />
     <Build Include="dbo\Tables\NotificationPreferences.sql" />
     <Build Include="dbo\Tables\Notifications.sql" />
+    <Build Include="dbo\Tables\CentralBanFileStatus.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\Script.PostDeployment.sql" />
     <None Include="Scripts\Script.PostDeploymentPermissions.sql" />
     <None Include="Scripts\Script.PostDeploymentTags.sql" />
     <None Include="Scripts\Script.PostDeploymentNotificationTypes.sql" />
+    <None Include="Scripts\Script.PostDeploymentBanFileMonitors.sql" />
     <None Include="Scripts\AlterReportsTableAnsiNulls.sql" />
   </ItemGroup>
   <ItemGroup>

@@ -53,6 +53,18 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<CollectionModel<BanFileMonitorDto>>();
         }
 
+        public async Task<ApiResult<BanFileMonitorDto>> UpsertBanFileMonitorStatus(UpsertBanFileMonitorStatusDto upsertDto, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(upsertDto);
+
+            var request = await CreateRequestAsync($"v1/ban-file-monitors/by-game-server/{upsertDto.GameServerId}/status", Method.Put).ConfigureAwait(false);
+            request.AddJsonBody(upsertDto);
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult<BanFileMonitorDto>();
+        }
+
+        [Obsolete("Ban file monitors are no longer manually created. Use UpsertBanFileMonitorStatus instead.")]
         public async Task<ApiResult> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors", Method.Post).ConfigureAwait(false);
@@ -63,6 +75,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        [Obsolete("Use UpsertBanFileMonitorStatus instead. Manual FilePath edits are no longer supported.")]
         public async Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch).ConfigureAwait(false);
@@ -73,6 +86,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        [Obsolete("Ban file monitors follow the lifecycle of GameServer.BanFileSyncEnabled and should not be manually deleted.")]
         public async Task<ApiResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Delete).ConfigureAwait(false);
@@ -82,5 +96,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         }
     }
 }
+
 
 

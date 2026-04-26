@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("BanFileMonitorId", Name = "IX_BanFileMonitorId", IsUnique = true)]
-[Index("GameServerId", Name = "IX_GameServerId")]
+[Index("GameServerId", Name = "IX_BanFileMonitors_GameServerId")]
 public partial class BanFileMonitor
 {
     [Key]
@@ -23,6 +23,55 @@ public partial class BanFileMonitor
 
     [Column(TypeName = "datetime")]
     public DateTime? LastSync { get; set; }
+
+    [Precision(3)]
+    public DateTime? LastCheckUtc { get; set; }
+
+    [StringLength(20)]
+    public string? LastCheckResult { get; set; }
+
+    [StringLength(500)]
+    public string? LastCheckErrorMessage { get; set; }
+
+    [StringLength(500)]
+    public string? RemoteFilePath { get; set; }
+
+    [StringLength(100)]
+    public string? ResolvedForMod { get; set; }
+
+    [Precision(3)]
+    public DateTime? LastImportUtc { get; set; }
+
+    public int? LastImportBanCount { get; set; }
+
+    [StringLength(1000)]
+    public string? LastImportSampleNames { get; set; }
+
+    [Precision(3)]
+    public DateTime? LastPushUtc { get; set; }
+
+    [Column("LastPushedETag")]
+    [StringLength(100)]
+    public string? LastPushedEtag { get; set; }
+
+    public long? LastPushedSize { get; set; }
+
+    [Column("LastCentralBlobETag")]
+    [StringLength(100)]
+    public string? LastCentralBlobEtag { get; set; }
+
+    [Precision(3)]
+    public DateTime? LastCentralBlobUtc { get; set; }
+
+    public int ConsecutiveFailureCount { get; set; }
+
+    public int? RemoteTotalLineCount { get; set; }
+
+    public int? RemoteUntaggedCount { get; set; }
+
+    public int? RemoteBanSyncCount { get; set; }
+
+    public int? RemoteExternalCount { get; set; }
 
     [ForeignKey("GameServerId")]
     [InverseProperty("BanFileMonitors")]

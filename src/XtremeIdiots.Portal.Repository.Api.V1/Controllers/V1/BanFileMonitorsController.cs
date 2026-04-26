@@ -164,9 +164,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [HttpPost("ban-file-monitors")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Obsolete("Ban file monitors are no longer manually created — they are provisioned automatically by the agent. Use UpsertBanFileMonitorStatus instead.")]
         public async Task<IActionResult> CreateBanFileMonitor([FromBody] CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
+#pragma warning disable CS0618
             var response = await ((IBanFileMonitorsApi)this).CreateBanFileMonitor(createBanFileMonitorDto, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CS0618
             return response.ToHttpResult();
         }
 
@@ -188,6 +191,77 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
+        /// Upserts the ban file monitor status snapshot for a game server. Creates a
+        /// row when none exists, updates otherwise. Called by portal-server-agent
+        /// after each check cycle.
+        /// </summary>
+        [HttpPut("ban-file-monitors/by-game-server/{gameServerId:guid}/status")]
+        [ProducesResponseType<BanFileMonitorDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<BanFileMonitorDto>(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpsertBanFileMonitorStatusByGameServerId(
+            Guid gameServerId,
+            [FromBody] UpsertBanFileMonitorStatusDto upsertDto,
+            CancellationToken cancellationToken = default)
+        {
+            if (upsertDto is null)
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))).ToHttpResult();
+
+            if (upsertDto.GameServerId != gameServerId)
+                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, "GameServerId in the URL must match GameServerId in the request body"))).ToHttpResult();
+
+            var response = await ((IBanFileMonitorsApi)this).UpsertBanFileMonitorStatus(upsertDto, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult<BanFileMonitorDto>> IBanFileMonitorsApi.UpsertBanFileMonitorStatus(UpsertBanFileMonitorStatusDto upsertDto, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(upsertDto);
+
+            var gameServerExists = await context.GameServers
+                .AsNoTracking()
+                .AnyAsync(gs => gs.GameServerId == upsertDto.GameServerId && !gs.Deleted, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!gameServerExists)
+                return new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound);
+
+            // Use the most recent row when more than one exists for this game server (legacy
+            // data — there should only ever be one going forward).
+            var existing = await context.BanFileMonitors
+                .Where(bfm => bfm.GameServerId == upsertDto.GameServerId)
+                .OrderByDescending(bfm => bfm.LastCheckUtc ?? bfm.LastSync ?? DateTime.MinValue)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var created = false;
+            if (existing is null)
+            {
+                existing = new BanFileMonitor
+                {
+                    GameServerId = upsertDto.GameServerId,
+                    FilePath = upsertDto.RemoteFilePath ?? string.Empty
+                };
+                context.BanFileMonitors.Add(existing);
+                created = true;
+            }
+
+            upsertDto.ApplyStatus(existing);
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            // Re-load with GameServer included so the response contains the full DTO.
+            var saved = await context.BanFileMonitors
+                .Include(bfm => bfm.GameServer)
+                .AsNoTracking()
+                .FirstAsync(bfm => bfm.BanFileMonitorId == existing.BanFileMonitorId, cancellationToken)
+                .ConfigureAwait(false);
+
+            return new ApiResponse<BanFileMonitorDto>(saved.ToDto()).ToApiResult(created ? HttpStatusCode.Created : HttpStatusCode.OK);
+        }
+
+        /// <summary>
         /// Updates an existing ban file monitor.
         /// </summary>
         /// <param name="banFileMonitorId">The unique identifier of the ban file monitor to update.</param>
@@ -198,12 +272,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Obsolete("Use UpsertBanFileMonitorStatus instead. Manual FilePath edits are no longer supported.")]
         public async Task<IActionResult> UpdateBanFileMonitor(Guid banFileMonitorId, [FromBody] EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
         {
             if (editBanFileMonitorDto.BanFileMonitorId != banFileMonitorId)
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.BanFileMonitorIdMismatchMessage))).ToHttpResult();
 
+#pragma warning disable CS0618
             var response = await ((IBanFileMonitorsApi)this).UpdateBanFileMonitor(editBanFileMonitorDto, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CS0618
             return response.ToHttpResult();
         }
 
@@ -237,9 +314,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [HttpDelete("ban-file-monitors/{banFileMonitorId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Obsolete("Ban file monitors follow the lifecycle of GameServer.BanFileSyncEnabled and should not be manually deleted.")]
         public async Task<IActionResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
         {
+#pragma warning disable CS0618
             var response = await ((IBanFileMonitorsApi)this).DeleteBanFileMonitor(banFileMonitorId, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CS0618
 
             return response.ToHttpResult();
         }

@@ -16,6 +16,12 @@ public class FakeVersionedBanFileMonitorsApi : IVersionedBanFileMonitorsApi
     public IBanFileMonitorsApi V1 { get; }
 }
 
+public class FakeVersionedCentralBanFileStatusApi : IVersionedCentralBanFileStatusApi
+{
+    public FakeVersionedCentralBanFileStatusApi(FakeCentralBanFileStatusApi v1) => V1 = v1;
+    public ICentralBanFileStatusApi V1 { get; }
+}
+
 public class FakeVersionedChatMessagesApi : IVersionedChatMessagesApi
 {
     public FakeVersionedChatMessagesApi(FakeChatMessagesApi v1) => V1 = v1;
@@ -169,6 +175,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
 {
     public FakeAdminActionsApi AdminActionsApi { get; } = new();
     public FakeBanFileMonitorsApi BanFileMonitorsApi { get; } = new();
+    public FakeCentralBanFileStatusApi CentralBanFileStatusApi { get; } = new();
     public FakeChatMessagesApi ChatMessagesApi { get; } = new();
     public FakeDataMaintenanceApi DataMaintenanceApi { get; } = new();
     public FakeDemosApi DemosApi { get; } = new();
@@ -198,6 +205,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
+    private readonly Lazy<FakeVersionedCentralBanFileStatusApi> _centralBanFileStatus;
     private readonly Lazy<FakeVersionedChatMessagesApi> _chatMessages;
     private readonly Lazy<FakeVersionedDataMaintenanceApi> _dataMaintenance;
     private readonly Lazy<FakeVersionedDemosApi> _demos;
@@ -228,6 +236,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     {
         _adminActions = new Lazy<FakeVersionedAdminActionsApi>(() => new FakeVersionedAdminActionsApi(AdminActionsApi));
         _banFileMonitors = new Lazy<FakeVersionedBanFileMonitorsApi>(() => new FakeVersionedBanFileMonitorsApi(BanFileMonitorsApi));
+        _centralBanFileStatus = new Lazy<FakeVersionedCentralBanFileStatusApi>(() => new FakeVersionedCentralBanFileStatusApi(CentralBanFileStatusApi));
         _chatMessages = new Lazy<FakeVersionedChatMessagesApi>(() => new FakeVersionedChatMessagesApi(ChatMessagesApi));
         _dataMaintenance = new Lazy<FakeVersionedDataMaintenanceApi>(() => new FakeVersionedDataMaintenanceApi(DataMaintenanceApi));
         _demos = new Lazy<FakeVersionedDemosApi>(() => new FakeVersionedDemosApi(DemosApi));
@@ -257,6 +266,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
     public IVersionedBanFileMonitorsApi BanFileMonitors => _banFileMonitors.Value;
+    public IVersionedCentralBanFileStatusApi CentralBanFileStatus => _centralBanFileStatus.Value;
     public IVersionedChatMessagesApi ChatMessages => _chatMessages.Value;
     public IVersionedDataMaintenanceApi DataMaintenance => _dataMaintenance.Value;
     public IVersionedDemosApi Demos => _demos.Value;
@@ -291,6 +301,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     {
         AdminActionsApi.Reset();
         BanFileMonitorsApi.Reset();
+        CentralBanFileStatusApi.Reset();
         ChatMessagesApi.Reset();
         DataMaintenanceApi.Reset();
         DemosApi.Reset();

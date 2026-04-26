@@ -42,6 +42,9 @@
       "name": "[dbo].[BanFileMonitors]"
     },
     {
+      "name": "[dbo].[CentralBanFileStatus]"
+    },
+    {
       "name": "[dbo].[ChatMessages]"
     },
     {

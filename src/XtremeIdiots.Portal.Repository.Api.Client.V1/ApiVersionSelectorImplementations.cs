@@ -23,6 +23,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IBanFileMonitorsApi V1 { get; }
     }
 
+    public class VersionedCentralBanFileStatusApi : IVersionedCentralBanFileStatusApi
+    {
+        public VersionedCentralBanFileStatusApi(ICentralBanFileStatusApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public ICentralBanFileStatusApi V1 { get; }
+    }
+
     public class VersionedChatMessagesApi : IVersionedChatMessagesApi
     {
         public VersionedChatMessagesApi(IChatMessagesApi v1Api)

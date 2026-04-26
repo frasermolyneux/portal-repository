@@ -11,11 +11,11 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 [Index("GameType", Name = "IX_GameType")]
 [Index("GameType", "LastSeen", Name = "IX_GameTypeAndLastSeen")]
 [Index("PlayerId", Name = "IX_PlayerId", IsUnique = true)]
-[Index("GameType", "LastSeen", Name = "IX_Players_GameType_LastSeen_Covering")]
+[Index("GameType", "LastSeen", Name = "IX_Players_GameType_LastSeen_Covering", IsDescending = new[] { false, true })]
 [Index("GameType", "Username", Name = "IX_Players_GameType_Username")]
 [Index("Guid", Name = "IX_Players_Guid")]
 [Index("IpAddress", Name = "IX_Players_IpAddress")]
-[Index("LastSeen", Name = "IX_Players_LastSeen")]
+[Index("LastSeen", Name = "IX_Players_LastSeen", AllDescending = true)]
 [Index("Username", Name = "IX_Players_Username")]
 public partial class Player
 {

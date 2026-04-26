@@ -7,6 +7,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
     {
         private readonly Mock<IVersionedAdminActionsApi> _adminActions = new();
         private readonly Mock<IVersionedBanFileMonitorsApi> _banFileMonitors = new();
+        private readonly Mock<IVersionedCentralBanFileStatusApi> _centralBanFileStatus = new();
         private readonly Mock<IVersionedChatMessagesApi> _chatMessages = new();
         private readonly Mock<IVersionedDataMaintenanceApi> _dataMaintenance = new();
         private readonly Mock<IVersionedDemosApi> _demos = new();
@@ -36,6 +37,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
             _banFileMonitors.Object,
+            _centralBanFileStatus.Object,
             _chatMessages.Object,
             _dataMaintenance.Object,
             _demos.Object,
@@ -69,6 +71,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
 
             Assert.Same(_adminActions.Object, client.AdminActions);
             Assert.Same(_banFileMonitors.Object, client.BanFileMonitors);
+            Assert.Same(_centralBanFileStatus.Object, client.CentralBanFileStatus);
             Assert.Same(_chatMessages.Object, client.ChatMessages);
             Assert.Same(_dataMaintenance.Object, client.DataMaintenance);
             Assert.Same(_demos.Object, client.Demos);

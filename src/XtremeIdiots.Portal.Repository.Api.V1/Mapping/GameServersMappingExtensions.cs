@@ -21,6 +21,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 FtpEnabled = entity.FtpEnabled,
                 RconEnabled = entity.RconEnabled,
                 BanFileSyncEnabled = entity.BanFileSyncEnabled,
+                BanFileRootPath = string.IsNullOrWhiteSpace(entity.BanFileRootPath) ? "/" : entity.BanFileRootPath,
                 ServerListEnabled = entity.ServerListEnabled,
                 Deleted = entity.Deleted,
             };
@@ -40,6 +41,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 FtpEnabled = dto.FtpEnabled,
                 RconEnabled = dto.RconEnabled,
                 BanFileSyncEnabled = dto.BanFileSyncEnabled,
+                BanFileRootPath = string.IsNullOrWhiteSpace(dto.BanFileRootPath) ? "/" : dto.BanFileRootPath,
                 ServerListEnabled = dto.ServerListEnabled
             };
         }
@@ -82,6 +84,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.FtpEnabled is not null) entity.FtpEnabled = dto.FtpEnabled.Value;
             if (dto.RconEnabled is not null) entity.RconEnabled = dto.RconEnabled.Value;
             if (dto.BanFileSyncEnabled is not null) entity.BanFileSyncEnabled = dto.BanFileSyncEnabled.Value;
+            if (dto.BanFileRootPath is not null) entity.BanFileRootPath = string.IsNullOrWhiteSpace(dto.BanFileRootPath) ? "/" : dto.BanFileRootPath;
             if (dto.ServerListEnabled is not null) entity.ServerListEnabled = dto.ServerListEnabled.Value;
             if (dto.Deleted is not null) entity.Deleted = dto.Deleted.Value;
         }

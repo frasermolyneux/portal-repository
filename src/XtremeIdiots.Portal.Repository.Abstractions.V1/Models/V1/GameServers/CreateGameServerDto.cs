@@ -48,6 +48,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool BanFileSyncEnabled { get; set; }
 
         [JsonProperty]
+        public string BanFileRootPath { get; set; } = "/";
+
+        [JsonProperty]
         public bool ServerListEnabled { get; set; }
 
         [JsonIgnore]

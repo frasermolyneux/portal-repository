@@ -6,6 +6,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         IVersionedAdminActionsApi AdminActions { get; }
         IVersionedBanFileMonitorsApi BanFileMonitors { get; }
+        IVersionedCentralBanFileStatusApi CentralBanFileStatus { get; }
         IVersionedChatMessagesApi ChatMessages { get; }
         IVersionedDataMaintenanceApi DataMaintenance { get; }
         IVersionedDemosApi Demos { get; }

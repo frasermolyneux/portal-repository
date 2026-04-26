@@ -13,6 +13,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IBanFileMonitorsApi V1 { get; }
     }
 
+    public interface IVersionedCentralBanFileStatusApi
+    {
+        ICentralBanFileStatusApi V1 { get; }
+    }
+
     public interface IVersionedChatMessagesApi
     {
         IChatMessagesApi V1 { get; }

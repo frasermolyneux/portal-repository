@@ -33,6 +33,9 @@ public partial class GameServer
 
     public bool BanFileSyncEnabled { get; set; }
 
+    [StringLength(255)]
+    public string BanFileRootPath { get; set; } = null!;
+
     public bool ServerListEnabled { get; set; }
 
     public bool Deleted { get; set; }

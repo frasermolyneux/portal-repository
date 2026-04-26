@@ -10,6 +10,7 @@
     [RconEnabled] BIT DEFAULT 0 NOT NULL,
     [AgentEnabled] BIT DEFAULT 0 NOT NULL,
     [BanFileSyncEnabled] BIT DEFAULT 0 NOT NULL,
+    [BanFileRootPath] NVARCHAR(255) NOT NULL DEFAULT '/',
     [ServerListEnabled] BIT DEFAULT 0 NOT NULL,
     [Deleted] BIT NOT NULL DEFAULT 0,
     CONSTRAINT [PK_dbo.GameServers] PRIMARY KEY CLUSTERED ([GameServerId] ASC)

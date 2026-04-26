@@ -9,6 +9,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public RepositoryApiClient(
             IVersionedAdminActionsApi adminActions,
             IVersionedBanFileMonitorsApi banFileMonitors,
+            IVersionedCentralBanFileStatusApi centralBanFileStatus,
             IVersionedChatMessagesApi chatMessages,
             IVersionedDataMaintenanceApi dataMaintenance,
             IVersionedDemosApi demos,
@@ -37,6 +38,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
+            CentralBanFileStatus = centralBanFileStatus;
             ChatMessages = chatMessages;
             DataMaintenance = dataMaintenance;
             Demos = demos;
@@ -66,6 +68,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IVersionedAdminActionsApi AdminActions { get; }
         public IVersionedBanFileMonitorsApi BanFileMonitors { get; }
+        public IVersionedCentralBanFileStatusApi CentralBanFileStatus { get; }
         public IVersionedChatMessagesApi ChatMessages { get; }
         public IVersionedDataMaintenanceApi DataMaintenance { get; }
         public IVersionedDemosApi Demos { get; }

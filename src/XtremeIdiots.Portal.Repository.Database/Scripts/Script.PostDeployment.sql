@@ -19,6 +19,9 @@ Post-Deployment Script Template
 -- Include NotificationTypes seed data
 :r .\Script.PostDeploymentNotificationTypes.sql
 
+-- Backfill new BanFileMonitor status columns and GameServer.BanFileRootPath
+:r .\Script.PostDeploymentBanFileMonitors.sql
+
 -- Idempotent Full Text setup (catalog + indexes) - safe if objects already exist
 IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'PortalFTCatalog')
 BEGIN

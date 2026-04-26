@@ -17,6 +17,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<BanFileMonitor> BanFileMonitors { get; set; }
 
+    public virtual DbSet<CentralBanFileStatus> CentralBanFileStatuses { get; set; }
+
     public virtual DbSet<ChatMessage> ChatMessages { get; set; }
 
     public virtual DbSet<Demo> Demos { get; set; }
@@ -34,7 +36,6 @@ public partial class PortalDbContext : DbContext
     public virtual DbSet<Map> Maps { get; set; }
 
     public virtual DbSet<MapFlag> MapFlags { get; set; }
-
 
     public virtual DbSet<MapRotation> MapRotations { get; set; }
 
@@ -98,6 +99,14 @@ public partial class PortalDbContext : DbContext
                 .HasConstraintName("FK_dbo.BanFileMonitors_dbo.GameServers_GameServerId");
         });
 
+        modelBuilder.Entity<CentralBanFileStatus>(entity =>
+        {
+            entity.HasKey(e => e.GameType).HasName("PK_dbo.CentralBanFileStatus");
+
+            entity.Property(e => e.GameType).ValueGeneratedNever();
+            entity.Property(e => e.LastUpdatedUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+        });
+
         modelBuilder.Entity<ChatMessage>(entity =>
         {
             entity.HasKey(e => e.ChatMessageId).HasName("PK_dbo.ChatMessage");
@@ -127,6 +136,7 @@ public partial class PortalDbContext : DbContext
             entity.HasKey(e => e.GameServerId).HasName("PK_dbo.GameServers");
 
             entity.Property(e => e.GameServerId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.BanFileRootPath).HasDefaultValue("/");
         });
 
         modelBuilder.Entity<GameServerConfiguration>(entity =>
@@ -175,7 +185,6 @@ public partial class PortalDbContext : DbContext
 
             entity.HasOne(d => d.Map).WithMany(p => p.MapFlags).HasConstraintName("FK_dbo.MapFlags_dbo.Maps_MapId");
         });
-
 
         modelBuilder.Entity<MapRotation>(entity =>
         {

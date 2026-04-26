@@ -193,6 +193,81 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
+        /// Returns aggregate counts of currently-active bans per game type, used by
+        /// the ban file monitor dashboard. When <paramref name="gameType"/> is
+        /// supplied, the collection contains exactly one entry; otherwise one entry
+        /// per game type with at least one ban is returned.
+        /// </summary>
+        [HttpGet("admin-actions/active-ban-counts")]
+        [ProducesResponseType<CollectionModel<ActiveBanCountsDto>>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetActiveBanCounts([FromQuery] GameType? gameType = null, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IAdminActionsApi)this).GetActiveBanCounts(gameType, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult<CollectionModel<ActiveBanCountsDto>>> IAdminActionsApi.GetActiveBanCounts(GameType? gameType, CancellationToken cancellationToken)
+        {
+            var nowUtc = DateTime.UtcNow;
+            var soonUtc = nowUtc.AddHours(24);
+
+            var banQuery = context.AdminActions.AsNoTracking()
+                .Where(a => a.Type == (int)AdminActionType.Ban || a.Type == (int)AdminActionType.TempBan);
+
+            if (gameType.HasValue)
+            {
+                var gtInt = (int)gameType.Value;
+                banQuery = banQuery.Where(a => a.Player.GameType == gtInt);
+            }
+
+            // Aggregate per-game-type via a single grouped query.
+            var grouped = await banQuery
+                .Where(a => a.Type == (int)AdminActionType.Ban
+                    ? (a.Expires == null || a.Expires > nowUtc)
+                    : (a.Expires != null && a.Expires > nowUtc))
+                .GroupBy(a => a.Player.GameType)
+                .Select(g => new
+                {
+                    GameTypeInt = g.Key,
+                    ActivePermanentBanCount = g.Count(a => a.Type == (int)AdminActionType.Ban),
+                    ActiveTempBanCount = g.Count(a => a.Type == (int)AdminActionType.TempBan),
+                    ExpiringTempBansNext24h = g.Count(a => a.Type == (int)AdminActionType.TempBan && a.Expires != null && a.Expires <= soonUtc)
+                })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var items = grouped
+                .Select(g => new ActiveBanCountsDto
+                {
+                    GameType = (GameType)g.GameTypeInt,
+                    ActivePermanentBanCount = g.ActivePermanentBanCount,
+                    ActiveTempBanCount = g.ActiveTempBanCount,
+                    ExpiringTempBansNext24h = g.ExpiringTempBansNext24h
+                })
+                .OrderBy(c => c.GameType)
+                .ToList();
+
+            // When a specific game type was requested but has zero bans, still return
+            // an entry so the caller can render a "0 bans" card without a 404.
+            if (gameType.HasValue && items.Count == 0)
+            {
+                items.Add(new ActiveBanCountsDto
+                {
+                    GameType = gameType.Value,
+                    ActivePermanentBanCount = 0,
+                    ActiveTempBanCount = 0,
+                    ExpiringTempBansNext24h = 0
+                });
+            }
+
+            var data = new CollectionModel<ActiveBanCountsDto>(items);
+            return new ApiResponse<CollectionModel<ActiveBanCountsDto>>(data)
+            {
+                Pagination = new ApiPagination(items.Count, items.Count, 0, items.Count)
+            }.ToApiResult();
+        }
+
+        /// <summary>
         /// Creates a new admin action.
         /// </summary>
         /// <param name="createAdminActionDto">The admin action data to create.</param>

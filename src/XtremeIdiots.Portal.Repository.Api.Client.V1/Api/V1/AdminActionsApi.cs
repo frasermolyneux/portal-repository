@@ -54,6 +54,17 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<CollectionModel<AdminActionDto>>();
         }
 
+        public async Task<ApiResult<CollectionModel<ActiveBanCountsDto>>> GetActiveBanCounts(GameType? gameType, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/admin-actions/active-ban-counts", Method.Get).ConfigureAwait(false);
+
+            if (gameType.HasValue)
+                request.AddQueryParameter("gameType", gameType.ToString());
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult<CollectionModel<ActiveBanCountsDto>>();
+        }
+
         public async Task<ApiResult> CreateAdminAction(CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions", Method.Post).ConfigureAwait(false);

@@ -10,7 +10,7 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("GameServerId", Name = "IX_GameServerId")]
 [Index("GameServerStatId", Name = "IX_GameServerStatId", IsUnique = true)]
-[Index("GameServerId", "Timestamp", Name = "IX_GameServerStats_GameServerId_Timestamp")]
+[Index("GameServerId", "Timestamp", Name = "IX_GameServerStats_GameServerId_Timestamp", IsDescending = new[] { false, true })]
 public partial class GameServerStat
 {
     [Key]

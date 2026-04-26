@@ -13,7 +13,7 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 [Index("PlayerId", Name = "IX_PlayerId")]
 [Index("ReportId", Name = "IX_ReportId", IsUnique = true)]
 [Index("AdminUserProfileId", "Closed", Name = "IX_Reports_AdminUserProfileId_Closed")]
-[Index("Closed", "Timestamp", Name = "IX_Reports_Closed_Timestamp")]
+[Index("Closed", "Timestamp", Name = "IX_Reports_Closed_Timestamp", IsDescending = new[] { false, true })]
 [Index("GameType", Name = "IX_Reports_GameType")]
 [Index("UserProfileId", Name = "IX_UserProfileId")]
 public partial class Report

@@ -8,7 +8,7 @@ Add these NuGet packages to your .csproj based on your selections:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.13" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.14" />
 </ItemGroup>
 ```
 
