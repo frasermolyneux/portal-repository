@@ -15,3 +15,13 @@ CREATE UNIQUE NONCLUSTERED INDEX [IX_GameServerEventId]
 GO
 CREATE NONCLUSTERED INDEX [IX_GameServerId]
     ON [dbo].[GameServerEvents]([GameServerId] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_GameServerEvents_Timestamp]
+    ON [dbo].[GameServerEvents]([Timestamp] DESC)
+    INCLUDE ([GameServerId], [EventType]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_GameServerEvents_GameServerId_Timestamp]
+    ON [dbo].[GameServerEvents]([GameServerId] ASC, [Timestamp] DESC)
+    INCLUDE ([EventType]);

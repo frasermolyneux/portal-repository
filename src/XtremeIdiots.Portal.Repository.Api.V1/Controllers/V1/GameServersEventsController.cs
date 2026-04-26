@@ -74,19 +74,24 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         GameServerEventOrder? order,
         CancellationToken cancellationToken)
     {
-        var countQuery = context.GameServerEvents.AsNoTracking().AsQueryable();
-        var totalCount = await countQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+        var baseQuery = context.GameServerEvents.AsNoTracking();
 
-        var filteredCountQuery = ApplyFilter(countQuery, gameType, gameServerId, eventType);
-        var filteredCount = await filteredCountQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+        var hasFilter = gameType.HasValue || gameServerId.HasValue || !string.IsNullOrWhiteSpace(eventType);
 
-        var dataQuery = context.GameServerEvents
-            .Include(gse => gse.GameServer)
-            .AsNoTracking()
-            .AsQueryable();
+        var filteredQuery = ApplyFilter(baseQuery, gameType, gameServerId, eventType);
+        var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
-        var filteredDataQuery = ApplyFilter(dataQuery, gameType, gameServerId, eventType);
-        var orderedQuery = ApplyOrderAndLimits(filteredDataQuery, skipEntries, takeEntries, order);
+        // When no filter is applied the filtered count equals the total count, so avoid a
+        // second full-table COUNT(*) (which is expensive on large GameServerEvents tables).
+        var totalCount = hasFilter
+            ? await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false)
+            : filteredCount;
+
+        var dataQuery = ApplyFilter(
+            context.GameServerEvents.Include(gse => gse.GameServer).AsNoTracking(),
+            gameType, gameServerId, eventType);
+
+        var orderedQuery = ApplyOrderAndLimits(dataQuery, skipEntries, takeEntries, order);
         var results = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var entries = results.Select(gse => gse.ToDto()).ToList();
