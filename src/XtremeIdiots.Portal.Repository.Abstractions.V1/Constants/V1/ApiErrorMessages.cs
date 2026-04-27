@@ -25,7 +25,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // Validation Error Messages
         public const string TagIdRequiredMessage = "TagId is required";
         public const string PlayerIdMismatchMessage = "PlayerId in the URL must match PlayerId in the request body";
-        public const string BanFileMonitorIdMismatchMessage = "BanFileMonitorId in the URL must match BanFileMonitorId in the request body";
         public const string UserProfileIdMismatchMessage = "UserProfileId in the URL must match UserProfileId in the request body";
         public const string InvalidCutoffDateMessage = "Cutoff date was not provided or was invalid";
 

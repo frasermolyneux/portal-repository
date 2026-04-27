@@ -2,7 +2,6 @@ CREATE TABLE [dbo].[BanFileMonitors]
 (
     [BanFileMonitorId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [GameServerId] UNIQUEIDENTIFIER NOT NULL,
-    [FilePath] NVARCHAR (MAX) NOT NULL,
     [RemoteFileSize] BIGINT NULL,
     [LastSync] DATETIME NULL,
     [LastCheckUtc] DATETIME2 (3) NULL,

@@ -149,7 +149,7 @@ public class RepositoryDtoFactoryTests
         var monitor = RepositoryDtoFactory.CreateBanFileMonitor();
 
         Assert.NotEqual(Guid.Empty, monitor.BanFileMonitorId);
-        Assert.Equal("/path/to/banfile.txt", monitor.FilePath);
+        Assert.Equal("/path/to/banfile.txt", monitor.RemoteFilePath);
     }
 
     [Fact]

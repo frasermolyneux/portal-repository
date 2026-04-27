@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 
-
-
 using MX.Api.Abstractions;
 using MX.Api.Client;
 using MX.Api.Client.Auth;
@@ -17,7 +15,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class BanFileMonitorsApi : BaseApi<RepositoryApiClientOptions>, IBanFileMonitorsApi
     {
-        public BanFileMonitorsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
+        public BanFileMonitorsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options)
+            : base(logger, apiTokenProvider, restClientService, options)
         {
         }
 
@@ -63,39 +62,5 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
             return response.ToApiResult<BanFileMonitorDto>();
         }
-
-        [Obsolete("Ban file monitors are no longer manually created. Use UpsertBanFileMonitorStatus instead.")]
-        public async Task<ApiResult> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default)
-        {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors", Method.Post).ConfigureAwait(false);
-            request.AddJsonBody(createBanFileMonitorDto);
-
-            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-            return response.ToApiResult();
-        }
-
-        [Obsolete("Use UpsertBanFileMonitorStatus instead. Manual FilePath edits are no longer supported.")]
-        public async Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default)
-        {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors/{editBanFileMonitorDto.BanFileMonitorId}", Method.Patch).ConfigureAwait(false);
-            request.AddJsonBody(editBanFileMonitorDto);
-
-            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-            return response.ToApiResult();
-        }
-
-        [Obsolete("Ban file monitors follow the lifecycle of GameServer.BanFileSyncEnabled and should not be manually deleted.")]
-        public async Task<ApiResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
-        {
-            var request = await CreateRequestAsync($"v1/ban-file-monitors/{banFileMonitorId}", Method.Delete).ConfigureAwait(false);
-            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-            return response.ToApiResult();
-        }
     }
 }
-
-
-

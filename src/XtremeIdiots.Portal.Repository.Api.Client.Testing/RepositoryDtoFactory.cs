@@ -148,17 +148,17 @@ public static class RepositoryDtoFactory
     public static BanFileMonitorDto CreateBanFileMonitor(
         Guid? banFileMonitorId = null,
         Guid? gameServerId = null,
-        string filePath = "/path/to/banfile.txt",
+        string remoteFilePath = "/path/to/banfile.txt",
         long? remoteFileSize = null,
-        DateTime? lastSync = null)
+        DateTime? lastCheckUtc = null)
     {
         return new BanFileMonitorDto
         {
             BanFileMonitorId = banFileMonitorId ?? Guid.NewGuid(),
             GameServerId = gameServerId ?? Guid.NewGuid(),
-            FilePath = filePath,
+            RemoteFilePath = remoteFilePath,
             RemoteFileSize = remoteFileSize,
-            LastSync = lastSync
+            LastCheckUtc = lastCheckUtc
         };
     }
 

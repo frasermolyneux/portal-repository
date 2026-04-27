@@ -4,16 +4,16 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors;
 namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 {
     /// <summary>
-    /// Mapping extensions for BanFileMonitor entities and DTOs.
+    /// Mapping extensions for BanFileMonitor entities and DTOs. Monitors are
+    /// owned by the server agent; only status upserts are supported now.
     /// </summary>
     public static class BanFileMonitorsMappingExtensions
     {
         /// <summary>
         /// Maps a BanFileMonitor entity to a BanFileMonitorDto.
-        /// NOTE: GameServer navigation property will be null to avoid circular dependencies.
+        /// NOTE: GameServer navigation property will be null when expand=false to avoid
+        /// circular dependencies.
         /// </summary>
-        /// <param name="entity">The BanFileMonitor entity to map from.</param>
-        /// <returns>The mapped BanFileMonitorDto.</returns>
         public static BanFileMonitorDto ToDto(this BanFileMonitor entity, bool expand = true)
         {
             ArgumentNullException.ThrowIfNull(entity);
@@ -22,9 +22,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 BanFileMonitorId = entity.BanFileMonitorId,
                 GameServerId = entity.GameServerId,
-                FilePath = entity.FilePath ?? string.Empty,
                 RemoteFileSize = entity.RemoteFileSize,
-                LastSync = entity.LastSync,
                 LastCheckUtc = entity.LastCheckUtc,
                 LastCheckResult = entity.LastCheckResult,
                 LastCheckErrorMessage = entity.LastCheckErrorMessage,
@@ -48,40 +46,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         }
 
         /// <summary>
-        /// Maps a CreateBanFileMonitorDto to a BanFileMonitor entity.
-        /// </summary>
-        /// <param name="dto">The CreateBanFileMonitorDto to map from.</param>
-        /// <returns>The mapped BanFileMonitor entity.</returns>
-        public static BanFileMonitor ToEntity(this CreateBanFileMonitorDto dto)
-        {
-            ArgumentNullException.ThrowIfNull(dto);
-
-            return new BanFileMonitor
-            {
-                GameServerId = dto.GameServerId,
-                FilePath = dto.FilePath,
-                RemoteFileSize = null,
-                LastSync = null
-            };
-        }
-
-        /// <summary>
-        /// Applies the values from an EditBanFileMonitorDto to an existing BanFileMonitor entity,
-        /// preserving null-handling behavior (only updates non-null values).
-        /// </summary>
-        /// <param name="dto">The EditBanFileMonitorDto containing the updates.</param>
-        /// <param name="entity">The existing BanFileMonitor entity to update.</param>
-        public static void ApplyTo(this EditBanFileMonitorDto dto, BanFileMonitor entity)
-        {
-            ArgumentNullException.ThrowIfNull(dto);
-            ArgumentNullException.ThrowIfNull(entity);
-
-            if (dto.FilePath is not null) entity.FilePath = dto.FilePath;
-            if (dto.RemoteFileSize.HasValue) entity.RemoteFileSize = dto.RemoteFileSize.Value;
-            if (dto.LastSync.HasValue) entity.LastSync = dto.LastSync.Value;
-        }
-
-        /// <summary>
         /// Applies the values from an UpsertBanFileMonitorStatusDto to an existing
         /// BanFileMonitor entity. Only non-null properties on the DTO are applied so a
         /// partial cycle (check-only, no push) does not blank out unrelated fields.
@@ -94,21 +58,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.LastCheckUtc.HasValue) entity.LastCheckUtc = dto.LastCheckUtc.Value;
             if (dto.LastCheckResult is not null) entity.LastCheckResult = dto.LastCheckResult;
             if (dto.LastCheckErrorMessage is not null) entity.LastCheckErrorMessage = dto.LastCheckErrorMessage;
-            if (dto.RemoteFilePath is not null)
-            {
-                entity.RemoteFilePath = dto.RemoteFilePath;
-                // Mirror into legacy FilePath so consumers that still read it (during rollout)
-                // see the latest resolved path.
-                entity.FilePath = dto.RemoteFilePath;
-            }
+            if (dto.RemoteFilePath is not null) entity.RemoteFilePath = dto.RemoteFilePath;
             if (dto.ResolvedForMod is not null) entity.ResolvedForMod = dto.ResolvedForMod;
-            if (dto.RemoteFileSize.HasValue)
-            {
-                entity.RemoteFileSize = dto.RemoteFileSize.Value;
-                // Mirror LastSync so legacy consumers and the existing StatusBanFile page
-                // continue to see "last sync" updates during rollout.
-                if (dto.LastCheckUtc.HasValue) entity.LastSync = dto.LastCheckUtc.Value;
-            }
+            if (dto.RemoteFileSize.HasValue) entity.RemoteFileSize = dto.RemoteFileSize.Value;
 
             if (dto.LastImportUtc.HasValue) entity.LastImportUtc = dto.LastImportUtc.Value;
             if (dto.LastImportBanCount.HasValue) entity.LastImportBanCount = dto.LastImportBanCount.Value;
@@ -130,3 +82,4 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         }
     }
 }
+

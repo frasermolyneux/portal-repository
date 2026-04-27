@@ -75,10 +75,4 @@ public class FakeBanFileMonitorsApi : IBanFileMonitorsApi
             created ? HttpStatusCode.Created : HttpStatusCode.OK,
             new ApiResponse<BanFileMonitorDto>(updated)));
     }
-
-#pragma warning disable CS0618
-    public Task<ApiResult> CreateBanFileMonitor(CreateBanFileMonitorDto createBanFileMonitorDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-    public Task<ApiResult> UpdateBanFileMonitor(EditBanFileMonitorDto editBanFileMonitorDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-    public Task<ApiResult> DeleteBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-#pragma warning restore CS0618
 }

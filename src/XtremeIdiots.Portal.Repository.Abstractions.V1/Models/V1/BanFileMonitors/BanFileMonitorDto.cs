@@ -19,21 +19,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         [JsonProperty]
         public Guid GameServerId { get; internal set; }
 
-        // === Legacy fields, retained for backwards compatibility during rollout ===
-
-        /// <summary>
-        /// Legacy manually-configured ban file path. Replaced by
-        /// <see cref="RemoteFilePath"/> resolved by the agent each cycle.
-        /// </summary>
-        [JsonProperty]
-#pragma warning disable CS8618
-        public string FilePath { get; internal set; }
-#pragma warning restore CS8618
-
-        /// <summary>Legacy. Use <see cref="LastCheckUtc"/>.</summary>
-        [JsonProperty]
-        public DateTime? LastSync { get; internal set; }
-
         // === Status snapshot (written by the agent on every check) ===
 
         /// <summary>UTC timestamp of the most recent check attempt (success or failure).</summary>

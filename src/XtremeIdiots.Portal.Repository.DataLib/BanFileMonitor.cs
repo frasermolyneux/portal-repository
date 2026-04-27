@@ -17,8 +17,6 @@ public partial class BanFileMonitor
 
     public Guid GameServerId { get; set; }
 
-    public string FilePath { get; set; } = null!;
-
     public long? RemoteFileSize { get; set; }
 
     [Column(TypeName = "datetime")]
