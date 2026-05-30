@@ -1060,7 +1060,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// </summary>
     /// <param name="skipEntries">Number of entries to skip for pagination.</param>
     /// <param name="takeEntries">Number of entries to take for pagination.</param>
-    /// <param name="gameType">Optional game type to filter protected names by owning player's game type.</param>
+    /// <param name="gameType">Optional game type to filter protected names to only those owned by players of the specified game type.</param>
     /// <returns>An API result containing a paginated collection of protected names.</returns>
     async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType)
     {
@@ -1078,7 +1078,9 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                     (pn, _) => pn);
         }
 
-        query = query.Include(pn => pn.CreatedByUserProfile);
+        query = query
+            .Include(pn => pn.Player)
+            .Include(pn => pn.CreatedByUserProfile);
 
         var totalCount = await query.CountAsync().ConfigureAwait(false);
 
