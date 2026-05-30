@@ -34,7 +34,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         IMemoryCache memoryCache)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
@@ -98,6 +98,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
             player.ProtectedNames = await context.ProtectedNames
                 .AsNoTracking()
+                .Include(pn => pn.Player)
                 .Include(pn => pn.CreatedByUserProfile)
                 .Where(pn => pn.PlayerId == player.PlayerId)
                 .OrderByDescending(pn => pn.CreatedOn)
@@ -306,6 +307,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (playerEntityOptions.HasFlag(PlayerEntityOptions.ProtectedNames))
             player.ProtectedNames = await context.ProtectedNames
                 .AsNoTracking()
+                .Include(pn => pn.Player)
                 .Include(pn => pn.CreatedByUserProfile)
                 .Where(pn => pn.PlayerId == player.PlayerId)
                 .OrderByDescending(pn => pn.CreatedOn)
@@ -2063,4 +2065,3 @@ JOIN PlayerAlias a ON a.PlayerAliasId = ft.[Key]")
 }
 
 #endregion
-
