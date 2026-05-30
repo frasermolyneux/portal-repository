@@ -146,6 +146,22 @@ public class FakePlayersApiTests
     }
 
     [Fact]
+    public async Task GetProtectedNames_OrdersByNameBeforePagination()
+    {
+        var fake = new FakePlayersApi();
+        var player = RepositoryDtoFactory.CreatePlayer(gameType: GameType.CallOfDuty4);
+        fake.AddPlayer(player);
+        fake.AddProtectedName(RepositoryDtoFactory.CreateProtectedName(playerId: player.PlayerId, name: "Zulu"));
+        fake.AddProtectedName(RepositoryDtoFactory.CreateProtectedName(playerId: player.PlayerId, name: "Alpha"));
+
+        var result = await fake.GetProtectedNames(0, 1);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var item = Assert.Single(result.Result!.Data!.Items!);
+        Assert.Equal("Alpha", item.Name);
+    }
+
+    [Fact]
     public void AddPlayer_FluentChaining_Works()
     {
         var fake = new FakePlayersApi();

@@ -1064,12 +1064,15 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result containing a paginated collection of protected names.</returns>
     async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType)
     {
-        IQueryable<ProtectedName> query = context.ProtectedNames.AsNoTracking();
+        IQueryable<ProtectedName> totalCountQuery = context.ProtectedNames.AsNoTracking();
+        var totalCount = await totalCountQuery.CountAsync().ConfigureAwait(false);
+
+        IQueryable<ProtectedName> filteredQuery = totalCountQuery;
 
         if (gameType.HasValue)
         {
             var gameTypeValue = (int)gameType.Value;
-            query = query
+            filteredQuery = filteredQuery
                 .Where(pn => pn.PlayerId.HasValue)
                 .Join(
                     context.Players.AsNoTracking().Where(p => p.GameType == gameTypeValue),
@@ -1078,13 +1081,11 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                     (pn, _) => pn);
         }
 
-        query = query
+        var filteredCount = await filteredQuery.CountAsync().ConfigureAwait(false);
+
+        var paginatedQuery = filteredQuery
             .Include(pn => pn.Player)
-            .Include(pn => pn.CreatedByUserProfile);
-
-        var totalCount = await query.CountAsync().ConfigureAwait(false);
-
-        var paginatedQuery = query
+            .Include(pn => pn.CreatedByUserProfile)
             .OrderBy(pn => pn.Name)
             .Skip(skipEntries)
             .Take(takeEntries);
@@ -1097,7 +1098,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         return new ApiResponse<CollectionModel<ProtectedNameDto>>(data)
         {
-            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
         }.ToApiResult();
     }
 
@@ -1232,11 +1233,11 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                 && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()
                 && pn.PlayerId.HasValue)
             .Join(
-                context.Players.AsNoTracking(),
+                context.Players.AsNoTracking().Where(p => p.GameType == playerGameType.Value),
                 pn => pn.PlayerId!.Value,
                 p => p.PlayerId,
-                (_, p) => p.GameType)
-            .AnyAsync(gt => gt == playerGameType.Value)
+                (pn, _) => pn)
+            .AnyAsync()
             .ConfigureAwait(false);
 
         if (nameExistsInGameType)

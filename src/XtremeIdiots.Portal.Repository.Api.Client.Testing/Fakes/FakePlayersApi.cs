@@ -138,7 +138,11 @@ public class FakePlayersApi : IPlayersApi
         if (gameType.HasValue)
             items = items.Where(pn => _players.TryGetValue(pn.PlayerId, out var player) && player.GameType == gameType.Value);
 
-        var paginatedItems = items.Skip(skipEntries).Take(takeEntries).ToList();
+        var paginatedItems = items
+            .OrderBy(pn => pn.Name)
+            .Skip(skipEntries)
+            .Take(takeEntries)
+            .ToList();
         var collection = new CollectionModel<ProtectedNameDto> { Items = paginatedItems };
         return Task.FromResult(new ApiResult<CollectionModel<ProtectedNameDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<ProtectedNameDto>>(collection)));
     }

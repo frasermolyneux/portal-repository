@@ -953,6 +953,9 @@ public class PlayersControllerTests
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var item = Assert.Single(result.Result!.Data!.Items!);
         Assert.Equal(cod4PlayerId, item.PlayerId);
+        Assert.NotNull(result.Result.Pagination);
+        Assert.Equal(2, result.Result.Pagination!.TotalCount);
+        Assert.Equal(1, result.Result.Pagination.FilteredCount);
     }
 
     #endregion
