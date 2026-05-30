@@ -1217,6 +1217,8 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         {
             ProtectedNameId = Guid.NewGuid(),
             PlayerId = createProtectedNameDto.PlayerId,
+            // Game type is copied from the owning player so that protection is scoped per game:
+            // a name protected in CoD4 does not block the same name in CoD5, CoD4x, etc.
             GameType = player.GameType,
             Name = createProtectedNameDto.Name,
             CreatedOn = DateTime.UtcNow
