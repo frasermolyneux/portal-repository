@@ -1,4 +1,5 @@
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
@@ -168,7 +169,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 ProtectedNameId = entity.ProtectedNameId,
                 PlayerId = entity.PlayerId ?? Guid.Empty,
-                GameType = entity.GameType.ToGameType(),
+                GameType = entity.Player?.GameType.ToGameType() ?? GameType.Unknown,
                 Name = entity.Name ?? string.Empty,
                 CreatedOn = entity.CreatedOn,
                 CreatedByUserProfileId = entity.CreatedByUserProfileId ?? Guid.Empty,

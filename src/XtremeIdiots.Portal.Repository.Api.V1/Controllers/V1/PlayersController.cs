@@ -34,7 +34,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         IMemoryCache memoryCache)
     {
         ArgumentNullException.ThrowIfNull(context);
-        this.context = context;
+            this.context = context;
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
@@ -1068,7 +1068,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         var baseQuery = context.ProtectedNames.AsNoTracking();
 
         if (gameType.HasValue)
-            baseQuery = baseQuery.Where(pn => pn.GameType == (int)gameType.Value);
+            baseQuery = baseQuery.Where(pn => pn.Player != null && pn.Player.GameType == (int)gameType.Value);
 
         var totalCount = await baseQuery.CountAsync().ConfigureAwait(false);
 
@@ -1204,22 +1204,27 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result indicating success or failure of the operation.</returns>
     async Task<ApiResult> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
     {
-        // Check if player exists and retrieve their game type for scoping
-        var player = await context.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == createProtectedNameDto.PlayerId).ConfigureAwait(false);
+        var player = await context.Players
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.PlayerId == createProtectedNameDto.PlayerId)
+            .ConfigureAwait(false);
+
         if (player == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
-        // Check if the name is already protected within the same game type
-        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.GameType == player.GameType && pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()).ConfigureAwait(false))
+        if (await context.ProtectedNames
+            .AsNoTracking()
+            .AnyAsync(pn => pn.Name != null
+                && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()
+                && pn.Player != null
+                && pn.Player.GameType == player.GameType)
+            .ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)));
 
         var protectedName = new ProtectedName
         {
             ProtectedNameId = Guid.NewGuid(),
             PlayerId = createProtectedNameDto.PlayerId,
-            // Game type is copied from the owning player so that protection is scoped per game:
-            // a name protected in CoD4 does not block the same name in CoD5, CoD4x, etc.
-            GameType = player.GameType,
             Name = createProtectedNameDto.Name,
             CreatedOn = DateTime.UtcNow
         };
@@ -2058,5 +2063,4 @@ JOIN PlayerAlias a ON a.PlayerAliasId = ft.[Key]")
 }
 
 #endregion
-
 
