@@ -128,6 +128,24 @@ public class FakePlayersApiTests
     }
 
     [Fact]
+    public async Task GetProtectedNames_FiltersByGameType()
+    {
+        var fake = new FakePlayersApi();
+        var cod4Player = RepositoryDtoFactory.CreatePlayer(gameType: GameType.CallOfDuty4);
+        var cod5Player = RepositoryDtoFactory.CreatePlayer(gameType: GameType.CallOfDuty5);
+        fake.AddPlayer(cod4Player).AddPlayer(cod5Player);
+        fake.AddProtectedName(RepositoryDtoFactory.CreateProtectedName(playerId: cod4Player.PlayerId, name: "Totty"));
+        fake.AddProtectedName(RepositoryDtoFactory.CreateProtectedName(playerId: cod5Player.PlayerId, name: "Totty"));
+
+        var result = await fake.GetProtectedNames(0, 20, GameType.CallOfDuty4);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Single(items);
+        Assert.Equal(cod4Player.PlayerId, items[0].PlayerId);
+    }
+
+    [Fact]
     public void AddPlayer_FluentChaining_Works()
     {
         var fake = new FakePlayersApi();

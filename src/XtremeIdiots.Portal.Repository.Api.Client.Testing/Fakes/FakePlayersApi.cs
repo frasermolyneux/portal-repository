@@ -132,10 +132,14 @@ public class FakePlayersApi : IPlayersApi
         return Task.FromResult(new ApiResult<CollectionModel<PlayerAliasDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PlayerAliasDto>>(collection)));
     }
 
-    public Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries)
+    public Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType = null)
     {
-        var items = _protectedNames.Values.Skip(skipEntries).Take(takeEntries).ToList();
-        var collection = new CollectionModel<ProtectedNameDto> { Items = items };
+        var items = _protectedNames.Values.AsEnumerable();
+        if (gameType.HasValue)
+            items = items.Where(pn => _players.TryGetValue(pn.PlayerId, out var player) && player.GameType == gameType.Value);
+
+        var paginatedItems = items.Skip(skipEntries).Take(takeEntries).ToList();
+        var collection = new CollectionModel<ProtectedNameDto> { Items = paginatedItems };
         return Task.FromResult(new ApiResult<CollectionModel<ProtectedNameDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<ProtectedNameDto>>(collection)));
     }
 
