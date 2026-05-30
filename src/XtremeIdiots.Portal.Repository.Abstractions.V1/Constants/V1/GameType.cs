@@ -35,6 +35,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         [Display(Name = "Unreal Tournament")] UnrealTournament2004 = 20,
         [Display(Name = "ARMA")] Arma = 21,
         [Display(Name = "ARMA 2")] Arma2 = 22,
-        [Display(Name = "ARMA 3")] Arma3 = 23
+        [Display(Name = "ARMA 3")] Arma3 = 23,
+        [Display(Name = "Call of Duty 4x")] CallOfDuty4x = 24
     }
 }
