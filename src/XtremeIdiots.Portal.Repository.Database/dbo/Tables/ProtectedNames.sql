@@ -2,6 +2,7 @@
 (
 	[ProtectedNameId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [PlayerId] UNIQUEIDENTIFIER NULL,
+    [GameType] INT NOT NULL DEFAULT 0,
     [Name] NVARCHAR (60) NULL,
     [CreatedOn] DATETIME NOT NULL,
     [CreatedByUserProfileId] UNIQUEIDENTIFIER NULL,
@@ -21,3 +22,7 @@ CREATE NONCLUSTERED INDEX [IX_PlayerId]
 GO
 CREATE NONCLUSTERED INDEX [IX_CreatedByUserProfileId]
     ON [dbo].[ProtectedNames]([CreatedByUserProfileId] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_GameType]
+    ON [dbo].[ProtectedNames]([GameType] ASC);

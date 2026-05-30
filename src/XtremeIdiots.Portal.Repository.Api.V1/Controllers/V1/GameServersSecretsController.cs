@@ -38,9 +38,9 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     public GameServersSecretsController(PortalDbContext context, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
         ArgumentNullException.ThrowIfNull(configuration);
-            this.configuration = configuration;
+        this.configuration = configuration;
     }
 
     /// <summary>

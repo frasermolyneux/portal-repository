@@ -43,7 +43,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult<CollectionModel<PlayerAliasDto>>> SearchPlayersByAlias(string aliasSearch, int skipEntries, int takeEntries);
 
         // Protected Names methods
-        Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries);
+        Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType = null);
         Task<ApiResult<ProtectedNameDto>> GetProtectedName(Guid protectedNameId);
         Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNamesForPlayer(Guid playerId);
         Task<ApiResult> CreateProtectedName(CreateProtectedNameDto createProtectedNameDto);

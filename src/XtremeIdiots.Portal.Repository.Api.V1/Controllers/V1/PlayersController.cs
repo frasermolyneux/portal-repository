@@ -34,7 +34,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         IMemoryCache memoryCache)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
@@ -1037,6 +1037,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// </summary>
     /// <param name="skipEntries">Number of entries to skip for pagination.</param>
     /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="gameType">Optional game type filter.</param>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A paginated collection of protected names.</returns>
     [HttpGet("players/protected-names")]
@@ -1044,12 +1045,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     public async Task<IActionResult> GetProtectedNames(
         [FromQuery] int? skipEntries,
         [FromQuery] int? takeEntries,
+        [FromQuery] GameType? gameType,
         CancellationToken cancellationToken = default)
     {
         var skipValue = skipEntries ?? 0;
         var takeValue = takeEntries ?? 20;
 
-        var response = await ((IPlayersApi)this).GetProtectedNames(skipValue, takeValue).ConfigureAwait(false);
+        var response = await ((IPlayersApi)this).GetProtectedNames(skipValue, takeValue, gameType).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1059,13 +1061,18 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// </summary>
     /// <param name="skipEntries">Number of entries to skip for pagination.</param>
     /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="gameType">Optional game type filter.</param>
     /// <returns>An API result containing a paginated collection of protected names.</returns>
-    async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
+    async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType)
     {
-        var totalCount = await context.ProtectedNames.AsNoTracking().CountAsync().ConfigureAwait(false);
+        var baseQuery = context.ProtectedNames.AsNoTracking();
 
-        var query = context.ProtectedNames
-            .AsNoTracking()
+        if (gameType.HasValue)
+            baseQuery = baseQuery.Where(pn => pn.GameType == (int)gameType.Value);
+
+        var totalCount = await baseQuery.CountAsync().ConfigureAwait(false);
+
+        var query = baseQuery
             .Include(pn => pn.Player)
             .Include(pn => pn.CreatedByUserProfile)
             .OrderBy(pn => pn.Name)
@@ -1197,18 +1204,20 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result indicating success or failure of the operation.</returns>
     async Task<ApiResult> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
     {
-        // Check if player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId).ConfigureAwait(false))
+        // Check if player exists and retrieve their game type for scoping
+        var player = await context.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == createProtectedNameDto.PlayerId).ConfigureAwait(false);
+        if (player == null)
             return new ApiResult(HttpStatusCode.NotFound);
 
-        // Check if the name is already protected
-        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()).ConfigureAwait(false))
+        // Check if the name is already protected within the same game type
+        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.GameType == player.GameType && pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)));
 
         var protectedName = new ProtectedName
         {
             ProtectedNameId = Guid.NewGuid(),
             PlayerId = createProtectedNameDto.PlayerId,
+            GameType = player.GameType,
             Name = createProtectedNameDto.Name,
             CreatedOn = DateTime.UtcNow
         };

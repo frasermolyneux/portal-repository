@@ -80,6 +80,7 @@ public partial class PortalDbContext : DbContext
             entity.HasKey(e => e.AdminActionId).HasName("PK_dbo.AdminActions");
 
             entity.Property(e => e.AdminActionId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.ForumTopicId).HasDefaultValueSql("NULL");
 
             entity.HasOne(d => d.Player).WithMany(p => p.AdminActions)
                 .OnDelete(DeleteBehavior.ClientSetNull)

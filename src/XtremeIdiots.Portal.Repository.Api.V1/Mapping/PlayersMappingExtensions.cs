@@ -168,6 +168,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 ProtectedNameId = entity.ProtectedNameId,
                 PlayerId = entity.PlayerId ?? Guid.Empty,
+                GameType = entity.GameType.ToGameType(),
                 Name = entity.Name ?? string.Empty,
                 CreatedOn = entity.CreatedOn,
                 CreatedByUserProfileId = entity.CreatedByUserProfileId ?? Guid.Empty,

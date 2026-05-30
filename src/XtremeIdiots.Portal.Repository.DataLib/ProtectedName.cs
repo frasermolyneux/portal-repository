@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("CreatedByUserProfileId", Name = "IX_CreatedByUserProfileId")]
+[Index("GameType", Name = "IX_GameType")]
 [Index("PlayerId", Name = "IX_PlayerId")]
 [Index("ProtectedNameId", Name = "IX_ProtectedNameId", IsUnique = true)]
 public partial class ProtectedName
@@ -17,6 +18,8 @@ public partial class ProtectedName
     public Guid ProtectedNameId { get; set; }
 
     public Guid? PlayerId { get; set; }
+
+    public int GameType { get; set; }
 
     [StringLength(60)]
     public string? Name { get; set; }

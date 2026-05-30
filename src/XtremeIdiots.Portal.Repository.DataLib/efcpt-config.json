@@ -10,6 +10,7 @@
     "t4-template-path": null,
     "type": "all",
     "use-alternate-stored-procedure-resultset-discovery": false,
+    "use-stored-procedure-resultset-fallback": true,
     "use-data-annotations": true,
     "use-database-names": false,
     "use-database-names-for-routines": true,

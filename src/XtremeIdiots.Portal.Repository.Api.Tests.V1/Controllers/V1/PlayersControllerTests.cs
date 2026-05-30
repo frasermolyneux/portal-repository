@@ -749,13 +749,21 @@ public class PlayersControllerTests
 
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "MainPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         context.Players.Add(new Player
         {
-            PlayerId = relatedPlayerId, GameType = (int)GameType.CallOfDuty4, Username = "BannedRelated",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-5), LastSeen = DateTime.UtcNow
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "BannedRelated",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
         });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = relatedPlayerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
@@ -781,13 +789,21 @@ public class PlayersControllerTests
 
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "MainPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         context.Players.Add(new Player
         {
-            PlayerId = relatedPlayerId, GameType = (int)GameType.CallOfDuty4, Username = "ExpiredBanPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-5), LastSeen = DateTime.UtcNow
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ExpiredBanPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
         });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = relatedPlayerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
@@ -812,8 +828,12 @@ public class PlayersControllerTests
 
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "MainPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         // Viewed player's IP history
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
@@ -823,8 +843,12 @@ public class PlayersControllerTests
             var rpId = Guid.NewGuid();
             context.Players.Add(new Player
             {
-                PlayerId = rpId, GameType = (int)GameType.CallOfDuty4, Username = $"Related{i}",
-                IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-5), LastSeen = DateTime.UtcNow
+                PlayerId = rpId,
+                GameType = (int)GameType.CallOfDuty4,
+                Username = $"Related{i}",
+                IpAddress = "10.0.0.1",
+                FirstSeen = DateTime.UtcNow.AddDays(-5),
+                LastSeen = DateTime.UtcNow
             });
             context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = rpId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
         }
@@ -847,8 +871,12 @@ public class PlayersControllerTests
         var playerId = Guid.NewGuid();
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "NoHistory",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "NoHistory",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         // No PlayerIpAddresses entries for this player
         await context.SaveChangesAsync();
@@ -888,6 +916,243 @@ public class PlayersControllerTests
         Assert.Equal(2, related.Count);
         Assert.Equal(bannedPlayerId, related[0].PlayerId);
         Assert.Equal(cleanPlayerId, related[1].PlayerId);
+    }
+
+    #endregion
+
+    #region Protected Names
+
+    [Fact]
+    public async Task CreateProtectedName_SetsGameTypeFromPlayer()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var dto = new CreateProtectedNameDto(playerId, "Totty", "adminUser");
+        var result = await api.CreateProtectedName(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var stored = context.ProtectedNames.Single(pn => pn.PlayerId == playerId);
+        Assert.Equal((int)GameType.CallOfDuty4, stored.GameType);
+    }
+
+    [Fact]
+    public async Task CreateProtectedName_SameName_DifferentGameType_Succeeds()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var cod4PlayerId = Guid.NewGuid();
+        var cod5PlayerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4PlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = cod5PlayerId,
+            GameType = (int)GameType.CallOfDuty5,
+            Username = "Player2",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        // Protect "Totty" in CoD4
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod4PlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        // Creating "Totty" for CoD5 player should succeed (different game type)
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var dto = new CreateProtectedNameDto(cod5PlayerId, "Totty", "adminUser");
+        var result = await api.CreateProtectedName(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateProtectedName_SameName_SameGameType_ReturnsConflict()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId1 = Guid.NewGuid();
+        var playerId2 = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId1,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId2,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player2",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = playerId1,
+            GameType = (int)GameType.CallOfDuty4,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        // Creating "Totty" for another CoD4 player should conflict
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var dto = new CreateProtectedNameDto(playerId2, "Totty", "adminUser");
+        var result = await api.CreateProtectedName(dto);
+
+        Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProtectedNames_FilterByGameType_ReturnsOnlyMatchingGameType()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var cod4PlayerId = Guid.NewGuid();
+        var cod5PlayerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4PlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = cod5PlayerId,
+            GameType = (int)GameType.CallOfDuty5,
+            Username = "Player2",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod4PlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Name = "Alpha",
+            CreatedOn = DateTime.UtcNow
+        });
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod5PlayerId,
+            GameType = (int)GameType.CallOfDuty5,
+            Name = "Beta",
+            CreatedOn = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var cod4Result = await api.GetProtectedNames(0, 20, GameType.CallOfDuty4);
+        Assert.Equal(HttpStatusCode.OK, cod4Result.StatusCode);
+        Assert.Single(cod4Result.Result!.Data!.Items!);
+        Assert.Equal("Alpha", cod4Result.Result.Data.Items!.First().Name);
+
+        var cod5Result = await api.GetProtectedNames(0, 20, GameType.CallOfDuty5);
+        Assert.Equal(HttpStatusCode.OK, cod5Result.StatusCode);
+        Assert.Single(cod5Result.Result!.Data!.Items!);
+        Assert.Equal("Beta", cod5Result.Result.Data.Items!.First().Name);
+    }
+
+    [Fact]
+    public async Task GetProtectedNames_NoGameTypeFilter_ReturnsAll()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Name = "Alpha",
+            CreatedOn = DateTime.UtcNow
+        });
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty5,
+            Name = "Beta",
+            CreatedOn = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetProtectedNames(0, 20);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(2, result.Result!.Data!.Items!.Count());
+    }
+
+    [Fact]
+    public async Task ProtectedNameDto_IncludesGameType()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TestPlayer",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+        var protectedNameId = Guid.NewGuid();
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = protectedNameId,
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Name = "TestName",
+            CreatedOn = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+        var result = await api.GetProtectedName(protectedNameId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(GameType.CallOfDuty4, result.Result!.Data!.GameType);
     }
 
     #endregion

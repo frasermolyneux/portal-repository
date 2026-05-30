@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
@@ -22,6 +23,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
 
         [JsonProperty]
         public Guid PlayerId { get; set; }
+
+        /// <summary>
+        /// The game type that this protected name is scoped to
+        /// </summary>
+        [JsonProperty]
+        public GameType GameType { get; set; }
 
         /// <summary>
         /// The protected name string
@@ -52,7 +59,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
                 var telemetryProperties = new Dictionary<string, string>
                 {
                     { nameof(ProtectedNameId), ProtectedNameId.ToString() },
-                    { nameof(PlayerId), PlayerId.ToString() }
+                    { nameof(PlayerId), PlayerId.ToString() },
+                    { nameof(GameType), GameType.ToString() }
                 };
 
                 if (CreatedByUserProfile is not null)

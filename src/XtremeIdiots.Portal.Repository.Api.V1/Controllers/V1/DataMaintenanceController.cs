@@ -40,7 +40,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     public DataMaintenanceController(PortalDbContext context, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
         this.configuration = configuration;
     }
 

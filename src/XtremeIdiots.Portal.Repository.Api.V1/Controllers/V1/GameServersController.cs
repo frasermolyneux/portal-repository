@@ -33,7 +33,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         PortalDbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
     }
 
     /// <summary>
