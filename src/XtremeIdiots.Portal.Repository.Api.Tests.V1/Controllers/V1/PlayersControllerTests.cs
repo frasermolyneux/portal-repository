@@ -581,6 +581,133 @@ public class PlayersControllerTests
 
     #endregion
 
+    #region ProtectedName Scope Tests
+
+    [Fact]
+    public async Task CreateProtectedName_WhenSameNameExistsInSameGame_ReturnsConflict()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var existingOwnerId = Guid.NewGuid();
+        var targetPlayerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = existingOwnerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ExistingOwner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = targetPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TargetPlayer",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = existingOwnerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.CreateProtectedName(new CreateProtectedNameDto(targetPlayerId, "Totty", "admin"));
+
+        Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateProtectedName_WhenSameNameExistsInDifferentGame_ReturnsCreated()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var existingOwnerId = Guid.NewGuid();
+        var targetPlayerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = existingOwnerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ExistingOwner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = targetPlayerId,
+            GameType = (int)GameType.CallOfDuty4x,
+            Username = "TargetPlayer",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = existingOwnerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.CreateProtectedName(new CreateProtectedNameDto(targetPlayerId, "Totty", "admin"));
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.Equal(2, context.ProtectedNames.Count(pn => pn.Name == "Totty"));
+    }
+
+    [Fact]
+    public async Task CreateProtectedName_WhenTargetPlayerDoesNotExist_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var existingOwnerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = existingOwnerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ExistingOwner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = existingOwnerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.CreateProtectedName(new CreateProtectedNameDto(Guid.NewGuid(), "Totty", "admin"));
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    #endregion
+
     #region RelatedPlayers Enrichment Tests
 
     [Fact]

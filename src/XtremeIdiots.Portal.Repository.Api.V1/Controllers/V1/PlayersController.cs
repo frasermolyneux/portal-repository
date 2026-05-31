@@ -1197,12 +1197,25 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <returns>An API result indicating success or failure of the operation.</returns>
     async Task<ApiResult> IPlayersApi.CreateProtectedName(CreateProtectedNameDto createProtectedNameDto)
     {
+        var targetPlayerGameType = await context.Players
+            .AsNoTracking()
+            .Where(p => p.PlayerId == createProtectedNameDto.PlayerId)
+            .Select(p => (int?)p.GameType)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+
         // Check if player exists
-        if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == createProtectedNameDto.PlayerId).ConfigureAwait(false))
+        if (targetPlayerGameType is null)
             return new ApiResult(HttpStatusCode.NotFound);
 
-        // Check if the name is already protected
-        if (await context.ProtectedNames.AsNoTracking().AnyAsync(pn => pn.Name != null && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()).ConfigureAwait(false))
+        // Check if the name is already protected in the same game type as the target player
+        if (await context.ProtectedNames
+            .AsNoTracking()
+            .AnyAsync(pn => pn.Name != null
+                && pn.Name.ToLower() == createProtectedNameDto.Name.ToLower()
+                && pn.Player != null
+                && pn.Player.GameType == targetPlayerGameType)
+            .ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.Conflict, new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.ProtectedNameConflictMessage)));
 
         var protectedName = new ProtectedName
