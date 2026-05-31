@@ -45,6 +45,15 @@ public partial class UserProfile
     [InverseProperty("UserProfile")]
     public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
 
+    [InverseProperty("LinkedByUserProfile")]
+    public virtual ICollection<ConnectedPlayerProfile> ConnectedPlayerProfileLinkedByUserProfiles { get; set; } = new List<ConnectedPlayerProfile>();
+
+    [InverseProperty("UnlinkedByUserProfile")]
+    public virtual ICollection<ConnectedPlayerProfile> ConnectedPlayerProfileUnlinkedByUserProfiles { get; set; } = new List<ConnectedPlayerProfile>();
+
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<ConnectedPlayerProfile> ConnectedPlayerProfileUserProfiles { get; set; } = new List<ConnectedPlayerProfile>();
+
     [InverseProperty("UserProfile")]
     public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
 

@@ -46,6 +46,12 @@ public partial class Player
     public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<ConnectedPlayerProfile> ConnectedPlayerProfiles { get; set; } = new List<ConnectedPlayerProfile>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<ConnectedPlayerRegistrationToken> ConnectedPlayerRegistrationTokens { get; set; } = new List<ConnectedPlayerRegistrationToken>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
     [InverseProperty("Player")]

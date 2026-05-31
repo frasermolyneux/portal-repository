@@ -32,6 +32,14 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // Toggle Dependency Errors
         public const string ToggleDependencyViolation = "TOGGLE_DEPENDENCY_VIOLATION";
 
+        // Connected Player Errors
+        public const string ConnectedPlayerAlreadyLinked = "CONNECTED_PLAYER_ALREADY_LINKED";
+        public const string ConnectedPlayerNotFound = "CONNECTED_PLAYER_NOT_FOUND";
+        public const string ConnectedPlayerTokenExpired = "CONNECTED_PLAYER_TOKEN_EXPIRED";
+        public const string ConnectedPlayerTokenInvalid = "CONNECTED_PLAYER_TOKEN_INVALID";
+        public const string ConnectedPlayerTokenAttemptsExceeded = "CONNECTED_PLAYER_TOKEN_ATTEMPTS_EXCEEDED";
+        public const string ConnectedPlayerTokenInactive = "CONNECTED_PLAYER_TOKEN_INACTIVE";
+
         // Server Errors
         public const string InternalServerError = "INTERNAL_SERVER_ERROR";
     }

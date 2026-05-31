@@ -27,6 +27,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string PlayerIdMismatchMessage = "PlayerId in the URL must match PlayerId in the request body";
         public const string UserProfileIdMismatchMessage = "UserProfileId in the URL must match UserProfileId in the request body";
         public const string InvalidCutoffDateMessage = "Cutoff date was not provided or was invalid";
+        public const string ConnectedPlayerAlreadyLinkedMessage = "Player already has an active connected profile";
+        public const string ConnectedPlayerNotFoundMessage = "Connected player profile not found";
+        public const string ConnectedPlayerTokenExpiredMessage = "Connected player registration token is expired";
+        public const string ConnectedPlayerTokenInvalidMessage = "Connected player registration token is invalid";
+        public const string ConnectedPlayerTokenAttemptsExceededMessage = "Connected player registration token attempt limit exceeded";
+        public const string ConnectedPlayerTokenInactiveMessage = "Connected player registration token is inactive";
 
         // Entity Not Found Messages (Specific)
         public const string UserProfileNotFoundMessage = "User profile not found";

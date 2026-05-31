@@ -28,6 +28,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddTypedApiClient<IGameServersStatsApi, GameServersStatsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IGameTrackerBannerApi, GameTrackerBannerApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IMapsApi, MapsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IConnectedPlayersApi, ConnectedPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
             serviceCollection.AddTypedApiClient<IPlayerAnalyticsApi, PlayerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IPlayersApi, PlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
@@ -64,6 +65,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedGameServersStatsApi, VersionedGameServersStatsApi>();
             serviceCollection.AddScoped<IVersionedGameTrackerBannerApi, VersionedGameTrackerBannerApi>();
             serviceCollection.AddScoped<IVersionedMapsApi, VersionedMapsApi>();
+            serviceCollection.AddScoped<IVersionedConnectedPlayersApi, VersionedConnectedPlayersApi>();
 
             serviceCollection.AddScoped<IVersionedPlayerAnalyticsApi, VersionedPlayerAnalyticsApi>();
             serviceCollection.AddScoped<IVersionedPlayersApi, VersionedPlayersApi>();

@@ -86,6 +86,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(mock.Object, selector.V1);
         }
 
+        [Fact]
+        public void VersionedConnectedPlayersApi_ExposesV1()
+        {
+            var mock = new Mock<IConnectedPlayersApi>();
+            var selector = new VersionedConnectedPlayersApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
+
 
         [Fact]
         public void VersionedPlayerAnalyticsApi_ExposesV1()

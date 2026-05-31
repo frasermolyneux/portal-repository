@@ -16,6 +16,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedGameServersStatsApi> _gameServersStats = new();
         private readonly Mock<IVersionedGameTrackerBannerApi> _gameTrackerBanner = new();
         private readonly Mock<IVersionedMapsApi> _maps = new();
+        private readonly Mock<IVersionedConnectedPlayersApi> _connectedPlayers = new();
 
         private readonly Mock<IVersionedPlayerAnalyticsApi> _playerAnalytics = new();
         private readonly Mock<IVersionedPlayersApi> _players = new();
@@ -46,6 +47,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _gameServersStats.Object,
             _gameTrackerBanner.Object,
             _maps.Object,
+            _connectedPlayers.Object,
 
             _playerAnalytics.Object,
             _players.Object,
@@ -80,6 +82,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_gameServersStats.Object, client.GameServersStats);
             Assert.Same(_gameTrackerBanner.Object, client.GameTrackerBanner);
             Assert.Same(_maps.Object, client.Maps);
+            Assert.Same(_connectedPlayers.Object, client.ConnectedPlayers);
 
             Assert.Same(_playerAnalytics.Object, client.PlayerAnalytics);
             Assert.Same(_players.Object, client.Players);
@@ -114,6 +117,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.GameServersStats);
             Assert.NotNull(client.GameTrackerBanner);
             Assert.NotNull(client.Maps);
+            Assert.NotNull(client.ConnectedPlayers);
 
             Assert.NotNull(client.PlayerAnalytics);
             Assert.NotNull(client.Players);
@@ -147,6 +151,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedGameServersStatsApi>(client.GameServersStats);
             Assert.IsAssignableFrom<IVersionedGameTrackerBannerApi>(client.GameTrackerBanner);
             Assert.IsAssignableFrom<IVersionedMapsApi>(client.Maps);
+            Assert.IsAssignableFrom<IVersionedConnectedPlayersApi>(client.ConnectedPlayers);
 
             Assert.IsAssignableFrom<IVersionedPlayerAnalyticsApi>(client.PlayerAnalytics);
             Assert.IsAssignableFrom<IVersionedPlayersApi>(client.Players);

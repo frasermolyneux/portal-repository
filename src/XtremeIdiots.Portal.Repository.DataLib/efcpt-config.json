@@ -124,6 +124,12 @@
     },
     {
       "name": "[dbo].[MapFlags]"
+    },
+    {
+      "name": "[dbo].[ConnectedPlayerProfiles]"
+    },
+    {
+      "name": "[dbo].[ConnectedPlayerRegistrationTokens]"
     }
   ]
 }

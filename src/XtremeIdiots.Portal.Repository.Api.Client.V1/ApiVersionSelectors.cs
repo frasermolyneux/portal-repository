@@ -58,6 +58,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IMapsApi V1 { get; }
     }
 
+    public interface IVersionedConnectedPlayersApi
+    {
+        IConnectedPlayersApi V1 { get; }
+    }
+
 
     public interface IVersionedPlayerAnalyticsApi
     {

@@ -1,6 +1,7 @@
 using XtremeIdiots.Portal.Repository.Api.Client.Testing;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 
@@ -22,6 +23,7 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.GameServersStats);
         Assert.NotNull(client.GameTrackerBanner);
         Assert.NotNull(client.Maps);
+        Assert.NotNull(client.ConnectedPlayers);
 
         Assert.NotNull(client.PlayerAnalytics);
         Assert.NotNull(client.Players);
@@ -31,6 +33,7 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.Tags);
         Assert.NotNull(client.ApiHealth);
         Assert.NotNull(client.ApiInfo);
+        Assert.NotNull(client.ConnectedPlayers);
     }
 
     [Fact]
@@ -100,5 +103,25 @@ public class FakeRepositoryApiClientTests
 
         Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
         Assert.Equal("HierarchyTest", result.Result!.Data!.Username);
+    }
+
+    [Fact]
+    public async Task ConnectedPlayers_V1_CanCreateAndListLinks()
+    {
+        var client = new FakeRepositoryApiClient();
+        var userProfileId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+
+        var createResult = await client.ConnectedPlayers.V1.CreateConnectedPlayerLink(new CreateConnectedPlayerLinkDto
+        {
+            PlayerId = playerId,
+            UserProfileId = userProfileId
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, createResult.StatusCode);
+
+        var listResult = await client.ConnectedPlayers.V1.GetConnectedPlayersByUserProfile(userProfileId, 0, 20);
+        Assert.Equal(System.Net.HttpStatusCode.OK, listResult.StatusCode);
+        Assert.Single(listResult.Result!.Data!.Items!);
     }
 }
