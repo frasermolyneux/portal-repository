@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
@@ -40,6 +41,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         /// </summary>
         [JsonProperty]
         public Guid CreatedByUserProfileId { get; set; }
+
+        /// <summary>
+        /// Game type of the player who owns this protected name.
+        /// </summary>
+        [JsonProperty]
+        public GameType OwnerGameType { get; set; }
 
         [JsonProperty]
         public UserProfileDto? CreatedByUserProfile { get; internal set; }

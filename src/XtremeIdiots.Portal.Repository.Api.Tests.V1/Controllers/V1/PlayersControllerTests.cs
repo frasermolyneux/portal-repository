@@ -581,6 +581,122 @@ public class PlayersControllerTests
 
     #endregion
 
+    #region ProtectedName Listing Tests
+
+    [Fact]
+    public async Task GetProtectedNames_WhenGameTypeFilterProvided_ReturnsOnlyMatchingOwners()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var cod4OwnerId = Guid.NewGuid();
+        var cod4xOwnerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4OwnerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Cod4Owner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4xOwnerId,
+            GameType = (int)GameType.CallOfDuty4x,
+            Username = "Cod4xOwner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod4OwnerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod4xOwnerId,
+            Name = "TottyX",
+            CreatedOn = DateTime.UtcNow.AddDays(-1)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.GetProtectedNames(0, 20, GameType.CallOfDuty4);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items?.ToList() ?? [];
+        Assert.Single(items);
+        Assert.Equal("Totty", items[0].Name);
+        Assert.Equal(GameType.CallOfDuty4, items[0].OwnerGameType);
+    }
+
+    [Fact]
+    public async Task GetProtectedNames_WithoutFilter_ProjectsOwnerGameType()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var cod4OwnerId = Guid.NewGuid();
+        var cod4xOwnerId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4OwnerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Cod4Owner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4xOwnerId,
+            GameType = (int)GameType.CallOfDuty4x,
+            Username = "Cod4xOwner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod4OwnerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = cod4xOwnerId,
+            Name = "TottyX",
+            CreatedOn = DateTime.UtcNow.AddDays(-1)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.GetProtectedNames(0, 20, null);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items?.ToList() ?? [];
+        Assert.Equal(2, items.Count);
+        Assert.Contains(items, item => item.Name == "Totty" && item.OwnerGameType == GameType.CallOfDuty4);
+        Assert.Contains(items, item => item.Name == "TottyX" && item.OwnerGameType == GameType.CallOfDuty4x);
+    }
+
+    #endregion
+
     #region ProtectedName Scope Tests
 
     [Fact]

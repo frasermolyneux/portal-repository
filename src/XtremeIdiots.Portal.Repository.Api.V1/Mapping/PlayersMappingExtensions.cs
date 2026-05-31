@@ -1,4 +1,5 @@
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
@@ -171,6 +172,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Name = entity.Name ?? string.Empty,
                 CreatedOn = entity.CreatedOn,
                 CreatedByUserProfileId = entity.CreatedByUserProfileId ?? Guid.Empty,
+                OwnerGameType = entity.Player is null ? GameType.Unknown : entity.Player.GameType.ToGameType(),
                 CreatedByUserProfile = expand ? entity.CreatedByUserProfile?.ToDto() : null
             };
         }

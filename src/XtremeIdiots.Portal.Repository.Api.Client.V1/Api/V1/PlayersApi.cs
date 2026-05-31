@@ -142,12 +142,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         #region Protected Names
 
-        public async Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries)
+        public async Task<ApiResult<CollectionModel<ProtectedNameDto>>> GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType = null)
         {
             var request = await CreateRequestAsync("v1/players/protected-names", Method.Get).ConfigureAwait(false);
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
+            if (gameType.HasValue)
+                request.AddQueryParameter("gameType", gameType.Value.ToString());
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
 

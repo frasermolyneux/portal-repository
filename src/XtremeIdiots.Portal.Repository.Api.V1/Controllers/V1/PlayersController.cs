@@ -1037,6 +1037,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// </summary>
     /// <param name="skipEntries">Number of entries to skip for pagination.</param>
     /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="gameType">Optional game type filter; when provided, only protected names owned by players in that game are returned.</param>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A paginated collection of protected names.</returns>
     [HttpGet("players/protected-names")]
@@ -1044,12 +1045,13 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     public async Task<IActionResult> GetProtectedNames(
         [FromQuery] int? skipEntries,
         [FromQuery] int? takeEntries,
+        [FromQuery] GameType? gameType,
         CancellationToken cancellationToken = default)
     {
         var skipValue = skipEntries ?? 0;
         var takeValue = takeEntries ?? 20;
 
-        var response = await ((IPlayersApi)this).GetProtectedNames(skipValue, takeValue).ConfigureAwait(false);
+        var response = await ((IPlayersApi)this).GetProtectedNames(skipValue, takeValue, gameType).ConfigureAwait(false);
 
         return response.ToHttpResult();
     }
@@ -1059,13 +1061,22 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// </summary>
     /// <param name="skipEntries">Number of entries to skip for pagination.</param>
     /// <param name="takeEntries">Number of entries to take for pagination.</param>
+    /// <param name="gameType">Optional game type filter; when provided, only protected names owned by players in that game are returned.</param>
     /// <returns>An API result containing a paginated collection of protected names.</returns>
-    async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries)
+    async Task<ApiResult<CollectionModel<ProtectedNameDto>>> IPlayersApi.GetProtectedNames(int skipEntries, int takeEntries, GameType? gameType)
     {
-        var totalCount = await context.ProtectedNames.AsNoTracking().CountAsync().ConfigureAwait(false);
+        var protectedNamesQuery = context.ProtectedNames.AsNoTracking();
 
-        var query = context.ProtectedNames
-            .AsNoTracking()
+        if (gameType.HasValue)
+        {
+            var gameTypeValue = (int)gameType.Value;
+            protectedNamesQuery = protectedNamesQuery.Where(pn => pn.Player != null && pn.Player.GameType == gameTypeValue);
+        }
+
+        var totalCount = await context.ProtectedNames.AsNoTracking().CountAsync().ConfigureAwait(false);
+        var filteredCount = await protectedNamesQuery.CountAsync().ConfigureAwait(false);
+
+        var query = protectedNamesQuery
             .Include(pn => pn.Player)
             .Include(pn => pn.CreatedByUserProfile)
             .OrderBy(pn => pn.Name)
@@ -1080,7 +1091,7 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
 
         return new ApiResponse<CollectionModel<ProtectedNameDto>>(data)
         {
-            Pagination = new ApiPagination(totalCount, totalCount, skipEntries, takeEntries)
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
         }.ToApiResult();
     }
 
