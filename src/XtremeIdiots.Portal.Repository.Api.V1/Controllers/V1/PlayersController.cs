@@ -34,7 +34,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         IMemoryCache memoryCache)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
         this._memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 

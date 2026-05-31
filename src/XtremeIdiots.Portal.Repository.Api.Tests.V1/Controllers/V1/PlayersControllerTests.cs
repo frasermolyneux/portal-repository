@@ -876,13 +876,21 @@ public class PlayersControllerTests
 
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "MainPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         context.Players.Add(new Player
         {
-            PlayerId = relatedPlayerId, GameType = (int)GameType.CallOfDuty4, Username = "BannedRelated",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-5), LastSeen = DateTime.UtcNow
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "BannedRelated",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
         });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = relatedPlayerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
@@ -908,13 +916,21 @@ public class PlayersControllerTests
 
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "MainPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         context.Players.Add(new Player
         {
-            PlayerId = relatedPlayerId, GameType = (int)GameType.CallOfDuty4, Username = "ExpiredBanPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-5), LastSeen = DateTime.UtcNow
+            PlayerId = relatedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ExpiredBanPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
         });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = relatedPlayerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
@@ -939,8 +955,12 @@ public class PlayersControllerTests
 
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "MainPlayer",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MainPlayer",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         // Viewed player's IP history
         context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = playerId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
@@ -950,8 +970,12 @@ public class PlayersControllerTests
             var rpId = Guid.NewGuid();
             context.Players.Add(new Player
             {
-                PlayerId = rpId, GameType = (int)GameType.CallOfDuty4, Username = $"Related{i}",
-                IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-5), LastSeen = DateTime.UtcNow
+                PlayerId = rpId,
+                GameType = (int)GameType.CallOfDuty4,
+                Username = $"Related{i}",
+                IpAddress = "10.0.0.1",
+                FirstSeen = DateTime.UtcNow.AddDays(-5),
+                LastSeen = DateTime.UtcNow
             });
             context.PlayerIpAddresses.Add(new PlayerIpAddress { PlayerIpAddressId = Guid.NewGuid(), PlayerId = rpId, Address = "10.0.0.1", LastUsed = DateTime.UtcNow });
         }
@@ -974,8 +998,12 @@ public class PlayersControllerTests
         var playerId = Guid.NewGuid();
         context.Players.Add(new Player
         {
-            PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Username = "NoHistory",
-            IpAddress = "10.0.0.1", FirstSeen = DateTime.UtcNow.AddDays(-10), LastSeen = DateTime.UtcNow
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "NoHistory",
+            IpAddress = "10.0.0.1",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
         });
         // No PlayerIpAddresses entries for this player
         await context.SaveChangesAsync();
