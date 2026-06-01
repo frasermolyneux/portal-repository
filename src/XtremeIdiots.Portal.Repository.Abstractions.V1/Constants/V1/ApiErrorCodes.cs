@@ -35,10 +35,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // Connected Player Errors
         public const string ConnectedPlayerAlreadyLinked = "CONNECTED_PLAYER_ALREADY_LINKED";
         public const string ConnectedPlayerNotFound = "CONNECTED_PLAYER_NOT_FOUND";
-        public const string ConnectedPlayerTokenExpired = "CONNECTED_PLAYER_TOKEN_EXPIRED";
-        public const string ConnectedPlayerTokenInvalid = "CONNECTED_PLAYER_TOKEN_INVALID";
-        public const string ConnectedPlayerTokenAttemptsExceeded = "CONNECTED_PLAYER_TOKEN_ATTEMPTS_EXCEEDED";
-        public const string ConnectedPlayerTokenInactive = "CONNECTED_PLAYER_TOKEN_INACTIVE";
+        public const string ConnectedPlayerActivationCodeExpired = "CONNECTED_PLAYER_ACTIVATION_CODE_EXPIRED";
+        public const string ConnectedPlayerActivationCodeInvalid = "CONNECTED_PLAYER_ACTIVATION_CODE_INVALID";
+        public const string ConnectedPlayerActivationCodeAttemptsExceeded = "CONNECTED_PLAYER_ACTIVATION_CODE_ATTEMPTS_EXCEEDED";
+        public const string ConnectedPlayerActivationCodeInactive = "CONNECTED_PLAYER_ACTIVATION_CODE_INACTIVE";
         public const string ConnectedPlayerActivationCodeConflict = "CONNECTED_PLAYER_ACTIVATION_CODE_CONFLICT";
 
         // Server Errors

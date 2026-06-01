@@ -49,9 +49,6 @@ public partial class Player
     public virtual ConnectedPlayerProfile? ConnectedPlayerProfile { get; set; }
 
     [InverseProperty("Player")]
-    public virtual ConnectedPlayerRegistrationToken? ConnectedPlayerRegistrationToken { get; set; }
-
-    [InverseProperty("Player")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
     [InverseProperty("Player")]

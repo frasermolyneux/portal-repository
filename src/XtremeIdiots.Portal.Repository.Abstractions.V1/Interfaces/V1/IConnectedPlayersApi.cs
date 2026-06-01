@@ -17,12 +17,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
             Guid userProfileId,
             CancellationToken cancellationToken = default);
 
-        Task<ApiResult<IssueConnectedPlayerRegistrationTokenResultDto>> IssueConnectedPlayerRegistrationToken(
-            IssueConnectedPlayerRegistrationTokenDto dto,
-            CancellationToken cancellationToken = default);
-
-        Task<ApiResult<ConnectedPlayerDto>> VerifyConnectedPlayerRegistrationToken(
-            VerifyConnectedPlayerRegistrationTokenDto dto,
+        Task<ApiResult<ConnectedPlayerDto>> ConsumeConnectedPlayerActivationCode(
+            ConsumeConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken = default);
 
         Task<ApiResult<CollectionModel<ConnectedPlayerDto>>> GetConnectedPlayersByUserProfile(

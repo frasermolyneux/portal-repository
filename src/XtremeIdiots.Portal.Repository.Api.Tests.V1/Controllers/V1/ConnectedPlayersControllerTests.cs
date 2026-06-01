@@ -236,82 +236,47 @@ public class ConnectedPlayersControllerTests
     }
 
     [Fact]
-    public async Task IssueConnectedPlayerRegistrationToken_InvalidatesPreviousActiveToken()
+    public async Task ConsumeConnectedPlayerActivationCode_WithCorrectCode_CreatesLinkAndConsumesCode()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
 
         context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
-        context.ConnectedPlayerRegistrationTokens.Add(new ConnectedPlayerRegistrationToken
+        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
+        context.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
         {
-            ConnectedPlayerRegistrationTokenId = Guid.NewGuid(),
-            PlayerId = playerId,
-            TokenHash = HashToken("000001"),
-            IssuedAtUtc = DateTime.UtcNow.AddMinutes(-2),
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            Code = "ABC123",
+            CodeHash = HashToken("ABC123"),
+            ActivatedAtUtc = DateTime.UtcNow.AddMinutes(-2),
             ExpiresAtUtc = DateTime.UtcNow.AddMinutes(3),
             AttemptCount = 0,
             MaxAttempts = 5,
             IsActive = true,
-            IssuedBy = "RegisterCommand"
+            ActivatedBy = "WebsiteActivation"
         });
         await context.SaveChangesAsync();
 
         var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
         var api = (IConnectedPlayersApi)controller;
-        var result = await api.IssueConnectedPlayerRegistrationToken(new IssueConnectedPlayerRegistrationTokenDto
+        var result = await api.ConsumeConnectedPlayerActivationCode(new ConsumeConnectedPlayerActivationCodeDto
         {
             PlayerId = playerId,
-            ExpiryMinutes = 5,
-            MaxAttempts = 5
-        });
-
-        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-        Assert.Equal(2, context.ConnectedPlayerRegistrationTokens.Count());
-        Assert.Equal(1, context.ConnectedPlayerRegistrationTokens.Count(t => t.IsActive));
-        Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
-    }
-
-    [Fact]
-    public async Task VerifyConnectedPlayerRegistrationToken_WithCorrectToken_CreatesLinkAndMarksTokenVerified()
-    {
-        using var context = DbContextHelper.CreateInMemoryContext();
-        var playerId = Guid.NewGuid();
-        var userProfileId = Guid.NewGuid();
-
-        context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
-        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
-        context.ConnectedPlayerRegistrationTokens.Add(new ConnectedPlayerRegistrationToken
-        {
-            ConnectedPlayerRegistrationTokenId = Guid.NewGuid(),
-            PlayerId = playerId,
-            TokenHash = HashToken("123456"),
-            IssuedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
-            AttemptCount = 0,
-            MaxAttempts = 5,
-            IsActive = true,
-            IssuedBy = "RegisterCommand"
-        });
-        await context.SaveChangesAsync();
-
-        var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
-        var api = (IConnectedPlayersApi)controller;
-        var result = await api.VerifyConnectedPlayerRegistrationToken(new VerifyConnectedPlayerRegistrationTokenDto
-        {
-            PlayerId = playerId,
-            UserProfileId = userProfileId,
-            Token = "123456"
+            Code = "ABC123"
         });
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.Single(context.ConnectedPlayerProfiles);
-        Assert.False(context.ConnectedPlayerRegistrationTokens.Single().IsActive);
-        Assert.NotNull(context.ConnectedPlayerRegistrationTokens.Single().VerifiedAtUtc);
+        Assert.Equal(ConnectedPlayerLinkMethod.ActivationCode.ToString(), context.ConnectedPlayerProfiles.Single().LinkMethod);
+        Assert.False(context.ConnectedPlayerActivationCodes.Single().IsActive);
+        Assert.NotNull(context.ConnectedPlayerActivationCodes.Single().ConsumedAtUtc);
         Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
     }
 
     [Fact]
-    public async Task VerifyConnectedPlayerRegistrationToken_WithWrongToken_IncrementsAttemptCount()
+    public async Task ConsumeConnectedPlayerActivationCode_WhenAlreadyLinkedSameProfile_ReturnsOk()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var playerId = Guid.NewGuid();
@@ -319,34 +284,48 @@ public class ConnectedPlayersControllerTests
 
         context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
         context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
-        context.ConnectedPlayerRegistrationTokens.Add(new ConnectedPlayerRegistrationToken
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
         {
-            ConnectedPlayerRegistrationTokenId = Guid.NewGuid(),
+            ConnectedPlayerProfileId = Guid.NewGuid(),
             PlayerId = playerId,
-            TokenHash = HashToken("654321"),
-            IssuedAtUtc = DateTime.UtcNow,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            IsActive = true
+        });
+        context.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            Code = "ABC123",
+            CodeHash = HashToken("ABC123"),
+            ActivatedAtUtc = DateTime.UtcNow,
             ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
             AttemptCount = 0,
             MaxAttempts = 5,
             IsActive = true,
-            IssuedBy = "RegisterCommand"
+            ActivatedBy = "WebsiteActivation"
         });
         await context.SaveChangesAsync();
 
         var api = (IConnectedPlayersApi)CreateController(context);
-        var result = await api.VerifyConnectedPlayerRegistrationToken(new VerifyConnectedPlayerRegistrationTokenDto
+        var result = await api.ConsumeConnectedPlayerActivationCode(new ConsumeConnectedPlayerActivationCodeDto
         {
             PlayerId = playerId,
-            UserProfileId = userProfileId,
-            Token = "123456"
+            Code = "ABC123"
         });
 
-        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
-        Assert.Equal(1, context.ConnectedPlayerRegistrationTokens.Single().AttemptCount);
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.ConnectedPlayerProfiles);
+        Assert.Equal(playerId, result.Result?.Data?.PlayerId);
+        Assert.Equal(userProfileId, result.Result?.Data?.UserProfileId);
+        Assert.Equal("Player", result.Result?.Data?.Username);
+        Assert.False(context.ConnectedPlayerActivationCodes.Single().IsActive);
+        Assert.NotNull(context.ConnectedPlayerActivationCodes.Single().ConsumedAtUtc);
     }
 
     [Fact]
-    public async Task VerifyConnectedPlayerRegistrationToken_WhenMaxAttemptsReached_ReturnsBadRequestAndInvalidatesToken()
+    public async Task ConsumeConnectedPlayerActivationCode_WithWrongCode_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var playerId = Guid.NewGuid();
@@ -354,32 +333,151 @@ public class ConnectedPlayersControllerTests
 
         context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
         context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
-        context.ConnectedPlayerRegistrationTokens.Add(new ConnectedPlayerRegistrationToken
+        context.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
         {
-            ConnectedPlayerRegistrationTokenId = Guid.NewGuid(),
-            PlayerId = playerId,
-            TokenHash = HashToken("654321"),
-            IssuedAtUtc = DateTime.UtcNow,
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            Code = "ABC123",
+            CodeHash = HashToken("ABC123"),
+            ActivatedAtUtc = DateTime.UtcNow,
             ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
             AttemptCount = 0,
-            MaxAttempts = 1,
+            MaxAttempts = 5,
             IsActive = true,
-            IssuedBy = "RegisterCommand"
+            ActivatedBy = "WebsiteActivation"
         });
         await context.SaveChangesAsync();
 
         var api = (IConnectedPlayersApi)CreateController(context);
-        var result = await api.VerifyConnectedPlayerRegistrationToken(new VerifyConnectedPlayerRegistrationTokenDto
+        var result = await api.ConsumeConnectedPlayerActivationCode(new ConsumeConnectedPlayerActivationCodeDto
         {
             PlayerId = playerId,
-            UserProfileId = userProfileId,
-            Token = "123456"
+            Code = "WRONG1"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
-        Assert.Equal(1, context.ConnectedPlayerRegistrationTokens.Single().AttemptCount);
-        Assert.False(context.ConnectedPlayerRegistrationTokens.Single().IsActive);
-        Assert.NotNull(context.ConnectedPlayerRegistrationTokens.Single().InvalidatedAtUtc);
+        Assert.Single(context.ConnectedPlayerActivationCodes);
+        Assert.True(context.ConnectedPlayerActivationCodes.Single().IsActive);
+        Assert.Empty(context.ConnectedPlayerProfiles);
+    }
+
+    [Fact]
+    public async Task ConsumeConnectedPlayerActivationCode_WhenPlayerDoesNotExist_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
+        context.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            Code = "ABC123",
+            CodeHash = HashToken("ABC123"),
+            ActivatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
+            AttemptCount = 0,
+            MaxAttempts = 5,
+            IsActive = true,
+            ActivatedBy = "WebsiteActivation"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.ConsumeConnectedPlayerActivationCode(new ConsumeConnectedPlayerActivationCodeDto
+        {
+            PlayerId = playerId,
+            Code = "ABC123"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.ConnectedPlayerProfiles);
+        Assert.True(context.ConnectedPlayerActivationCodes.Single().IsActive);
+    }
+
+    [Fact]
+    public async Task ConsumeConnectedPlayerActivationCode_WhenCodeIsInactive_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
+        context.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            Code = "ABC123",
+            CodeHash = HashToken("ABC123"),
+            ActivatedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
+            AttemptCount = 0,
+            MaxAttempts = 5,
+            IsActive = false,
+            InvalidatedAtUtc = DateTime.UtcNow.AddMinutes(-1),
+            ActivatedBy = "WebsiteActivation"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.ConsumeConnectedPlayerActivationCode(new ConsumeConnectedPlayerActivationCodeDto
+        {
+            PlayerId = playerId,
+            Code = "ABC123"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal(0, context.ConnectedPlayerProfiles.Count());
+    }
+
+    [Fact]
+    public async Task ConsumeConnectedPlayerActivationCode_WhenExistingLinkBelongsToDifferentProfile_ReturnsConflict()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var linkedUserProfileId = Guid.NewGuid();
+        var activationUserProfileId = Guid.NewGuid();
+
+        context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+        context.UserProfiles.Add(new UserProfile { UserProfileId = linkedUserProfileId, DisplayName = "Linked" });
+        context.UserProfiles.Add(new UserProfile { UserProfileId = activationUserProfileId, DisplayName = "Activation" });
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = playerId,
+            UserProfileId = linkedUserProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            IsActive = true
+        });
+        context.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = activationUserProfileId,
+            Code = "ABC123",
+            CodeHash = HashToken("ABC123"),
+            ActivatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
+            AttemptCount = 0,
+            MaxAttempts = 5,
+            IsActive = true,
+            ActivatedBy = "WebsiteActivation"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.ConsumeConnectedPlayerActivationCode(new ConsumeConnectedPlayerActivationCodeDto
+        {
+            PlayerId = playerId,
+            Code = "ABC123"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+        Assert.Single(context.ConnectedPlayerProfiles);
+        Assert.True(context.ConnectedPlayerActivationCodes.Single().IsActive);
+        Assert.Null(context.ConnectedPlayerActivationCodes.Single().ConsumedAtUtc);
     }
 
     [Fact]
@@ -400,7 +498,7 @@ public class ConnectedPlayersControllerTests
             PlayerId = playerId,
             UserProfileId = userProfileId,
             LinkedByUserProfileId = Guid.NewGuid(),
-            LinkMethod = ConnectedPlayerLinkMethod.TokenVerified
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);

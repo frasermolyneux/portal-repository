@@ -19,7 +19,7 @@ CREATE TABLE [dbo].[ConnectedPlayerProfiles]
         OR
         ([IsActive] = 0 AND [UnlinkedAtUtc] IS NOT NULL)
     ),
-    CONSTRAINT [CK_dbo.ConnectedPlayerProfiles_LinkMethod] CHECK ([LinkMethod] IN (N'TrustedWebsite', N'TokenVerified', N'AdminForced'))
+    CONSTRAINT [CK_dbo.ConnectedPlayerProfiles_LinkMethod] CHECK ([LinkMethod] IN (N'TrustedWebsite', N'ActivationCode', N'TokenVerified', N'AdminForced'))
 )
 
 GO

@@ -41,21 +41,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             };
         }
 
-        public static IssueConnectedPlayerRegistrationTokenResultDto ToResultDto(this ConnectedPlayerRegistrationToken entity, string token)
-        {
-            ArgumentNullException.ThrowIfNull(entity);
-
-            return new IssueConnectedPlayerRegistrationTokenResultDto
-            {
-                ConnectedPlayerRegistrationTokenId = entity.ConnectedPlayerRegistrationTokenId,
-                PlayerId = entity.PlayerId,
-                Token = token,
-                ExpiresAtUtc = entity.ExpiresAtUtc,
-                MaxAttempts = entity.MaxAttempts,
-                IsActive = entity.IsActive
-            };
-        }
-
         public static ConnectedPlayerActivationCodeDto ToDto(this ConnectedPlayerActivationCode entity)
         {
             ArgumentNullException.ThrowIfNull(entity);
@@ -77,6 +62,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         {
             if (Enum.TryParse<ConnectedPlayerLinkMethod>(value, true, out var result))
                 return result;
+
+            // Keep backward-read compatibility for historical rows while TokenVerified is phased out.
+            if (string.Equals(value, "TokenVerified", StringComparison.OrdinalIgnoreCase))
+                return ConnectedPlayerLinkMethod.ActivationCode;
 
             return ConnectedPlayerLinkMethod.TrustedWebsite;
         }

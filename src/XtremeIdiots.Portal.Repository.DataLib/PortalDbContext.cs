@@ -25,8 +25,6 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<ConnectedPlayerProfile> ConnectedPlayerProfiles { get; set; }
 
-    public virtual DbSet<ConnectedPlayerRegistrationToken> ConnectedPlayerRegistrationTokens { get; set; }
-
     public virtual DbSet<Demo> Demos { get; set; }
 
     public virtual DbSet<GameServer> GameServers { get; set; }
@@ -86,6 +84,7 @@ public partial class PortalDbContext : DbContext
             entity.HasKey(e => e.AdminActionId).HasName("PK_dbo.AdminActions");
 
             entity.Property(e => e.AdminActionId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.ForumTopicId).HasDefaultValueSql("NULL");
 
             entity.HasOne(d => d.Player).WithMany(p => p.AdminActions)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -173,23 +172,6 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.UserProfile).WithMany(p => p.ConnectedPlayerProfileUserProfiles)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.ConnectedPlayerProfiles_dbo.UserProfiles_UserProfileId");
-        });
-
-        modelBuilder.Entity<ConnectedPlayerRegistrationToken>(entity =>
-        {
-            entity.HasKey(e => e.ConnectedPlayerRegistrationTokenId).HasName("PK_dbo.ConnectedPlayerRegistrationTokens");
-
-            entity.HasIndex(e => e.PlayerId, "IX_ConnectedPlayerRegistrationTokens_PlayerId_IsActive")
-                .IsUnique()
-                .HasFilter("[IsActive] = 1");
-
-            entity.Property(e => e.ConnectedPlayerRegistrationTokenId).HasDefaultValueSql("newsequentialid()");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.MaxAttempts).HasDefaultValue(5);
-
-            entity.HasOne(d => d.Player).WithOne(p => p.ConnectedPlayerRegistrationToken)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_dbo.ConnectedPlayerRegistrationTokens_dbo.Players_PlayerId");
         });
 
         modelBuilder.Entity<Demo>(entity =>

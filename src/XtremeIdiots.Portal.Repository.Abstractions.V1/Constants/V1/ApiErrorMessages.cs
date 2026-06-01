@@ -29,10 +29,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string InvalidCutoffDateMessage = "Cutoff date was not provided or was invalid";
         public const string ConnectedPlayerAlreadyLinkedMessage = "Player already has an active connected profile";
         public const string ConnectedPlayerNotFoundMessage = "Connected player profile not found";
-        public const string ConnectedPlayerTokenExpiredMessage = "Connected player registration token is expired";
-        public const string ConnectedPlayerTokenInvalidMessage = "Connected player registration token is invalid";
-        public const string ConnectedPlayerTokenAttemptsExceededMessage = "Connected player registration token attempt limit exceeded";
-        public const string ConnectedPlayerTokenInactiveMessage = "Connected player registration token is inactive";
+        public const string ConnectedPlayerActivationCodeExpiredMessage = "Connected player activation code is expired";
+        public const string ConnectedPlayerActivationCodeInvalidMessage = "Connected player activation code is invalid";
+        public const string ConnectedPlayerActivationCodeAttemptsExceededMessage = "Connected player activation code attempt limit exceeded";
+        public const string ConnectedPlayerActivationCodeInactiveMessage = "Connected player activation code is inactive";
         public const string ConnectedPlayerActivationCodeConflictMessage = "Connected player activation code could not be activated due to a concurrent conflict";
 
         // Entity Not Found Messages (Specific)
