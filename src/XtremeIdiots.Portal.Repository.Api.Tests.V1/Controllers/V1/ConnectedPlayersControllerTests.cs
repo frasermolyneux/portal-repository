@@ -2,6 +2,10 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 
+using Moq;
+
+using MX.Observability.ApplicationInsights.Auditing;
+
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
@@ -13,7 +17,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class ConnectedPlayersControllerTests
 {
-    private static ConnectedPlayersController CreateController(PortalDbContext context) => new(context);
+    private static (ConnectedPlayersController Controller, Mock<IAuditLogger> AuditLoggerMock) CreateControllerWithAuditMock(PortalDbContext context)
+    {
+        var auditLogger = new Mock<IAuditLogger>();
+        return (new ConnectedPlayersController(context, auditLogger.Object), auditLogger);
+    }
+
+    private static ConnectedPlayersController CreateController(PortalDbContext context) => CreateControllerWithAuditMock(context).Controller;
 
     [Fact]
     public async Task CreateConnectedPlayerLink_WhenUnlinked_CreatesNewActiveLink()
@@ -26,7 +36,8 @@ public class ConnectedPlayersControllerTests
         context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
         await context.SaveChangesAsync();
 
-        var api = (IConnectedPlayersApi)CreateController(context);
+        var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
+        var api = (IConnectedPlayersApi)controller;
 
         var result = await api.CreateConnectedPlayerLink(new CreateConnectedPlayerLinkDto
         {
@@ -37,6 +48,7 @@ public class ConnectedPlayersControllerTests
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.Single(context.ConnectedPlayerProfiles);
         Assert.True(context.ConnectedPlayerProfiles.Single().IsActive);
+        Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
     }
 
     [Fact]
@@ -90,7 +102,8 @@ public class ConnectedPlayersControllerTests
         });
         await context.SaveChangesAsync();
 
-        var api = (IConnectedPlayersApi)CreateController(context);
+        var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
+        var api = (IConnectedPlayersApi)controller;
         var result = await api.IssueConnectedPlayerRegistrationToken(new IssueConnectedPlayerRegistrationTokenDto
         {
             PlayerId = playerId,
@@ -101,6 +114,7 @@ public class ConnectedPlayersControllerTests
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal(2, context.ConnectedPlayerRegistrationTokens.Count());
         Assert.Equal(1, context.ConnectedPlayerRegistrationTokens.Count(t => t.IsActive));
+        Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
     }
 
     [Fact]
@@ -126,7 +140,8 @@ public class ConnectedPlayersControllerTests
         });
         await context.SaveChangesAsync();
 
-        var api = (IConnectedPlayersApi)CreateController(context);
+        var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
+        var api = (IConnectedPlayersApi)controller;
         var result = await api.VerifyConnectedPlayerRegistrationToken(new VerifyConnectedPlayerRegistrationTokenDto
         {
             PlayerId = playerId,
@@ -138,6 +153,7 @@ public class ConnectedPlayersControllerTests
         Assert.Single(context.ConnectedPlayerProfiles);
         Assert.False(context.ConnectedPlayerRegistrationTokens.Single().IsActive);
         Assert.NotNull(context.ConnectedPlayerRegistrationTokens.Single().VerifiedAtUtc);
+        Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
     }
 
     [Fact]
@@ -263,6 +279,36 @@ public class ConnectedPlayersControllerTests
         var result = await api.ForceUnlinkConnectedPlayer(connectedPlayerProfileId, new ForceUnlinkConnectedPlayerDto());
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForceUnlinkConnectedPlayer_WhenActive_UnlinksAndEmitsAudit()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var connectedPlayerProfileId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = connectedPlayerProfileId,
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddHours(-1),
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
+        var api = (IConnectedPlayersApi)controller;
+        var result = await api.ForceUnlinkConnectedPlayer(connectedPlayerProfileId, new ForceUnlinkConnectedPlayerDto());
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(context.ConnectedPlayerProfiles.Single().IsActive);
+        Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
     }
 
     private static string HashToken(string token)

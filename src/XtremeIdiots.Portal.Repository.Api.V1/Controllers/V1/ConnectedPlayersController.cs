@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
+using MX.Observability.ApplicationInsights.Auditing;
+using MX.Observability.ApplicationInsights.Auditing.Models;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -26,11 +28,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class ConnectedPlayersController : ControllerBase, IConnectedPlayersApi
     {
         private readonly PortalDbContext context;
+        private readonly IAuditLogger auditLogger;
 
-        public ConnectedPlayersController(PortalDbContext context)
+        public ConnectedPlayersController(PortalDbContext context, IAuditLogger auditLogger)
         {
             ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(auditLogger);
             this.context = context;
+            this.auditLogger = auditLogger;
         }
 
         [HttpPost("connected-players/link")]
@@ -115,6 +120,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     new ApiResponse(new ApiError(ApiErrorCodes.ConnectedPlayerAlreadyLinked, ApiErrorMessages.ConnectedPlayerAlreadyLinkedMessage)));
             }
 
+            var linkActorId = dto.LinkedByUserProfileId?.ToString() ?? "ServiceAccount";
+            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerLinked", AuditAction.Create)
+                .WithActor(linkActorId, "ConnectedPlayersController")
+                .WithTarget(dto.PlayerId.ToString(), "Player")
+                .WithSource("ConnectedPlayersController")
+                .Build());
+
             return new ApiResponse().ToApiResult(HttpStatusCode.Created);
         }
 
@@ -188,6 +200,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             await context.ConnectedPlayerRegistrationTokens.AddAsync(tokenEntity, cancellationToken).ConfigureAwait(false);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+            var tokenActorId = string.IsNullOrWhiteSpace(dto.IssuedBy) ? "ServiceAccount" : dto.IssuedBy;
+            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerTokenIssued", AuditAction.Create)
+                .WithActor(tokenActorId, "ConnectedPlayersController")
+                .WithTarget(dto.PlayerId.ToString(), "Player")
+                .WithSource("ConnectedPlayersController")
+                .Build());
 
             var resultDto = tokenEntity.ToResultDto(tokenValue);
             return new ApiResponse<IssueConnectedPlayerRegistrationTokenResultDto>(resultDto).ToApiResult();
@@ -350,6 +369,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+            var verifyActorId = dto.UserProfileId.ToString();
+            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerTokenVerified", AuditAction.Update)
+                .WithActor(verifyActorId, "ConnectedPlayersController")
+                .WithTarget(dto.PlayerId.ToString(), "Player")
+                .WithSource("ConnectedPlayersController")
+                .Build());
 
             var hydrated = await context.ConnectedPlayerProfiles
                 .AsNoTracking()
@@ -526,6 +552,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             link.UnlinkedByUserProfileId = dto.UnlinkedByUserProfileId;
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            var unlinkActorId = dto.UnlinkedByUserProfileId?.ToString() ?? "ServiceAccount";
+            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerForceUnlinked", AuditAction.Delete)
+                .WithActor(unlinkActorId, "ConnectedPlayersController")
+                .WithTarget(link.PlayerId.ToString(), "Player")
+                .WithSource("ConnectedPlayersController")
+                .Build());
 
             return new ApiResponse().ToApiResult();
         }
