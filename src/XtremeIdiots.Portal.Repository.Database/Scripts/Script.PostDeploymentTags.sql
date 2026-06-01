@@ -83,12 +83,63 @@ IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
 WHERE [Name] = 'active-player')
 BEGIN
-    INSERT INTO [dbo].[Tags]
-        ([Name], [Description], [UserDefined], [TagHtml])
-    VALUES
-        ('active-player', 'Player who has been active recently', 0, '<span class="badge bg-info">Active Player</span>')
+    IF EXISTS (SELECT *
+    FROM [dbo].[Tags]
+    WHERE [Name] = 'active-players')
+    BEGIN
+        UPDATE [dbo].[Tags]
+        SET [Name] = 'active-player'
+        WHERE [Name] = 'active-players'
 
-    PRINT 'Inserted active-player tag'
+        PRINT 'Renamed active-players tag to active-player'
+    END
+    ELSE
+    BEGIN
+        INSERT INTO [dbo].[Tags]
+            ([Name], [Description], [UserDefined], [TagHtml])
+        VALUES
+            ('active-player', 'Player who has been active recently', 0, '<span class="badge bg-info">Active Player</span>')
+
+        PRINT 'Inserted active-player tag'
+    END
+END
+
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE [Name] = 'active-player'
+    AND [UserDefined] <> 0
+
+DECLARE @CanonicalActivePlayerTagId UNIQUEIDENTIFIER = (
+    SELECT MIN([TagId])
+FROM [dbo].[Tags]
+WHERE [Name] = 'active-player'
+);
+
+IF @CanonicalActivePlayerTagId IS NOT NULL
+BEGIN
+    DELETE legacy
+    FROM [dbo].[PlayerTags] legacy
+        INNER JOIN [dbo].[Tags] legacyTag ON legacyTag.[TagId] = legacy.[TagId]
+            AND legacyTag.[Name] IN ('active-player', 'active-players')
+        INNER JOIN [dbo].[PlayerTags] canonical ON canonical.[PlayerId] = legacy.[PlayerId]
+            AND canonical.[TagId] = @CanonicalActivePlayerTagId
+    WHERE legacy.[TagId] <> @CanonicalActivePlayerTagId;
+
+    UPDATE pt
+    SET [TagId] = @CanonicalActivePlayerTagId
+    FROM [dbo].[PlayerTags] pt
+        INNER JOIN [dbo].[Tags] sourceTag ON sourceTag.[TagId] = pt.[TagId]
+            AND sourceTag.[Name] IN ('active-player', 'active-players')
+    WHERE pt.[TagId] <> @CanonicalActivePlayerTagId;
+
+    DELETE FROM [dbo].[Tags]
+    WHERE [Name] = 'active-players';
+
+    DELETE FROM [dbo].[Tags]
+    WHERE [Name] = 'active-player'
+        AND [TagId] <> @CanonicalActivePlayerTagId;
+
+    PRINT 'Normalized active-player tags and removed legacy active-players rows'
 END
 
 -- Inactive Player Tag

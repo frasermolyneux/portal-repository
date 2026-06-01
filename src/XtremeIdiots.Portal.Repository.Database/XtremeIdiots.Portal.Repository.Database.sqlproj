@@ -92,6 +92,7 @@
     <Build Include="dbo\Tables\ConnectedPlayerActivationCodes.sql" />
   </ItemGroup>
   <ItemGroup>
+    <PreDeploy Include="Scripts\Script.PreDeployment.sql" />
     <PostDeploy Include="Scripts\Script.PostDeployment.sql" />
     <None Include="Scripts\Script.PostDeploymentPermissions.sql" />
     <None Include="Scripts\Script.PostDeploymentTags.sql" />

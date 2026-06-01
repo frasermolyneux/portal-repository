@@ -63,11 +63,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (Enum.TryParse<ConnectedPlayerLinkMethod>(value, true, out var result))
                 return result;
 
-            // Keep backward-read compatibility for historical rows while TokenVerified is phased out.
-            if (string.Equals(value, "TokenVerified", StringComparison.OrdinalIgnoreCase))
-                return ConnectedPlayerLinkMethod.ActivationCode;
-
-            return ConnectedPlayerLinkMethod.TrustedWebsite;
+            throw new InvalidOperationException($"Unknown connected player link method '{value}'.");
         }
     }
 }

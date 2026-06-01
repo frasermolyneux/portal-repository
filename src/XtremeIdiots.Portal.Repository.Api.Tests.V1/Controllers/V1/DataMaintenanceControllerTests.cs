@@ -183,7 +183,7 @@ public class DataMaintenanceControllerTests
         context.Tags.Add(new Tag
         {
             TagId = Guid.NewGuid(),
-            Name = "active-players",
+            Name = "active-player",
             UserDefined = false
         });
         await context.SaveChangesAsync();
@@ -217,7 +217,7 @@ public class DataMaintenanceControllerTests
     {
         using var context = DbContextHelper.CreateInMemoryContext();
 
-        context.Tags.Add(new Tag { TagId = Guid.NewGuid(), Name = "active-players", UserDefined = false });
+        context.Tags.Add(new Tag { TagId = Guid.NewGuid(), Name = "active-player", UserDefined = false });
         context.Tags.Add(new Tag { TagId = Guid.NewGuid(), Name = "inactive-player", UserDefined = false });
 
         context.Players.Add(new Player

@@ -157,7 +157,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     /// <summary>
     /// Resets system-assigned player tags based on player activity in the last 2 weeks.
-    /// Active players get the "active-players" tag, inactive players get the "inactive-player" tag.
+    /// Active players get the "active-player" tag, inactive players get the "inactive-player" tag.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response indicating the operation completed.</returns>
@@ -172,7 +172,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     /// <summary>
     /// Resets system-assigned player tags based on player activity in the last 2 weeks.
-    /// Active players get the "active-players" tag, inactive players get the "inactive-player" tag.
+    /// Active players get the "active-player" tag, inactive players get the "inactive-player" tag.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>An API result indicating the operation completed successfully.</returns>
@@ -184,7 +184,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         // Get the tag IDs by name
         var activeTag = await context.Tags
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Name == "active-players", cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(t => t.Name == "active-player", cancellationToken).ConfigureAwait(false);
 
         var inactiveTag = await context.Tags
             .AsNoTracking()
@@ -192,7 +192,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
         if (activeTag == null || inactiveTag == null)
         {
-            throw new InvalidOperationException("Required tags 'active-players' or 'inactive-player' do not exist.");
+            throw new InvalidOperationException("Required tags 'active-player' or 'inactive-player' do not exist.");
         }
 
         var activeTagId = activeTag.TagId;
