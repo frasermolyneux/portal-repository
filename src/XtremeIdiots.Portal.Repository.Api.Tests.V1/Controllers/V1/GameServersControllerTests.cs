@@ -1,5 +1,7 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -196,10 +198,87 @@ public class GameServersControllerTests
         Assert.Equal((int)GameType.CallOfDuty4, entity.GameType);
         Assert.Equal(5, entity.ServerListPosition);
         Assert.True(entity.AgentEnabled);
+        Assert.True(entity.FileTransportEnabled);
+        Assert.Equal((int)FileTransportType.Ftp, entity.FileTransportType);
         Assert.True(entity.FtpEnabled);
         Assert.True(entity.RconEnabled);
         Assert.True(entity.BanFileSyncEnabled);
         Assert.True(entity.ServerListEnabled);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_LegacyFtpOnly_MapsTransportFields()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Legacy FTP Server", GameType.CallOfDuty4, "legacy-host", 28960)
+        {
+            FtpEnabled = true,
+            RconEnabled = true,
+            AgentEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FtpEnabled);
+        Assert.True(entity.FileTransportEnabled);
+        Assert.Equal((int)FileTransportType.Ftp, entity.FileTransportType);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_TransportNativeSftp_PersistsSftpAndDisablesLegacyFtp()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("SFTP Server", GameType.CallOfDuty4, "sftp-host", 28960)
+        {
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Sftp,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FileTransportEnabled);
+        Assert.Equal((int)FileTransportType.Sftp, entity.FileTransportType);
+        Assert.False(entity.FtpEnabled);
+        Assert.True(entity.AgentEnabled);
+        Assert.True(entity.BanFileSyncEnabled);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_MixedPayload_TransportFieldsTakePrecedence()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Mixed Server", GameType.CallOfDuty4, "mixed-host", 28960)
+        {
+            FtpEnabled = true,
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Sftp,
+            RconEnabled = true,
+            AgentEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FileTransportEnabled);
+        Assert.Equal((int)FileTransportType.Sftp, entity.FileTransportType);
+        Assert.False(entity.FtpEnabled);
     }
 
     [Fact]
@@ -366,6 +445,53 @@ public class GameServersControllerTests
         Assert.Single(items);
         Assert.Equal("Agent Server", items[0].Title);
         Assert.True(items[0].AgentEnabled);
+    }
+
+    [Fact]
+    public async Task GetGameServers_FileTransportEnabledFilter_ReturnsLegacyAndTransportNative()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = Guid.NewGuid(),
+            Title = "Legacy FTP",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "legacy-host",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            Deleted = false
+        });
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = Guid.NewGuid(),
+            Title = "Native SFTP",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "sftp-host",
+            QueryPort = 28961,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Sftp,
+            Deleted = false
+        });
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = Guid.NewGuid(),
+            Title = "No Transport",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "none-host",
+            QueryPort = 28962,
+            Deleted = false
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+        var result = await api.GetGameServers(null, null, GameServerFilter.FileTransportEnabled, 0, 20, null);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.Select(i => i.Title).ToArray();
+        Assert.Contains("Legacy FTP", items);
+        Assert.Contains("Native SFTP", items);
+        Assert.DoesNotContain("No Transport", items);
     }
 
     [Fact]
@@ -619,6 +745,167 @@ public class GameServersControllerTests
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GameServers.Single();
         Assert.True(entity.AgentEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_MixedPayload_TransportFieldsAreAuthoritative()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Ftp,
+            RconEnabled = true,
+            AgentEnabled = true
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            FtpEnabled = true,
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Sftp
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FileTransportEnabled);
+        Assert.Equal((int)FileTransportType.Sftp, entity.FileTransportType);
+        Assert.False(entity.FtpEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_TypeOnlyPatch_OnLegacyFtpRow_PreservesTransportEnabled()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Legacy Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FtpEnabled = true,
+            FileTransportEnabled = false,
+            FileTransportType = (int)FileTransportType.Unknown,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            FileTransportType = FileTransportType.Sftp
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.True(entity.FileTransportEnabled);
+        Assert.Equal((int)FileTransportType.Sftp, entity.FileTransportType);
+        Assert.False(entity.FtpEnabled);
+        Assert.True(entity.AgentEnabled);
+        Assert.True(entity.BanFileSyncEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_DisablingFileTransport_CascadesAgentAndBanFileSync()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Sftp,
+            RconEnabled = true,
+            AgentEnabled = true,
+            BanFileSyncEnabled = true
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            FileTransportEnabled = false
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.False(entity.FileTransportEnabled);
+        Assert.False(entity.AgentEnabled);
+        Assert.False(entity.BanFileSyncEnabled);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_AgentEnabledWithoutFileTransport_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            AgentEnabled = true,
+            FileTransportEnabled = false,
+            RconEnabled = true
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServers);
+    }
+
+    [Fact]
+    public void FileTransportType_DeserializesFromString_WithNewtonsoft()
+    {
+        var json = "{\"title\":\"Server\",\"gameType\":\"CallOfDuty4\",\"hostname\":\"host\",\"queryPort\":28960,\"fileTransportEnabled\":true,\"fileTransportType\":\"Sftp\"}";
+
+        var dto = JsonConvert.DeserializeObject<CreateGameServerDto>(json);
+
+        Assert.NotNull(dto);
+        Assert.Equal(FileTransportType.Sftp, dto!.FileTransportType);
+    }
+
+    [Fact]
+    public void FileTransportType_SerializesAsString_WithSystemTextJson()
+    {
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Sftp
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(dto);
+
+        Assert.Contains("\"FileTransportType\":\"Sftp\"", json);
     }
 
     [Fact]

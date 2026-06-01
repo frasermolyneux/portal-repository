@@ -25,6 +25,10 @@ public partial class GameServer
 
     public int ServerListPosition { get; set; }
 
+    public bool FileTransportEnabled { get; set; }
+
+    public int FileTransportType { get; set; }
+
     public bool FtpEnabled { get; set; }
 
     public bool RconEnabled { get; set; }

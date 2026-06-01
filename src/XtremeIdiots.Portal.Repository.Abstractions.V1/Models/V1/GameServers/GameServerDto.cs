@@ -39,6 +39,13 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool AgentEnabled { get; internal set; }
 
         [JsonProperty]
+        public bool FileTransportEnabled { get; internal set; }
+
+        [JsonProperty]
+        [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
+        public FileTransportType FileTransportType { get; internal set; }
+
+        [JsonProperty]
         public bool FtpEnabled { get; internal set; }
 
         [JsonProperty]

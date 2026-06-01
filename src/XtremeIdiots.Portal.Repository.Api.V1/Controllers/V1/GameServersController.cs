@@ -414,7 +414,7 @@ public class GameServersController : ControllerBase, IGameServersApi
 
     private static void ApplyToggleCascade(GameServer entity)
     {
-        if (!entity.FtpEnabled)
+        if (!IsFileTransportEnabled(entity))
         {
             entity.AgentEnabled = false;
             entity.BanFileSyncEnabled = false;
@@ -433,15 +433,20 @@ public class GameServersController : ControllerBase, IGameServersApi
 
     private static string? ValidateToggleDependencies(GameServer entity)
     {
-        if (entity.AgentEnabled && !entity.FtpEnabled)
-            return "AgentEnabled requires FtpEnabled to be true.";
+        if (entity.AgentEnabled && !IsFileTransportEnabled(entity))
+            return "AgentEnabled requires FileTransportEnabled to be true.";
         if (entity.AgentEnabled && !entity.RconEnabled)
             return "AgentEnabled requires RconEnabled to be true.";
-        if (entity.BanFileSyncEnabled && !entity.FtpEnabled)
-            return "BanFileSyncEnabled requires FtpEnabled to be true.";
+        if (entity.BanFileSyncEnabled && !IsFileTransportEnabled(entity))
+            return "BanFileSyncEnabled requires FileTransportEnabled to be true.";
         if (entity.BanFileSyncEnabled && !entity.AgentEnabled)
             return "BanFileSyncEnabled requires AgentEnabled to be true.";
         return null;
+    }
+
+    private static bool IsFileTransportEnabled(GameServer entity)
+    {
+        return entity.FileTransportEnabled || entity.FtpEnabled;
     }
 
     private IQueryable<GameServer> ApplyFilters(IQueryable<GameServer> query, GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter)
@@ -460,6 +465,7 @@ public class GameServersController : ControllerBase, IGameServersApi
             query = filter.Value switch
             {
                 GameServerFilter.AgentEnabled => query.Where(s => s.AgentEnabled),
+                GameServerFilter.FileTransportEnabled => query.Where(s => s.FileTransportEnabled || s.FtpEnabled),
                 GameServerFilter.FtpEnabled => query.Where(s => s.FtpEnabled),
                 GameServerFilter.RconEnabled => query.Where(s => s.RconEnabled),
                 GameServerFilter.BanFileSyncEnabled => query.Where(s => s.BanFileSyncEnabled),

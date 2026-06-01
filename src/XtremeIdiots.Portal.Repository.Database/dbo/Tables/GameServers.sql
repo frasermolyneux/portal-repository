@@ -6,6 +6,8 @@
     [Hostname] NVARCHAR (MAX) NOT NULL,
     [QueryPort] INT DEFAULT 0 NOT NULL,
     [ServerListPosition] INT DEFAULT 0 NOT NULL,
+    [FileTransportEnabled] BIT DEFAULT 0 NOT NULL,
+    [FileTransportType] INT DEFAULT 0 NOT NULL,
     [FtpEnabled] BIT DEFAULT 0 NOT NULL,
     [RconEnabled] BIT DEFAULT 0 NOT NULL,
     [AgentEnabled] BIT DEFAULT 0 NOT NULL,
