@@ -10,6 +10,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public static string HeadAdmin => nameof(HeadAdmin);
         public static string GameAdmin => nameof(GameAdmin);
         public static string Moderator => nameof(Moderator);
+        public static string ClanMember => nameof(ClanMember);
+        public static string RegisteredUser => nameof(RegisteredUser);
 
         public static string TimeZone => nameof(TimeZone);
     }

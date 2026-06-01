@@ -170,6 +170,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
             UserProfileClaimType.HeadAdmin,
             UserProfileClaimType.GameAdmin,
             UserProfileClaimType.Moderator,
+            UserProfileClaimType.ClanMember,
+            UserProfileClaimType.RegisteredUser,
             UserProfileClaimType.TimeZone,
             UserProfileClaimType.Email
         };
