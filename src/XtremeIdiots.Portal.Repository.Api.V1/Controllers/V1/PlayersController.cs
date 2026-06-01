@@ -1440,10 +1440,20 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
-        // Check if the tag exists
-        var tagExists = await context.Tags.AsNoTracking().AnyAsync(t => t.TagId == playerTagDto.TagId).ConfigureAwait(false);
-        if (!tagExists)
+        // Check if the tag exists and whether it is user-defined.
+        var tagMetadata = await context.Tags
+            .AsNoTracking()
+            .Where(t => t.TagId == playerTagDto.TagId)
+            .Select(t => new { t.TagId, t.UserDefined })
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+
+        if (tagMetadata == null)
             return new ApiResult(HttpStatusCode.NotFound);
+
+        if (!tagMetadata.UserDefined)
+            return new ApiResult(HttpStatusCode.BadRequest,
+                new ApiResponse(new ApiError(ApiErrorCodes.SystemManagedTagEditNotAllowed, ApiErrorMessages.SystemManagedTagEditNotAllowedMessage)));
 
         // Check if player already has this tag
         var exists = await context.PlayerTags.AsNoTracking().AnyAsync(pt => pt.PlayerId == playerId && pt.TagId == playerTagDto.TagId).ConfigureAwait(false);
@@ -1488,10 +1498,17 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
         if (!await context.Players.AsNoTracking().AnyAsync(p => p.PlayerId == playerId).ConfigureAwait(false))
             return new ApiResult(HttpStatusCode.NotFound);
 
-        var playerTag = await context.PlayerTags.FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId).ConfigureAwait(false);
+        var playerTag = await context.PlayerTags
+            .Include(pt => pt.Tag)
+            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId && pt.PlayerId == playerId)
+            .ConfigureAwait(false);
 
         if (playerTag == null)
             return new ApiResult(HttpStatusCode.NotFound);
+
+        if (playerTag.Tag?.UserDefined == false)
+            return new ApiResult(HttpStatusCode.BadRequest,
+                new ApiResponse(new ApiError(ApiErrorCodes.SystemManagedTagEditNotAllowed, ApiErrorMessages.SystemManagedTagEditNotAllowedMessage)));
 
         context.PlayerTags.Remove(playerTag);
         await context.SaveChangesAsync().ConfigureAwait(false);
@@ -1559,10 +1576,16 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     async Task<ApiResult> IPlayersApi.RemovePlayerTagById(Guid playerTagId)
     {
         var playerTag = await context.PlayerTags
-            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId).ConfigureAwait(false);
+            .Include(pt => pt.Tag)
+            .FirstOrDefaultAsync(pt => pt.PlayerTagId == playerTagId)
+            .ConfigureAwait(false);
 
         if (playerTag == null)
             return new ApiResult(HttpStatusCode.NotFound);
+
+        if (playerTag.Tag?.UserDefined == false)
+            return new ApiResult(HttpStatusCode.BadRequest,
+                new ApiResponse(new ApiError(ApiErrorCodes.SystemManagedTagEditNotAllowed, ApiErrorMessages.SystemManagedTagEditNotAllowedMessage)));
 
         context.PlayerTags.Remove(playerTag);
         await context.SaveChangesAsync().ConfigureAwait(false);

@@ -27,6 +27,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Route("v{version:apiVersion}")]
     public class ConnectedPlayersController : ControllerBase, IConnectedPlayersApi
     {
+        private const string ConnectedPlayerVerifiedTagName = "verified-player";
         private const int ActivationCodeExpiryMinutes = 5;
         private const int ActivationCodeMaxAttempts = 5;
         private const string DefaultActivationSource = "WebsiteActivation";
@@ -280,6 +281,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 {
                     activationCode.IsActive = false;
                     activationCode.ConsumedAtUtc = now;
+                    await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
                     await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                     await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -348,6 +350,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             try
             {
                 await context.ConnectedPlayerProfiles.AddAsync(profile, cancellationToken).ConfigureAwait(false);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (DbUpdateException)
@@ -458,8 +462,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             try
             {
+                await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
                 await context.ConnectedPlayerProfiles.AddAsync(entity, cancellationToken).ConfigureAwait(false);
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (DbUpdateException)
             {
@@ -639,11 +647,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (!link.IsActive)
                 return new ApiResponse().ToApiResult();
 
-            link.IsActive = false;
-            link.UnlinkedAtUtc = DateTime.UtcNow;
-            link.UnlinkedByUserProfileId = dto.UnlinkedByUserProfileId;
+            await using (var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false))
+            {
+                link.IsActive = false;
+                link.UnlinkedAtUtc = DateTime.UtcNow;
+                link.UnlinkedByUserProfileId = dto.UnlinkedByUserProfileId;
 
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await ReconcileConnectedPlayerTagForPlayer(link.PlayerId, cancellationToken).ConfigureAwait(false);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             var unlinkActorId = dto.UnlinkedByUserProfileId?.ToString() ?? "ServiceAccount";
             auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerForceUnlinked", AuditAction.Delete)
@@ -692,6 +706,58 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var bytes = Encoding.UTF8.GetBytes(token);
             var hash = SHA256.HashData(bytes);
             return Convert.ToHexString(hash);
+        }
+
+        private async Task ReconcileConnectedPlayerTagForPlayer(Guid playerId, CancellationToken cancellationToken)
+        {
+            var verifiedTagId = await context.Tags
+                .AsNoTracking()
+                .Where(tag => tag.Name == ConnectedPlayerVerifiedTagName)
+                .Select(tag => (Guid?)tag.TagId)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!verifiedTagId.HasValue)
+            {
+                return;
+            }
+
+            var playerTags = await context.PlayerTags
+                .Where(playerTag => playerTag.PlayerId == playerId && playerTag.TagId == verifiedTagId.Value)
+                .OrderBy(playerTag => playerTag.Assigned)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var hasActiveOwnership = await context.ConnectedPlayerProfiles
+                .AsNoTracking()
+                .AnyAsync(profile => profile.PlayerId == playerId && profile.IsActive, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (hasActiveOwnership)
+            {
+                if (playerTags.Count == 0)
+                {
+                    await context.PlayerTags.AddAsync(new PlayerTag
+                    {
+                        PlayerTagId = Guid.NewGuid(),
+                        PlayerId = playerId,
+                        TagId = verifiedTagId.Value,
+                        Assigned = DateTime.UtcNow,
+                        UserProfileId = null,
+                    }, cancellationToken).ConfigureAwait(false);
+                }
+                else if (playerTags.Count > 1)
+                {
+                    context.PlayerTags.RemoveRange(playerTags.Skip(1));
+                }
+
+                return;
+            }
+
+            if (playerTags.Count != 0)
+            {
+                context.PlayerTags.RemoveRange(playerTags);
+            }
         }
     }
 }

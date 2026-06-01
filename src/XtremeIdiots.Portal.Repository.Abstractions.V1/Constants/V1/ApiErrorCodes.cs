@@ -40,6 +40,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string ConnectedPlayerActivationCodeAttemptsExceeded = "CONNECTED_PLAYER_ACTIVATION_CODE_ATTEMPTS_EXCEEDED";
         public const string ConnectedPlayerActivationCodeInactive = "CONNECTED_PLAYER_ACTIVATION_CODE_INACTIVE";
         public const string ConnectedPlayerActivationCodeConflict = "CONNECTED_PLAYER_ACTIVATION_CODE_CONFLICT";
+        public const string SystemManagedTagEditNotAllowed = "SYSTEM_MANAGED_TAG_EDIT_NOT_ALLOWED";
 
         // Server Errors
         public const string InternalServerError = "INTERNAL_SERVER_ERROR";

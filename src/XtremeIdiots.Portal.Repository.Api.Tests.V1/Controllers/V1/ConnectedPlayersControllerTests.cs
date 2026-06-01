@@ -563,6 +563,70 @@ public class ConnectedPlayersControllerTests
         Assert.Contains(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
     }
 
+    [Fact]
+    public async Task CreateConnectedPlayerLink_WhenVerifiedTagExists_AddsVerifiedPlayerTag()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+        var verifiedTagId = Guid.NewGuid();
+
+        context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
+        context.Tags.Add(new Tag { TagId = verifiedTagId, Name = "verified-player", UserDefined = false });
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.CreateConnectedPlayerLink(new CreateConnectedPlayerLinkDto
+        {
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.Single(context.PlayerTags);
+        Assert.Equal(verifiedTagId, context.PlayerTags.Single().TagId);
+        Assert.Equal(playerId, context.PlayerTags.Single().PlayerId);
+    }
+
+    [Fact]
+    public async Task ForceUnlinkConnectedPlayer_WhenVerifiedTagExists_RemovesVerifiedPlayerTag()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var connectedPlayerProfileId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+        var verifiedTagId = Guid.NewGuid();
+
+        context.Players.Add(new Player { PlayerId = playerId, GameType = 1, Username = "Player", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+        context.UserProfiles.Add(new UserProfile { UserProfileId = userProfileId, DisplayName = "User" });
+        context.Tags.Add(new Tag { TagId = verifiedTagId, Name = "verified-player", UserDefined = false });
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = connectedPlayerProfileId,
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddHours(-1),
+            IsActive = true
+        });
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = verifiedTagId,
+            Assigned = DateTime.UtcNow.AddMinutes(-5),
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.ForceUnlinkConnectedPlayer(connectedPlayerProfileId, new ForceUnlinkConnectedPlayerDto());
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(context.PlayerTags);
+    }
+
     private static string HashToken(string token)
     {
         var bytes = Encoding.UTF8.GetBytes(token);

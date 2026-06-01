@@ -68,10 +68,15 @@ BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('verified-player', 'Player with verified identity', 1, '<span class="badge bg-success">Verified Player</span>')
+        ('verified-player', 'Player with verified identity', 0, '<span class="badge bg-success">Verified Player</span>')
 
     PRINT 'Inserted verified-player tag'
 END
+
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE [Name] = 'verified-player'
+    AND [UserDefined] <> 0
 
 -- Active Player Tag
 IF NOT EXISTS (SELECT *

@@ -34,6 +34,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string ConnectedPlayerActivationCodeAttemptsExceededMessage = "Connected player activation code attempt limit exceeded";
         public const string ConnectedPlayerActivationCodeInactiveMessage = "Connected player activation code is inactive";
         public const string ConnectedPlayerActivationCodeConflictMessage = "Connected player activation code could not be activated due to a concurrent conflict";
+        public const string SystemManagedTagEditNotAllowedMessage = "System-managed tags cannot be edited manually";
 
         // Entity Not Found Messages (Specific)
         public const string UserProfileNotFoundMessage = "User profile not found";

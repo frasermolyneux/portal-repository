@@ -29,6 +29,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 [Route("v{version:apiVersion}")]
 public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 {
+    private const string ConnectedPlayerVerifiedTagName = "verified-player";
+
     private readonly PortalDbContext context;
     private readonly IConfiguration configuration;
 
@@ -40,7 +42,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     public DataMaintenanceController(PortalDbContext context, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
         this.configuration = configuration;
     }
 
@@ -232,6 +234,108 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                   SELECT 1 FROM [dbo].[PlayerTags] pt
                   WHERE pt.[PlayerId] = p.[PlayerId] AND pt.[TagId] = {inactiveTagId}
               )", cancellationToken).ConfigureAwait(false);
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
+    /// Reconciles the system-managed connected-player tag projection from active ownership state.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpPost("data-maintenance/reconcile-connected-player-tags")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ReconcileConnectedPlayerTags(CancellationToken cancellationToken = default)
+    {
+        var response = await ((IDataMaintenanceApi)this).ReconcileConnectedPlayerTags(cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    /// <summary>
+    /// Reconciles the system-managed connected-player tag projection from active ownership state.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.ReconcileConnectedPlayerTags(CancellationToken cancellationToken)
+    {
+        var verifiedTag = await context.Tags
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Name == ConnectedPlayerVerifiedTagName, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (verifiedTag == null)
+        {
+            throw new InvalidOperationException($"Required tag '{ConnectedPlayerVerifiedTagName}' does not exist.");
+        }
+
+        var verifiedTagId = verifiedTag.TagId;
+        var now = DateTime.UtcNow;
+
+        var linkedPlayerIds = await context.ConnectedPlayerProfiles
+            .AsNoTracking()
+            .Where(cp => cp.IsActive)
+            .Select(cp => cp.PlayerId)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var existingTaggedEntries = await context.PlayerTags
+            .Where(pt => pt.TagId == verifiedTagId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var linkedPlayerIdSet = linkedPlayerIds.ToHashSet();
+
+        var entriesToRemove = existingTaggedEntries
+            .Where(pt => pt.PlayerId == null || !linkedPlayerIdSet.Contains(pt.PlayerId.Value))
+            .ToList();
+
+        var duplicateEntriesToRemove = existingTaggedEntries
+            .Where(pt => pt.PlayerId.HasValue && linkedPlayerIdSet.Contains(pt.PlayerId.Value))
+            .GroupBy(pt => pt.PlayerId!.Value)
+            .SelectMany(group => group
+                .OrderBy(entry => entry.Assigned)
+                .ThenBy(entry => entry.PlayerTagId)
+                .Skip(1))
+            .ToList();
+
+        if (duplicateEntriesToRemove.Count != 0)
+        {
+            entriesToRemove.AddRange(duplicateEntriesToRemove);
+        }
+
+        if (entriesToRemove.Count != 0)
+        {
+            context.PlayerTags.RemoveRange(entriesToRemove);
+        }
+
+        var alreadyTaggedPlayerIds = existingTaggedEntries
+            .Where(pt => pt.PlayerId.HasValue)
+            .Select(pt => pt.PlayerId!.Value)
+            .ToHashSet();
+
+        var newEntries = linkedPlayerIds
+            .Where(playerId => !alreadyTaggedPlayerIds.Contains(playerId))
+            .Select(playerId => new PlayerTag
+            {
+                PlayerTagId = Guid.NewGuid(),
+                PlayerId = playerId,
+                TagId = verifiedTagId,
+                Assigned = now,
+                UserProfileId = null,
+            })
+            .ToList();
+
+        if (newEntries.Count != 0)
+        {
+            await context.PlayerTags.AddRangeAsync(newEntries, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (entriesToRemove.Count != 0 || newEntries.Count != 0)
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         return new ApiResponse().ToApiResult();
     }

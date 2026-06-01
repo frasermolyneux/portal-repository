@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -242,6 +243,155 @@ public class DataMaintenanceControllerTests
         var result = await api.ResetSystemAssignedPlayerTags();
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_WhenVerifiedTagMissing_ThrowsInvalidOperationException()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => api.ReconcileConnectedPlayerTags());
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_ProjectsFromActiveOwnershipState()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var verifiedTagId = Guid.NewGuid();
+        var linkedPlayerId = Guid.NewGuid();
+        var unlinkedPlayerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        context.Tags.Add(new Tag
+        {
+            TagId = verifiedTagId,
+            Name = "verified-player",
+            UserDefined = false,
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = linkedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "LinkedPlayer",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = unlinkedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "UnlinkedPlayer",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "User",
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+            IsActive = true,
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = unlinkedPlayerId,
+            TagId = verifiedTagId,
+            Assigned = DateTime.UtcNow.AddDays(-2),
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var verifiedTaggedPlayers = context.PlayerTags.Where(pt => pt.TagId == verifiedTagId).Select(pt => pt.PlayerId).ToList();
+        Assert.Single(verifiedTaggedPlayers);
+        Assert.Equal(linkedPlayerId, verifiedTaggedPlayers[0]);
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_RemovesDuplicateTagsForLinkedPlayers()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var verifiedTagId = Guid.NewGuid();
+        var linkedPlayerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        context.Tags.Add(new Tag
+        {
+            TagId = verifiedTagId,
+            Name = "verified-player",
+            UserDefined = false,
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = linkedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "LinkedPlayer",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "User",
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+            IsActive = true,
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            TagId = verifiedTagId,
+            Assigned = DateTime.UtcNow.AddDays(-2),
+        });
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            TagId = verifiedTagId,
+            Assigned = DateTime.UtcNow.AddDays(-1),
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.PlayerTags.Where(pt => pt.PlayerId == linkedPlayerId && pt.TagId == verifiedTagId));
     }
 
     [Fact(Skip = "Requires Azure Blob Storage")]

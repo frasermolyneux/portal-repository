@@ -55,6 +55,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        public async Task<ApiResult> ReconcileConnectedPlayerTags(CancellationToken cancellationToken = default)
+        {
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/reconcile-connected-player-tags", Method.Post), cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
         public async Task<ApiResult> ValidateMapImages(CancellationToken cancellationToken = default)
         {
             var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/validate-map-images", Method.Post), cancellationToken).ConfigureAwait(false);
