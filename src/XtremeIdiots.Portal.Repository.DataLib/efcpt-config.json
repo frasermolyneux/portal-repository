@@ -129,6 +129,9 @@
       "name": "[dbo].[ConnectedPlayerProfiles]"
     },
     {
+      "name": "[dbo].[ConnectedPlayerActivationCodes]"
+    },
+    {
       "name": "[dbo].[ConnectedPlayerRegistrationTokens]"
     }
   ]

@@ -21,6 +21,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<ChatMessage> ChatMessages { get; set; }
 
+    public virtual DbSet<ConnectedPlayerActivationCode> ConnectedPlayerActivationCodes { get; set; }
+
     public virtual DbSet<ConnectedPlayerProfile> ConnectedPlayerProfiles { get; set; }
 
     public virtual DbSet<ConnectedPlayerRegistrationToken> ConnectedPlayerRegistrationTokens { get; set; }
@@ -126,6 +128,27 @@ public partial class PortalDbContext : DbContext
                 .HasConstraintName("FK_dbo.ChatMessages_dbo.Players_PlayerId");
         });
 
+        modelBuilder.Entity<ConnectedPlayerActivationCode>(entity =>
+        {
+            entity.HasKey(e => e.ConnectedPlayerActivationCodeId).HasName("PK_dbo.ConnectedPlayerActivationCodes");
+
+            entity.HasIndex(e => e.Code, "IX_ConnectedPlayerActivationCodes_Code_IsActive")
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
+
+            entity.HasIndex(e => e.UserProfileId, "IX_ConnectedPlayerActivationCodes_UserProfileId_IsActive")
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
+
+            entity.Property(e => e.ConnectedPlayerActivationCodeId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MaxAttempts).HasDefaultValue(5);
+
+            entity.HasOne(d => d.UserProfile).WithOne(p => p.ConnectedPlayerActivationCode)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.ConnectedPlayerActivationCodes_dbo.UserProfiles_UserProfileId");
+        });
+
         modelBuilder.Entity<ConnectedPlayerProfile>(entity =>
         {
             entity.HasKey(e => e.ConnectedPlayerProfileId).HasName("PK_dbo.ConnectedPlayerProfiles");
@@ -141,7 +164,7 @@ public partial class PortalDbContext : DbContext
 
             entity.HasOne(d => d.LinkedByUserProfile).WithMany(p => p.ConnectedPlayerProfileLinkedByUserProfiles).HasConstraintName("FK_dbo.ConnectedPlayerProfiles_dbo.UserProfiles_LinkedByUserProfileId");
 
-            entity.HasOne(d => d.Player).WithMany(p => p.ConnectedPlayerProfiles)
+            entity.HasOne(d => d.Player).WithOne(p => p.ConnectedPlayerProfile)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.ConnectedPlayerProfiles_dbo.Players_PlayerId");
 
@@ -164,7 +187,7 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.MaxAttempts).HasDefaultValue(5);
 
-            entity.HasOne(d => d.Player).WithMany(p => p.ConnectedPlayerRegistrationTokens)
+            entity.HasOne(d => d.Player).WithOne(p => p.ConnectedPlayerRegistrationToken)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.ConnectedPlayerRegistrationTokens_dbo.Players_PlayerId");
         });

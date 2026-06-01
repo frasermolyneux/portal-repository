@@ -89,6 +89,7 @@
     <Build Include="dbo\Tables\Notifications.sql" />
     <Build Include="dbo\Tables\CentralBanFileStatus.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerProfiles.sql" />
+    <Build Include="dbo\Tables\ConnectedPlayerActivationCodes.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerRegistrationTokens.sql" />
   </ItemGroup>
   <ItemGroup>

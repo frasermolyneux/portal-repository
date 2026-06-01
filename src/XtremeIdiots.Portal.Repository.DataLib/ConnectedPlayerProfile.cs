@@ -38,7 +38,7 @@ public partial class ConnectedPlayerProfile
     public virtual UserProfile? LinkedByUserProfile { get; set; }
 
     [ForeignKey("PlayerId")]
-    [InverseProperty("ConnectedPlayerProfiles")]
+    [InverseProperty("ConnectedPlayerProfile")]
     public virtual Player Player { get; set; } = null!;
 
     [ForeignKey("UnlinkedByUserProfileId")]

@@ -42,6 +42,6 @@ public partial class ConnectedPlayerRegistrationToken
     public DateTime? VerifiedAtUtc { get; set; }
 
     [ForeignKey("PlayerId")]
-    [InverseProperty("ConnectedPlayerRegistrationTokens")]
+    [InverseProperty("ConnectedPlayerRegistrationToken")]
     public virtual Player Player { get; set; } = null!;
 }

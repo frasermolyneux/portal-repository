@@ -33,6 +33,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        public async Task<ApiResult<ConnectedPlayerActivationCodeDto>> ActivateConnectedPlayerActivationCode(
+            ActivateConnectedPlayerActivationCodeDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/connected-players/activation-code", Method.Post).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+            return response.ToApiResult<ConnectedPlayerActivationCodeDto>();
+        }
+
+        public async Task<ApiResult<ConnectedPlayerActivationCodeDto>> GetActiveConnectedPlayerActivationCode(
+            Guid userProfileId,
+            CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profiles/{userProfileId}/connected-player-activation-code", Method.Get).ConfigureAwait(false);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+            return response.ToApiResult<ConnectedPlayerActivationCodeDto>();
+        }
+
         public async Task<ApiResult<IssueConnectedPlayerRegistrationTokenResultDto>> IssueConnectedPlayerRegistrationToken(
             IssueConnectedPlayerRegistrationTokenDto dto,
             CancellationToken cancellationToken = default)

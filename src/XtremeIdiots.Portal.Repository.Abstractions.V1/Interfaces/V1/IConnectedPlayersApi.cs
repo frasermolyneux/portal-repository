@@ -9,6 +9,14 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
     {
         Task<ApiResult> CreateConnectedPlayerLink(CreateConnectedPlayerLinkDto dto, CancellationToken cancellationToken = default);
 
+        Task<ApiResult<ConnectedPlayerActivationCodeDto>> ActivateConnectedPlayerActivationCode(
+            ActivateConnectedPlayerActivationCodeDto dto,
+            CancellationToken cancellationToken = default);
+
+        Task<ApiResult<ConnectedPlayerActivationCodeDto>> GetActiveConnectedPlayerActivationCode(
+            Guid userProfileId,
+            CancellationToken cancellationToken = default);
+
         Task<ApiResult<IssueConnectedPlayerRegistrationTokenResultDto>> IssueConnectedPlayerRegistrationToken(
             IssueConnectedPlayerRegistrationTokenDto dto,
             CancellationToken cancellationToken = default);

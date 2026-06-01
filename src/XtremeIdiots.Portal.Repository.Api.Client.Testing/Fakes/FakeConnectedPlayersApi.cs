@@ -12,6 +12,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 public class FakeConnectedPlayersApi : IConnectedPlayersApi
 {
     private readonly ConcurrentDictionary<Guid, ConnectedPlayerDto> _connectedPlayers = new();
+    private readonly ConcurrentDictionary<Guid, ConnectedPlayerActivationCodeDto> _activationCodes = new();
 
     public FakeConnectedPlayersApi AddConnectedPlayer(ConnectedPlayerDto dto)
     {
@@ -22,6 +23,7 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
     public FakeConnectedPlayersApi Reset()
     {
         _connectedPlayers.Clear();
+        _activationCodes.Clear();
         return this;
     }
 
@@ -47,6 +49,55 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
 
         _connectedPlayers[connectedPlayer.ConnectedPlayerProfileId] = connectedPlayer;
         return Task.FromResult(new ApiResult(HttpStatusCode.Created, new ApiResponse()));
+    }
+
+    public Task<ApiResult<ConnectedPlayerActivationCodeDto>> ActivateConnectedPlayerActivationCode(
+        ActivateConnectedPlayerActivationCodeDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var existing in _activationCodes.Values.Where(x => x.UserProfileId == dto.UserProfileId && x.IsActive).ToList())
+        {
+            _activationCodes[existing.ConnectedPlayerActivationCodeId] = existing with { IsActive = false };
+        }
+
+        var result = new ConnectedPlayerActivationCodeDto
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = dto.UserProfileId,
+            Code = "ABC123",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
+            AttemptCount = 0,
+            MaxAttempts = 5,
+            IsActive = true,
+            ActivatedAtUtc = DateTime.UtcNow
+        };
+
+        _activationCodes[result.ConnectedPlayerActivationCodeId] = result;
+
+        return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(
+            HttpStatusCode.OK,
+            new ApiResponse<ConnectedPlayerActivationCodeDto>(result)));
+    }
+
+    public Task<ApiResult<ConnectedPlayerActivationCodeDto>> GetActiveConnectedPlayerActivationCode(
+        Guid userProfileId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = _activationCodes.Values
+            .Where(x => x.UserProfileId == userProfileId && x.IsActive)
+            .OrderByDescending(x => x.ActivatedAtUtc)
+            .FirstOrDefault();
+
+        if (result == null)
+        {
+            return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(
+                HttpStatusCode.NotFound,
+                new ApiResponse<ConnectedPlayerActivationCodeDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound))));
+        }
+
+        return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(
+            HttpStatusCode.OK,
+            new ApiResponse<ConnectedPlayerActivationCodeDto>(result)));
     }
 
     public Task<ApiResult<IssueConnectedPlayerRegistrationTokenResultDto>> IssueConnectedPlayerRegistrationToken(

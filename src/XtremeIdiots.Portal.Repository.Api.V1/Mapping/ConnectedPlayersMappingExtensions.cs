@@ -56,6 +56,23 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             };
         }
 
+        public static ConnectedPlayerActivationCodeDto ToDto(this ConnectedPlayerActivationCode entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            return new ConnectedPlayerActivationCodeDto
+            {
+                ConnectedPlayerActivationCodeId = entity.ConnectedPlayerActivationCodeId,
+                UserProfileId = entity.UserProfileId,
+                Code = entity.Code,
+                ExpiresAtUtc = entity.ExpiresAtUtc,
+                AttemptCount = entity.AttemptCount,
+                MaxAttempts = entity.MaxAttempts,
+                IsActive = entity.IsActive,
+                ActivatedAtUtc = entity.ActivatedAtUtc
+            };
+        }
+
         private static ConnectedPlayerLinkMethod ParseLinkMethod(string value)
         {
             if (Enum.TryParse<ConnectedPlayerLinkMethod>(value, true, out var result))
