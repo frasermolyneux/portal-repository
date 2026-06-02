@@ -209,13 +209,13 @@ public class GameServersControllerTests
     }
 
     [Fact]
-    public async Task CreateGameServer_LegacyFtpOnly_ReturnsBadRequest()
+    public async Task CreateGameServer_LegacyTransportFlagOnly_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var controller = CreateController(context);
         var api = (IGameServersApi)controller;
 
-        var dto = new CreateGameServerDto("Legacy FTP Server", GameType.CallOfDuty4, "legacy-host", 28960)
+        var dto = new CreateGameServerDto("Legacy Transport Flag Server", GameType.CallOfDuty4, "legacy-host", 28960)
         {
             FtpEnabled = true,
             RconEnabled = true,
@@ -451,13 +451,13 @@ public class GameServersControllerTests
     }
 
     [Fact]
-    public async Task GetGameServers_FileTransportEnabledFilter_ReturnsLegacyAndTransportNative()
+    public async Task GetGameServers_FileTransportEnabledFilter_ReturnsOnlyTransportNative()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         context.GameServers.Add(new GameServer
         {
             GameServerId = Guid.NewGuid(),
-            Title = "Legacy FTP",
+            Title = "Legacy Transport Flag",
             GameType = (int)GameType.CallOfDuty4,
             Hostname = "legacy-host",
             QueryPort = 28960,
@@ -492,13 +492,13 @@ public class GameServersControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var items = result.Result!.Data!.Items!.Select(i => i.Title).ToArray();
-        Assert.DoesNotContain("Legacy FTP", items);
+        Assert.DoesNotContain("Legacy Transport Flag", items);
         Assert.Contains("Native SFTP", items);
         Assert.DoesNotContain("No Transport", items);
     }
 
     [Fact]
-    public async Task CreateGameServer_AgentEnabledWithoutFtp_ReturnsBadRequest()
+    public async Task CreateGameServer_AgentEnabledWithoutLegacyTransportFlag_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var controller = CreateController(context);
@@ -559,7 +559,7 @@ public class GameServersControllerTests
     }
 
     [Fact]
-    public async Task CreateGameServer_BanFileSyncWithoutFtp_ReturnsBadRequest()
+    public async Task CreateGameServer_BanFileSyncWithoutFileTransport_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var controller = CreateController(context);
@@ -609,7 +609,7 @@ public class GameServersControllerTests
     }
 
     [Fact]
-    public async Task UpdateGameServer_DisablingLegacyFtpFlag_DoesNotCascadeWhenTransportRemainsEnabled()
+    public async Task UpdateGameServer_DisablingLegacyTransportFlag_DoesNotCascadeWhenTransportRemainsEnabled()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var gameServerId = Guid.NewGuid();
