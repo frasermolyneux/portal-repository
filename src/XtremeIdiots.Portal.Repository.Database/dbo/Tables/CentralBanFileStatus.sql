@@ -11,6 +11,16 @@ CREATE TABLE [dbo].[CentralBanFileStatus]
     [LastRegenerationDurationMs] INT NULL,
     [LastRegenerationError] NVARCHAR (MAX) NULL,
     [ActiveBanSetHash] NVARCHAR (128) NULL,
+    [LegacyBlobLastRegeneratedUtc] DATETIME2 (3) NULL,
+    [LegacyBlobETag] NVARCHAR (100) NULL,
+    [LegacyBlobSizeBytes] BIGINT NULL,
+    [LegacyTotalLineCount] INT NULL,
+    [LegacyBanSyncLineCount] INT NULL,
+    [LegacyExternalLineCount] INT NULL,
+    [LegacyExternalSourceLastModifiedUtc] DATETIME2 (3) NULL,
+    [LegacyLastRegenerationDurationMs] INT NULL,
+    [LegacyLastRegenerationError] NVARCHAR (MAX) NULL,
+    [LegacyActiveBanSetHash] NVARCHAR (128) NULL,
     [LastUpdatedUtc] DATETIME2 (3) NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT [PK_dbo.CentralBanFileStatus] PRIMARY KEY CLUSTERED ([GameType] ASC)
 );

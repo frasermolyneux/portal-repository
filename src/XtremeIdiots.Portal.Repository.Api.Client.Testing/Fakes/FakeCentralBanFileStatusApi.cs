@@ -60,6 +60,16 @@ public class FakeCentralBanFileStatusApi : ICentralBanFileStatusApi
             LastRegenerationDurationMs = upsertDto.LastRegenerationDurationMs ?? existing.LastRegenerationDurationMs,
             LastRegenerationError = upsertDto.LastRegenerationError ?? existing.LastRegenerationError,
             ActiveBanSetHash = upsertDto.ActiveBanSetHash ?? existing.ActiveBanSetHash,
+            LegacyBlobLastRegeneratedUtc = upsertDto.LegacyBlobLastRegeneratedUtc ?? existing.LegacyBlobLastRegeneratedUtc,
+            LegacyBlobETag = upsertDto.LegacyBlobETag ?? existing.LegacyBlobETag,
+            LegacyBlobSizeBytes = upsertDto.LegacyBlobSizeBytes ?? existing.LegacyBlobSizeBytes,
+            LegacyTotalLineCount = upsertDto.LegacyTotalLineCount ?? existing.LegacyTotalLineCount,
+            LegacyBanSyncLineCount = upsertDto.LegacyBanSyncLineCount ?? existing.LegacyBanSyncLineCount,
+            LegacyExternalLineCount = upsertDto.LegacyExternalLineCount ?? existing.LegacyExternalLineCount,
+            LegacyExternalSourceLastModifiedUtc = upsertDto.LegacyExternalSourceLastModifiedUtc ?? existing.LegacyExternalSourceLastModifiedUtc,
+            LegacyLastRegenerationDurationMs = upsertDto.LegacyLastRegenerationDurationMs ?? existing.LegacyLastRegenerationDurationMs,
+            LegacyLastRegenerationError = upsertDto.LegacyLastRegenerationError ?? existing.LegacyLastRegenerationError,
+            LegacyActiveBanSetHash = upsertDto.LegacyActiveBanSetHash ?? existing.LegacyActiveBanSetHash,
             LastUpdatedUtc = DateTime.UtcNow
         };
 

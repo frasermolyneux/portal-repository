@@ -40,6 +40,33 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         [JsonProperty]
         public long? RemoteFileSize { get; set; }
 
+        [JsonProperty]
+        public DateTime? LegacyLastCheckUtc { get; set; }
+
+        [JsonProperty]
+        public string? LegacyLastCheckResult { get; set; }
+
+        [JsonProperty]
+        public string? LegacyLastCheckErrorMessage { get; set; }
+
+        [JsonProperty]
+        public string? LegacyRemoteFilePath { get; set; }
+
+        [JsonProperty]
+        public string? LegacyResolvedForMod { get; set; }
+
+        [JsonProperty]
+        public long? LegacyRemoteFileSize { get; set; }
+
+        [JsonProperty]
+        public DateTime? LegacyLastPushUtc { get; set; }
+
+        [JsonProperty]
+        public string? LegacyLastPushedETag { get; set; }
+
+        [JsonProperty]
+        public long? LegacyLastPushedSize { get; set; }
+
         // Import
         [JsonProperty]
         public DateTime? LastImportUtc { get; set; }
@@ -67,6 +94,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         [JsonProperty]
         public DateTime? LastCentralBlobUtc { get; set; }
 
+        [JsonProperty]
+        public string? LegacyLastCentralBlobETag { get; set; }
+
+        [JsonProperty]
+        public DateTime? LegacyLastCentralBlobUtc { get; set; }
+
         // Failure tracking — when set, replaces the value (does not increment).
         // Pass 0 on success to clear, or the new running total on failure.
         [JsonProperty]
@@ -84,6 +117,18 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
 
         [JsonProperty]
         public int? RemoteExternalCount { get; set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteTotalLineCount { get; set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteUntaggedCount { get; set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteBanSyncCount { get; set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteExternalCount { get; set; }
 
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()

@@ -66,7 +66,22 @@ public class FakeBanFileMonitorsApi : IBanFileMonitorsApi
             RemoteTotalLineCount = upsertDto.RemoteTotalLineCount ?? existing.RemoteTotalLineCount,
             RemoteUntaggedCount = upsertDto.RemoteUntaggedCount ?? existing.RemoteUntaggedCount,
             RemoteBanSyncCount = upsertDto.RemoteBanSyncCount ?? existing.RemoteBanSyncCount,
-            RemoteExternalCount = upsertDto.RemoteExternalCount ?? existing.RemoteExternalCount
+            RemoteExternalCount = upsertDto.RemoteExternalCount ?? existing.RemoteExternalCount,
+            LegacyLastCheckUtc = upsertDto.LegacyLastCheckUtc ?? existing.LegacyLastCheckUtc,
+            LegacyLastCheckResult = upsertDto.LegacyLastCheckResult ?? existing.LegacyLastCheckResult,
+            LegacyLastCheckErrorMessage = upsertDto.LegacyLastCheckErrorMessage ?? existing.LegacyLastCheckErrorMessage,
+            LegacyRemoteFilePath = upsertDto.LegacyRemoteFilePath ?? existing.LegacyRemoteFilePath,
+            LegacyResolvedForMod = upsertDto.LegacyResolvedForMod ?? existing.LegacyResolvedForMod,
+            LegacyRemoteFileSize = upsertDto.LegacyRemoteFileSize ?? existing.LegacyRemoteFileSize,
+            LegacyLastPushUtc = upsertDto.LegacyLastPushUtc ?? existing.LegacyLastPushUtc,
+            LegacyLastPushedETag = upsertDto.LegacyLastPushedETag ?? existing.LegacyLastPushedETag,
+            LegacyLastPushedSize = upsertDto.LegacyLastPushedSize ?? existing.LegacyLastPushedSize,
+            LegacyLastCentralBlobETag = upsertDto.LegacyLastCentralBlobETag ?? existing.LegacyLastCentralBlobETag,
+            LegacyLastCentralBlobUtc = upsertDto.LegacyLastCentralBlobUtc ?? existing.LegacyLastCentralBlobUtc,
+            LegacyRemoteTotalLineCount = upsertDto.LegacyRemoteTotalLineCount ?? existing.LegacyRemoteTotalLineCount,
+            LegacyRemoteUntaggedCount = upsertDto.LegacyRemoteUntaggedCount ?? existing.LegacyRemoteUntaggedCount,
+            LegacyRemoteBanSyncCount = upsertDto.LegacyRemoteBanSyncCount ?? existing.LegacyRemoteBanSyncCount,
+            LegacyRemoteExternalCount = upsertDto.LegacyRemoteExternalCount ?? existing.LegacyRemoteExternalCount
         };
 
         _monitors[updated.BanFileMonitorId] = updated;

@@ -41,6 +41,21 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 RemoteUntaggedCount = entity.RemoteUntaggedCount,
                 RemoteBanSyncCount = entity.RemoteBanSyncCount,
                 RemoteExternalCount = entity.RemoteExternalCount,
+                LegacyLastCheckUtc = entity.LegacyLastCheckUtc,
+                LegacyLastCheckResult = entity.LegacyLastCheckResult,
+                LegacyLastCheckErrorMessage = entity.LegacyLastCheckErrorMessage,
+                LegacyRemoteFilePath = entity.LegacyRemoteFilePath,
+                LegacyResolvedForMod = entity.LegacyResolvedForMod,
+                LegacyRemoteFileSize = entity.LegacyRemoteFileSize,
+                LegacyLastPushUtc = entity.LegacyLastPushUtc,
+                LegacyLastPushedETag = entity.LegacyLastPushedEtag,
+                LegacyLastPushedSize = entity.LegacyLastPushedSize,
+                LegacyLastCentralBlobETag = entity.LegacyLastCentralBlobEtag,
+                LegacyLastCentralBlobUtc = entity.LegacyLastCentralBlobUtc,
+                LegacyRemoteTotalLineCount = entity.LegacyRemoteTotalLineCount,
+                LegacyRemoteUntaggedCount = entity.LegacyRemoteUntaggedCount,
+                LegacyRemoteBanSyncCount = entity.LegacyRemoteBanSyncCount,
+                LegacyRemoteExternalCount = entity.LegacyRemoteExternalCount,
                 GameServer = expand && entity.GameServer is not null ? entity.GameServer.ToDto(false) : null!
             };
         }
@@ -79,6 +94,25 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.RemoteUntaggedCount.HasValue) entity.RemoteUntaggedCount = dto.RemoteUntaggedCount.Value;
             if (dto.RemoteBanSyncCount.HasValue) entity.RemoteBanSyncCount = dto.RemoteBanSyncCount.Value;
             if (dto.RemoteExternalCount.HasValue) entity.RemoteExternalCount = dto.RemoteExternalCount.Value;
+
+            if (dto.LegacyLastCheckUtc.HasValue) entity.LegacyLastCheckUtc = dto.LegacyLastCheckUtc.Value;
+            if (dto.LegacyLastCheckResult is not null) entity.LegacyLastCheckResult = dto.LegacyLastCheckResult;
+            if (dto.LegacyLastCheckErrorMessage is not null) entity.LegacyLastCheckErrorMessage = dto.LegacyLastCheckErrorMessage;
+            if (dto.LegacyRemoteFilePath is not null) entity.LegacyRemoteFilePath = dto.LegacyRemoteFilePath;
+            if (dto.LegacyResolvedForMod is not null) entity.LegacyResolvedForMod = dto.LegacyResolvedForMod;
+            if (dto.LegacyRemoteFileSize.HasValue) entity.LegacyRemoteFileSize = dto.LegacyRemoteFileSize.Value;
+
+            if (dto.LegacyLastPushUtc.HasValue) entity.LegacyLastPushUtc = dto.LegacyLastPushUtc.Value;
+            if (dto.LegacyLastPushedETag is not null) entity.LegacyLastPushedEtag = dto.LegacyLastPushedETag;
+            if (dto.LegacyLastPushedSize.HasValue) entity.LegacyLastPushedSize = dto.LegacyLastPushedSize.Value;
+
+            if (dto.LegacyLastCentralBlobETag is not null) entity.LegacyLastCentralBlobEtag = dto.LegacyLastCentralBlobETag;
+            if (dto.LegacyLastCentralBlobUtc.HasValue) entity.LegacyLastCentralBlobUtc = dto.LegacyLastCentralBlobUtc.Value;
+
+            if (dto.LegacyRemoteTotalLineCount.HasValue) entity.LegacyRemoteTotalLineCount = dto.LegacyRemoteTotalLineCount.Value;
+            if (dto.LegacyRemoteUntaggedCount.HasValue) entity.LegacyRemoteUntaggedCount = dto.LegacyRemoteUntaggedCount.Value;
+            if (dto.LegacyRemoteBanSyncCount.HasValue) entity.LegacyRemoteBanSyncCount = dto.LegacyRemoteBanSyncCount.Value;
+            if (dto.LegacyRemoteExternalCount.HasValue) entity.LegacyRemoteExternalCount = dto.LegacyRemoteExternalCount.Value;
         }
     }
 }

@@ -45,6 +45,33 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         [JsonProperty]
         public long? RemoteFileSize { get; internal set; }
 
+        [JsonProperty]
+        public DateTime? LegacyLastCheckUtc { get; internal set; }
+
+        [JsonProperty]
+        public string? LegacyLastCheckResult { get; internal set; }
+
+        [JsonProperty]
+        public string? LegacyLastCheckErrorMessage { get; internal set; }
+
+        [JsonProperty]
+        public string? LegacyRemoteFilePath { get; internal set; }
+
+        [JsonProperty]
+        public string? LegacyResolvedForMod { get; internal set; }
+
+        [JsonProperty]
+        public long? LegacyRemoteFileSize { get; internal set; }
+
+        [JsonProperty]
+        public DateTime? LegacyLastPushUtc { get; internal set; }
+
+        [JsonProperty]
+        public string? LegacyLastPushedETag { get; internal set; }
+
+        [JsonProperty]
+        public long? LegacyLastPushedSize { get; internal set; }
+
         // === Last import (manual ban detection) ===
 
         [JsonProperty]
@@ -76,6 +103,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
         [JsonProperty]
         public DateTime? LastCentralBlobUtc { get; internal set; }
 
+        [JsonProperty]
+        public string? LegacyLastCentralBlobETag { get; internal set; }
+
+        [JsonProperty]
+        public DateTime? LegacyLastCentralBlobUtc { get; internal set; }
+
         // === Failure tracking ===
 
         [JsonProperty]
@@ -94,6 +127,18 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
 
         [JsonProperty]
         public int? RemoteExternalCount { get; internal set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteTotalLineCount { get; internal set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteUntaggedCount { get; internal set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteBanSyncCount { get; internal set; }
+
+        [JsonProperty]
+        public int? LegacyRemoteExternalCount { get; internal set; }
 
         [JsonProperty]
 #pragma warning disable CS8618
