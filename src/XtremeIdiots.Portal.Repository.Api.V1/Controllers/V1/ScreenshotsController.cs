@@ -381,13 +381,29 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         [FromQuery] int skipEntries = 0,
         [FromQuery] int takeEntries = 20,
         [FromQuery] ScreenshotOrder? order = null,
+        [FromQuery] string? playerIdentifier = null,
+        [FromQuery] string? playerName = null,
+        [FromQuery] DateTime? capturedFromUtc = null,
+        [FromQuery] DateTime? capturedToUtc = null,
+        [FromQuery] string? source = null,
+        [FromQuery] bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IScreenshotsApi)this).GetScreenshots(gameServerId, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+        var query = new GetScreenshotsQuery
+        {
+            PlayerIdentifier = playerIdentifier,
+            PlayerName = playerName,
+            CapturedFromUtc = capturedFromUtc,
+            CapturedToUtc = capturedToUtc,
+            Source = source,
+            IncludeDeleted = includeDeleted
+        };
+
+        var response = await ((IScreenshotsApi)this).GetScreenshots(gameServerId, skipEntries, takeEntries, order, cancellationToken, query).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<CollectionModel<ScreenshotDto>>> IScreenshotsApi.GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken)
+    async Task<ApiResult<CollectionModel<ScreenshotDto>>> IScreenshotsApi.GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken, GetScreenshotsQuery? query)
     {
         var gameServerExists = await context.GameServers
             .AnyAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken)
@@ -402,10 +418,51 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         var safeSkip = Math.Max(skipEntries, 0);
         var safeTake = Math.Clamp(takeEntries, 1, MaxPageSize);
 
-        var baseQuery = context.Screenshots
-            .Where(s => s.GameServerId == gameServerId && !s.Deleted)
+        if (query?.CapturedFromUtc is not null && query.CapturedToUtc is not null && query.CapturedFromUtc > query.CapturedToUtc)
+        {
+            return new ApiResult<CollectionModel<ScreenshotDto>>(HttpStatusCode.BadRequest,
+                new ApiResponse<CollectionModel<ScreenshotDto>>(new ApiError(ApiErrorCodes.InvalidRequest, "CapturedFromUtc must be less than or equal to CapturedToUtc.")));
+        }
+
+        IQueryable<Screenshot> baseQuery = context.Screenshots
+            .Where(s => s.GameServerId == gameServerId)
             .AsNoTracking()
             .Include(s => s.GameServer);
+
+        var includeDeleted = query?.IncludeDeleted == true;
+        if (!includeDeleted)
+        {
+            baseQuery = baseQuery.Where(s => !s.Deleted);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query?.PlayerIdentifier))
+        {
+            var trimmedPlayerIdentifier = query.PlayerIdentifier.Trim();
+            baseQuery = baseQuery.Where(s => s.PlayerIdentifier == trimmedPlayerIdentifier);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query?.PlayerName))
+        {
+            var trimmedPlayerName = query.PlayerName.Trim();
+            var escapedPlayerNamePattern = EscapeSqlLikePattern(trimmedPlayerName);
+            baseQuery = baseQuery.Where(s => s.PlayerName != null && EF.Functions.Like(s.PlayerName, $"%{escapedPlayerNamePattern}%", "\\"));
+        }
+
+        if (query?.CapturedFromUtc is not null)
+        {
+            baseQuery = baseQuery.Where(s => s.CapturedUtc >= query.CapturedFromUtc.Value);
+        }
+
+        if (query?.CapturedToUtc is not null)
+        {
+            baseQuery = baseQuery.Where(s => s.CapturedUtc <= query.CapturedToUtc.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query?.Source))
+        {
+            var trimmedSource = query.Source.Trim();
+            baseQuery = baseQuery.Where(s => s.Source == trimmedSource);
+        }
 
         var filteredCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
         var orderedQuery = ApplyOrdering(baseQuery, order)
@@ -693,6 +750,15 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
     private static bool HasMaxLength(string? value, int maxLength)
     {
         return string.IsNullOrWhiteSpace(value) || value.Trim().Length <= maxLength;
+    }
+
+    private static string EscapeSqlLikePattern(string value)
+    {
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal)
+            .Replace("[", "\\[", StringComparison.Ordinal);
     }
 
     private static bool HasSupportedImageSignature(Stream stream, string extension)

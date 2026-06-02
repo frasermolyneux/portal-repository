@@ -114,14 +114,53 @@ public class FakeScreenshotsApi : IScreenshotsApi
         return Task.FromResult(new ApiResult<ScreenshotContentDto>(HttpStatusCode.NotFound));
     }
 
-    public Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default)
+    public Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default, GetScreenshotsQuery? query = null)
     {
+        if (query?.CapturedFromUtc is not null && query.CapturedToUtc is not null && query.CapturedFromUtc > query.CapturedToUtc)
+        {
+            return Task.FromResult(new ApiResult<CollectionModel<ScreenshotDto>>(HttpStatusCode.BadRequest,
+                new ApiResponse<CollectionModel<ScreenshotDto>>(new ApiError(ApiErrorCodes.InvalidRequest, "CapturedFromUtc must be less than or equal to CapturedToUtc."))));
+        }
+
         var safeSkip = Math.Max(skipEntries, 0);
         var safeTake = Math.Clamp(takeEntries, 1, 100);
 
         var filtered = _screenshots.Values
-            .Where(s => s.GameServerId == gameServerId && !s.Deleted)
+            .Where(s => s.GameServerId == gameServerId)
             .ToList();
+
+        if (query?.IncludeDeleted != true)
+        {
+            filtered = filtered.Where(s => !s.Deleted).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(query?.PlayerIdentifier))
+        {
+            var playerIdentifier = query.PlayerIdentifier.Trim();
+            filtered = filtered.Where(s => string.Equals(s.PlayerIdentifier, playerIdentifier, StringComparison.Ordinal)).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(query?.PlayerName))
+        {
+            var playerName = query.PlayerName.Trim();
+            filtered = filtered.Where(s => !string.IsNullOrWhiteSpace(s.PlayerName) && s.PlayerName.Contains(playerName, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (query?.CapturedFromUtc is not null)
+        {
+            filtered = filtered.Where(s => s.CapturedUtc >= query.CapturedFromUtc.Value).ToList();
+        }
+
+        if (query?.CapturedToUtc is not null)
+        {
+            filtered = filtered.Where(s => s.CapturedUtc <= query.CapturedToUtc.Value).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(query?.Source))
+        {
+            var source = query.Source.Trim();
+            filtered = filtered.Where(s => string.Equals(s.Source, source, StringComparison.Ordinal)).ToList();
+        }
 
         IOrderedEnumerable<ScreenshotDto> ordered = order switch
         {

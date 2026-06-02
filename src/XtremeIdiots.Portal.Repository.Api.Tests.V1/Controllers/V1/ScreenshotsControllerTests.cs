@@ -271,6 +271,210 @@ public class ScreenshotsControllerTests
     }
 
     [Fact]
+    public async Task GetScreenshots_IncludeDeletedTrue_IncludesDeletedRows()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "01",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "active.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "active",
+            SourceFileName = "active.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "02",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "deleted.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "deleted",
+            SourceFileName = "deleted.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            Deleted = true,
+            DeletedUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshots(server.GameServerId, 0, 20, null, query: new GetScreenshotsQuery { IncludeDeleted = true });
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(2, result.Result!.Data!.Items!.Count());
+    }
+
+    [Fact]
+    public async Task GetScreenshots_PlayerNameFilter_ReturnsMatchingRowsOnly()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "01",
+            PlayerName = "Alpha Wolf",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "1.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "f1",
+            SourceFileName = "1.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "02",
+            PlayerName = "Bravo",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "2.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "f2",
+            SourceFileName = "2.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshots(server.GameServerId, 0, 20, null, query: new GetScreenshotsQuery { PlayerName = "alpha" });
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Single(items);
+        Assert.Equal("Alpha Wolf", items[0].PlayerName);
+    }
+
+    [Fact]
+    public async Task GetScreenshots_PlayerNameFilter_TreatsPercentAsLiteral()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "01",
+            PlayerName = "Alpha%Wolf",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "1.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "f1",
+            SourceFileName = "1.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "02",
+            PlayerName = "AlphaWolf",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "2.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "f2",
+            SourceFileName = "2.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshots(server.GameServerId, 0, 20, null, query: new GetScreenshotsQuery { PlayerName = "Alpha%" });
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Single(items);
+        Assert.Equal("Alpha%Wolf", items[0].PlayerName);
+    }
+
+    [Fact]
+    public async Task GetScreenshots_InvalidCapturedRange_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshots(server.GameServerId, 0, 20, null, query: new GetScreenshotsQuery
+        {
+            CapturedFromUtc = DateTime.UtcNow,
+            CapturedToUtc = DateTime.UtcNow.AddMinutes(-10)
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
     public async Task DeleteScreenshot_SetsSoftDeleteFields()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

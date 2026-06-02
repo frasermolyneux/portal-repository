@@ -66,7 +66,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<ScreenshotContentDto>();
         }
 
-        public async Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default)
+        public async Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default, GetScreenshotsQuery? query = null)
         {
             var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}/screenshots", Method.Get).ConfigureAwait(false);
 
@@ -76,6 +76,36 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (order.HasValue)
             {
                 request.AddQueryParameter("order", order.Value.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(query?.PlayerIdentifier))
+            {
+                request.AddQueryParameter("playerIdentifier", query.PlayerIdentifier.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(query?.PlayerName))
+            {
+                request.AddQueryParameter("playerName", query.PlayerName.Trim());
+            }
+
+            if (query?.CapturedFromUtc is not null)
+            {
+                request.AddQueryParameter("capturedFromUtc", query.CapturedFromUtc.Value.ToString("O"));
+            }
+
+            if (query?.CapturedToUtc is not null)
+            {
+                request.AddQueryParameter("capturedToUtc", query.CapturedToUtc.Value.ToString("O"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query?.Source))
+            {
+                request.AddQueryParameter("source", query.Source.Trim());
+            }
+
+            if (query?.IncludeDeleted == true)
+            {
+                request.AddQueryParameter("includeDeleted", "true");
             }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
