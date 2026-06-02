@@ -8,6 +8,7 @@ using Newtonsoft.Json.Converters;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V2;
+using XtremeIdiots.Portal.Repository.Api.V2.Serialization;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V2.OpenApi;
 using MX.Observability.ApplicationInsights.AspNetCore;
@@ -82,6 +83,7 @@ builder.Services.AddMicrosoftIdentityWebApiAuthentication(builder.Configuration)
 
 builder.Services.AddControllers().AddNewtonsoftJson(options =>
 {
+    options.SerializerSettings.Converters.Add(new UtcDateTimeJsonConverter());
     options.SerializerSettings.Converters.Add(new StringEnumConverter());
     options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
 });
