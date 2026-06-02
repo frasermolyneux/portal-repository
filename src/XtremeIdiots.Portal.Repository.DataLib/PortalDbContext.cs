@@ -71,6 +71,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<Report> Reports { get; set; }
 
+    public virtual DbSet<Screenshot> Screenshots { get; set; }
+
     public virtual DbSet<Tag> Tags { get; set; }
 
     public virtual DbSet<UserProfile> UserProfiles { get; set; }
@@ -429,6 +431,17 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Player).WithMany(p => p.Reports).HasConstraintName("FK_dbo.Reports_dbo.Players_PlayerId");
 
             entity.HasOne(d => d.UserProfile).WithMany(p => p.ReportUserProfiles).HasConstraintName("FK_dbo.Reports_dbo.UserProfiles_Id");
+        });
+
+        modelBuilder.Entity<Screenshot>(entity =>
+        {
+            entity.Property(e => e.ScreenshotId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.CreatedUtc).HasDefaultValueSql("getutcdate()");
+            entity.Property(e => e.LastUpdatedUtc).HasDefaultValueSql("getutcdate()");
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.Screenshots)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Screenshots_GameServers");
         });
 
         modelBuilder.Entity<Tag>(entity =>

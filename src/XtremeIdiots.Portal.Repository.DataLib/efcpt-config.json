@@ -131,6 +131,9 @@
     },
     {
       "name": "[dbo].[ConnectedPlayerActivationCodes]"
+    },
+    {
+      "name": "[dbo].[Screenshots]"
     }
   ]
 }

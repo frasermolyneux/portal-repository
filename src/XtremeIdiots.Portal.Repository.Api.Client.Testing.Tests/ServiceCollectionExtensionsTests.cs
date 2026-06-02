@@ -35,6 +35,7 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IVersionedReportsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedUserProfileApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedConnectedPlayersApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedScreenshotsApi>());
     }
 
     [Fact]
@@ -51,6 +52,7 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<ITagsApi>());
         Assert.NotNull(provider.GetRequiredService<IAdminActionsApi>());
         Assert.NotNull(provider.GetRequiredService<IConnectedPlayersApi>());
+        Assert.NotNull(provider.GetRequiredService<IScreenshotsApi>());
     }
 
     [Fact]

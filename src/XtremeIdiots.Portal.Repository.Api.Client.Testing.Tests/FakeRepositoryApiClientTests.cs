@@ -24,6 +24,7 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.GameTrackerBanner);
         Assert.NotNull(client.Maps);
         Assert.NotNull(client.ConnectedPlayers);
+        Assert.NotNull(client.Screenshots);
 
         Assert.NotNull(client.PlayerAnalytics);
         Assert.NotNull(client.Players);
@@ -46,6 +47,7 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.ApiHealth);
         Assert.NotNull(client.ApiInfo);
         Assert.NotNull(client.Tags);
+        Assert.NotNull(client.Screenshots);
     }
 
     [Fact]

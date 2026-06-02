@@ -76,6 +76,12 @@ public class FakeVersionedConnectedPlayersApi : IVersionedConnectedPlayersApi
     public IConnectedPlayersApi V1 { get; }
 }
 
+public class FakeVersionedScreenshotsApi : IVersionedScreenshotsApi
+{
+    public FakeVersionedScreenshotsApi(FakeScreenshotsApi v1) => V1 = v1;
+    public IScreenshotsApi V1 { get; }
+}
+
 
 public class FakeVersionedPlayerAnalyticsApi : IVersionedPlayerAnalyticsApi
 {
@@ -191,6 +197,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeGameTrackerBannerApi GameTrackerBannerApi { get; } = new();
     public FakeMapsApi MapsApi { get; } = new();
     public FakeConnectedPlayersApi ConnectedPlayersApi { get; } = new();
+    public FakeScreenshotsApi ScreenshotsApi { get; } = new();
 
     public FakePlayerAnalyticsApi PlayerAnalyticsApi { get; } = new();
     public FakePlayersApi PlayersApi { get; } = new();
@@ -222,6 +229,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedGameTrackerBannerApi> _gameTrackerBanner;
     private readonly Lazy<FakeVersionedMapsApi> _maps;
     private readonly Lazy<FakeVersionedConnectedPlayersApi> _connectedPlayers;
+    private readonly Lazy<FakeVersionedScreenshotsApi> _screenshots;
 
     private readonly Lazy<FakeVersionedPlayerAnalyticsApi> _playerAnalytics;
     private readonly Lazy<FakeVersionedPlayersApi> _players;
@@ -254,6 +262,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _gameTrackerBanner = new Lazy<FakeVersionedGameTrackerBannerApi>(() => new FakeVersionedGameTrackerBannerApi(GameTrackerBannerApi));
         _maps = new Lazy<FakeVersionedMapsApi>(() => new FakeVersionedMapsApi(MapsApi));
         _connectedPlayers = new Lazy<FakeVersionedConnectedPlayersApi>(() => new FakeVersionedConnectedPlayersApi(ConnectedPlayersApi));
+        _screenshots = new Lazy<FakeVersionedScreenshotsApi>(() => new FakeVersionedScreenshotsApi(ScreenshotsApi));
 
         _playerAnalytics = new Lazy<FakeVersionedPlayerAnalyticsApi>(() => new FakeVersionedPlayerAnalyticsApi(PlayerAnalyticsApi));
         _players = new Lazy<FakeVersionedPlayersApi>(() => new FakeVersionedPlayersApi(PlayersApi));
@@ -285,6 +294,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedGameTrackerBannerApi GameTrackerBanner => _gameTrackerBanner.Value;
     public IVersionedMapsApi Maps => _maps.Value;
     public IVersionedConnectedPlayersApi ConnectedPlayers => _connectedPlayers.Value;
+    public IVersionedScreenshotsApi Screenshots => _screenshots.Value;
 
     public IVersionedPlayerAnalyticsApi PlayerAnalytics => _playerAnalytics.Value;
     public IVersionedPlayersApi Players => _players.Value;
@@ -321,6 +331,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         GameTrackerBannerApi.Reset();
         MapsApi.Reset();
         ConnectedPlayersApi.Reset();
+        ScreenshotsApi.Reset();
 
         PlayerAnalyticsApi.Reset();
         PlayersApi.Reset();

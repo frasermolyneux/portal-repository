@@ -11,6 +11,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RecentPlayers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Screenshots;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 
@@ -760,6 +761,55 @@ public static class RepositoryDtoFactory
         return new UpsertConfigurationDto
         {
             Configuration = configuration
+        };
+    }
+
+    public static ScreenshotDto CreateScreenshot(
+        Guid? screenshotId = null,
+        Guid? gameServerId = null,
+        string gameType = "CallOfDuty4",
+        string playerIdentifier = "17",
+        string? playerName = "TestPlayer",
+        DateTime? capturedUtc = null,
+        string blobContainer = "server-screenshots",
+        string blobName = "screenshots/callofduty4/server/2025/01/01/fingerprint_17.jpg",
+        string? blobUri = "https://example.blob.core.windows.net/server-screenshots/screenshots/callofduty4/server/2025/01/01/fingerprint_17.jpg",
+        string contentType = "image/jpeg",
+        long sizeBytes = 4096,
+        string? eTag = "etag",
+        string source = "agent-monitor",
+        string fingerprint = "fingerprint",
+        string sourceFileName = "shot001.jpg",
+        long sourceSizeBytes = 4096,
+        DateTime? sourceLastWriteUtc = null,
+        bool deleted = false,
+        DateTime? deletedUtc = null,
+        DateTime? createdUtc = null,
+        DateTime? lastUpdatedUtc = null)
+    {
+        return new ScreenshotDto
+        {
+            ScreenshotId = screenshotId ?? Guid.NewGuid(),
+            GameServerId = gameServerId ?? Guid.NewGuid(),
+            GameType = gameType,
+            PlayerIdentifier = playerIdentifier,
+            PlayerName = playerName,
+            CapturedUtc = capturedUtc ?? DateTime.UtcNow,
+            BlobContainer = blobContainer,
+            BlobName = blobName,
+            BlobUri = blobUri,
+            ContentType = contentType,
+            SizeBytes = sizeBytes,
+            ETag = eTag,
+            Source = source,
+            Fingerprint = fingerprint,
+            SourceFileName = sourceFileName,
+            SourceSizeBytes = sourceSizeBytes,
+            SourceLastWriteUtc = sourceLastWriteUtc ?? DateTime.UtcNow,
+            Deleted = deleted,
+            DeletedUtc = deletedUtc,
+            CreatedUtc = createdUtc ?? DateTime.UtcNow,
+            LastUpdatedUtc = lastUpdatedUtc ?? DateTime.UtcNow
         };
     }
 }

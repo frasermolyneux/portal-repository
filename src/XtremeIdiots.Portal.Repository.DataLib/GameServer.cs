@@ -70,4 +70,7 @@ public partial class GameServer
 
     [InverseProperty("GameServer")]
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<Screenshot> Screenshots { get; set; } = new List<Screenshot>();
 }
