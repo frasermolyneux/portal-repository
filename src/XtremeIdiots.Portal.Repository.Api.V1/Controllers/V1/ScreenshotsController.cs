@@ -333,6 +333,46 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         return new ApiResponse<ScreenshotDto>(screenshot.ToDto()).ToApiResult();
     }
 
+    [HttpGet("screenshots/{screenshotId:guid}/content")]
+    [ProducesResponseType<ScreenshotContentDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetScreenshotContent(Guid screenshotId, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IScreenshotsApi)this).GetScreenshotContent(screenshotId, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<ScreenshotContentDto>> IScreenshotsApi.GetScreenshotContent(Guid screenshotId, CancellationToken cancellationToken)
+    {
+        var screenshot = await context.Screenshots
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.ScreenshotId == screenshotId && !s.Deleted, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (screenshot is null)
+        {
+            return new ApiResult<ScreenshotContentDto>(HttpStatusCode.NotFound,
+                new ApiResponse<ScreenshotContentDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+        }
+
+        try
+        {
+            var content = await LoadScreenshotContentAsync(screenshot, cancellationToken).ConfigureAwait(false);
+            return new ApiResponse<ScreenshotContentDto>(content).ToApiResult();
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return new ApiResult<ScreenshotContentDto>(HttpStatusCode.NotFound,
+                new ApiResponse<ScreenshotContentDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ApiResult<ScreenshotContentDto>(HttpStatusCode.InternalServerError,
+                new ApiResponse<ScreenshotContentDto>(new ApiError(ApiErrorCodes.InvalidRequest, ex.Message)));
+        }
+    }
+
     [HttpGet("game-servers/{gameServerId:guid}/screenshots")]
     [ProducesResponseType<CollectionModel<ScreenshotDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -678,6 +718,39 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
                 header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50,
             ".tga" => bytesRead >= 3 && (header[2] is 1 or 2 or 3 or 9 or 10 or 11),
             _ => false
+        };
+    }
+
+    protected virtual async Task<ScreenshotContentDto> LoadScreenshotContentAsync(Screenshot screenshot, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(screenshot.BlobContainer) || string.IsNullOrWhiteSpace(screenshot.BlobName))
+        {
+            throw new InvalidOperationException("Screenshot blob metadata is missing.");
+        }
+
+        var blobEndpoint = configuration["appdata_storage_blob_endpoint"];
+        if (string.IsNullOrWhiteSpace(blobEndpoint))
+        {
+            throw new InvalidOperationException("appdata_storage_blob_endpoint is not configured.");
+        }
+
+        var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
+        var containerClient = blobServiceClient.GetBlobContainerClient(screenshot.BlobContainer);
+        var blobClient = containerClient.GetBlobClient(screenshot.BlobName);
+
+        var downloadResponse = await blobClient.DownloadContentAsync(cancellationToken).ConfigureAwait(false);
+        var downloadedContentType = downloadResponse.Value.Details.ContentType;
+
+        return new ScreenshotContentDto
+        {
+            ScreenshotId = screenshot.ScreenshotId,
+            FileName = string.IsNullOrWhiteSpace(screenshot.SourceFileName)
+                ? Path.GetFileName(screenshot.BlobName)
+                : screenshot.SourceFileName,
+            ContentType = string.IsNullOrWhiteSpace(downloadedContentType)
+                ? screenshot.ContentType
+                : downloadedContentType,
+            Content = downloadResponse.Value.Content.ToArray()
         };
     }
 }

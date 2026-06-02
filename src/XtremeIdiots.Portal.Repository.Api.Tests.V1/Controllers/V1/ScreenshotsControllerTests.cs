@@ -17,6 +17,22 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 [Trait("Category", "Unit")]
 public class ScreenshotsControllerTests
 {
+    private sealed class TestScreenshotsController(PortalDbContext context, IConfiguration configuration, byte[] content) : ScreenshotsController(context, configuration)
+    {
+        private readonly byte[] _content = content;
+
+        protected override Task<ScreenshotContentDto> LoadScreenshotContentAsync(Screenshot screenshot, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new ScreenshotContentDto
+            {
+                ScreenshotId = screenshot.ScreenshotId,
+                ContentType = "image/jpeg",
+                FileName = screenshot.SourceFileName,
+                Content = _content
+            });
+        }
+    }
+
     private static ScreenshotsController CreateController(PortalDbContext context)
     {
         var configuration = new ConfigurationBuilder()
@@ -27,6 +43,18 @@ public class ScreenshotsControllerTests
             .Build();
 
         return new ScreenshotsController(context, configuration);
+    }
+
+    private static ScreenshotsController CreateContentController(PortalDbContext context, byte[] content)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["appdata_storage_blob_endpoint"] = "https://example.blob.core.windows.net/"
+            })
+            .Build();
+
+        return new TestScreenshotsController(context, configuration, content);
     }
 
     private static GameServer CreateServer(Guid? gameServerId = null)
@@ -386,5 +414,101 @@ public class ScreenshotsControllerTests
         var result = await api.UpsertScreenshot(dto);
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetScreenshotContent_WhenScreenshotMissing_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshotContent(Guid.NewGuid());
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetScreenshotContent_WhenScreenshotDeleted_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        var screenshotId = Guid.NewGuid();
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = screenshotId,
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "17",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "screenshots/deleted.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "fp-deleted-content",
+            SourceFileName = "deleted.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            Deleted = true,
+            DeletedUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshotContent(screenshotId);
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetScreenshotContent_WhenScreenshotExists_ReturnsContent()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        var screenshotId = Guid.NewGuid();
+        context.Screenshots.Add(new Screenshot
+        {
+            ScreenshotId = screenshotId,
+            GameServerId = server.GameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerIdentifier = "17",
+            CapturedUtc = DateTime.UtcNow,
+            BlobContainer = "server-screenshots",
+            BlobName = "screenshots/active.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            Source = "agent-monitor",
+            Fingerprint = "fp-active-content",
+            SourceFileName = "active.jpg",
+            SourceSizeBytes = 100,
+            SourceLastWriteUtc = DateTime.UtcNow,
+            Deleted = false,
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var expectedBytes = new byte[] { 1, 2, 3, 4 };
+        var controller = CreateContentController(context, expectedBytes);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.GetScreenshotContent(screenshotId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Equal("image/jpeg", result.Result!.Data!.ContentType);
+        Assert.Equal("active.jpg", result.Result.Data.FileName);
+        Assert.Equal(expectedBytes, result.Result.Data.Content);
     }
 }

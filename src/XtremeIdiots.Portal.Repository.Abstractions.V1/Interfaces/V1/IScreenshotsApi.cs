@@ -13,6 +13,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 
         Task<ApiResult<ScreenshotDto>> GetScreenshot(Guid screenshotId, CancellationToken cancellationToken = default);
 
+        Task<ApiResult<ScreenshotContentDto>> GetScreenshotContent(Guid screenshotId, CancellationToken cancellationToken = default);
+
         Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default);
 
         Task<ApiResult> DeleteScreenshot(Guid screenshotId, CancellationToken cancellationToken = default);

@@ -58,6 +58,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<ScreenshotDto>();
         }
 
+        public async Task<ApiResult<ScreenshotContentDto>> GetScreenshotContent(Guid screenshotId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/screenshots/{screenshotId}/content", Method.Get).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult<ScreenshotContentDto>();
+        }
+
         public async Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}/screenshots", Method.Get).ConfigureAwait(false);

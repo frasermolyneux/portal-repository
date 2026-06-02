@@ -96,6 +96,24 @@ public class FakeScreenshotsApi : IScreenshotsApi
         return Task.FromResult(new ApiResult<ScreenshotDto>(HttpStatusCode.NotFound));
     }
 
+    public Task<ApiResult<ScreenshotContentDto>> GetScreenshotContent(Guid screenshotId, CancellationToken cancellationToken = default)
+    {
+        if (_screenshots.TryGetValue(screenshotId, out var screenshot) && !screenshot.Deleted)
+        {
+            var contentDto = new ScreenshotContentDto
+            {
+                ScreenshotId = screenshot.ScreenshotId,
+                ContentType = string.IsNullOrWhiteSpace(screenshot.ContentType) ? "application/octet-stream" : screenshot.ContentType,
+                FileName = string.IsNullOrWhiteSpace(screenshot.SourceFileName) ? $"{screenshot.ScreenshotId}.jpg" : screenshot.SourceFileName,
+                Content = []
+            };
+
+            return Task.FromResult(new ApiResult<ScreenshotContentDto>(HttpStatusCode.OK, new ApiResponse<ScreenshotContentDto>(contentDto)));
+        }
+
+        return Task.FromResult(new ApiResult<ScreenshotContentDto>(HttpStatusCode.NotFound));
+    }
+
     public Task<ApiResult<CollectionModel<ScreenshotDto>>> GetScreenshots(Guid gameServerId, int skipEntries, int takeEntries, ScreenshotOrder? order, CancellationToken cancellationToken = default)
     {
         var safeSkip = Math.Max(skipEntries, 0);
