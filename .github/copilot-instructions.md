@@ -78,7 +78,7 @@ Deploy workflows perform version verification (polling `/v1.0/info` and `/v2.0/i
 
 ### AdditionalPermission Class
 
-`Abstractions.V1/Constants/V1/AdditionalPermission.cs` defines all 43 assignable permission constants using `{Domain}.{Action}` naming (e.g., `MapRotations.Read`, `GameServers.Credentials.Ftp.Write`, `AdminActions.Claim`). Each constant has a corresponding `AdditionalPermissionDefinition` record providing:
+`Abstractions.V1/Constants/V1/AdditionalPermission.cs` defines assignable permission constants using `{Domain}.{Action}` naming (e.g., `MapRotations.Read`, `GameServers.Credentials.FileTransport.Write`, `AdminActions.Claim`). Each constant has a corresponding `AdditionalPermissionDefinition` record providing:
 
 - `ClaimType` — The string identifier (matches `AuthPolicies` in portal-web)
 - `DisplayName` / `Description` — For UI rendering

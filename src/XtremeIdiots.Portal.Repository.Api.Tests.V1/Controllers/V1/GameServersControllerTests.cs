@@ -182,6 +182,8 @@ public class GameServersControllerTests
         {
             ServerListPosition = 5,
             AgentEnabled = true,
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true,
             BanFileSyncEnabled = true,
@@ -207,7 +209,7 @@ public class GameServersControllerTests
     }
 
     [Fact]
-    public async Task CreateGameServer_LegacyFtpOnly_MapsTransportFields()
+    public async Task CreateGameServer_LegacyFtpOnly_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var controller = CreateController(context);
@@ -222,11 +224,8 @@ public class GameServersControllerTests
 
         var result = await api.CreateGameServer(dto);
 
-        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
-        var entity = context.GameServers.Single();
-        Assert.True(entity.FtpEnabled);
-        Assert.True(entity.FileTransportEnabled);
-        Assert.Equal((int)FileTransportType.Ftp, entity.FileTransportType);
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServers);
     }
 
     [Fact]
@@ -291,6 +290,8 @@ public class GameServersControllerTests
         var dto = new CreateGameServerDto("Agent Server", GameType.CallOfDuty4, "newhost", 28960)
         {
             AgentEnabled = true,
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true
         };
@@ -362,6 +363,8 @@ public class GameServersControllerTests
             Hostname = "localhost",
             QueryPort = 28960,
             AgentEnabled = false,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true
         });
@@ -489,7 +492,7 @@ public class GameServersControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var items = result.Result!.Data!.Items!.Select(i => i.Title).ToArray();
-        Assert.Contains("Legacy FTP", items);
+        Assert.DoesNotContain("Legacy FTP", items);
         Assert.Contains("Native SFTP", items);
         Assert.DoesNotContain("No Transport", items);
     }
@@ -585,6 +588,8 @@ public class GameServersControllerTests
 
         var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
         {
+            FileTransportEnabled = true,
+            FileTransportType = FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true,
             AgentEnabled = true,
@@ -604,7 +609,7 @@ public class GameServersControllerTests
     }
 
     [Fact]
-    public async Task UpdateGameServer_DisablingFtp_CascadesAgentAndBanFileSync()
+    public async Task UpdateGameServer_DisablingLegacyFtpFlag_DoesNotCascadeWhenTransportRemainsEnabled()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var gameServerId = Guid.NewGuid();
@@ -615,6 +620,8 @@ public class GameServersControllerTests
             GameType = (int)GameType.CallOfDuty4,
             Hostname = "localhost",
             QueryPort = 28960,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true,
             AgentEnabled = true,
@@ -634,9 +641,9 @@ public class GameServersControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GameServers.Single();
-        Assert.False(entity.FtpEnabled);
-        Assert.False(entity.AgentEnabled);
-        Assert.False(entity.BanFileSyncEnabled);
+        Assert.True(entity.FtpEnabled);
+        Assert.True(entity.AgentEnabled);
+        Assert.True(entity.BanFileSyncEnabled);
     }
 
     [Fact]
@@ -651,6 +658,8 @@ public class GameServersControllerTests
             GameType = (int)GameType.CallOfDuty4,
             Hostname = "localhost",
             QueryPort = 28960,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true,
             AgentEnabled = true,
@@ -688,6 +697,8 @@ public class GameServersControllerTests
             GameType = (int)GameType.CallOfDuty4,
             Hostname = "localhost",
             QueryPort = 28960,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true,
             AgentEnabled = true,
@@ -725,6 +736,8 @@ public class GameServersControllerTests
             GameType = (int)GameType.CallOfDuty4,
             Hostname = "localhost",
             QueryPort = 28960,
+            FileTransportEnabled = true,
+            FileTransportType = (int)FileTransportType.Ftp,
             FtpEnabled = true,
             RconEnabled = true,
             AgentEnabled = false,

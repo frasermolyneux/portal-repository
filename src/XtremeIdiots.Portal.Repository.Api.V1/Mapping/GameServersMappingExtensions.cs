@@ -99,23 +99,15 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 entity.FileTransportEnabled = dto.FileTransportEnabled.Value;
             }
-            else if (!hasTransportFields && dto.FtpEnabled is not null)
-            {
-                entity.FileTransportEnabled = dto.FtpEnabled.Value;
-            }
 
             if (dto.FileTransportType is not null)
             {
                 entity.FileTransportType = (int)dto.FileTransportType.Value;
             }
-            else if (!hasTransportFields && dto.FtpEnabled is not null)
-            {
-                entity.FileTransportType = dto.FtpEnabled.Value ? (int)FileTransportType.Ftp : (int)FileTransportType.Unknown;
-            }
 
             if (dto.FileTransportType is not null && dto.FileTransportEnabled is null)
             {
-                entity.FileTransportEnabled = entity.FileTransportEnabled || entity.FtpEnabled;
+                entity.FileTransportEnabled = entity.FileTransportEnabled || entity.FileTransportType != (int)FileTransportType.Unknown;
             }
 
             if (dto.FileTransportEnabled == true && dto.FileTransportType is null && entity.FileTransportType == (int)FileTransportType.Unknown)
@@ -129,9 +121,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.FileTransportType = (int)fileTransportType;
                 entity.FtpEnabled = entity.FileTransportEnabled && fileTransportType == FileTransportType.Ftp;
             }
-            else if (dto.FtpEnabled is not null)
+            else
             {
-                entity.FtpEnabled = dto.FtpEnabled.Value;
+                var currentType = NormalizeFileTransportType(entity.FileTransportType, entity.FileTransportEnabled);
+                entity.FileTransportType = (int)currentType;
+                entity.FtpEnabled = entity.FileTransportEnabled && currentType == FileTransportType.Ftp;
             }
 
             if (dto.RconEnabled is not null) entity.RconEnabled = dto.RconEnabled.Value;
@@ -143,23 +137,19 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 
         private static void ApplyCreateFileTransport(CreateGameServerDto dto, GameServer entity)
         {
-            var hasTransportFields = dto.FileTransportEnabled is not null || dto.FileTransportType is not null;
-            var fileTransportEnabled = dto.FileTransportEnabled ?? dto.FtpEnabled;
+            var fileTransportEnabled = dto.FileTransportEnabled ?? false;
             var fileTransportType = dto.FileTransportType ?? (fileTransportEnabled ? FileTransportType.Ftp : FileTransportType.Unknown);
 
             fileTransportType = NormalizeFileTransportType((int)fileTransportType, fileTransportEnabled);
 
             entity.FileTransportEnabled = fileTransportEnabled;
             entity.FileTransportType = (int)fileTransportType;
-
-            entity.FtpEnabled = hasTransportFields
-                ? fileTransportEnabled && fileTransportType == FileTransportType.Ftp
-                : dto.FtpEnabled;
+            entity.FtpEnabled = fileTransportEnabled && fileTransportType == FileTransportType.Ftp;
         }
 
         private static (bool FileTransportEnabled, FileTransportType FileTransportType) ResolveFileTransportState(GameServer entity)
         {
-            var fileTransportEnabled = entity.FileTransportEnabled || entity.FtpEnabled;
+            var fileTransportEnabled = entity.FileTransportEnabled;
             var fileTransportType = NormalizeFileTransportType(entity.FileTransportType, fileTransportEnabled);
             return (fileTransportEnabled, fileTransportType);
         }

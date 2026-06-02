@@ -24,8 +24,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // Game Servers — Credentials
         public const string GameServers_Credentials_FileTransport_Read = "GameServers.Credentials.FileTransport.Read";
         public const string GameServers_Credentials_FileTransport_Write = "GameServers.Credentials.FileTransport.Write";
-        public const string GameServers_Credentials_Ftp_Read = "GameServers.Credentials.Ftp.Read";
-        public const string GameServers_Credentials_Ftp_Write = "GameServers.Credentials.Ftp.Write";
         public const string GameServers_Credentials_Rcon_Read = "GameServers.Credentials.Rcon.Read";
         public const string GameServers_Credentials_Rcon_Write = "GameServers.Credentials.Rcon.Write";
 
@@ -100,8 +98,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
             // Game Servers — Credentials
             new(GameServers_Credentials_FileTransport_Read, "View File Transport Credentials", "View file transport credentials for game servers", "Game Servers", "Credentials", PermissionScope.GameOrServer),
             new(GameServers_Credentials_FileTransport_Write, "Edit File Transport Configuration", "Edit file transport configuration on game servers", "Game Servers", "Credentials", PermissionScope.GameOrServer),
-            new(GameServers_Credentials_Ftp_Read, "View FTP Credentials", "View FTP credentials for game servers", "Game Servers", "Credentials", PermissionScope.GameOrServer),
-            new(GameServers_Credentials_Ftp_Write, "Edit FTP Configuration", "Edit FTP config and browse FTP on game servers", "Game Servers", "Credentials", PermissionScope.GameOrServer),
             new(GameServers_Credentials_Rcon_Read, "View RCON Credentials", "View RCON credentials for game servers", "Game Servers", "Credentials", PermissionScope.GameOrServer),
             new(GameServers_Credentials_Rcon_Write, "Edit RCON Configuration", "Edit RCON config on game servers", "Game Servers", "Credentials", PermissionScope.GameOrServer),
 

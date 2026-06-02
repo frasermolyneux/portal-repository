@@ -33,7 +33,7 @@ public class GameServersController : ControllerBase, IGameServersApi
         PortalDbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
     }
 
     /// <summary>
@@ -446,7 +446,7 @@ public class GameServersController : ControllerBase, IGameServersApi
 
     private static bool IsFileTransportEnabled(GameServer entity)
     {
-        return entity.FileTransportEnabled || entity.FtpEnabled;
+        return entity.FileTransportEnabled;
     }
 
     private IQueryable<GameServer> ApplyFilters(IQueryable<GameServer> query, GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter)
@@ -465,8 +465,8 @@ public class GameServersController : ControllerBase, IGameServersApi
             query = filter.Value switch
             {
                 GameServerFilter.AgentEnabled => query.Where(s => s.AgentEnabled),
-                GameServerFilter.FileTransportEnabled => query.Where(s => s.FileTransportEnabled || s.FtpEnabled),
-                GameServerFilter.FtpEnabled => query.Where(s => s.FtpEnabled),
+                GameServerFilter.FileTransportEnabled => query.Where(s => s.FileTransportEnabled),
+                GameServerFilter.FtpEnabled => query.Where(s => s.FileTransportEnabled && s.FileTransportType == (int)FileTransportType.Ftp),
                 GameServerFilter.RconEnabled => query.Where(s => s.RconEnabled),
                 GameServerFilter.BanFileSyncEnabled => query.Where(s => s.BanFileSyncEnabled),
                 GameServerFilter.ServerListEnabled => query.Where(s => s.ServerListEnabled),
