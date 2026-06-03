@@ -1,7 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using Moq;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -91,6 +90,241 @@ public class PlayersControllerTests
         var result = await api.GetPlayers(null, null, null, 0, 20, null, PlayerEntityOptions.None);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public void PlayersFilter_ContainsTagMember()
+    {
+        Assert.Contains(PlayersFilter.Tag, Enum.GetValues<PlayersFilter>());
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithTagFilter_ReturnsTaggedPlayersOnly()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var tagId = Guid.NewGuid();
+
+        var taggedPlayerId = Guid.NewGuid();
+        var untaggedPlayerId = Guid.NewGuid();
+
+        context.Tags.Add(new Tag { TagId = tagId, Name = "tag-a", UserDefined = true });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = taggedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Tagged",
+            Guid = "guid-tagged",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = untaggedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Untagged",
+            Guid = "guid-untagged",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = taggedPlayerId,
+            TagId = tagId,
+            Assigned = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.GetPlayers(null, PlayersFilter.Tag, tagId.ToString(), 0, 20, null, PlayerEntityOptions.None);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var players = result.Result!.Data!.Items!.ToList();
+        Assert.Single(players);
+        Assert.Equal(taggedPlayerId, players[0].PlayerId);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithTagFilterAndGameType_ReturnsIntersection()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var tagId = Guid.NewGuid();
+
+        var cod4PlayerId = Guid.NewGuid();
+        var cod5PlayerId = Guid.NewGuid();
+
+        context.Tags.Add(new Tag { TagId = tagId, Name = "tag-b", UserDefined = true });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = cod4PlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Cod4Tagged",
+            Guid = "guid-cod4",
+            FirstSeen = DateTime.UtcNow.AddDays(-3),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = cod5PlayerId,
+            GameType = (int)GameType.CallOfDuty5,
+            Username = "Cod5Tagged",
+            Guid = "guid-cod5",
+            FirstSeen = DateTime.UtcNow.AddDays(-3),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.PlayerTags.AddRange(
+            new PlayerTag
+            {
+                PlayerTagId = Guid.NewGuid(),
+                PlayerId = cod4PlayerId,
+                TagId = tagId,
+                Assigned = DateTime.UtcNow
+            },
+            new PlayerTag
+            {
+                PlayerTagId = Guid.NewGuid(),
+                PlayerId = cod5PlayerId,
+                TagId = tagId,
+                Assigned = DateTime.UtcNow
+            });
+
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.GetPlayers(GameType.CallOfDuty4, PlayersFilter.Tag, tagId.ToString(), 0, 20, null, PlayerEntityOptions.None);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var players = result.Result!.Data!.Items!.ToList();
+        Assert.Single(players);
+        Assert.Equal(cod4PlayerId, players[0].PlayerId);
+        Assert.Equal(GameType.CallOfDuty4, players[0].GameType);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithMalformedTagFilter_ReturnsEmptyCollection()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.Players.Add(new Player
+        {
+            PlayerId = Guid.NewGuid(),
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player1",
+            Guid = "guid-1",
+            FirstSeen = DateTime.UtcNow.AddDays(-1),
+            LastSeen = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.GetPlayers(null, PlayersFilter.Tag, "not-a-guid", 0, 20, null, PlayerEntityOptions.None);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(result.Result!.Data!.Items!);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithTagsOption_PopulatesTagsWithTagMetadata()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var tagId = Guid.NewGuid();
+
+        context.Tags.Add(new Tag { TagId = tagId, Name = "vip", Description = "VIP tag", UserDefined = true });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "TaggedPlayer",
+            Guid = "guid-tagged-player",
+            FirstSeen = DateTime.UtcNow.AddDays(-2),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = tagId,
+            Assigned = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.GetPlayers(null, null, null, 0, 20, null, PlayerEntityOptions.Tags);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+
+        var player = Assert.Single(result.Result!.Data!.Items!);
+        var playerTag = Assert.Single(player.Tags);
+        Assert.Equal(tagId, playerTag.TagId);
+        Assert.NotNull(playerTag.Tag);
+        Assert.Equal("vip", playerTag.Tag!.Name);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithTagFilter_AppliesOrderingAndPagination()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var tagId = Guid.NewGuid();
+
+        context.Tags.Add(new Tag { TagId = tagId, Name = "ordered-tag", UserDefined = true });
+
+        var playerA = new Player
+        {
+            PlayerId = Guid.NewGuid(),
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Alpha",
+            Guid = "guid-alpha",
+            FirstSeen = DateTime.UtcNow.AddDays(-3),
+            LastSeen = DateTime.UtcNow
+        };
+
+        var playerB = new Player
+        {
+            PlayerId = Guid.NewGuid(),
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Bravo",
+            Guid = "guid-bravo",
+            FirstSeen = DateTime.UtcNow.AddDays(-3),
+            LastSeen = DateTime.UtcNow
+        };
+
+        var playerC = new Player
+        {
+            PlayerId = Guid.NewGuid(),
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Charlie",
+            Guid = "guid-charlie",
+            FirstSeen = DateTime.UtcNow.AddDays(-3),
+            LastSeen = DateTime.UtcNow
+        };
+
+        context.Players.AddRange(playerC, playerA, playerB);
+
+        context.PlayerTags.AddRange(
+            new PlayerTag { PlayerTagId = Guid.NewGuid(), PlayerId = playerA.PlayerId, TagId = tagId, Assigned = DateTime.UtcNow },
+            new PlayerTag { PlayerTagId = Guid.NewGuid(), PlayerId = playerB.PlayerId, TagId = tagId, Assigned = DateTime.UtcNow },
+            new PlayerTag { PlayerTagId = Guid.NewGuid(), PlayerId = playerC.PlayerId, TagId = tagId, Assigned = DateTime.UtcNow });
+
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.GetPlayers(null, PlayersFilter.Tag, tagId.ToString(), 1, 1, PlayersOrder.UsernameAsc, PlayerEntityOptions.None);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var page = result.Result!.Data!.Items!.ToList();
+        Assert.Single(page);
+        Assert.Equal("Bravo", page[0].Username);
     }
 
     [Fact]

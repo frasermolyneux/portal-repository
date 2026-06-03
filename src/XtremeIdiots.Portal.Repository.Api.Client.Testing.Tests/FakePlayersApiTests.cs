@@ -2,6 +2,7 @@ using System.Net;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 
@@ -191,5 +192,66 @@ public class FakePlayersApiTests
         Assert.Equal(linkingLastUsedByRelated, related.LinkingIpLastUsedByRelated);
         Assert.False(related.IsCurrentIp);
         Assert.Equal(3, related.SharedIpCount);
+    }
+
+    [Fact]
+    public async Task GetPlayers_FiltersBy_Tag()
+    {
+        var fake = new FakePlayersApi();
+        var tagId = Guid.NewGuid();
+
+        var taggedPlayer = RepositoryDtoFactory.CreatePlayer(username: "Tagged");
+        var untaggedPlayer = RepositoryDtoFactory.CreatePlayer(username: "Untagged");
+
+        fake.AddPlayer(taggedPlayer)
+            .AddPlayer(untaggedPlayer)
+            .AddPlayerTags(taggedPlayer.PlayerId, [new PlayerTagDto { PlayerTagId = Guid.NewGuid(), PlayerId = taggedPlayer.PlayerId, TagId = tagId, Assigned = DateTime.UtcNow }]);
+
+        var result = await fake.GetPlayers(null, PlayersFilter.Tag, tagId.ToString(), 0, 100, null, default);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var players = result.Result!.Data!.Items!.ToList();
+        Assert.Single(players);
+        Assert.Equal(taggedPlayer.PlayerId, players[0].PlayerId);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithMalformedTagFilter_ReturnsEmptyCollection()
+    {
+        var fake = new FakePlayersApi();
+        fake.AddPlayer(RepositoryDtoFactory.CreatePlayer(username: "Any"));
+
+        var result = await fake.GetPlayers(null, PlayersFilter.Tag, "not-a-guid", 0, 100, null, default);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(result.Result!.Data!.Items!);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithTagsOption_PopulatesTagsFromStore()
+    {
+        var fake = new FakePlayersApi();
+        var tagId = Guid.NewGuid();
+        var player = RepositoryDtoFactory.CreatePlayer(username: "TaggedPlayer", tags: []);
+
+        fake.AddPlayer(player)
+            .AddPlayerTags(player.PlayerId, [
+                new PlayerTagDto
+                {
+                    PlayerTagId = Guid.NewGuid(),
+                    PlayerId = player.PlayerId,
+                    TagId = tagId,
+                    Assigned = DateTime.UtcNow,
+                    Tag = RepositoryDtoFactory.CreateTag(tagId: tagId, name: "vip")
+                }
+            ]);
+
+        var result = await fake.GetPlayers(null, null, null, 0, 100, null, PlayerEntityOptions.Tags);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var dto = Assert.Single(result.Result!.Data!.Items!);
+        var playerTag = Assert.Single(dto.Tags);
+        Assert.Equal(tagId, playerTag.TagId);
+        Assert.Equal("vip", playerTag.Tag!.Name);
     }
 }

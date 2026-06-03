@@ -72,9 +72,53 @@ public class FakePlayersApi : IPlayersApi
     {
         var items = _players.Values.AsEnumerable();
         if (gameType.HasValue) items = items.Where(p => p.GameType == gameType.Value);
+
+        if (filter.HasValue && !string.IsNullOrWhiteSpace(filterString))
+        {
+            var trimmedFilter = filterString.Trim();
+
+            items = filter.Value switch
+            {
+                PlayersFilter.UsernameAndGuid => items.Where(p =>
+                    (!string.IsNullOrWhiteSpace(p.Username) && p.Username.Contains(trimmedFilter, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(p.Guid) && p.Guid.Contains(trimmedFilter, StringComparison.OrdinalIgnoreCase))),
+                PlayersFilter.IpAddress => items.Where(p =>
+                    !string.IsNullOrWhiteSpace(p.IpAddress) && p.IpAddress.Contains(trimmedFilter, StringComparison.OrdinalIgnoreCase)),
+                PlayersFilter.Tag => ApplyTagFilter(items, trimmedFilter),
+                _ => items
+            };
+        }
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
+        {
+            items = items.Select(player =>
+            {
+                var tags = _playerTags.TryGetValue(player.PlayerId, out var playerTags)
+                    ? playerTags
+                    : player.Tags;
+
+                return player with { Tags = tags ?? [] };
+            });
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<PlayerDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<PlayerDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PlayerDto>>(collection)));
+    }
+
+    private IEnumerable<PlayerDto> ApplyTagFilter(IEnumerable<PlayerDto> items, string trimmedFilter)
+    {
+        if (!Guid.TryParse(trimmedFilter, out var tagId))
+            return Enumerable.Empty<PlayerDto>();
+
+        return items.Where(player =>
+        {
+            var tags = _playerTags.TryGetValue(player.PlayerId, out var playerTags)
+                ? playerTags
+                : player.Tags;
+
+            return tags?.Any(tag => tag.TagId == tagId) == true;
+        });
     }
 
     public Task<ApiResult<CollectionModel<PlayerDto>>> GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)

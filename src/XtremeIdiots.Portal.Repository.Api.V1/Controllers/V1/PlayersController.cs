@@ -595,6 +595,26 @@ public class PlayersController : ControllerBase, IPlayersApi
                     }
                 }
             }
+
+            if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
+            {
+                var playerTags = await context.PlayerTags
+                    .AsNoTracking()
+                    .Include(pt => pt.Tag)
+                    .Where(pt => pt.PlayerId != null && playerIds.Contains(pt.PlayerId.Value))
+                    .ToListAsync().ConfigureAwait(false);
+
+                var playerIdToTags = playerTags
+                    .GroupBy(pt => pt.PlayerId!.Value)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                foreach (var player in results)
+                {
+                    player.PlayerTags = playerIdToTags.TryGetValue(player.PlayerId, out var tags)
+                        ? tags
+                        : [];
+                }
+            }
         }
         else
         {
@@ -603,6 +623,17 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         // Map to DTOs
         var entries = results.Select(p => p.ToDto()).ToList();
+
+        if (playerEntityOptions.HasFlag(PlayerEntityOptions.Tags))
+        {
+            var playersById = results.ToDictionary(p => p.PlayerId);
+
+            foreach (var entry in entries)
+            {
+                if (playersById.TryGetValue(entry.PlayerId, out var player))
+                    entry.Tags = player.PlayerTags?.Select(pt => pt.ToDto()).ToList() ?? [];
+            }
+        }
 
         // Create the result collection
         var data = new CollectionModel<PlayerDto>(entries);
@@ -925,11 +956,25 @@ public class PlayersController : ControllerBase, IPlayersApi
             {
                 PlayersFilter.UsernameAndGuid => ApplyUsernameAndGuidFilter(query, trimmedFilter),
                 PlayersFilter.IpAddress => ApplyIpAddressFilter(query, trimmedFilter),
+                PlayersFilter.Tag => ApplyTagFilter(query, trimmedFilter),
                 _ => query
             };
         }
 
         return query;
+    }
+
+    private IQueryable<Player> ApplyTagFilter(IQueryable<Player> query, string trimmedFilter)
+    {
+        if (!Guid.TryParse(trimmedFilter, out var tagId))
+            return query.Where(_ => false);
+
+        var playerIdsWithTag = context.PlayerTags
+            .Where(pt => pt.TagId == tagId)
+            .Select(pt => pt.PlayerId)
+            .Distinct();
+
+        return query.Where(p => playerIdsWithTag.Contains(p.PlayerId));
     }
 
     private IQueryable<Player> ApplyUsernameAndGuidFilter(IQueryable<Player> query, string trimmedFilter)
