@@ -80,7 +80,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes game server events older than 6 months to maintain database performance.
+    /// Prunes game server events older than 3 months to maintain database performance.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response indicating the operation completed.</returns>
@@ -93,13 +93,13 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes game server events older than 6 months to maintain database performance.
+    /// Prunes game server events older than 3 months to maintain database performance.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.PruneGameServerEvents(CancellationToken cancellationToken)
     {
-        var cutoffDate = DateTime.UtcNow.AddMonths(-6);
+        var cutoffDate = DateTime.UtcNow.AddMonths(-3);
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
