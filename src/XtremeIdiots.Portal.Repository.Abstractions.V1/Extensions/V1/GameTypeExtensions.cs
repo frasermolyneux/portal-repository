@@ -15,6 +15,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1
             {
                 GameType.CallOfDuty2 => "Call of Duty 2",
                 GameType.CallOfDuty4 => "Call of Duty 4",
+                GameType.CallOfDuty4x => "Call of Duty 4x",
                 GameType.CallOfDuty5 => "Call of Duty 5",
                 _ => gameType.ToString()
             };
