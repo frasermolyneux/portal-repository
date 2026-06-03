@@ -30,6 +30,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 {
     private const string ConnectedPlayerVerifiedTagName = "verified-player";
+    private const string SeniorAdminTagName = "senior-admin";
+    private const string HeadAdminTagName = "head-admin";
+    private const string GameAdminTagName = "game-admin";
+    private const string ModeratorTagName = "moderator";
+    private const string ClanMemberTagName = "clan-member";
 
     private readonly PortalDbContext context;
     private readonly IConfiguration configuration;
@@ -259,50 +264,247 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.ReconcileConnectedPlayerTags(CancellationToken cancellationToken)
     {
-        var verifiedTag = await context.Tags
+        var requiredTagNames = new[]
+        {
+            ConnectedPlayerVerifiedTagName,
+            SeniorAdminTagName,
+            HeadAdminTagName,
+            GameAdminTagName,
+            ModeratorTagName,
+            ClanMemberTagName,
+        };
+
+        var requiredTagNameSet = requiredTagNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var allTags = await context.Tags
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Name == ConnectedPlayerVerifiedTagName, cancellationToken)
+            .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (verifiedTag == null)
+        var requiredTags = allTags
+            .Where(t => requiredTagNameSet.Contains(t.Name))
+            .ToList();
+
+        var duplicateTagNames = requiredTags
+            .GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (duplicateTagNames.Count != 0)
         {
-            throw new InvalidOperationException($"Required tag '{ConnectedPlayerVerifiedTagName}' does not exist.");
+            throw new InvalidOperationException($"Duplicate required tags found: {string.Join(", ", duplicateTagNames)}.");
         }
 
-        var verifiedTagId = verifiedTag.TagId;
+        var tagsByName = requiredTags
+            .GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var missingTagNames = requiredTagNames
+            .Where(tagName => !tagsByName.ContainsKey(tagName))
+            .ToList();
+
+        if (missingTagNames.Count != 0)
+        {
+            throw new InvalidOperationException($"Required tags are missing: {string.Join(", ", missingTagNames)}.");
+        }
+
+        var verifiedTagId = tagsByName[ConnectedPlayerVerifiedTagName].TagId;
+        var seniorAdminTagId = tagsByName[SeniorAdminTagName].TagId;
+        var headAdminTagId = tagsByName[HeadAdminTagName].TagId;
+        var gameAdminTagId = tagsByName[GameAdminTagName].TagId;
+        var moderatorTagId = tagsByName[ModeratorTagName].TagId;
+        var clanMemberTagId = tagsByName[ClanMemberTagName].TagId;
+
         var now = DateTime.UtcNow;
 
-        var linkedPlayerIds = await context.ConnectedPlayerProfiles
+        var activeOwnerships = await context.ConnectedPlayerProfiles
             .AsNoTracking()
             .Where(cp => cp.IsActive)
-            .Select(cp => cp.PlayerId)
+            .Join(
+                context.Players.AsNoTracking(),
+                cp => cp.PlayerId,
+                player => player.PlayerId,
+                (cp, player) => new
+                {
+                    cp.PlayerId,
+                    cp.UserProfileId,
+                    PlayerGameType = ((GameType)player.GameType).ToString(),
+                })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var linkedPlayerIds = activeOwnerships
+            .Select(o => o.PlayerId)
             .Distinct()
+            .ToList();
+
+        var linkedUserProfileIds = activeOwnerships
+            .Select(o => o.UserProfileId)
+            .Distinct()
+            .ToList();
+
+        var roleClaimTypes = new[]
+        {
+            UserProfileClaimType.SeniorAdmin,
+            UserProfileClaimType.HeadAdmin,
+            UserProfileClaimType.GameAdmin,
+            UserProfileClaimType.Moderator,
+            UserProfileClaimType.ClanMember,
+        };
+
+        var roleClaims = await context.UserProfileClaims
+            .AsNoTracking()
+            .Where(claim =>
+                linkedUserProfileIds.Contains(claim.UserProfileId)
+                && claim.SystemGenerated
+                && roleClaimTypes.Contains(claim.ClaimType))
+            .Select(claim => new
+            {
+                claim.UserProfileId,
+                claim.ClaimType,
+                claim.ClaimValue,
+            })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        var claimsByUserProfileId = roleClaims
+            .GroupBy(claim => claim.UserProfileId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.ToList());
+
+        var seniorAdminPlayerIds = new HashSet<Guid>();
+        var headAdminPlayerIds = new HashSet<Guid>();
+        var gameAdminPlayerIds = new HashSet<Guid>();
+        var moderatorPlayerIds = new HashSet<Guid>();
+        var clanMemberPlayerIds = new HashSet<Guid>();
+
+        foreach (var ownership in activeOwnerships)
+        {
+            if (!claimsByUserProfileId.TryGetValue(ownership.UserProfileId, out var claims))
+            {
+                continue;
+            }
+
+            if (claims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin))
+            {
+                seniorAdminPlayerIds.Add(ownership.PlayerId);
+            }
+
+            if (claims.Any(c =>
+                c.ClaimType == UserProfileClaimType.HeadAdmin
+                && string.Equals(c.ClaimValue, ownership.PlayerGameType, StringComparison.OrdinalIgnoreCase)))
+            {
+                headAdminPlayerIds.Add(ownership.PlayerId);
+            }
+
+            if (claims.Any(c =>
+                c.ClaimType == UserProfileClaimType.GameAdmin
+                && string.Equals(c.ClaimValue, ownership.PlayerGameType, StringComparison.OrdinalIgnoreCase)))
+            {
+                gameAdminPlayerIds.Add(ownership.PlayerId);
+            }
+
+            if (claims.Any(c =>
+                c.ClaimType == UserProfileClaimType.Moderator
+                && string.Equals(c.ClaimValue, ownership.PlayerGameType, StringComparison.OrdinalIgnoreCase)))
+            {
+                moderatorPlayerIds.Add(ownership.PlayerId);
+            }
+
+            if (claims.Any(c => c.ClaimType == UserProfileClaimType.ClanMember))
+            {
+                clanMemberPlayerIds.Add(ownership.PlayerId);
+            }
+        }
+
+        var hasChanges = false;
+
+        hasChanges |= await ReconcileProjectedTag(
+            verifiedTagId,
+            linkedPlayerIds,
+            now,
+            removeDuplicatesForProjectedPlayers: true,
+            cancellationToken).ConfigureAwait(false);
+
+        hasChanges |= await ReconcileProjectedTag(
+            seniorAdminTagId,
+            seniorAdminPlayerIds,
+            now,
+            removeDuplicatesForProjectedPlayers: true,
+            cancellationToken).ConfigureAwait(false);
+
+        hasChanges |= await ReconcileProjectedTag(
+            headAdminTagId,
+            headAdminPlayerIds,
+            now,
+            removeDuplicatesForProjectedPlayers: true,
+            cancellationToken).ConfigureAwait(false);
+
+        hasChanges |= await ReconcileProjectedTag(
+            gameAdminTagId,
+            gameAdminPlayerIds,
+            now,
+            removeDuplicatesForProjectedPlayers: true,
+            cancellationToken).ConfigureAwait(false);
+
+        hasChanges |= await ReconcileProjectedTag(
+            moderatorTagId,
+            moderatorPlayerIds,
+            now,
+            removeDuplicatesForProjectedPlayers: true,
+            cancellationToken).ConfigureAwait(false);
+
+        hasChanges |= await ReconcileProjectedTag(
+            clanMemberTagId,
+            clanMemberPlayerIds,
+            now,
+            removeDuplicatesForProjectedPlayers: true,
+            cancellationToken).ConfigureAwait(false);
+
+        if (hasChanges)
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    private async Task<bool> ReconcileProjectedTag(
+        Guid tagId,
+        IEnumerable<Guid> projectedPlayerIds,
+        DateTime now,
+        bool removeDuplicatesForProjectedPlayers,
+        CancellationToken cancellationToken)
+    {
         var existingTaggedEntries = await context.PlayerTags
-            .Where(pt => pt.TagId == verifiedTagId)
+            .Where(pt => pt.TagId == tagId)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        var linkedPlayerIdSet = linkedPlayerIds.ToHashSet();
+        var projectedPlayerIdSet = projectedPlayerIds.ToHashSet();
 
         var entriesToRemove = existingTaggedEntries
-            .Where(pt => pt.PlayerId == null || !linkedPlayerIdSet.Contains(pt.PlayerId.Value))
+            .Where(pt => pt.PlayerId == null || !projectedPlayerIdSet.Contains(pt.PlayerId.Value))
             .ToList();
 
-        var duplicateEntriesToRemove = existingTaggedEntries
-            .Where(pt => pt.PlayerId.HasValue && linkedPlayerIdSet.Contains(pt.PlayerId.Value))
-            .GroupBy(pt => pt.PlayerId!.Value)
-            .SelectMany(group => group
-                .OrderBy(entry => entry.Assigned)
-                .ThenBy(entry => entry.PlayerTagId)
-                .Skip(1))
-            .ToList();
-
-        if (duplicateEntriesToRemove.Count != 0)
+        if (removeDuplicatesForProjectedPlayers)
         {
-            entriesToRemove.AddRange(duplicateEntriesToRemove);
+            var duplicateEntriesToRemove = existingTaggedEntries
+                .Where(pt => pt.PlayerId.HasValue && projectedPlayerIdSet.Contains(pt.PlayerId.Value))
+                .GroupBy(pt => pt.PlayerId!.Value)
+                .SelectMany(group => group
+                    .OrderBy(entry => entry.Assigned)
+                    .ThenBy(entry => entry.PlayerTagId)
+                    .Skip(1))
+                .ToList();
+
+            if (duplicateEntriesToRemove.Count != 0)
+            {
+                entriesToRemove.AddRange(duplicateEntriesToRemove);
+            }
         }
 
         if (entriesToRemove.Count != 0)
@@ -315,13 +517,13 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             .Select(pt => pt.PlayerId!.Value)
             .ToHashSet();
 
-        var newEntries = linkedPlayerIds
+        var newEntries = projectedPlayerIdSet
             .Where(playerId => !alreadyTaggedPlayerIds.Contains(playerId))
             .Select(playerId => new PlayerTag
             {
                 PlayerTagId = Guid.NewGuid(),
                 PlayerId = playerId,
-                TagId = verifiedTagId,
+                TagId = tagId,
                 Assigned = now,
                 UserProfileId = null,
             })
@@ -332,12 +534,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             await context.PlayerTags.AddRangeAsync(newEntries, cancellationToken).ConfigureAwait(false);
         }
 
-        if (entriesToRemove.Count != 0 || newEntries.Count != 0)
-        {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        return new ApiResponse().ToApiResult();
+        return entriesToRemove.Count != 0 || newEntries.Count != 0;
     }
 
     /// <summary>

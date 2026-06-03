@@ -11,41 +11,92 @@ PRINT 'Inserting system-defined tags'
 -- Senior Admin Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE [Name] = 'senior-admin')
+WHERE LOWER([Name]) = 'senior-admin')
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('senior-admin', 'Senior Administrator role', 1, '<span class="badge bg-danger">Senior Admin</span>')
+        ('senior-admin', 'Senior Administrator role', 0, '<span class="badge bg-danger">Senior Admin</span>')
 
     PRINT 'Inserted senior-admin tag'
 END
 
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE LOWER([Name]) = 'senior-admin'
+    AND [UserDefined] <> 0
+
 -- Head Admin Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE [Name] = 'head-admin')
+WHERE LOWER([Name]) = 'head-admin')
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('head-admin', 'Head Administrator role', 1, '<span class="badge bg-danger">Head Admin</span>')
+        ('head-admin', 'Head Administrator role', 0, '<span class="badge bg-danger">Head Admin</span>')
 
     PRINT 'Inserted head-admin tag'
 END
 
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE LOWER([Name]) = 'head-admin'
+    AND [UserDefined] <> 0
+
 -- Game Admin Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE [Name] = 'game-admin')
+WHERE LOWER([Name]) = 'game-admin')
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('game-admin', 'Game Administrator role', 1, '<span class="badge bg-warning">Game Admin</span>')
+        ('game-admin', 'Game Administrator role', 0, '<span class="badge bg-warning">Game Admin</span>')
 
     PRINT 'Inserted game-admin tag'
 END
+
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE LOWER([Name]) = 'game-admin'
+    AND [UserDefined] <> 0
+
+-- Moderator Tag
+IF NOT EXISTS (SELECT *
+FROM [dbo].[Tags]
+WHERE LOWER([Name]) = 'moderator')
+BEGIN
+    INSERT INTO [dbo].[Tags]
+        ([Name], [Description], [UserDefined], [TagHtml])
+    VALUES
+        ('moderator', 'Moderator role', 0, '<span class="badge bg-primary">Moderator</span>')
+
+    PRINT 'Inserted moderator tag'
+END
+
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE LOWER([Name]) = 'moderator'
+    AND [UserDefined] <> 0
+
+-- Clan Member Tag
+IF NOT EXISTS (SELECT *
+FROM [dbo].[Tags]
+WHERE LOWER([Name]) = 'clan-member')
+BEGIN
+    INSERT INTO [dbo].[Tags]
+        ([Name], [Description], [UserDefined], [TagHtml])
+    VALUES
+        ('clan-member', 'Clan member role', 0, '<span class="badge bg-info">Clan Member</span>')
+
+    PRINT 'Inserted clan-member tag'
+END
+
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE LOWER([Name]) = 'clan-member'
+    AND [UserDefined] <> 0
 
 -- Member Tag
 IF NOT EXISTS (SELECT *
@@ -63,7 +114,7 @@ END
 -- Verified Player Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE [Name] = 'verified-player')
+WHERE LOWER([Name]) = 'verified-player')
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
@@ -75,8 +126,98 @@ END
 
 UPDATE [dbo].[Tags]
 SET [UserDefined] = 0
-WHERE [Name] = 'verified-player'
+WHERE LOWER([Name]) = 'verified-player'
     AND [UserDefined] <> 0
+
+DECLARE @RequiredConnectedPlayerTags TABLE
+(
+    [Name] NVARCHAR(100) NOT NULL PRIMARY KEY
+);
+
+INSERT INTO @RequiredConnectedPlayerTags
+    ([Name])
+VALUES
+    ('verified-player'),
+    ('senior-admin'),
+    ('head-admin'),
+    ('game-admin'),
+    ('moderator'),
+    ('clan-member');
+
+;WITH
+    CanonicalRequiredTags
+    AS
+    (
+        SELECT
+            LOWER(t.[Name]) AS [Name],
+            MIN(t.[TagId]) AS [CanonicalTagId]
+        FROM [dbo].[Tags] t
+            INNER JOIN @RequiredConnectedPlayerTags required ON required.[Name] = LOWER(t.[Name])
+        GROUP BY LOWER(t.[Name])
+    )
+UPDATE canonical
+SET
+    canonical.[Name] = crt.[Name],
+    canonical.[UserDefined] = 0
+FROM [dbo].[Tags] canonical
+    INNER JOIN CanonicalRequiredTags crt ON crt.[CanonicalTagId] = canonical.[TagId]
+WHERE canonical.[Name] <> crt.[Name]
+    OR canonical.[UserDefined] <> 0;
+
+;WITH
+    CanonicalRequiredTags
+    AS
+    (
+        SELECT
+            LOWER(t.[Name]) AS [Name],
+            MIN(t.[TagId]) AS [CanonicalTagId]
+        FROM [dbo].[Tags] t
+            INNER JOIN @RequiredConnectedPlayerTags required ON required.[Name] = LOWER(t.[Name])
+        GROUP BY LOWER(t.[Name])
+    )
+DELETE legacy
+FROM [dbo].[PlayerTags] legacy
+    INNER JOIN [dbo].[Tags] legacyTag ON legacyTag.[TagId] = legacy.[TagId]
+    INNER JOIN CanonicalRequiredTags canonical ON canonical.[Name] = LOWER(legacyTag.[Name])
+    INNER JOIN [dbo].[PlayerTags] existingCanonical ON existingCanonical.[PlayerId] = legacy.[PlayerId]
+        AND existingCanonical.[TagId] = canonical.[CanonicalTagId]
+WHERE legacy.[TagId] <> canonical.[CanonicalTagId];
+
+;WITH
+    CanonicalRequiredTags
+    AS
+    (
+        SELECT
+            LOWER(t.[Name]) AS [Name],
+            MIN(t.[TagId]) AS [CanonicalTagId]
+        FROM [dbo].[Tags] t
+            INNER JOIN @RequiredConnectedPlayerTags required ON required.[Name] = LOWER(t.[Name])
+        GROUP BY LOWER(t.[Name])
+    )
+UPDATE pt
+SET [TagId] = canonical.[CanonicalTagId]
+FROM [dbo].[PlayerTags] pt
+    INNER JOIN [dbo].[Tags] sourceTag ON sourceTag.[TagId] = pt.[TagId]
+    INNER JOIN CanonicalRequiredTags canonical ON canonical.[Name] = LOWER(sourceTag.[Name])
+WHERE pt.[TagId] <> canonical.[CanonicalTagId];
+
+;WITH
+    CanonicalRequiredTags
+    AS
+    (
+        SELECT
+            LOWER(t.[Name]) AS [Name],
+            MIN(t.[TagId]) AS [CanonicalTagId]
+        FROM [dbo].[Tags] t
+            INNER JOIN @RequiredConnectedPlayerTags required ON required.[Name] = LOWER(t.[Name])
+        GROUP BY LOWER(t.[Name])
+    )
+DELETE duplicateTag
+FROM [dbo].[Tags] duplicateTag
+    INNER JOIN CanonicalRequiredTags canonical ON canonical.[Name] = LOWER(duplicateTag.[Name])
+WHERE duplicateTag.[TagId] <> canonical.[CanonicalTagId];
+
+PRINT 'Normalized required connected-player tags and removed duplicates'
 
 -- Active Player Tag
 IF NOT EXISTS (SELECT *

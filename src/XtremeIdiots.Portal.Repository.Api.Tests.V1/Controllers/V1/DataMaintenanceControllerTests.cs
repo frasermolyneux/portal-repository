@@ -14,6 +14,26 @@ public class DataMaintenanceControllerTests
 {
     private static readonly IConfiguration EmptyConfiguration = new ConfigurationBuilder().Build();
 
+    private static (Guid VerifiedTagId, Guid SeniorAdminTagId, Guid HeadAdminTagId, Guid GameAdminTagId, Guid ModeratorTagId, Guid ClanMemberTagId) AddRequiredConnectedPlayerTags(PortalDbContext context)
+    {
+        var verifiedTagId = Guid.NewGuid();
+        var seniorAdminTagId = Guid.NewGuid();
+        var headAdminTagId = Guid.NewGuid();
+        var gameAdminTagId = Guid.NewGuid();
+        var moderatorTagId = Guid.NewGuid();
+        var clanMemberTagId = Guid.NewGuid();
+
+        context.Tags.AddRange(
+            new Tag { TagId = verifiedTagId, Name = "verified-player", UserDefined = false },
+            new Tag { TagId = seniorAdminTagId, Name = "senior-admin", UserDefined = false },
+            new Tag { TagId = headAdminTagId, Name = "head-admin", UserDefined = false },
+            new Tag { TagId = gameAdminTagId, Name = "game-admin", UserDefined = false },
+            new Tag { TagId = moderatorTagId, Name = "moderator", UserDefined = false },
+            new Tag { TagId = clanMemberTagId, Name = "clan-member", UserDefined = false });
+
+        return (verifiedTagId, seniorAdminTagId, headAdminTagId, gameAdminTagId, moderatorTagId, clanMemberTagId);
+    }
+
     private DataMaintenanceController CreateController(PortalDbContext context)
     {
         return new DataMaintenanceController(context, EmptyConfiguration);
@@ -260,17 +280,12 @@ public class DataMaintenanceControllerTests
     {
         using var context = DbContextHelper.CreateInMemoryContext();
 
-        var verifiedTagId = Guid.NewGuid();
         var linkedPlayerId = Guid.NewGuid();
         var unlinkedPlayerId = Guid.NewGuid();
         var userProfileId = Guid.NewGuid();
 
-        context.Tags.Add(new Tag
-        {
-            TagId = verifiedTagId,
-            Name = "verified-player",
-            UserDefined = false,
-        });
+        var tags = AddRequiredConnectedPlayerTags(context);
+        var verifiedTagId = tags.VerifiedTagId;
 
         context.Players.Add(new Player
         {
@@ -332,16 +347,11 @@ public class DataMaintenanceControllerTests
     {
         using var context = DbContextHelper.CreateInMemoryContext();
 
-        var verifiedTagId = Guid.NewGuid();
         var linkedPlayerId = Guid.NewGuid();
         var userProfileId = Guid.NewGuid();
 
-        context.Tags.Add(new Tag
-        {
-            TagId = verifiedTagId,
-            Name = "verified-player",
-            UserDefined = false,
-        });
+        var tags = AddRequiredConnectedPlayerTags(context);
+        var verifiedTagId = tags.VerifiedTagId;
 
         context.Players.Add(new Player
         {
@@ -392,6 +402,389 @@ public class DataMaintenanceControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Single(context.PlayerTags.Where(pt => pt.PlayerId == linkedPlayerId && pt.TagId == verifiedTagId));
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_WhenRoleTagMissing_ThrowsInvalidOperationException()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        context.Tags.AddRange(
+            new Tag { TagId = Guid.NewGuid(), Name = "verified-player", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "senior-admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "head-admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "game-admin", UserDefined = false });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => api.ReconcileConnectedPlayerTags());
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_WhenClanMemberTagMissing_ThrowsInvalidOperationException()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        context.Tags.AddRange(
+            new Tag { TagId = Guid.NewGuid(), Name = "verified-player", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "senior-admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "head-admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "game-admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "moderator", UserDefined = false });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => api.ReconcileConnectedPlayerTags());
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_AllowsMixedCaseRequiredTagNames()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        context.Tags.AddRange(
+            new Tag { TagId = Guid.NewGuid(), Name = "Verified-Player", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "Senior-Admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "Head-Admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "Game-Admin", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "Moderator", UserDefined = false },
+            new Tag { TagId = Guid.NewGuid(), Name = "Clan-Member", UserDefined = false });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_WhenRequiredTagDuplicated_ThrowsInvalidOperationException()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        AddRequiredConnectedPlayerTags(context);
+        context.Tags.Add(new Tag
+        {
+            TagId = Guid.NewGuid(),
+            Name = "clan-member",
+            UserDefined = false,
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => api.ReconcileConnectedPlayerTags());
+        Assert.Contains("Duplicate required tags found", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("clan-member", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_ProjectsRoleTags_FromSystemGeneratedClaims_WithGameTypeMatching()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var tags = AddRequiredConnectedPlayerTags(context);
+
+        var verifiedTagId = tags.VerifiedTagId;
+        var seniorAdminTagId = tags.SeniorAdminTagId;
+        var headAdminTagId = tags.HeadAdminTagId;
+        var gameAdminTagId = tags.GameAdminTagId;
+        var moderatorTagId = tags.ModeratorTagId;
+        var clanMemberTagId = tags.ClanMemberTagId;
+
+        var userProfileId = Guid.NewGuid();
+        var cod4PlayerId = Guid.NewGuid();
+        var cod5PlayerId = Guid.NewGuid();
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "Role User",
+        });
+
+        context.Players.AddRange(
+            new Player
+            {
+                PlayerId = cod4PlayerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Username = "Cod4Player",
+                FirstSeen = DateTime.UtcNow.AddMonths(-1),
+                LastSeen = DateTime.UtcNow,
+            },
+            new Player
+            {
+                PlayerId = cod5PlayerId,
+                GameType = (int)GameType.CallOfDuty5,
+                Username = "Cod5Player",
+                FirstSeen = DateTime.UtcNow.AddMonths(-1),
+                LastSeen = DateTime.UtcNow,
+            });
+
+        context.ConnectedPlayerProfiles.AddRange(
+            new ConnectedPlayerProfile
+            {
+                ConnectedPlayerProfileId = Guid.NewGuid(),
+                PlayerId = cod4PlayerId,
+                UserProfileId = userProfileId,
+                LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+                LinkedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+                IsActive = true,
+            },
+            new ConnectedPlayerProfile
+            {
+                ConnectedPlayerProfileId = Guid.NewGuid(),
+                PlayerId = cod5PlayerId,
+                UserProfileId = userProfileId,
+                LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+                LinkedAtUtc = DateTime.UtcNow.AddMinutes(-9),
+                IsActive = true,
+            });
+
+        context.UserProfileClaims.AddRange(
+            new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = userProfileId,
+                ClaimType = UserProfileClaimType.SeniorAdmin,
+                ClaimValue = GameType.Unknown.ToString(),
+                SystemGenerated = true,
+            },
+            new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = userProfileId,
+                ClaimType = UserProfileClaimType.HeadAdmin,
+                ClaimValue = GameType.CallOfDuty4.ToString().ToLowerInvariant(),
+                SystemGenerated = true,
+            },
+            new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = userProfileId,
+                ClaimType = UserProfileClaimType.GameAdmin,
+                ClaimValue = GameType.CallOfDuty4.ToString().ToLowerInvariant(),
+                SystemGenerated = true,
+            },
+            new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = userProfileId,
+                ClaimType = UserProfileClaimType.Moderator,
+                ClaimValue = GameType.CallOfDuty5.ToString().ToLowerInvariant(),
+                SystemGenerated = true,
+            },
+            new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = userProfileId,
+                ClaimType = UserProfileClaimType.GameAdmin,
+                ClaimValue = GameType.CallOfDuty5.ToString(),
+                SystemGenerated = false,
+            },
+            new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = userProfileId,
+                ClaimType = UserProfileClaimType.ClanMember,
+                ClaimValue = "ignored",
+                SystemGenerated = true,
+            });
+
+        context.PlayerTags.AddRange(
+            new PlayerTag
+            {
+                PlayerTagId = Guid.NewGuid(),
+                PlayerId = cod5PlayerId,
+                TagId = gameAdminTagId,
+                Assigned = DateTime.UtcNow.AddDays(-3),
+            },
+            new PlayerTag
+            {
+                PlayerTagId = Guid.NewGuid(),
+                PlayerId = cod4PlayerId,
+                TagId = moderatorTagId,
+                Assigned = DateTime.UtcNow.AddDays(-3),
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod4PlayerId && pt.TagId == verifiedTagId));
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod5PlayerId && pt.TagId == verifiedTagId));
+
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod4PlayerId && pt.TagId == seniorAdminTagId));
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod5PlayerId && pt.TagId == seniorAdminTagId));
+
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod4PlayerId && pt.TagId == headAdminTagId));
+        Assert.False(context.PlayerTags.Any(pt => pt.PlayerId == cod5PlayerId && pt.TagId == headAdminTagId));
+
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod4PlayerId && pt.TagId == gameAdminTagId));
+        Assert.False(context.PlayerTags.Any(pt => pt.PlayerId == cod5PlayerId && pt.TagId == gameAdminTagId));
+
+        Assert.False(context.PlayerTags.Any(pt => pt.PlayerId == cod4PlayerId && pt.TagId == moderatorTagId));
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod5PlayerId && pt.TagId == moderatorTagId));
+
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod4PlayerId && pt.TagId == clanMemberTagId));
+        Assert.True(context.PlayerTags.Any(pt => pt.PlayerId == cod5PlayerId && pt.TagId == clanMemberTagId));
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_RemovesRoleTagsForInactiveOwnerships()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var tags = AddRequiredConnectedPlayerTags(context);
+        var seniorAdminTagId = tags.SeniorAdminTagId;
+        var clanMemberTagId = tags.ClanMemberTagId;
+
+        var userProfileId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "Inactive Role User",
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "InactivePlayer",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+            IsActive = false,
+        });
+
+        context.UserProfileClaims.Add(new UserProfileClaim
+        {
+            UserProfileClaimId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            ClaimType = UserProfileClaimType.SeniorAdmin,
+            ClaimValue = GameType.Unknown.ToString(),
+            SystemGenerated = true,
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = seniorAdminTagId,
+            Assigned = DateTime.UtcNow.AddDays(-5),
+        });
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = clanMemberTagId,
+            Assigned = DateTime.UtcNow.AddDays(-5),
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(context.PlayerTags.Any(pt => pt.PlayerId == playerId && pt.TagId == seniorAdminTagId));
+        Assert.False(context.PlayerTags.Any(pt => pt.PlayerId == playerId && pt.TagId == clanMemberTagId));
+    }
+
+    [Fact]
+    public async Task ReconcileConnectedPlayerTags_RemovesDuplicateRoleTagsForLinkedPlayers()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var playerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        var (_, _, _, _, _, clanMemberTagId) = AddRequiredConnectedPlayerTags(context);
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "User",
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            IsActive = true,
+        });
+
+        context.UserProfileClaims.Add(new UserProfileClaim
+        {
+            UserProfileClaimId = Guid.NewGuid(),
+            UserProfileId = userProfileId,
+            ClaimType = UserProfileClaimType.ClanMember,
+            ClaimValue = "true",
+            SystemGenerated = true,
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = clanMemberTagId,
+            Assigned = DateTime.UtcNow.AddDays(-2),
+        });
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = clanMemberTagId,
+            Assigned = DateTime.UtcNow.AddDays(-1),
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.PlayerTags.Where(pt => pt.PlayerId == playerId && pt.TagId == clanMemberTagId));
     }
 
     [Fact(Skip = "Requires Azure Blob Storage")]
