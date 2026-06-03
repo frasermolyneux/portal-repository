@@ -715,4 +715,167 @@ public class ScreenshotsControllerTests
         Assert.Equal("active.jpg", result.Result.Data.FileName);
         Assert.Equal(expectedBytes, result.Result.Data.Content);
     }
+
+    [Fact]
+    public async Task CreatePendingScreenshotRequest_CreatesThenRefreshesSingleActiveRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var dto = new CreatePendingScreenshotRequestDto
+        {
+            GameServerId = server.GameServerId,
+            PlayerIdentifier = "player-17",
+            PlayerName = "Player 17"
+        };
+
+        var created = await api.CreatePendingScreenshotRequest(dto);
+        var refreshed = await api.CreatePendingScreenshotRequest(dto with { PlayerName = "Player 17 Updated" });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
+
+        var activeCount = await context.ScreenshotPendingRequests
+            .CountAsync(r => r.GameServerId == server.GameServerId && r.PlayerIdentifier == "player-17" && r.ConsumedAtUtc == null);
+
+        Assert.Equal(1, activeCount);
+        Assert.Equal("Player 17 Updated", refreshed.Result!.Data!.PlayerName);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithSingleMatchingPendingRequest_LinksAndConsumesRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
+
+        context.ScreenshotPendingRequests.Add(new ScreenshotPendingRequest
+        {
+            ScreenshotPendingRequestId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            PlayerIdentifier = "player-17",
+            PlayerName = "Player 17",
+            RequestedAtUtc = DateTime.UtcNow.AddSeconds(-20),
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(2),
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with { PlayerIdentifier = "player-17", Fingerprint = "fp-link-request" });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Equal("player-17", result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal("Player 17", result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.RequestMatch, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.High, result.Result.Data.LinkConfidence);
+
+        var consumed = await context.ScreenshotPendingRequests.SingleAsync();
+        Assert.NotNull(consumed.ConsumedAtUtc);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithPlaceholderIdentifierAndNoPendingRequest_RemainsUnlinked()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = "0000",
+            PlayerName = null,
+            Fingerprint = "fp-unlinked"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithMismatchedIdentifier_DoesNotConsumeSinglePendingRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var pendingRequest = new ScreenshotPendingRequest
+        {
+            ScreenshotPendingRequestId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            PlayerIdentifier = "player-17",
+            PlayerName = "Player 17",
+            RequestedAtUtc = DateTime.UtcNow.AddSeconds(-30),
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(2),
+            CreatedUtc = DateTime.UtcNow,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
+
+        context.ScreenshotPendingRequests.Add(pendingRequest);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = "different-player",
+            PlayerName = "Other Player",
+            Fingerprint = "fp-mismatch"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Equal("different-player", result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal("Other Player", result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.FilenameMatch, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Medium, result.Result.Data.LinkConfidence);
+
+        var savedPendingRequest = await context.ScreenshotPendingRequests.SingleAsync(r => r.ScreenshotPendingRequestId == pendingRequest.ScreenshotPendingRequestId);
+        Assert.Null(savedPendingRequest.ConsumedAtUtc);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithNullPlayerIdentifier_StoresUnlinkedAndReturnsNullableIdentifier()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = null,
+            PlayerName = null,
+            Fingerprint = "fp-null-player"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
+    }
 }

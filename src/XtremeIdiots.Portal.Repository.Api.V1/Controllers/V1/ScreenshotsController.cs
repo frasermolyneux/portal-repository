@@ -32,6 +32,7 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
     private const int MaxPageSize = 100;
     private const long MaxScreenshotUploadBytes = 5 * 1024 * 1024;
     private const string ScreenshotContainerName = "server-screenshots";
+    private const int PendingRequestLifetimeMinutes = 2;
 
     private static readonly HashSet<string> SupportedImageExtensions =
     [
@@ -52,6 +53,106 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         this.context = context;
         ArgumentNullException.ThrowIfNull(configuration);
         this.configuration = configuration;
+    }
+
+    [HttpPost("game-servers/{gameServerId:guid}/screenshots/pending-requests")]
+    [ProducesResponseType<PendingScreenshotRequestDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PendingScreenshotRequestDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreatePendingScreenshotRequest(Guid gameServerId, [FromBody] CreatePendingScreenshotRequestDto requestDto, CancellationToken cancellationToken = default)
+    {
+        if (requestDto is null)
+        {
+            return new ApiResult(HttpStatusCode.BadRequest,
+                new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))).ToHttpResult();
+        }
+
+        var request = requestDto with { GameServerId = gameServerId };
+        var response = await ((IScreenshotsApi)this).CreatePendingScreenshotRequest(request, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<PendingScreenshotRequestDto>> IScreenshotsApi.CreatePendingScreenshotRequest(CreatePendingScreenshotRequestDto requestDto, CancellationToken cancellationToken)
+    {
+        if (!IsValidPendingRequest(requestDto, out var validationError))
+        {
+            return new ApiResult<PendingScreenshotRequestDto>(HttpStatusCode.BadRequest,
+                new ApiResponse<PendingScreenshotRequestDto>(new ApiError(ApiErrorCodes.InvalidRequest, validationError)));
+        }
+
+        var gameServerExists = await context.GameServers
+            .AnyAsync(gs => gs.GameServerId == requestDto.GameServerId && !gs.Deleted, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!gameServerExists)
+        {
+            return new ApiResult<PendingScreenshotRequestDto>(HttpStatusCode.NotFound,
+                new ApiResponse<PendingScreenshotRequestDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+        }
+
+        var now = DateTime.UtcNow;
+        var requestedAtUtc = requestDto.RequestedAtUtc ?? now;
+        var expiresAtUtc = requestDto.ExpiresAtUtc ?? requestedAtUtc.AddMinutes(PendingRequestLifetimeMinutes);
+
+        var normalizedPlayerIdentifier = requestDto.PlayerIdentifier.Trim();
+        var existing = await context.ScreenshotPendingRequests
+            .FirstOrDefaultAsync(r =>
+                r.GameServerId == requestDto.GameServerId &&
+                r.PlayerIdentifier == normalizedPlayerIdentifier &&
+                r.ConsumedAtUtc == null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var created = existing is null;
+        var pendingRequest = existing ?? new ScreenshotPendingRequest
+        {
+            ScreenshotPendingRequestId = Guid.NewGuid(),
+            GameServerId = requestDto.GameServerId,
+            PlayerIdentifier = normalizedPlayerIdentifier,
+            CreatedUtc = now
+        };
+
+        pendingRequest.PlayerName = string.IsNullOrWhiteSpace(requestDto.PlayerName) ? null : requestDto.PlayerName.Trim();
+        pendingRequest.CorrelationKey = string.IsNullOrWhiteSpace(requestDto.CorrelationKey) ? null : requestDto.CorrelationKey.Trim();
+        pendingRequest.RequestedAtUtc = requestedAtUtc;
+        pendingRequest.ExpiresAtUtc = expiresAtUtc;
+        pendingRequest.ConsumedAtUtc = null;
+        pendingRequest.CreatedBy = string.IsNullOrWhiteSpace(requestDto.CreatedBy) ? null : requestDto.CreatedBy.Trim();
+        pendingRequest.LastUpdatedUtc = now;
+
+        if (created)
+        {
+            context.ScreenshotPendingRequests.Add(pendingRequest);
+        }
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return new ApiResponse<PendingScreenshotRequestDto>(pendingRequest.ToDto())
+                .ToApiResult(created ? HttpStatusCode.Created : HttpStatusCode.OK);
+        }
+        catch (DbUpdateException) when (created)
+        {
+            context.Entry(pendingRequest).State = EntityState.Detached;
+
+            var existingAfterConflict = await context.ScreenshotPendingRequests
+                .FirstOrDefaultAsync(r =>
+                    r.GameServerId == requestDto.GameServerId &&
+                    r.PlayerIdentifier == normalizedPlayerIdentifier &&
+                    r.ConsumedAtUtc == null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            if (existingAfterConflict is null)
+            {
+                throw;
+            }
+
+            return new ApiResponse<PendingScreenshotRequestDto>(existingAfterConflict.ToDto())
+                .ToApiResult(HttpStatusCode.OK);
+        }
     }
 
     [HttpPut("screenshots")]
@@ -108,8 +209,13 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         }
 
         screenshot.GameType = ParseGameType(upsertDto.GameType);
-        screenshot.PlayerIdentifier = upsertDto.PlayerIdentifier.Trim();
-        screenshot.PlayerName = string.IsNullOrWhiteSpace(upsertDto.PlayerName) ? null : upsertDto.PlayerName.Trim();
+        var linkResolution = await ResolvePlayerLinkAsync(upsertDto, cancellationToken).ConfigureAwait(false);
+
+        screenshot.PlayerIdentifier = linkResolution.PlayerIdentifier;
+        screenshot.PlayerName = linkResolution.PlayerName;
+        screenshot.LinkSource = linkResolution.LinkSource;
+        screenshot.LinkConfidence = linkResolution.LinkConfidence;
+        screenshot.LinkDiagnostics = linkResolution.LinkDiagnostics;
         screenshot.CapturedUtc = upsertDto.CapturedUtc;
         screenshot.BlobContainer = upsertDto.BlobContainer.Trim();
         screenshot.BlobName = upsertDto.BlobName.Trim();
@@ -438,7 +544,7 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         if (!string.IsNullOrWhiteSpace(query?.PlayerIdentifier))
         {
             var trimmedPlayerIdentifier = query.PlayerIdentifier.Trim();
-            baseQuery = baseQuery.Where(s => s.PlayerIdentifier == trimmedPlayerIdentifier);
+            baseQuery = baseQuery.Where(s => s.PlayerIdentifier != null && s.PlayerIdentifier == trimmedPlayerIdentifier);
         }
 
         if (!string.IsNullOrWhiteSpace(query?.PlayerName))
@@ -524,12 +630,6 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         if (!Enum.TryParse<GameType>(dto.GameType, true, out var parsedGameType) || parsedGameType == GameType.Unknown)
         {
             message = "GameType must be a valid non-Unknown value.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(dto.PlayerIdentifier))
-        {
-            message = "PlayerIdentifier is required.";
             return false;
         }
 
@@ -632,12 +732,6 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         if (!Enum.TryParse<GameType>(dto.GameType, true, out var parsedGameType) || parsedGameType == GameType.Unknown)
         {
             message = "GameType must be a valid non-Unknown value.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(dto.PlayerIdentifier))
-        {
-            message = "PlayerIdentifier is required.";
             return false;
         }
 
@@ -760,6 +854,136 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
             .Replace("_", "\\_", StringComparison.Ordinal)
             .Replace("[", "\\[", StringComparison.Ordinal);
     }
+
+    private static bool IsValidPendingRequest(CreatePendingScreenshotRequestDto dto, out string message)
+    {
+        if (dto.GameServerId == Guid.Empty)
+        {
+            message = "GameServerId is required.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.PlayerIdentifier))
+        {
+            message = "PlayerIdentifier is required.";
+            return false;
+        }
+
+        if (!HasMaxLength(dto.PlayerIdentifier, 64))
+        {
+            message = "PlayerIdentifier must be 64 characters or fewer.";
+            return false;
+        }
+
+        if (!HasMaxLength(dto.PlayerName, 128))
+        {
+            message = "PlayerName must be 128 characters or fewer.";
+            return false;
+        }
+
+        if (!HasMaxLength(dto.CorrelationKey, 64))
+        {
+            message = "CorrelationKey must be 64 characters or fewer.";
+            return false;
+        }
+
+        if (!HasMaxLength(dto.CreatedBy, 128))
+        {
+            message = "CreatedBy must be 128 characters or fewer.";
+            return false;
+        }
+
+        var requestedAtUtc = dto.RequestedAtUtc ?? DateTime.UtcNow;
+        var expiresAtUtc = dto.ExpiresAtUtc ?? requestedAtUtc.AddMinutes(PendingRequestLifetimeMinutes);
+        if (expiresAtUtc <= requestedAtUtc)
+        {
+            message = "ExpiresAtUtc must be after RequestedAtUtc.";
+            return false;
+        }
+
+        message = string.Empty;
+        return true;
+    }
+
+    private async Task<PlayerLinkResolution> ResolvePlayerLinkAsync(UpsertScreenshotDto upsertDto, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var normalizedIdentifier = string.IsNullOrWhiteSpace(upsertDto.PlayerIdentifier) ? null : upsertDto.PlayerIdentifier.Trim();
+        var normalizedName = string.IsNullOrWhiteSpace(upsertDto.PlayerName) ? null : upsertDto.PlayerName.Trim();
+        var hasReliableIncomingIdentifier = !string.IsNullOrWhiteSpace(normalizedIdentifier) && !IsPlaceholderIdentifier(normalizedIdentifier);
+
+        var activeRequests = await context.ScreenshotPendingRequests
+            .Where(r => r.GameServerId == upsertDto.GameServerId && r.ConsumedAtUtc == null && r.ExpiresAtUtc >= now)
+            .OrderByDescending(r => r.RequestedAtUtc)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (hasReliableIncomingIdentifier)
+        {
+            var exactIdentifierMatches = activeRequests
+                .Where(r => string.Equals(r.PlayerIdentifier, normalizedIdentifier, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (exactIdentifierMatches.Count == 1)
+            {
+                return ConsumeRequest(exactIdentifierMatches[0], now);
+            }
+
+            if (exactIdentifierMatches.Count > 1)
+            {
+                return new PlayerLinkResolution(null, null, ScreenshotLinkSource.Unlinked, ScreenshotLinkConfidence.Low, "ambiguous_match");
+            }
+
+            return new PlayerLinkResolution(normalizedIdentifier, normalizedName, ScreenshotLinkSource.FilenameMatch, ScreenshotLinkConfidence.Medium, null);
+        }
+
+        if (activeRequests.Count == 1)
+        {
+            return ConsumeRequest(activeRequests[0], now);
+        }
+
+        if (activeRequests.Count > 1)
+        {
+            return new PlayerLinkResolution(null, null, ScreenshotLinkSource.Unlinked, ScreenshotLinkConfidence.Low, "ambiguous_match");
+        }
+
+        return new PlayerLinkResolution(null, null, ScreenshotLinkSource.Unlinked, ScreenshotLinkConfidence.Low, "no_match");
+    }
+
+    private static bool IsPlaceholderIdentifier(string identifier)
+    {
+        if (string.Equals(identifier, "unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (identifier.All(c => c == '0'))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static PlayerLinkResolution ConsumeRequest(ScreenshotPendingRequest pendingRequest, DateTime now)
+    {
+        pendingRequest.ConsumedAtUtc = now;
+        pendingRequest.LastUpdatedUtc = now;
+
+        return new PlayerLinkResolution(
+            pendingRequest.PlayerIdentifier,
+            pendingRequest.PlayerName,
+            ScreenshotLinkSource.RequestMatch,
+            ScreenshotLinkConfidence.High,
+            null);
+    }
+
+    private sealed record PlayerLinkResolution(
+        string? PlayerIdentifier,
+        string? PlayerName,
+        string LinkSource,
+        string LinkConfidence,
+        string? LinkDiagnostics);
 
     private static bool HasSupportedImageSignature(Stream stream, string extension)
     {

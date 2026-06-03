@@ -134,6 +134,9 @@
     },
     {
       "name": "[dbo].[Screenshots]"
+    },
+    {
+      "name": "[dbo].[ScreenshotPendingRequests]"
     }
   ]
 }

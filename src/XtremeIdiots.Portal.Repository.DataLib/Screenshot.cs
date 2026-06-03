@@ -22,10 +22,19 @@ public partial class Screenshot
     public int GameType { get; set; }
 
     [StringLength(64)]
-    public string PlayerIdentifier { get; set; } = null!;
+    public string? PlayerIdentifier { get; set; }
 
     [StringLength(128)]
     public string? PlayerName { get; set; }
+
+    [StringLength(32)]
+    public string LinkSource { get; set; } = null!;
+
+    [StringLength(16)]
+    public string LinkConfidence { get; set; } = null!;
+
+    [StringLength(256)]
+    public string? LinkDiagnostics { get; set; }
 
     [Column(TypeName = "datetime")]
     public DateTime CapturedUtc { get; set; }

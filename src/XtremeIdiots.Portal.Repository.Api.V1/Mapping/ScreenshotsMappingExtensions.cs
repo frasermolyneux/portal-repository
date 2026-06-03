@@ -17,6 +17,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameType = entity.GameType.ToGameType().ToString(),
                 PlayerIdentifier = entity.PlayerIdentifier,
                 PlayerName = entity.PlayerName,
+                LinkSource = entity.LinkSource,
+                LinkConfidence = entity.LinkConfidence,
+                LinkDiagnostics = entity.LinkDiagnostics,
                 CapturedUtc = entity.CapturedUtc,
                 BlobContainer = entity.BlobContainer,
                 BlobName = entity.BlobName,
@@ -34,6 +37,26 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 CreatedUtc = entity.CreatedUtc,
                 LastUpdatedUtc = entity.LastUpdatedUtc,
                 GameServer = expand && entity.GameServer is not null ? entity.GameServer.ToDto(false) : null
+            };
+        }
+
+        public static PendingScreenshotRequestDto ToDto(this ScreenshotPendingRequest entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            return new PendingScreenshotRequestDto
+            {
+                ScreenshotPendingRequestId = entity.ScreenshotPendingRequestId,
+                GameServerId = entity.GameServerId,
+                PlayerIdentifier = entity.PlayerIdentifier,
+                PlayerName = entity.PlayerName,
+                CorrelationKey = entity.CorrelationKey,
+                RequestedAtUtc = entity.RequestedAtUtc,
+                ExpiresAtUtc = entity.ExpiresAtUtc,
+                ConsumedAtUtc = entity.ConsumedAtUtc,
+                CreatedBy = entity.CreatedBy,
+                CreatedUtc = entity.CreatedUtc,
+                LastUpdatedUtc = entity.LastUpdatedUtc
             };
         }
     }

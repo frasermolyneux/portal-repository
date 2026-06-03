@@ -18,10 +18,19 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Screenshots
         public string GameType { get; internal set; } = string.Empty;
 
         [JsonProperty]
-        public string PlayerIdentifier { get; internal set; } = string.Empty;
+        public string? PlayerIdentifier { get; internal set; }
 
         [JsonProperty]
         public string? PlayerName { get; internal set; }
+
+        [JsonProperty]
+        public string LinkSource { get; internal set; } = string.Empty;
+
+        [JsonProperty]
+        public string LinkConfidence { get; internal set; } = string.Empty;
+
+        [JsonProperty]
+        public string? LinkDiagnostics { get; internal set; }
 
         [JsonProperty]
         public DateTime CapturedUtc { get; internal set; }
@@ -84,8 +93,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Screenshots
                     { nameof(ScreenshotId), ScreenshotId.ToString() },
                     { nameof(GameServerId), GameServerId.ToString() },
                     { nameof(GameType), GameType },
-                    { nameof(PlayerIdentifier), PlayerIdentifier }
                 };
+
+                if (!string.IsNullOrWhiteSpace(PlayerIdentifier))
+                {
+                    telemetryProperties.Add(nameof(PlayerIdentifier), PlayerIdentifier);
+                }
 
                 if (GameServer is not null)
                 {

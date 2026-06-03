@@ -12,6 +12,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 public class FakeScreenshotsApi : IScreenshotsApi
 {
     private readonly ConcurrentDictionary<Guid, ScreenshotDto> _screenshots = new();
+    private readonly ConcurrentDictionary<Guid, PendingScreenshotRequestDto> _pendingRequests = new();
+
+    public Task<ApiResult<PendingScreenshotRequestDto>> CreatePendingScreenshotRequest(CreatePendingScreenshotRequestDto requestDto, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var requestedAtUtc = requestDto.RequestedAtUtc ?? now;
+        var expiresAtUtc = requestDto.ExpiresAtUtc ?? requestedAtUtc.AddMinutes(2);
+
+        var existing = _pendingRequests.Values.FirstOrDefault(r =>
+            r.GameServerId == requestDto.GameServerId &&
+            string.Equals(r.PlayerIdentifier, requestDto.PlayerIdentifier, StringComparison.OrdinalIgnoreCase) &&
+            r.ConsumedAtUtc is null);
+
+        var pendingRequest = existing ?? new PendingScreenshotRequestDto
+        {
+            ScreenshotPendingRequestId = Guid.NewGuid(),
+            CreatedUtc = now
+        };
+
+        pendingRequest.GameServerId = requestDto.GameServerId;
+        pendingRequest.PlayerIdentifier = requestDto.PlayerIdentifier;
+        pendingRequest.PlayerName = requestDto.PlayerName;
+        pendingRequest.CorrelationKey = requestDto.CorrelationKey;
+        pendingRequest.RequestedAtUtc = requestedAtUtc;
+        pendingRequest.ExpiresAtUtc = expiresAtUtc;
+        pendingRequest.ConsumedAtUtc = null;
+        pendingRequest.CreatedBy = requestDto.CreatedBy;
+        pendingRequest.LastUpdatedUtc = now;
+
+        _pendingRequests[pendingRequest.ScreenshotPendingRequestId] = pendingRequest;
+
+        return Task.FromResult(new ApiResult<PendingScreenshotRequestDto>(HttpStatusCode.Created, new ApiResponse<PendingScreenshotRequestDto>(pendingRequest)));
+    }
 
     public FakeScreenshotsApi AddScreenshot(ScreenshotDto screenshot)
     {
@@ -22,6 +55,7 @@ public class FakeScreenshotsApi : IScreenshotsApi
     public FakeScreenshotsApi Reset()
     {
         _screenshots.Clear();
+        _pendingRequests.Clear();
         return this;
     }
 
@@ -38,6 +72,9 @@ public class FakeScreenshotsApi : IScreenshotsApi
         screenshot.GameType = upsertDto.GameType;
         screenshot.PlayerIdentifier = upsertDto.PlayerIdentifier;
         screenshot.PlayerName = upsertDto.PlayerName;
+        screenshot.LinkSource = ScreenshotLinkSource.Unlinked;
+        screenshot.LinkConfidence = ScreenshotLinkConfidence.Low;
+        screenshot.LinkDiagnostics = null;
         screenshot.CapturedUtc = upsertDto.CapturedUtc;
         screenshot.BlobContainer = upsertDto.BlobContainer;
         screenshot.BlobName = upsertDto.BlobName;

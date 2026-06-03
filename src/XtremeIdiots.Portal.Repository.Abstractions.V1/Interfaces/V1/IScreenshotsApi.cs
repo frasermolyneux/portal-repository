@@ -7,6 +7,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IScreenshotsApi
     {
+        Task<ApiResult<PendingScreenshotRequestDto>> CreatePendingScreenshotRequest(CreatePendingScreenshotRequestDto requestDto, CancellationToken cancellationToken = default);
+
         Task<ApiResult<ScreenshotDto>> UpsertScreenshot(UpsertScreenshotDto upsertDto, CancellationToken cancellationToken = default);
 
         Task<ApiResult<ScreenshotDto>> UploadScreenshot(UploadScreenshotDto uploadDto, string fileName, string filePath, CancellationToken cancellationToken = default);

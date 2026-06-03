@@ -13,7 +13,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Screenshots
         public string GameType { get; init; } = string.Empty;
 
         [JsonProperty]
-        public string PlayerIdentifier { get; init; } = string.Empty;
+        public string? PlayerIdentifier { get; init; }
 
         [JsonProperty]
         public string? PlayerName { get; init; }
@@ -37,12 +37,24 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Screenshots
         public DateTime SourceLastWriteUtc { get; init; }
 
         [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties => new()
+        public Dictionary<string, string> TelemetryProperties
         {
-            { nameof(GameServerId), GameServerId.ToString() },
-            { nameof(GameType), GameType },
-            { nameof(PlayerIdentifier), PlayerIdentifier },
-            { nameof(Fingerprint), Fingerprint }
-        };
+            get
+            {
+                var properties = new Dictionary<string, string>
+                {
+                    { nameof(GameServerId), GameServerId.ToString() },
+                    { nameof(GameType), GameType },
+                    { nameof(Fingerprint), Fingerprint }
+                };
+
+                if (!string.IsNullOrWhiteSpace(PlayerIdentifier))
+                {
+                    properties.Add(nameof(PlayerIdentifier), PlayerIdentifier);
+                }
+
+                return properties;
+            }
+        }
     }
 }

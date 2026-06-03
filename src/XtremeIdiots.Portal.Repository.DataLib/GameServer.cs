@@ -72,5 +72,8 @@ public partial class GameServer
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 
     [InverseProperty("GameServer")]
+    public virtual ICollection<ScreenshotPendingRequest> ScreenshotPendingRequests { get; set; } = new List<ScreenshotPendingRequest>();
+
+    [InverseProperty("GameServer")]
     public virtual ICollection<Screenshot> Screenshots { get; set; } = new List<Screenshot>();
 }

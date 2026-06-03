@@ -20,6 +20,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
         }
 
+        public async Task<ApiResult<PendingScreenshotRequestDto>> CreatePendingScreenshotRequest(CreatePendingScreenshotRequestDto requestDto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/game-servers/{requestDto.GameServerId}/screenshots/pending-requests", Method.Post).ConfigureAwait(false);
+            request.AddJsonBody(requestDto);
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult<PendingScreenshotRequestDto>();
+        }
+
         public async Task<ApiResult<ScreenshotDto>> UpsertScreenshot(UpsertScreenshotDto upsertDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/screenshots", Method.Put).ConfigureAwait(false);
@@ -36,7 +45,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
             request.AddParameter(nameof(uploadDto.GameServerId), uploadDto.GameServerId.ToString("D"));
             request.AddParameter(nameof(uploadDto.GameType), uploadDto.GameType);
-            request.AddParameter(nameof(uploadDto.PlayerIdentifier), uploadDto.PlayerIdentifier);
+            request.AddParameter(nameof(uploadDto.PlayerIdentifier), uploadDto.PlayerIdentifier ?? string.Empty);
             request.AddParameter(nameof(uploadDto.PlayerName), uploadDto.PlayerName ?? string.Empty);
             request.AddParameter(nameof(uploadDto.CapturedUtc), uploadDto.CapturedUtc.ToString("O"));
             request.AddParameter(nameof(uploadDto.Source), uploadDto.Source);
