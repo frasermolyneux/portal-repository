@@ -32,7 +32,9 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
     private const int MaxPageSize = 100;
     private const long MaxScreenshotUploadBytes = 5 * 1024 * 1024;
     private const string ScreenshotContainerName = "server-screenshots";
-    private const int PendingRequestLifetimeMinutes = 2;
+    private const int PendingRequestLifetimeMinutes = 10;
+    private const double PendingRequestTimestampTieThresholdSeconds = 5;
+    private const double PendingRequestMaxCaptureDeltaSeconds = 180;
 
     private static readonly HashSet<string> SupportedImageExtensions =
     [
@@ -944,6 +946,16 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
 
         if (activeRequests.Count > 1)
         {
+            var closestRequest = SelectClosestPendingRequestByCaptureTime(activeRequests, upsertDto.CapturedUtc);
+            if (closestRequest is not null)
+            {
+                return ConsumeRequest(
+                    closestRequest,
+                    now,
+                    ScreenshotLinkConfidence.Medium,
+                    "request_time_match");
+            }
+
             return new PlayerLinkResolution(null, null, ScreenshotLinkSource.Unlinked, ScreenshotLinkConfidence.Low, "ambiguous_match");
         }
 
@@ -965,7 +977,11 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
         return false;
     }
 
-    private static PlayerLinkResolution ConsumeRequest(ScreenshotPendingRequest pendingRequest, DateTime now)
+    private static PlayerLinkResolution ConsumeRequest(
+        ScreenshotPendingRequest pendingRequest,
+        DateTime now,
+        string linkConfidence = ScreenshotLinkConfidence.High,
+        string? diagnostics = null)
     {
         pendingRequest.ConsumedAtUtc = now;
         pendingRequest.LastUpdatedUtc = now;
@@ -974,8 +990,56 @@ public class ScreenshotsController : ControllerBase, IScreenshotsApi
             pendingRequest.PlayerIdentifier,
             pendingRequest.PlayerName,
             ScreenshotLinkSource.RequestMatch,
-            ScreenshotLinkConfidence.High,
-            null);
+            linkConfidence,
+            diagnostics);
+    }
+
+    private static ScreenshotPendingRequest? SelectClosestPendingRequestByCaptureTime(
+        IReadOnlyCollection<ScreenshotPendingRequest> activeRequests,
+        DateTime capturedUtc)
+    {
+        if (capturedUtc == default)
+        {
+            return null;
+        }
+
+        var ranked = activeRequests
+            .Select(r => new
+            {
+                Request = r,
+                DeltaSeconds = Math.Abs((r.RequestedAtUtc - capturedUtc).TotalSeconds)
+            })
+            .OrderBy(x => x.DeltaSeconds)
+            .ThenByDescending(x => x.Request.RequestedAtUtc)
+            .Take(2)
+            .ToList();
+
+        if (ranked.Count == 0)
+        {
+            return null;
+        }
+
+        if (ranked.Count == 1)
+        {
+            if (ranked[0].DeltaSeconds > PendingRequestMaxCaptureDeltaSeconds)
+            {
+                return null;
+            }
+
+            return ranked[0].Request;
+        }
+
+        if (ranked[0].DeltaSeconds > PendingRequestMaxCaptureDeltaSeconds)
+        {
+            return null;
+        }
+
+        if (Math.Abs(ranked[0].DeltaSeconds - ranked[1].DeltaSeconds) <= PendingRequestTimestampTieThresholdSeconds)
+        {
+            return null;
+        }
+
+        return ranked[0].Request;
     }
 
     private sealed record PlayerLinkResolution(

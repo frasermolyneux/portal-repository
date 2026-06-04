@@ -878,4 +878,232 @@ public class ScreenshotsControllerTests
         Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
     }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithPlaceholderIdentifierAndMultiplePendingRequests_UsesClosestCaptureTime()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        var now = DateTime.UtcNow;
+        context.ScreenshotPendingRequests.AddRange(
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-a",
+                PlayerName = "Player A",
+                RequestedAtUtc = now.AddSeconds(-60),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            },
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-b",
+                PlayerName = "Player B",
+                RequestedAtUtc = now.AddSeconds(-10),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = "unknown",
+            PlayerName = null,
+            CapturedUtc = now.AddSeconds(-12),
+            Fingerprint = "fp-time-match"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Equal("player-b", result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal("Player B", result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.RequestMatch, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Medium, result.Result.Data.LinkConfidence);
+        Assert.Equal("request_time_match", result.Result.Data.LinkDiagnostics);
+
+        var consumedCount = await context.ScreenshotPendingRequests.CountAsync(r => r.ConsumedAtUtc != null);
+        Assert.Equal(1, consumedCount);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithPlaceholderIdentifierAndNearEqualPendingTimes_RemainsAmbiguous()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        var now = DateTime.UtcNow;
+        context.ScreenshotPendingRequests.AddRange(
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-a",
+                PlayerName = "Player A",
+                RequestedAtUtc = now.AddSeconds(-20),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            },
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-b",
+                PlayerName = "Player B",
+                RequestedAtUtc = now.AddSeconds(-24),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = "unknown",
+            PlayerName = null,
+            CapturedUtc = now.AddSeconds(-22),
+            Fingerprint = "fp-ambiguous-time"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
+        Assert.Equal("ambiguous_match", result.Result.Data.LinkDiagnostics);
+
+        var consumedCount = await context.ScreenshotPendingRequests.CountAsync(r => r.ConsumedAtUtc != null);
+        Assert.Equal(0, consumedCount);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithPlaceholderIdentifierAndFarCaptureTime_RemainsUnlinked()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        var now = DateTime.UtcNow;
+        context.ScreenshotPendingRequests.AddRange(
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-a",
+                PlayerName = "Player A",
+                RequestedAtUtc = now.AddMinutes(-9),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            },
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-b",
+                PlayerName = "Player B",
+                RequestedAtUtc = now.AddMinutes(-8),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = "unknown",
+            PlayerName = null,
+            CapturedUtc = now,
+            Fingerprint = "fp-far-capture"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
+        Assert.Equal("ambiguous_match", result.Result.Data.LinkDiagnostics);
+
+        var consumedCount = await context.ScreenshotPendingRequests.CountAsync(r => r.ConsumedAtUtc != null);
+        Assert.Equal(0, consumedCount);
+    }
+
+    [Fact]
+    public async Task UpsertScreenshot_WithPlaceholderIdentifierAndDefaultCapturedUtcAndMultiplePendingRequests_RemainsUnlinked()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateServer();
+        context.GameServers.Add(server);
+
+        var now = DateTime.UtcNow;
+        context.ScreenshotPendingRequests.AddRange(
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-a",
+                PlayerName = "Player A",
+                RequestedAtUtc = now.AddSeconds(-15),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            },
+            new ScreenshotPendingRequest
+            {
+                ScreenshotPendingRequestId = Guid.NewGuid(),
+                GameServerId = server.GameServerId,
+                PlayerIdentifier = "player-b",
+                PlayerName = "Player B",
+                RequestedAtUtc = now.AddSeconds(-20),
+                ExpiresAtUtc = now.AddMinutes(10),
+                CreatedUtc = now,
+                LastUpdatedUtc = now
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IScreenshotsApi)controller;
+
+        var result = await api.UpsertScreenshot(CreateUpsert(server.GameServerId) with
+        {
+            PlayerIdentifier = "unknown",
+            PlayerName = null,
+            CapturedUtc = default,
+            Fingerprint = "fp-default-capture"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerName);
+        Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
+        Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
+        Assert.Equal("ambiguous_match", result.Result.Data.LinkDiagnostics);
+
+        var consumedCount = await context.ScreenshotPendingRequests.CountAsync(r => r.ConsumedAtUtc != null);
+        Assert.Equal(0, consumedCount);
+    }
 }
