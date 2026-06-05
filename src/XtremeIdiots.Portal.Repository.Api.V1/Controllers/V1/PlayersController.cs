@@ -1013,10 +1013,14 @@ JOIN PlayerAlias a ON a.PlayerAliasId = fta.[Key]
 JOIN Players p ON p.PlayerId = a.PlayerId")
             .AsNoTracking();
 
-        // UNION ALL then Distinct at EF level avoids duplicate elimination work inside SQL twice.
-        var combined = playersFt.Union(aliasFt);
+        // Preserve upstream constraints (for example gameType) by intersecting the
+        // full-text matches with the already-filtered query shape.
+        var fullTextMatchedPlayerIds = playersFt
+            .Union(aliasFt)
+            .Select(p => p.PlayerId)
+            .Distinct();
 
-        return combined;
+        return query.Where(p => fullTextMatchedPlayerIds.Contains(p.PlayerId));
     }
 
     private IQueryable<Player> ApplyIpAddressFilter(IQueryable<Player> query, string trimmedFilter)
@@ -1032,8 +1036,8 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                 .Select(ip => ip.PlayerId)
                 .Distinct();
 
-            // Union with exact matches from the IP history
-            return directMatches.Union(context.Players.Where(p => playerIdsWithExactIpMatch.Contains(p.PlayerId)));
+            // Union with exact matches from IP history while preserving prior query filters.
+            return directMatches.Union(query.Where(p => playerIdsWithExactIpMatch.Contains(p.PlayerId)));
         }
         else if (trimmedFilter.Length >= 3)
         {
@@ -1046,8 +1050,8 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
                 .Select(ip => ip.PlayerId)
                 .Distinct();
 
-            // Union the results
-            return directMatches.Union(context.Players.Where(p => playerIdsWithPartialIpMatch.Contains(p.PlayerId)));
+            // Union results while preserving prior query filters.
+            return directMatches.Union(query.Where(p => playerIdsWithPartialIpMatch.Contains(p.PlayerId)));
         }
         else
         {
