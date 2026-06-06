@@ -135,6 +135,76 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
+    /// Prunes low-value player IP history rows to improve related-player accuracy.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpDelete("data-maintenance/prune-player-ip-addresses")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> PrunePlayerIpAddresses(CancellationToken cancellationToken = default)
+    {
+        var response = await ((IDataMaintenanceApi)this).PrunePlayerIpAddresses(cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    /// <summary>
+    /// Prunes low-value player IP history rows to improve related-player accuracy.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.PrunePlayerIpAddresses(CancellationToken cancellationToken)
+    {
+        var hardDeleteDaysRaw = int.TryParse(configuration["DataRetention:PlayerIpAddressHardDeleteDays"], out var hdd) ? hdd : 365;
+        var lowConfidenceDaysRaw = int.TryParse(configuration["DataRetention:PlayerIpAddressLowConfidenceDays"], out var lcd) ? lcd : 30;
+        var lowConfidenceThresholdRaw = int.TryParse(configuration["DataRetention:PlayerIpAddressLowConfidenceThreshold"], out var lct) ? lct : 10;
+        var batchSizeRaw = int.TryParse(configuration["DataRetention:PlayerIpAddressPruneBatchSize"], out var pbs) ? pbs : 5000;
+
+        var hardDeleteDays = Math.Max(1, hardDeleteDaysRaw);
+        var lowConfidenceDays = Math.Max(1, lowConfidenceDaysRaw);
+        var lowConfidenceThreshold = Math.Max(0, lowConfidenceThresholdRaw);
+        var batchSize = Math.Max(1, batchSizeRaw);
+
+        var hardDeleteCutoff = DateTime.UtcNow.AddDays(-hardDeleteDays);
+        var lowConfidenceCutoff = DateTime.UtcNow.AddDays(-lowConfidenceDays);
+
+        // Step 1: Remove null/blank rows first.
+        while (true)
+        {
+            var affected = await context.Database.ExecuteSqlInterpolatedAsync($@"
+                DELETE TOP ({batchSize}) FROM [dbo].[PlayerIpAddresses]
+                WHERE [Address] IS NULL OR LTRIM(RTRIM([Address])) = ''", cancellationToken).ConfigureAwait(false);
+
+            if (affected == 0)
+                break;
+        }
+
+        // Step 2: Remove old rows that are beyond hard retention.
+        while (true)
+        {
+            var affected = await context.Database.ExecuteSqlInterpolatedAsync($@"
+                DELETE TOP ({batchSize}) FROM [dbo].[PlayerIpAddresses]
+                WHERE [LastUsed] < {hardDeleteCutoff}", cancellationToken).ConfigureAwait(false);
+
+            if (affected == 0)
+                break;
+        }
+
+        // Step 3: Remove stale low-confidence rows.
+        while (true)
+        {
+            var affected = await context.Database.ExecuteSqlInterpolatedAsync($@"
+                DELETE TOP ({batchSize}) FROM [dbo].[PlayerIpAddresses]
+                WHERE [LastUsed] < {lowConfidenceCutoff}
+                  AND [ConfidenceScore] < {lowConfidenceThreshold}", cancellationToken).ConfigureAwait(false);
+
+            if (affected == 0)
+                break;
+        }
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
     /// Prunes recent player records older than 7 days to maintain database performance.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>

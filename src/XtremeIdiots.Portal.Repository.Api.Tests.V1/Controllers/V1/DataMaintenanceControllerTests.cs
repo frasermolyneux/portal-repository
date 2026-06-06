@@ -186,6 +186,18 @@ public class DataMaintenanceControllerTests
         Assert.Single(context.RecentPlayers);
     }
 
+    [Fact(Skip = "Uses ExecuteSqlInterpolatedAsync which is not supported by the InMemory provider")]
+    public async Task PrunePlayerIpAddresses_RemovesLowValueIpRows_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+        var result = await api.PrunePlayerIpAddresses();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
     [Fact]
     public async Task ResetSystemAssignedPlayerTags_WhenBothTagsMissing_ThrowsInvalidOperationException()
     {

@@ -7,6 +7,7 @@ public interface IDataMaintenanceApi
     Task<ApiResult> PruneChatMessages(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default);
+    Task<ApiResult> PrunePlayerIpAddresses(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneRecentPlayers(CancellationToken cancellationToken = default);
     Task<ApiResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default);
     Task<ApiResult> ReconcileConnectedPlayerTags(CancellationToken cancellationToken = default);
