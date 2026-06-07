@@ -42,6 +42,12 @@ The `copilot-setup-steps.yml` workflow checks out `frasermolyneux/.github-copilo
 - `dotnet-nuget-library.instructions.md`, `dotnet-api-client-libraries.instructions.md`
 - `datalib-regeneration.instructions.md` — **mandatory** EF Core Power Tools regeneration after any schema change (per-repo file at `.github/instructions/datalib-regeneration.instructions.md`, not under `.github-copilot/`)
 
+### Platform settings contracts
+- `XtremeIdiots.Portal.Settings.Contracts.V1` is the canonical owner for typed platform settings contracts/validators.
+- Keep repository transport dynamic (`Namespace` + JSON string) while enforcing known-namespace schema validation through the contracts package.
+- Treat `XtremeIdiots.Portal.ChatCommands.Abstractions.V1` as compatibility-only.
+- Do not remove compatibility shims unless shim-removal gate criteria are met and evidenced.
+
 ### Platform consumption contracts
 - `platform.workloads`, `platform.monitoring`, `platform.connectivity`
 
