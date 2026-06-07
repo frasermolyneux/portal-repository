@@ -34,6 +34,7 @@
   <ItemGroup>
     <ProjectReference Include="..\XtremeIdiots.Portal.Repository.DataLib\XtremeIdiots.Portal.Repository.DataLib.csproj" />
     <ProjectReference Include="..\XtremeIdiots.Portal.Repository.Abstractions.V1\XtremeIdiots.Portal.Repository.Abstractions.V1.csproj" />
+    <ProjectReference Include="..\XtremeIdiots.Portal.Settings.Contracts.V1\XtremeIdiots.Portal.Settings.Contracts.V1.csproj" />
   </ItemGroup>
 
 </Project>

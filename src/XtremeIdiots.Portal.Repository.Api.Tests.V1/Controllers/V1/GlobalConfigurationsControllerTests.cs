@@ -169,6 +169,48 @@ public class GlobalConfigurationsControllerTests
     }
 
     [Fact]
+    public async Task UpsertConfiguration_KnownNamespace_UnsupportedSchemaVersion_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":999}" };
+        var result = await api.UpsertConfiguration("agent", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_KnownNamespace_LegacySchemaVersion_Accepts()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":0,\"pollIntervalMs\":1000}" };
+        var result = await api.UpsertConfiguration("agent", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_KnownNamespace_NullPayload_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "null" };
+        var result = await api.UpsertConfiguration("agent", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
     public async Task UpsertConfiguration_EmptyNamespace_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

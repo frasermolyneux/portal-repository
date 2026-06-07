@@ -264,6 +264,73 @@ public class GameServerConfigurationsControllerTests
     }
 
     [Fact]
+    public async Task UpsertConfiguration_KnownNamespace_UnsupportedSchemaVersion_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateTestGameServer();
+        context.GameServers.Add(gs);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":999}" };
+        var result = await api.UpsertConfiguration(gs.GameServerId, "agent", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServerConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_KnownNamespace_LegacySchemaVersion_Accepts()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateTestGameServer();
+        context.GameServers.Add(gs);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":0,\"pollIntervalMs\":1000}" };
+        var result = await api.UpsertConfiguration(gs.GameServerId, "agent", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GameServerConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_KnownNamespace_NullPayload_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateTestGameServer();
+        context.GameServers.Add(gs);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "null" };
+        var result = await api.UpsertConfiguration(gs.GameServerId, "agent", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServerConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_NonExistentServer_InvalidKnownNamespacePayload_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":999}" };
+        var result = await api.UpsertConfiguration(Guid.NewGuid(), "agent", dto);
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
     public async Task UpsertConfiguration_EmptyNamespace_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

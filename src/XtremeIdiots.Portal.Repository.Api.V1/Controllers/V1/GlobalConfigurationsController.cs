@@ -15,6 +15,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -114,6 +115,9 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
 
         try { Newtonsoft.Json.Linq.JToken.Parse(dto.Configuration); }
         catch { return new ApiResult(HttpStatusCode.BadRequest); }
+
+        if (!NamespaceSchemaValidationRegistry.TryValidate(ns, dto.Configuration))
+            return new ApiResult(HttpStatusCode.BadRequest);
 
         var existing = await context.GlobalConfigurations
             .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);

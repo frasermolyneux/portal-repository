@@ -15,6 +15,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -127,6 +128,9 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
 
         if (!gameServerExists)
             return new ApiResult(HttpStatusCode.NotFound);
+
+        if (!NamespaceSchemaValidationRegistry.TryValidate(ns, dto.Configuration))
+            return new ApiResult(HttpStatusCode.BadRequest);
 
         var existing = await context.GameServerConfigurations
             .FirstOrDefaultAsync(c => c.GameServerId == gameServerId && c.Namespace == ns, cancellationToken).ConfigureAwait(false);
