@@ -19,6 +19,7 @@
 * [API Versioning](/docs/api-versioning.md) - Host and APIM versioning implementation details.
 * [Dotnet Support Strategy](/docs/dotnet-support-strategy.md) - Multi-targeting plan for .NET 9/10 across libraries and APIs.
 * [EF Core DataLib](/docs/efcore-data-lib.md) - Regeneration walkthrough for the EF Core data layer from the DACPAC.
+* [Settings Contracts Compatibility Shim](/docs/settings-contracts-compatibility-shim.md) - Platform settings contract ownership, migration, and troubleshooting guidance.
 
 ## Overview
 Versioned ASP.NET Core APIs power player, server, map, and telemetry flows for the XtremeIdiots portal, with V1 hosts kept alongside the newer V2 surface that adopts OData-like query options. Shared abstractions and generated API clients keep contracts aligned, while the EF Core data library is reverse engineered from the database DACPAC to drive data access. Libraries multi-target net9.0 and net10.0, API hosts run on net9.0, and responses standardize on ApiResponse envelopes and collection models.

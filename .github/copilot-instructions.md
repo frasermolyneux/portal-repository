@@ -144,3 +144,4 @@ Consumers resolve settings with: **per-server override → global config → bui
 - Repository persistence/transport remains dynamic (`Namespace` + JSON string); validation-on-write for known namespaces is enforced via the contracts validators.
 - `XtremeIdiots.Portal.ChatCommands.Abstractions.V1` is compatibility-only during migration and must not be used as the canonical settings contract source for new work.
 - Compatibility-shim removal is gated by cross-repo migration evidence; do not remove shims until gate criteria are met and recorded.
+- Compatibility transition and troubleshooting guidance is documented in `docs/settings-contracts-compatibility-shim.md`.
