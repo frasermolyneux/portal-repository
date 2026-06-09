@@ -16,6 +16,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Validation;
 
 internal static class NamespaceSchemaValidationRegistry
 {
+    private const string ServerListNamespaceAlias = "serverList";
+
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -54,7 +56,9 @@ internal static class NamespaceSchemaValidationRegistry
 
     public static bool TryValidate(string ns, string configuration)
     {
-        if (!Validators.TryGetValue(ns, out var validator))
+        var normalizedNamespace = NormalizeNamespace(ns);
+
+        if (!Validators.TryGetValue(normalizedNamespace, out var validator))
         {
             return true;
         }
@@ -74,6 +78,21 @@ internal static class NamespaceSchemaValidationRegistry
         {
             return false;
         }
+    }
+
+    public static bool IsKnownNamespace(string ns)
+    {
+        return Validators.ContainsKey(NormalizeNamespace(ns));
+    }
+
+    public static string NormalizeNamespace(string ns)
+    {
+        if (string.Equals(ns, ServerListNamespaceAlias, StringComparison.OrdinalIgnoreCase))
+        {
+            return ServerListSettingsConstants.Namespace;
+        }
+
+        return ns;
     }
 
     private static TDocument? Deserialize<TDocument>(string configuration)

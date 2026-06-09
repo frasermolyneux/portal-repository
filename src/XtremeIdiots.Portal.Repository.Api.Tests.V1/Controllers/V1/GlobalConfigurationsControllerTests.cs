@@ -92,13 +92,16 @@ public class GlobalConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGlobalConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"new\":true}" };
-        var result = await api.UpsertConfiguration("new-ns", dto);
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":60,\"messages\":[{\"message\":\"Welcome\",\"enabled\":true}]}"
+        };
+        var result = await api.UpsertConfiguration("broadcasts", dto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GlobalConfigurations.Single();
-        Assert.Equal("new-ns", entity.Namespace);
-        Assert.Equal("{\"new\":true}", entity.Configuration);
+        Assert.Equal("broadcasts", entity.Namespace);
+        Assert.Equal(dto.Configuration, entity.Configuration);
     }
 
     [Fact]
@@ -107,8 +110,8 @@ public class GlobalConfigurationsControllerTests
         using var context = DbContextHelper.CreateInMemoryContext();
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
-            Namespace = "existing-ns",
-            Configuration = "{\"old\":true}",
+            Namespace = "broadcasts",
+            Configuration = "{\"schemaVersion\":1,\"enabled\":false,\"intervalSeconds\":30,\"messages\":[]}",
             LastModifiedUtc = DateTime.UtcNow.AddDays(-1)
         });
         await context.SaveChangesAsync();
@@ -116,12 +119,116 @@ public class GlobalConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGlobalConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"updated\":true}" };
-        var result = await api.UpsertConfiguration("existing-ns", dto);
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":45,\"messages\":[{\"message\":\"Updated\",\"enabled\":true}]}"
+        };
+        var result = await api.UpsertConfiguration("broadcasts", dto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GlobalConfigurations.Single();
-        Assert.Equal("{\"updated\":true}", entity.Configuration);
+        Assert.Equal(dto.Configuration, entity.Configuration);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_ServerListAliasNamespace_CreatesWithCanonicalNamespace()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}"
+        };
+        var result = await api.UpsertConfiguration("serverList", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GlobalConfigurations.Single();
+        Assert.Equal("serverlist", entity.Namespace);
+        Assert.Equal(dto.Configuration, entity.Configuration);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_ServerListAliasNamespace_UpdatesLegacyNamespaceWithoutDuplicate()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"old\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+        };
+        var result = await api.UpsertConfiguration("serverList", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+        var entity = context.GlobalConfigurations.Single();
+        Assert.Equal("serverlist", entity.Namespace);
+        Assert.Equal(dto.Configuration, entity.Configuration);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ServerListAliasNamespace_ReturnsCanonicalRow()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.GetConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("serverlist", result.Result!.Data!.Namespace);
+    }
+
+    [Fact]
+    public async Task DeleteConfiguration_ServerListAliasNamespace_RemovesCanonicalRow()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.DeleteConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_UnknownNamespace_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto { Configuration = "{}" };
+        var result = await api.UpsertConfiguration("unknown-namespace", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
     }
 
     [Fact]
@@ -163,7 +270,7 @@ public class GlobalConfigurationsControllerTests
         var api = (IGlobalConfigurationsApi)controller;
 
         var dto = new UpsertConfigurationDto { Configuration = "not-json" };
-        var result = await api.UpsertConfiguration("ns", dto);
+        var result = await api.UpsertConfiguration("agent", dto);
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
     }

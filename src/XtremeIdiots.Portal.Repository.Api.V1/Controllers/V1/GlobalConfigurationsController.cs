@@ -67,9 +67,20 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
             return new ApiResult<ConfigurationDto>(HttpStatusCode.BadRequest);
 
-        var config = await context.GlobalConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
+        ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
+
+        var isServerListNamespace = string.Equals(ns, ServerListSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase);
+
+        var config = isServerListNamespace
+            ? await context.GlobalConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c =>
+                    c.Namespace == ServerListSettingsConstants.Namespace ||
+                    c.Namespace == ServerListSettingsConstants.LegacyNamespace,
+                    cancellationToken).ConfigureAwait(false)
+            : await context.GlobalConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
         if (config == null)
             return new ApiResult<ConfigurationDto>(HttpStatusCode.NotFound);
@@ -110,6 +121,11 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
             return new ApiResult(HttpStatusCode.BadRequest);
 
+        ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
+
+        if (!NamespaceSchemaValidationRegistry.IsKnownNamespace(ns))
+            return new ApiResult(HttpStatusCode.BadRequest);
+
         if (string.IsNullOrWhiteSpace(dto.Configuration))
             return new ApiResult(HttpStatusCode.BadRequest);
 
@@ -119,13 +135,34 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         if (!NamespaceSchemaValidationRegistry.TryValidate(ns, dto.Configuration))
             return new ApiResult(HttpStatusCode.BadRequest);
 
-        var existing = await context.GlobalConfigurations
-            .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
+        var isServerListNamespace = string.Equals(ns, ServerListSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase);
+
+        var existing = isServerListNamespace
+            ? await context.GlobalConfigurations
+                .FirstOrDefaultAsync(c =>
+                    c.Namespace == ServerListSettingsConstants.Namespace ||
+                    c.Namespace == ServerListSettingsConstants.LegacyNamespace,
+                    cancellationToken).ConfigureAwait(false)
+            : await context.GlobalConfigurations
+                .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
         if (existing != null)
         {
-            existing.Configuration = dto.Configuration;
-            existing.LastModifiedUtc = DateTime.UtcNow;
+            if (isServerListNamespace && string.Equals(existing.Namespace, ServerListSettingsConstants.LegacyNamespace, StringComparison.Ordinal))
+            {
+                context.GlobalConfigurations.Remove(existing);
+                context.GlobalConfigurations.Add(new GlobalConfiguration
+                {
+                    Namespace = ns,
+                    Configuration = dto.Configuration,
+                    LastModifiedUtc = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                existing.Configuration = dto.Configuration;
+                existing.LastModifiedUtc = DateTime.UtcNow;
+            }
         }
         else
         {
@@ -155,8 +192,18 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
             return new ApiResult(HttpStatusCode.BadRequest);
 
-        var config = await context.GlobalConfigurations
-            .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
+        ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
+
+        var isServerListNamespace = string.Equals(ns, ServerListSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase);
+
+        var config = isServerListNamespace
+            ? await context.GlobalConfigurations
+                .FirstOrDefaultAsync(c =>
+                    c.Namespace == ServerListSettingsConstants.Namespace ||
+                    c.Namespace == ServerListSettingsConstants.LegacyNamespace,
+                    cancellationToken).ConfigureAwait(false)
+            : await context.GlobalConfigurations
+                .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
         if (config == null)
             return new ApiResult(HttpStatusCode.NotFound);
