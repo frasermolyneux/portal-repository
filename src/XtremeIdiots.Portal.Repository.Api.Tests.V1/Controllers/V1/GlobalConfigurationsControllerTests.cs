@@ -102,6 +102,10 @@ public class GlobalConfigurationsControllerTests
         var entity = context.GlobalConfigurations.Single();
         Assert.Equal("broadcasts", entity.Namespace);
         Assert.Equal(dto.Configuration, entity.Configuration);
+
+        var roundTrip = await api.GetConfiguration("broadcasts");
+        Assert.Equal(HttpStatusCode.OK, roundTrip.StatusCode);
+        Assert.Equal(dto.Configuration, roundTrip.Result!.Data!.Configuration);
     }
 
     [Fact]
@@ -147,6 +151,10 @@ public class GlobalConfigurationsControllerTests
         var entity = context.GlobalConfigurations.Single();
         Assert.Equal("serverlist", entity.Namespace);
         Assert.Equal(dto.Configuration, entity.Configuration);
+
+        var roundTrip = await api.GetConfiguration("serverList");
+        Assert.Equal(HttpStatusCode.OK, roundTrip.StatusCode);
+        Assert.Equal(dto.Configuration, roundTrip.Result!.Data!.Configuration);
     }
 
     [Fact]
@@ -226,6 +234,40 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto { Configuration = "{}" };
         var result = await api.UpsertConfiguration("unknown-namespace", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_BroadcastsInvalidPayload_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":0,\"messages\":[{\"message\":\"\",\"enabled\":true}]}"
+        };
+        var result = await api.UpsertConfiguration("broadcasts", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_ServerListInvalidPayload_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":999,\"htmlBanner\":\"<b>bad</b>\"}"
+        };
+        var result = await api.UpsertConfiguration("serverList", dto);
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
         Assert.Empty(context.GlobalConfigurations);
