@@ -22,6 +22,14 @@ The `copilot-setup-steps.yml` workflow checks out `frasermolyneux/.github-copilo
 
 ---
 
+## Org conventions via MCP (when available)
+
+If a `frasermolyneux-copilot` MCP server is configured in your client (`~/.copilot/mcp-config.json`, VS Code user `mcp.json`, or an equivalent stdio MCP wire-up), **prefer its catalog tools** over your own assumptions when answering questions about org standards, branching, workflows, Terraform, .NET projects, Azure patterns, or shared library / platform consumption contracts. The catalog source-of-truth lives in `frasermolyneux/.github-copilot` — see `mcp-server/README.md` there for the tool contract.
+
+This is **complementary** to the file-load model: if `./.github-copilot/` is checked out in the runner (per `copilot-setup-steps.yml`), continue to read those files directly. If both are available, prefer MCP for freshness. If no MCP server is configured in your client, treat this section as a no-op and fall back to the file paths above.
+
+---
+
 ## Stack guardrails
 
 ### Tenant facts (always-on)
@@ -87,6 +95,9 @@ terraform -chdir=terraform plan -var-file=tfvars/dev.tfvars
 - ❌ Do not add a `/api/` prefix to controller routes — routes are `v{version:apiVersion}/[controller]`. APIM owns the segment.
 - ❌ Do not break the `ApiResponse` / `CollectionResult` envelope shape from `MX.Api.Abstractions`.
 
+- ❌ Do not pull context from sibling workspace folders. Only what is inside this repo and `./.github-copilot/` is in scope.
+- ❌ Do not assume tools/SDKs are installed beyond what `.github/workflows/copilot-setup-steps.yml` provisions. If you need more, add the step and explain why.
+
 ---
 
 ## Opening the PR
@@ -117,6 +128,8 @@ Complete the `## Agent attestation` section before requesting review; reviewers 
 - [ ] PR body cites each acceptance criterion
 - [ ] Risk/rollout section filled in
 
+- [ ] `code-review` sub-agent run; High/Medium findings resolved or justified in the PR body
+
 ---
 
 ## Escalation
@@ -129,3 +142,7 @@ Stop and escalate when:
 - The Database project requires a destructive schema migration (data loss risk).
 - A `code-review` finding is **High** and cannot be resolved in-scope.
 - APIM import would require manual product / policy coordination beyond the workflow.
+
+
+
+
