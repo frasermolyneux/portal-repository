@@ -21,6 +21,7 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.17" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="1.0.0" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.10.0" />
     <PackageReference Include="MX.Api.Abstractions" Version="2.3.31" />
     <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.31" />
