@@ -24,11 +24,11 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
     <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="1.0.0" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.10.0" />
-    <PackageReference Include="MX.Api.Abstractions" Version="2.3.31" />
-    <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.31" />
+    <PackageReference Include="MX.Api.Abstractions" Version="2.3.53" />
+    <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.53" />
     <PackageReference Include="MX.Observability.ApplicationInsights.AspNetCore" Version="1.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.16.3" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.4" />
     <PackageReference Include="MX.CodDemoReader" Version="1.0.15" />
   </ItemGroup>
 
