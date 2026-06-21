@@ -206,6 +206,134 @@ public class GlobalConfigurationsControllerTests
     }
 
     [Fact]
+    public async Task GetConfiguration_ServerListAliasNamespace_ReturnsLegacyRow_WhenOnlyLegacyExists()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.GetConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("serverList", result.Result!.Data!.Namespace);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ServerListAliasNamespace_PrefersCanonical_WhenBothExist()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.GetConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("serverlist", result.Result!.Data!.Namespace);
+        Assert.Contains("canonical", result.Result!.Data!.Configuration);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ServerListAliasNamespace_PrefersCanonical_WhenMixedCaseLegacyExists()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "ServerList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.GetConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("serverlist", result.Result!.Data!.Namespace);
+        Assert.Contains("canonical", result.Result!.Data!.Configuration);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ServerListAliasNamespace_PrefersExactLegacy_WhenNoCanonicalExists()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "ServerList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"mixed\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.GetConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("serverList", result.Result!.Data!.Namespace);
+        Assert.Contains("legacy", result.Result!.Data!.Configuration);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ServerListAliasNamespace_FallbackPrefersNewestMixedCaseVariant()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "SERVERLIST",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"older\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-2)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "Serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"newer\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.GetConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("Serverlist", result.Result!.Data!.Namespace);
+        Assert.Contains("newer", result.Result!.Data!.Configuration);
+    }
+
+    [Fact]
     public async Task DeleteConfiguration_ServerListAliasNamespace_RemovesCanonicalRow()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -223,6 +351,177 @@ public class GlobalConfigurationsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task DeleteConfiguration_ServerListAliasNamespace_RemovesLegacyRow_WhenOnlyLegacyExists()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.DeleteConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task DeleteConfiguration_ServerListAliasNamespace_RemovesBothVariants_WhenBothExist()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.DeleteConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task DeleteConfiguration_ServerListAliasNamespace_RemovesMixedCaseLegacy_WhenPresent()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "ServerList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var result = await api.DeleteConfiguration("serverList");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_ServerListAliasNamespace_ConsolidatesToSingleCanonical_WhenBothExist()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical-old\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+        };
+
+        var result = await api.UpsertConfiguration("serverList", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+        var row = context.GlobalConfigurations.Single();
+        Assert.Equal("serverlist", row.Namespace);
+        Assert.Equal(dto.Configuration, row.Configuration);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_ServerListAliasNamespace_ConsolidatesMixedCaseLegacyToSingleCanonical()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "ServerList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "serverlist",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical-old\"}",
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+        };
+
+        var result = await api.UpsertConfiguration("serverList", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+        var row = context.GlobalConfigurations.Single();
+        Assert.Equal("serverlist", row.Namespace);
+        Assert.Equal(dto.Configuration, row.Configuration);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_ServerListAliasNamespace_NormalizesSingleMixedCaseRowToCanonical()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "ServerList",
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+        };
+
+        var result = await api.UpsertConfiguration("serverList", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+        var row = context.GlobalConfigurations.Single();
+        Assert.Equal("serverlist", row.Namespace);
+        Assert.Equal(dto.Configuration, row.Configuration);
     }
 
     [Fact]

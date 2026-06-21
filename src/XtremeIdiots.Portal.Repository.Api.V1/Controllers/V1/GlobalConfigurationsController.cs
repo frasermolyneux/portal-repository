@@ -16,6 +16,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
+using ServerListContractConstants = XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ServerList.ServerListSettingsConstants;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -25,6 +26,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 [Route("v{version:apiVersion}")]
 public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurationsApi
 {
+    private const string LegacyServerListNamespace = "serverList";
+    private static readonly string CanonicalServerListNamespaceLower = ServerListContractConstants.Namespace.ToLowerInvariant();
+    private static readonly string LegacyServerListNamespaceLower = LegacyServerListNamespace.ToLowerInvariant();
+
     private readonly PortalDbContext context;
 
     public GlobalConfigurationsController(PortalDbContext context)
@@ -69,18 +74,31 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
 
         ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
 
-        var isServerListNamespace = string.Equals(ns, ServerListSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase);
+        var isServerListNamespace = string.Equals(ns, ServerListContractConstants.Namespace, StringComparison.OrdinalIgnoreCase);
 
-        var config = isServerListNamespace
-            ? await context.GlobalConfigurations
+        GlobalConfiguration? config;
+        if (isServerListNamespace)
+        {
+            var configs = await context.GlobalConfigurations
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c =>
-                    c.Namespace == ServerListSettingsConstants.Namespace ||
-                    c.Namespace == ServerListSettingsConstants.LegacyNamespace,
-                    cancellationToken).ConfigureAwait(false)
-            : await context.GlobalConfigurations
+                .Where(c =>
+                    c.Namespace.ToLower() == CanonicalServerListNamespaceLower ||
+                    c.Namespace.ToLower() == LegacyServerListNamespaceLower)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            config = configs.FirstOrDefault(c => string.Equals(c.Namespace, ServerListContractConstants.Namespace, StringComparison.Ordinal))
+                ?? configs.FirstOrDefault(c => string.Equals(c.Namespace, LegacyServerListNamespace, StringComparison.Ordinal))
+                ?? configs
+                    .OrderByDescending(c => c.LastModifiedUtc)
+                    .ThenBy(c => c.Namespace, StringComparer.Ordinal)
+                    .FirstOrDefault();
+        }
+        else
+        {
+            config = await context.GlobalConfigurations
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
+        }
 
         if (config == null)
             return new ApiResult<ConfigurationDto>(HttpStatusCode.NotFound);
@@ -135,22 +153,51 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         if (!NamespaceSchemaValidationRegistry.TryValidate(ns, dto.Configuration))
             return new ApiResult(HttpStatusCode.BadRequest);
 
-        var isServerListNamespace = string.Equals(ns, ServerListSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase);
+        var isServerListNamespace = string.Equals(ns, ServerListContractConstants.Namespace, StringComparison.OrdinalIgnoreCase);
 
-        var existing = isServerListNamespace
-            ? await context.GlobalConfigurations
-                .FirstOrDefaultAsync(c =>
-                    c.Namespace == ServerListSettingsConstants.Namespace ||
-                    c.Namespace == ServerListSettingsConstants.LegacyNamespace,
-                    cancellationToken).ConfigureAwait(false)
-            : await context.GlobalConfigurations
+        if (isServerListNamespace)
+        {
+            var allRows = await context.GlobalConfigurations
+                .Where(c =>
+                    c.Namespace.ToLower() == CanonicalServerListNamespaceLower ||
+                    c.Namespace.ToLower() == LegacyServerListNamespaceLower)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var canonical = allRows.FirstOrDefault(c => string.Equals(c.Namespace, ServerListContractConstants.Namespace, StringComparison.Ordinal));
+            if (canonical is null)
+            {
+                if (allRows.Count != 0)
+                {
+                    context.GlobalConfigurations.RemoveRange(allRows);
+                }
+
+                canonical = new GlobalConfiguration { Namespace = ns };
+                context.GlobalConfigurations.Add(canonical);
+            }
+            else
+            {
+                var duplicates = allRows.Where(c => c != canonical).ToList();
+                if (duplicates.Count != 0)
+                {
+                    context.GlobalConfigurations.RemoveRange(duplicates);
+                }
+            }
+
+            canonical.Configuration = dto.Configuration;
+            canonical.LastModifiedUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            var existing = await context.GlobalConfigurations
                 .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
-        if (existing != null)
-        {
-            if (isServerListNamespace && string.Equals(existing.Namespace, ServerListSettingsConstants.LegacyNamespace, StringComparison.Ordinal))
+            if (existing != null)
             {
-                context.GlobalConfigurations.Remove(existing);
+                existing.Configuration = dto.Configuration;
+                existing.LastModifiedUtc = DateTime.UtcNow;
+            }
+            else
+            {
                 context.GlobalConfigurations.Add(new GlobalConfiguration
                 {
                     Namespace = ns,
@@ -158,20 +205,6 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
                     LastModifiedUtc = DateTime.UtcNow
                 });
             }
-            else
-            {
-                existing.Configuration = dto.Configuration;
-                existing.LastModifiedUtc = DateTime.UtcNow;
-            }
-        }
-        else
-        {
-            context.GlobalConfigurations.Add(new GlobalConfiguration
-            {
-                Namespace = ns,
-                Configuration = dto.Configuration,
-                LastModifiedUtc = DateTime.UtcNow
-            });
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -194,21 +227,32 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
 
         ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
 
-        var isServerListNamespace = string.Equals(ns, ServerListSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase);
+        var isServerListNamespace = string.Equals(ns, ServerListContractConstants.Namespace, StringComparison.OrdinalIgnoreCase);
 
-        var config = isServerListNamespace
-            ? await context.GlobalConfigurations
-                .FirstOrDefaultAsync(c =>
-                    c.Namespace == ServerListSettingsConstants.Namespace ||
-                    c.Namespace == ServerListSettingsConstants.LegacyNamespace,
-                    cancellationToken).ConfigureAwait(false)
-            : await context.GlobalConfigurations
+        if (isServerListNamespace)
+        {
+            var configs = await context.GlobalConfigurations
+                .Where(c =>
+                    c.Namespace.ToLower() == CanonicalServerListNamespaceLower ||
+                    c.Namespace.ToLower() == LegacyServerListNamespaceLower)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            if (configs.Count == 0)
+                return new ApiResult(HttpStatusCode.NotFound);
+
+            context.GlobalConfigurations.RemoveRange(configs);
+        }
+        else
+        {
+            var config = await context.GlobalConfigurations
                 .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
-        if (config == null)
-            return new ApiResult(HttpStatusCode.NotFound);
+            if (config == null)
+                return new ApiResult(HttpStatusCode.NotFound);
 
-        context.GlobalConfigurations.Remove(config);
+            context.GlobalConfigurations.Remove(config);
+        }
+
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
