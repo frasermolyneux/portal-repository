@@ -19,7 +19,7 @@ public class HealthControllerTests
     }
 
     [Fact]
-    public async Task GetHealth_WhenHealthy_Returns200()
+    public async Task GetReady_WhenHealthy_Returns200()
     {
         // Arrange
         var healthReport = new HealthReport(
@@ -32,7 +32,7 @@ public class HealthControllerTests
             .ReturnsAsync(healthReport);
 
         // Act
-        var result = await _controller.GetHealth(CancellationToken.None);
+        var result = await _controller.GetReady(CancellationToken.None);
 
         // Assert
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -40,7 +40,7 @@ public class HealthControllerTests
     }
 
     [Fact]
-    public async Task GetHealth_WhenUnhealthy_Returns503()
+    public async Task GetReady_WhenUnhealthy_Returns503()
     {
         // Arrange
         var healthReport = new HealthReport(
@@ -53,7 +53,7 @@ public class HealthControllerTests
             .ReturnsAsync(healthReport);
 
         // Act
-        var result = await _controller.GetHealth(CancellationToken.None);
+        var result = await _controller.GetReady(CancellationToken.None);
 
         // Assert
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -61,7 +61,7 @@ public class HealthControllerTests
     }
 
     [Fact]
-    public async Task GetHealth_WhenDegraded_Returns503()
+    public async Task GetReady_WhenDegraded_Returns503()
     {
         // Arrange
         var healthReport = new HealthReport(
@@ -74,7 +74,7 @@ public class HealthControllerTests
             .ReturnsAsync(healthReport);
 
         // Act
-        var result = await _controller.GetHealth(CancellationToken.None);
+        var result = await _controller.GetReady(CancellationToken.None);
 
         // Assert
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -82,7 +82,7 @@ public class HealthControllerTests
     }
 
     [Fact]
-    public async Task GetHealth_WhenHealthy_ReturnsStatusInBody()
+    public async Task GetReady_WhenHealthy_ReturnsStatusInBody()
     {
         // Arrange
         var entries = new Dictionary<string, HealthReportEntry>
@@ -106,7 +106,7 @@ public class HealthControllerTests
             .ReturnsAsync(healthReport);
 
         // Act
-        var result = await _controller.GetHealth(CancellationToken.None);
+        var result = await _controller.GetReady(CancellationToken.None);
 
         // Assert
         var objectResult = Assert.IsType<ObjectResult>(result);

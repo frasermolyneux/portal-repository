@@ -39,13 +39,21 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
     }
 
     [Fact]
-    public async Task GetHealth_ReturnsResponse()
+    public async Task GetHealthReady_ReturnsResponse()
     {
-        var response = await _client.GetAsync("/v2.0/health");
+        var response = await _client.GetAsync("/v2.0/health/ready");
 
         Assert.True(
             response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.ServiceUnavailable,
             $"Expected OK or ServiceUnavailable but got {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task GetHealthLive_ReturnsOk()
+    {
+        var response = await _client.GetAsync("/v2.0/health/live");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

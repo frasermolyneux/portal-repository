@@ -15,7 +15,7 @@ Both hosts use identical patterns:
 - **Version reader**: `UrlSegmentApiVersionReader` extracts the version from the URL path
 - **Group name format**: `'v'VV` — always includes the minor version (`v1.0`, `v2.0`) to ensure unambiguous OpenAPI document grouping
 - **Info endpoint**: `ApiInfoController` returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host) with anonymous access
-- **Health endpoint**: `HealthController` exposes `/v1.0/health` (V1 host) and `/v2.0/health` (V2 host) with anonymous access
+- **Health endpoints**: `HealthController` exposes `/v1.0/health/live` and `/v1.0/health/ready` (V1 host), and `/v2.0/health/live` and `/v2.0/health/ready` (V2 host), all with anonymous access
 
 ## OpenAPI Spec Generation
 
@@ -57,14 +57,14 @@ The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for de
 
 The API definitions are imported via `az apim api import` after the App Services are deployed. All three specs are imported:
 
-| Parameter | v1 | v2 |
-|---|---|---|
-| `--api-id` | `repository-api-v1` | `repository-api-v2` |
-| `--api-version` | `v1` | `v2` |
-| `--api-version-set-id` | `repository-api` | `repository-api` |
-| `--specification-url` | `...v1-host/openapi/v1.0.json` | `...v2-host/openapi/v2.0.json` |
-| `--service-url` | `...v1-host/v1` | `...v2-host/v2` |
-| `--path` | `repository` | `repository` |
+| Parameter              | v1                             | v2                             |
+| ---------------------- | ------------------------------ | ------------------------------ |
+| `--api-id`             | `repository-api-v1`            | `repository-api-v2`            |
+| `--api-version`        | `v1`                           | `v2`                           |
+| `--api-version-set-id` | `repository-api`               | `repository-api`               |
+| `--specification-url`  | `...v1-host/openapi/v1.0.json` | `...v2-host/openapi/v2.0.json` |
+| `--service-url`        | `...v1-host/v1`                | `...v2-host/v2`                |
+| `--path`               | `repository`                   | `repository`                   |
 
 All APIs share the same `--path` and version set — APIM requires this for segment versioning to work. The `--service-url` routes v1.x requests to the V1 App Service and v2.x requests to the V2 App Service.
 

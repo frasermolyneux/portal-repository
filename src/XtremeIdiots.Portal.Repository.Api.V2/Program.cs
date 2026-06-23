@@ -13,6 +13,7 @@ using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V2.OpenApi;
 using MX.Observability.ApplicationInsights.AspNetCore;
 using Scalar.AspNetCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -112,6 +113,7 @@ builder.Services.AddOpenApi("v2.0", options =>
 });
 
 builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"])
     .AddCheck<XtremeIdiots.Portal.Repository.Api.V2.HealthChecks.SqlDatabaseHealthCheck>(
         name: "sql-database",
         tags: ["dependency"]);

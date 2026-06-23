@@ -19,7 +19,7 @@ public class HealthControllerTests
     }
 
     [Fact]
-    public async Task GetHealth_WhenHealthy_Returns200()
+    public async Task GetReady_WhenHealthy_Returns200()
     {
         var healthReport = new HealthReport(
             entries: new Dictionary<string, HealthReportEntry>(),
@@ -30,14 +30,14 @@ public class HealthControllerTests
             .Setup(x => x.CheckHealthAsync(It.IsAny<Func<HealthCheckRegistration, bool>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(healthReport);
 
-        var result = await _controller.GetHealth(CancellationToken.None);
+        var result = await _controller.GetReady(CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status200OK, objectResult.StatusCode);
     }
 
     [Fact]
-    public async Task GetHealth_WhenUnhealthy_Returns503()
+    public async Task GetReady_WhenUnhealthy_Returns503()
     {
         var healthReport = new HealthReport(
             entries: new Dictionary<string, HealthReportEntry>(),
@@ -48,7 +48,7 @@ public class HealthControllerTests
             .Setup(x => x.CheckHealthAsync(It.IsAny<Func<HealthCheckRegistration, bool>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(healthReport);
 
-        var result = await _controller.GetHealth(CancellationToken.None);
+        var result = await _controller.GetReady(CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, objectResult.StatusCode);

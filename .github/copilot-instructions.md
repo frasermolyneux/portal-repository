@@ -33,7 +33,7 @@ Specs are served at runtime: `/openapi/v1.0.json` (V1 host), `/openapi/v2.0.json
 ## Key Endpoints
 
 - **`ApiInfoController`** — returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host). Anonymous access. Used by deploy workflows for version verification.
-- **`HealthController`** — returns health check status at `/v1.0/health` (V1 host) and `/v2.0/health` (V2 host). Anonymous access.
+- **`HealthController`** — returns health check status at `/v1.0/health/live` and `/v1.0/health/ready` (V1 host), and `/v2.0/health/live` and `/v2.0/health/ready` (V2 host). Anonymous access.
 - **Root `/`** — minimal API endpoint (`app.MapGet`) returning 200 OK for App Service wake-up. Excluded from OpenAPI spec.
 
 ## Data Access
