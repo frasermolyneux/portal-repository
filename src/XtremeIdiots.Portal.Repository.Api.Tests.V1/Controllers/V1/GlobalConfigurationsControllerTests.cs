@@ -22,13 +22,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ns1",
-            Configuration = "{\"key\":\"value1\"}",
+            Configuration = /*lang=json,strict*/ "{\"key\":\"value1\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ns2",
-            Configuration = "{\"key\":\"value2\"}",
+            Configuration = /*lang=json,strict*/ "{\"key\":\"value2\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -60,7 +60,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "test-ns",
-            Configuration = "{\"setting\":true}",
+            Configuration = /*lang=json,strict*/ "{\"setting\":true}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -71,7 +71,7 @@ public class GlobalConfigurationsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal("test-ns", result.Result!.Data!.Namespace);
-        Assert.Equal("{\"setting\":true}", result.Result!.Data!.Configuration);
+        Assert.Equal(/*lang=json,strict*/ "{\"setting\":true}", result.Result!.Data!.Configuration);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":60,\"messages\":[{\"message\":\"Welcome\",\"enabled\":true}]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":60,\"messages\":[{\"message\":\"Welcome\",\"enabled\":true}]}"
         };
         var result = await api.UpsertConfiguration("broadcasts", dto);
 
@@ -115,7 +115,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "broadcasts",
-            Configuration = "{\"schemaVersion\":1,\"enabled\":false,\"intervalSeconds\":30,\"messages\":[]}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":false,\"intervalSeconds\":30,\"messages\":[]}",
             LastModifiedUtc = DateTime.UtcNow.AddDays(-1)
         });
         await context.SaveChangesAsync();
@@ -125,7 +125,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":45,\"messages\":[{\"message\":\"Updated\",\"enabled\":true}]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":45,\"messages\":[{\"message\":\"Updated\",\"enabled\":true}]}"
         };
         var result = await api.UpsertConfiguration("broadcasts", dto);
 
@@ -143,7 +143,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}"
         };
         var result = await api.UpsertConfiguration("serverList", dto);
 
@@ -164,7 +164,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"old\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"old\"}",
             LastModifiedUtc = DateTime.UtcNow.AddDays(-1)
         });
         await context.SaveChangesAsync();
@@ -174,7 +174,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
         };
         var result = await api.UpsertConfiguration("serverList", dto);
 
@@ -192,7 +192,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -212,7 +212,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -232,13 +232,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -259,13 +259,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ServerList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -286,13 +286,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ServerList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"mixed\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"mixed\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -313,13 +313,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "SERVERLIST",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"older\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"older\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-2)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "Serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"newer\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"newer\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         await context.SaveChangesAsync();
@@ -340,7 +340,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"<b>Live</b>\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -360,7 +360,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -380,13 +380,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -406,13 +406,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ServerList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"canonical\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -432,13 +432,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical-old\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"canonical-old\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -448,7 +448,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
         };
 
         var result = await api.UpsertConfiguration("serverList", dto);
@@ -467,13 +467,13 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ServerList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "serverlist",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"canonical-old\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"canonical-old\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -483,7 +483,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
         };
 
         var result = await api.UpsertConfiguration("serverList", dto);
@@ -502,7 +502,7 @@ public class GlobalConfigurationsControllerTests
         context.GlobalConfigurations.Add(new GlobalConfiguration
         {
             Namespace = "ServerList",
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"legacy\"}",
             LastModifiedUtc = DateTime.UtcNow.AddMinutes(-1)
         });
         await context.SaveChangesAsync();
@@ -512,7 +512,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"htmlBanner\":\"new\"}"
         };
 
         var result = await api.UpsertConfiguration("serverList", dto);
@@ -547,7 +547,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":0,\"messages\":[{\"message\":\"\",\"enabled\":true}]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"intervalSeconds\":0,\"messages\":[{\"message\":\"\",\"enabled\":true}]}"
         };
         var result = await api.UpsertConfiguration("broadcasts", dto);
 
@@ -564,7 +564,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = "{\"schemaVersion\":999,\"htmlBanner\":\"<b>bad</b>\"}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":999,\"htmlBanner\":\"<b>bad</b>\"}"
         };
         var result = await api.UpsertConfiguration("serverList", dto);
 
@@ -623,7 +623,7 @@ public class GlobalConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGlobalConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":999}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"schemaVersion\":999}" };
         var result = await api.UpsertConfiguration("agent", dto);
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
@@ -637,7 +637,7 @@ public class GlobalConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGlobalConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":0,\"pollIntervalMs\":1000}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"schemaVersion\":0,\"pollIntervalMs\":1000}" };
         var result = await api.UpsertConfiguration("agent", dto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);

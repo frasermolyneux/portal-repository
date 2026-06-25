@@ -36,7 +36,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     public GameServersEventsController(PortalDbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
     }
 
     /// <summary>

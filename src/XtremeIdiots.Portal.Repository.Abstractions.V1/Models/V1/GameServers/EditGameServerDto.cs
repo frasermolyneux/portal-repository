@@ -32,7 +32,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public bool? FileTransportEnabled { get; set; }
 
         [JsonProperty]
-        [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+        [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
         public Constants.V1.FileTransportType? FileTransportType { get; set; }
 
         [JsonProperty]

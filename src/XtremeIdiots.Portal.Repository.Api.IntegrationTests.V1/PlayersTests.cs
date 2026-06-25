@@ -213,7 +213,7 @@ public class PlayersTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLi
         var result = JsonConvert.DeserializeObject<ApiResponse<CollectionModel<PlayerDto>>>(content);
 
         Assert.NotNull(result?.Data?.Items);
-        var players = result!.Data!.Items!.ToList();
+        var players = result.Data.Items.ToList();
         Assert.Single(players);
         Assert.Equal(taggedPlayerId, players[0].PlayerId);
     }
@@ -243,7 +243,7 @@ public class PlayersTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLi
         var result = JsonConvert.DeserializeObject<ApiResponse<CollectionModel<PlayerDto>>>(content);
 
         Assert.NotNull(result?.Data?.Items);
-        Assert.Empty(result!.Data!.Items!);
+        Assert.Empty(result.Data.Items);
     }
 
     [Fact]
@@ -291,11 +291,11 @@ public class PlayersTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLi
         var result = JsonConvert.DeserializeObject<ApiResponse<CollectionModel<PlayerDto>>>(content);
 
         Assert.NotNull(result?.Data?.Items);
-        var player = Assert.Single(result!.Data!.Items!);
+        var player = Assert.Single(result.Data.Items);
         var playerTag = Assert.Single(player.Tags);
         Assert.Equal(tagId, playerTag.TagId);
         Assert.NotNull(playerTag.Tag);
-        Assert.Equal("vip", playerTag.Tag!.Name);
+        Assert.Equal("vip", playerTag.Tag.Name);
     }
 
     [Fact]
@@ -343,11 +343,11 @@ public class PlayersTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLi
         var result = JsonConvert.DeserializeObject<ApiResponse<CollectionModel<PlayerDto>>>(content);
 
         Assert.NotNull(result?.Data?.Items);
-        var player = Assert.Single(result!.Data!.Items!);
+        var player = Assert.Single(result.Data.Items);
         Assert.Equal(playerId, player.PlayerId);
         var playerTag = Assert.Single(player.Tags);
         Assert.Equal(tagId, playerTag.TagId);
         Assert.NotNull(playerTag.Tag);
-        Assert.Equal("game-type-vip", playerTag.Tag!.Name);
+        Assert.Equal("game-type-vip", playerTag.Tag.Name);
     }
 }

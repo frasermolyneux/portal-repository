@@ -53,7 +53,7 @@ public class FakePlayersApiTests
         var fake = new FakePlayersApi();
 
         var result = await fake.CreatePlayer(
-            new XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players.CreatePlayerDto("TestPlayer", "test-guid", XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.GameType.CallOfDuty4));
+            new Abstractions.Models.V1.Players.CreatePlayerDto("TestPlayer", "test-guid", GameType.CallOfDuty4));
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
     }

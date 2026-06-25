@@ -75,7 +75,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             // Remove ServiceProfiler hosted services
             var profilerDescriptors = services
-                .Where(d => d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
+                .Where(d => d.ServiceType == typeof(IHostedService) &&
                             d.ImplementationType?.FullName?.Contains("Profiler") == true)
                 .ToList();
             foreach (var descriptor in profilerDescriptors)
@@ -87,9 +87,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<Microsoft.Extensions.Diagnostics.HealthChecks.IHealthCheck>();
 
             // Remove all existing authentication/authorization services and replace with test scheme
-            services.RemoveAll<Microsoft.AspNetCore.Authentication.IAuthenticationService>();
-            services.RemoveAll<Microsoft.AspNetCore.Authentication.IAuthenticationHandlerProvider>();
-            services.RemoveAll<Microsoft.AspNetCore.Authentication.IAuthenticationSchemeProvider>();
+            services.RemoveAll<IAuthenticationService>();
+            services.RemoveAll<IAuthenticationHandlerProvider>();
+            services.RemoveAll<IAuthenticationSchemeProvider>();
 
             services.AddAuthentication("Test")
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", options => { });

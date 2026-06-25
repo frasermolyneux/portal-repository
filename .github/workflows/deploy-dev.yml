@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: v1-ci
-        uses: frasermolyneux/actions/dotnet-web-ci@dotnet-web-ci/v1.4
+        uses: frasermolyneux/actions/dotnet-web-ci@dotnet-web-ci/v2
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
           dotnet-version: |
@@ -27,7 +27,7 @@ jobs:
           src-folder: "src"
           skip-nuget-artifact-upload: "true"
       - id: v2-ci
-        uses: frasermolyneux/actions/dotnet-web-ci@dotnet-web-ci/v1.4
+        uses: frasermolyneux/actions/dotnet-web-ci@dotnet-web-ci/v2
         with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
           dotnet-version: |

@@ -39,14 +39,14 @@ public class GameServerConfigurationsControllerTests
         {
             GameServerId = gs.GameServerId,
             Namespace = "ns1",
-            Configuration = "{\"key\":\"value1\"}",
+            Configuration = /*lang=json,strict*/ "{\"key\":\"value1\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         context.GameServerConfigurations.Add(new GameServerConfiguration
         {
             GameServerId = gs.GameServerId,
             Namespace = "ns2",
-            Configuration = "{\"key\":\"value2\"}",
+            Configuration = /*lang=json,strict*/ "{\"key\":\"value2\"}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -127,7 +127,7 @@ public class GameServerConfigurationsControllerTests
         {
             GameServerId = gs.GameServerId,
             Namespace = "test-ns",
-            Configuration = "{\"setting\":true}",
+            Configuration = /*lang=json,strict*/ "{\"setting\":true}",
             LastModifiedUtc = DateTime.UtcNow
         });
         await context.SaveChangesAsync();
@@ -138,7 +138,7 @@ public class GameServerConfigurationsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal("test-ns", result.Result!.Data!.Namespace);
-        Assert.Equal("{\"setting\":true}", result.Result!.Data!.Configuration);
+        Assert.Equal(/*lang=json,strict*/ "{\"setting\":true}", result.Result!.Data!.Configuration);
     }
 
     [Fact]
@@ -163,14 +163,14 @@ public class GameServerConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"new\":true}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"new\":true}" };
         var result = await api.UpsertConfiguration(gs.GameServerId, "new-ns", dto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GameServerConfigurations.Single();
         Assert.Equal(gs.GameServerId, entity.GameServerId);
         Assert.Equal("new-ns", entity.Namespace);
-        Assert.Equal("{\"new\":true}", entity.Configuration);
+        Assert.Equal(/*lang=json,strict*/ "{\"new\":true}", entity.Configuration);
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public class GameServerConfigurationsControllerTests
         {
             GameServerId = gs.GameServerId,
             Namespace = "existing-ns",
-            Configuration = "{\"old\":true}",
+            Configuration = /*lang=json,strict*/ "{\"old\":true}",
             LastModifiedUtc = DateTime.UtcNow.AddDays(-1)
         });
         await context.SaveChangesAsync();
@@ -191,12 +191,12 @@ public class GameServerConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"updated\":true}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"updated\":true}" };
         var result = await api.UpsertConfiguration(gs.GameServerId, "existing-ns", dto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GameServerConfigurations.Single();
-        Assert.Equal("{\"updated\":true}", entity.Configuration);
+        Assert.Equal(/*lang=json,strict*/ "{\"updated\":true}", entity.Configuration);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class GameServerConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":999}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"schemaVersion\":999}" };
         var result = await api.UpsertConfiguration(gs.GameServerId, "agent", dto);
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
@@ -292,7 +292,7 @@ public class GameServerConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":0,\"pollIntervalMs\":1000}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"schemaVersion\":0,\"pollIntervalMs\":1000}" };
         var result = await api.UpsertConfiguration(gs.GameServerId, "agent", dto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
@@ -324,7 +324,7 @@ public class GameServerConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
 
-        var dto = new UpsertConfigurationDto { Configuration = "{\"schemaVersion\":999}" };
+        var dto = new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"schemaVersion\":999}" };
         var result = await api.UpsertConfiguration(Guid.NewGuid(), "agent", dto);
 
         Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);

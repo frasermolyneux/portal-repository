@@ -82,30 +82,30 @@ public static class ServiceCollectionExtensions
         // Register fakes as singletons
         services.AddSingleton<IRepositoryApiClient>(fakeClient);
 
-        services.AddSingleton<IVersionedAdminActionsApi>(fakeClient.AdminActions);
-        services.AddSingleton<IVersionedBanFileMonitorsApi>(fakeClient.BanFileMonitors);
-        services.AddSingleton<IVersionedChatMessagesApi>(fakeClient.ChatMessages);
-        services.AddSingleton<IVersionedDataMaintenanceApi>(fakeClient.DataMaintenance);
-        services.AddSingleton<IVersionedDemosApi>(fakeClient.Demos);
-        services.AddSingleton<IVersionedGameServersApi>(fakeClient.GameServers);
-        services.AddSingleton<IVersionedGameServersEventsApi>(fakeClient.GameServersEvents);
-        services.AddSingleton<IVersionedGameServersStatsApi>(fakeClient.GameServersStats);
-        services.AddSingleton<IVersionedGameTrackerBannerApi>(fakeClient.GameTrackerBanner);
-        services.AddSingleton<IVersionedMapsApi>(fakeClient.Maps);
-        services.AddSingleton<IVersionedConnectedPlayersApi>(fakeClient.ConnectedPlayers);
-        services.AddSingleton<IVersionedScreenshotsApi>(fakeClient.Screenshots);
+        services.AddSingleton(fakeClient.AdminActions);
+        services.AddSingleton(fakeClient.BanFileMonitors);
+        services.AddSingleton(fakeClient.ChatMessages);
+        services.AddSingleton(fakeClient.DataMaintenance);
+        services.AddSingleton(fakeClient.Demos);
+        services.AddSingleton(fakeClient.GameServers);
+        services.AddSingleton(fakeClient.GameServersEvents);
+        services.AddSingleton(fakeClient.GameServersStats);
+        services.AddSingleton(fakeClient.GameTrackerBanner);
+        services.AddSingleton(fakeClient.Maps);
+        services.AddSingleton(fakeClient.ConnectedPlayers);
+        services.AddSingleton(fakeClient.Screenshots);
 
-        services.AddSingleton<IVersionedMapRotationsApi>(fakeClient.MapRotations);
-        services.AddSingleton<IVersionedDashboardApi>(fakeClient.Dashboard);
-        services.AddSingleton<IVersionedPlayerAnalyticsApi>(fakeClient.PlayerAnalytics);
-        services.AddSingleton<IVersionedPlayersApi>(fakeClient.Players);
-        services.AddSingleton<IVersionedRecentPlayersApi>(fakeClient.RecentPlayers);
-        services.AddSingleton<IVersionedReportsApi>(fakeClient.Reports);
-        services.AddSingleton<IVersionedTagsApi>(fakeClient.Tags);
-        services.AddSingleton<IVersionedUserProfileApi>(fakeClient.UserProfiles);
-        services.AddSingleton<IVersionedApiHealthApi>(fakeClient.ApiHealth);
-        services.AddSingleton<IVersionedApiInfoApi>(fakeClient.ApiInfo);
-        services.AddSingleton<IVersionedLiveStatusApi>(fakeClient.LiveStatus);
+        services.AddSingleton(fakeClient.MapRotations);
+        services.AddSingleton(fakeClient.Dashboard);
+        services.AddSingleton(fakeClient.PlayerAnalytics);
+        services.AddSingleton(fakeClient.Players);
+        services.AddSingleton(fakeClient.RecentPlayers);
+        services.AddSingleton(fakeClient.Reports);
+        services.AddSingleton(fakeClient.Tags);
+        services.AddSingleton(fakeClient.UserProfiles);
+        services.AddSingleton(fakeClient.ApiHealth);
+        services.AddSingleton(fakeClient.ApiInfo);
+        services.AddSingleton(fakeClient.LiveStatus);
         services.AddSingleton<IApiHealthApi>(fakeClient.HealthApi);
         services.AddSingleton<IApiInfoApi>(fakeClient.InfoApi);
 

@@ -899,12 +899,12 @@ public class GameServersControllerTests
     [Fact]
     public void FileTransportType_DeserializesFromString_WithNewtonsoft()
     {
-        var json = "{\"title\":\"Server\",\"gameType\":\"CallOfDuty4\",\"hostname\":\"host\",\"queryPort\":28960,\"fileTransportEnabled\":true,\"fileTransportType\":\"Sftp\"}";
+        var json = /*lang=json,strict*/ "{\"title\":\"Server\",\"gameType\":\"CallOfDuty4\",\"hostname\":\"host\",\"queryPort\":28960,\"fileTransportEnabled\":true,\"fileTransportType\":\"Sftp\"}";
 
         var dto = JsonConvert.DeserializeObject<CreateGameServerDto>(json);
 
         Assert.NotNull(dto);
-        Assert.Equal(FileTransportType.Sftp, dto!.FileTransportType);
+        Assert.Equal(FileTransportType.Sftp, dto.FileTransportType);
     }
 
     [Fact]

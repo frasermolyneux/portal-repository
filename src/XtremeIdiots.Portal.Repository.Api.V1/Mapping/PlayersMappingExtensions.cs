@@ -140,9 +140,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 
             var adminActions = entity.Player.AdminActions;
             var hasActiveBan = adminActions is { Count: > 0 } && adminActions.Any(aa =>
-                (aa.Type == (int)Abstractions.Constants.V1.AdminActionType.Ban && aa.Expires == null) ||
-                (aa.Type == (int)Abstractions.Constants.V1.AdminActionType.TempBan && aa.Expires > DateTime.UtcNow) ||
-                (aa.Type == (int)Abstractions.Constants.V1.AdminActionType.Ban && aa.Expires > DateTime.UtcNow));
+                (aa.Type == (int)AdminActionType.Ban && aa.Expires == null) ||
+                (aa.Type == (int)AdminActionType.TempBan && aa.Expires > DateTime.UtcNow) ||
+                (aa.Type == (int)AdminActionType.Ban && aa.Expires > DateTime.UtcNow));
 
             return new RelatedPlayerDto
             {

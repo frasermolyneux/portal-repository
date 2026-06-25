@@ -587,7 +587,7 @@ public class ScreenshotsControllerTests
         };
 
         var tempFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".txt");
-        await System.IO.File.WriteAllTextAsync(tempFilePath, "not-an-image");
+        await File.WriteAllTextAsync(tempFilePath, "not-an-image");
 
         try
         {
@@ -596,9 +596,9 @@ public class ScreenshotsControllerTests
         }
         finally
         {
-            if (System.IO.File.Exists(tempFilePath))
+            if (File.Exists(tempFilePath))
             {
-                System.IO.File.Delete(tempFilePath);
+                File.Delete(tempFilePath);
             }
         }
     }
@@ -711,7 +711,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Equal("image/jpeg", result.Result!.Data!.ContentType);
+        Assert.Equal("image/jpeg", result.Result.Data.ContentType);
         Assert.Equal("active.jpg", result.Result.Data.FileName);
         Assert.Equal(expectedBytes, result.Result.Data.Content);
     }
@@ -775,7 +775,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Equal("player-17", result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal("player-17", result.Result.Data.PlayerIdentifier);
         Assert.Equal("Player 17", result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.RequestMatch, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.High, result.Result.Data.LinkConfidence);
@@ -804,7 +804,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerIdentifier);
         Assert.Null(result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
@@ -845,7 +845,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Equal("different-player", result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal("different-player", result.Result.Data.PlayerIdentifier);
         Assert.Equal("Other Player", result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.FilenameMatch, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Medium, result.Result.Data.LinkConfidence);
@@ -874,7 +874,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerIdentifier);
         Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
     }
@@ -926,7 +926,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Equal("player-b", result.Result!.Data!.PlayerIdentifier);
+        Assert.Equal("player-b", result.Result.Data.PlayerIdentifier);
         Assert.Equal("Player B", result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.RequestMatch, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Medium, result.Result.Data.LinkConfidence);
@@ -983,7 +983,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerIdentifier);
         Assert.Null(result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
@@ -1040,7 +1040,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerIdentifier);
         Assert.Null(result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);
@@ -1097,7 +1097,7 @@ public class ScreenshotsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Result?.Data);
-        Assert.Null(result.Result!.Data!.PlayerIdentifier);
+        Assert.Null(result.Result.Data.PlayerIdentifier);
         Assert.Null(result.Result.Data.PlayerName);
         Assert.Equal(ScreenshotLinkSource.Unlinked, result.Result.Data.LinkSource);
         Assert.Equal(ScreenshotLinkConfidence.Low, result.Result.Data.LinkConfidence);

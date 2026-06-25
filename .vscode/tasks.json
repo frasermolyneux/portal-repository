@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "clean",
+            "label": "dotnet: clean",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -14,7 +14,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "build",
+            "label": "dotnet: build",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -23,7 +23,7 @@
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
-            "dependsOn": "clean",
+            "dependsOn": "dotnet: clean",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -31,7 +31,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "test",
+            "label": "dotnet: test",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -49,7 +49,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "test-integration",
+            "label": "dotnet: test-integration",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -66,7 +66,18 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "clean release",
+            "label": "dotnet: format",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "format",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "--verify-no-changes"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "dotnet: clean-release",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -80,7 +91,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "publish",
+            "label": "dotnet: publish",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -91,11 +102,11 @@
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
-            "dependsOn": "clean release",
+            "dependsOn": "dotnet: clean-release",
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "watch",
+            "label": "dotnet: watch",
             "command": "dotnet",
             "type": "process",
             "args": [

@@ -56,7 +56,7 @@ public class FakeAdminActionsApi : IAdminActionsApi
                 ? (a.Expires == null || a.Expires > nowUtc)
                 : (a.Expires != null && a.Expires > nowUtc))
             .Where(a => a.Player != null)
-            .GroupBy(a => a.Player!.GameType)
+            .GroupBy(a => a.Player.GameType)
             .Select(g => new ActiveBanCountsDto
             {
                 GameType = g.Key,

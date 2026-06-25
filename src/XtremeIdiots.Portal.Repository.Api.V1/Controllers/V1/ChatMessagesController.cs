@@ -38,7 +38,7 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     public ChatMessagesController(PortalDbContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-            this.context = context;
+        this.context = context;
     }
 
     /// <summary>
