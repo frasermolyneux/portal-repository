@@ -44,7 +44,7 @@ dotnet_diagnostic.CA1716.severity = suggestion
 dotnet_diagnostic.CA1720.severity = suggestion
 
 # Defer broad style-only churn in existing code.
-dotnet_diagnostic.IDE0011.severity = suggestion
+dotnet_diagnostic.IDE0011.severity = warning
 dotnet_diagnostic.IDE0022.severity = suggestion
 dotnet_diagnostic.IDE0028.severity = suggestion
 dotnet_diagnostic.IDE0040.severity = suggestion

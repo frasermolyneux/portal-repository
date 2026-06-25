@@ -175,7 +175,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 WHERE [Address] IS NULL OR LTRIM(RTRIM([Address])) = ''", cancellationToken).ConfigureAwait(false);
 
             if (affected == 0)
+            {
                 break;
+            }
         }
 
         // Step 2: Remove old rows that are beyond hard retention.
@@ -186,7 +188,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 WHERE [LastUsed] < {hardDeleteCutoff}", cancellationToken).ConfigureAwait(false);
 
             if (affected == 0)
+            {
                 break;
+            }
         }
 
         // Step 3: Remove stale low-confidence rows.
@@ -198,7 +202,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                   AND [ConfidenceScore] < {lowConfidenceThreshold}", cancellationToken).ConfigureAwait(false);
 
             if (affected == 0)
+            {
                 break;
+            }
         }
 
         return new ApiResponse().ToApiResult();
@@ -630,7 +636,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     {
         var blobEndpoint = Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint");
         if (string.IsNullOrEmpty(blobEndpoint))
+        {
             return new ApiResult(HttpStatusCode.InternalServerError);
+        }
 
         var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
         var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
@@ -671,7 +679,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }
 
         if (cleared > 0)
+        {
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         // Step 3: Normalize blobs with incorrect content-type (application/octet-stream) and missing metadata
         //   - If blob content appears to be HTML, delete it and clear any matching map reference
@@ -681,7 +691,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         await foreach (var blobItem in containerClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix: null, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
             if (!string.Equals(blobItem.Properties.ContentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            {
                 continue; // only process unknown content types
+            }
 
             var blobClient = containerClient.GetBlobClient(blobItem.Name);
 
@@ -755,7 +767,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }
 
         if (updatedMaps > 0)
+        {
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         return new ApiResponse().ToApiResult();
     }
@@ -770,7 +784,9 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             var noExt = Path.GetFileNameWithoutExtension(blobName);
             var underscoreIndex = noExt.IndexOf('_');
             if (underscoreIndex <= 0 || underscoreIndex >= noExt.Length - 1)
+            {
                 return false;
+            }
 
             var gameTypeStr = noExt[..underscoreIndex];
             mapName = noExt[(underscoreIndex + 1)..];
@@ -788,7 +804,11 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
     private static string GetContentTypeFromExtension(string? extension)
     {
-        if (string.IsNullOrWhiteSpace(extension)) return "image/jpeg";
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            return "image/jpeg";
+        }
+
         return extension.ToLowerInvariant() switch
         {
             ".jpg" => "image/jpeg",

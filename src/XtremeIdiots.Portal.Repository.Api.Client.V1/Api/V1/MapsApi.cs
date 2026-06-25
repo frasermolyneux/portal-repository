@@ -44,22 +44,32 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/maps", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.ToString());
+            }
 
             if (mapNames != null && mapNames.Length > 0)
+            {
                 request.AddQueryParameter("mapNames", string.Join(",", mapNames));
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             if (!string.IsNullOrEmpty(filterString))
+            {
                 request.AddQueryParameter("filterString", filterString);
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -127,16 +137,22 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/maps/votes", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.ToString());
+            }
 
             if (mapId.HasValue)
+            {
                 request.AddQueryParameter("mapId", mapId.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

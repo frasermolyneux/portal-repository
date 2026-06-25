@@ -29,7 +29,10 @@ public class FakeTagsApi : ITagsApi
     public Task<ApiResult<TagDto>> GetTag(Guid tagId, CancellationToken cancellationToken = default)
     {
         if (_tags.TryGetValue(tagId, out var tag))
+        {
             return Task.FromResult(new ApiResult<TagDto>(HttpStatusCode.OK, new ApiResponse<TagDto>(tag)));
+        }
+
         return Task.FromResult(new ApiResult<TagDto>(HttpStatusCode.NotFound, new ApiResponse<TagDto>(new ApiError("NOT_FOUND", "Tag not found"))));
     }
 

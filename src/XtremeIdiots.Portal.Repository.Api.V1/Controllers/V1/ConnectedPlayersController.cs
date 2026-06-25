@@ -592,16 +592,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsQueryable();
 
             if (playerId.HasValue)
+            {
                 query = query.Where(cp => cp.PlayerId == playerId.Value);
+            }
 
             if (userProfileId.HasValue)
+            {
                 query = query.Where(cp => cp.UserProfileId == userProfileId.Value);
+            }
 
             if (gameType.HasValue)
+            {
                 query = query.Where(cp => cp.Player.GameType == (int)gameType.Value);
+            }
 
             if (isActive.HasValue)
+            {
                 query = query.Where(cp => cp.IsActive == isActive.Value);
+            }
 
             var filteredCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
@@ -674,7 +682,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             if (!link.IsActive)
+            {
                 return new ApiResponse().ToApiResult();
+            }
 
             var executionStrategy = context.Database.CreateExecutionStrategy();
             await executionStrategy.ExecuteAsync(async () =>

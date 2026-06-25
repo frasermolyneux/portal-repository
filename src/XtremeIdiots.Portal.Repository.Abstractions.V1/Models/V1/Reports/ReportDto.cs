@@ -64,10 +64,14 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Reports
                 };
 
                 if (UserProfile is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(UserProfile.TelemetryProperties);
+                }
 
                 if (AdminUserProfile is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(AdminUserProfile.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

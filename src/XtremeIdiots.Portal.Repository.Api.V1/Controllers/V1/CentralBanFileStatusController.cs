@@ -54,7 +54,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .ConfigureAwait(false);
 
             if (entity is null)
+            {
                 return new ApiResult<CentralBanFileStatusDto>(HttpStatusCode.NotFound);
+            }
 
             return new ApiResponse<CentralBanFileStatusDto>(entity.ToDto()).ToApiResult();
         }
@@ -93,10 +95,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             CancellationToken cancellationToken = default)
         {
             if (upsertDto is null)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))).ToHttpResult();
+            }
 
             if (upsertDto.GameType != gameType)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, "GameType in the URL must match GameType in the request body"))).ToHttpResult();
+            }
 
             var response = await ((ICentralBanFileStatusApi)this).UpsertCentralBanFileStatus(upsertDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();

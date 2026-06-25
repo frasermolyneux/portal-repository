@@ -61,7 +61,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
         private static ConnectedPlayerLinkMethod ParseLinkMethod(string value)
         {
             if (Enum.TryParse<ConnectedPlayerLinkMethod>(value, true, out var result))
+            {
                 return result;
+            }
 
             throw new InvalidOperationException($"Unknown connected player link method '{value}'.");
         }

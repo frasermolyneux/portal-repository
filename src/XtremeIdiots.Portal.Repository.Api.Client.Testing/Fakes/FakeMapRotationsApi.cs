@@ -29,15 +29,26 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<MapRotationDto>> GetMapRotation(Guid mapRotationId, CancellationToken cancellationToken = default)
     {
         if (_mapRotations.TryGetValue(mapRotationId, out var mr))
+        {
             return Task.FromResult(new ApiResult<MapRotationDto>(HttpStatusCode.OK, new ApiResponse<MapRotationDto>(mr)));
+        }
+
         return Task.FromResult(new ApiResult<MapRotationDto>(HttpStatusCode.NotFound, new ApiResponse<MapRotationDto>(new ApiError("NOT_FOUND", "Map rotation not found"))));
     }
 
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _mapRotations.Values.AsEnumerable();
-        if (gameTypes != null) items = items.Where(mr => gameTypes.Contains(mr.GameType));
-        if (gameMode != null) items = items.Where(mr => mr.GameMode == gameMode);
+        if (gameTypes != null)
+        {
+            items = items.Where(mr => gameTypes.Contains(mr.GameType));
+        }
+
+        if (gameMode != null)
+        {
+            items = items.Where(mr => mr.GameMode == gameMode);
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<MapRotationDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapRotationDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapRotationDto>>(collection)));
@@ -46,10 +57,26 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _mapRotations.Values.AsEnumerable();
-        if (gameTypes != null) items = items.Where(mr => gameTypes.Contains(mr.GameType));
-        if (gameMode != null) items = items.Where(mr => mr.GameMode == gameMode);
-        if (status.HasValue) items = items.Where(mr => mr.Status == status.Value);
-        if (!string.IsNullOrWhiteSpace(filterString)) items = items.Where(mr => mr.Title.Contains(filterString, StringComparison.OrdinalIgnoreCase));
+        if (gameTypes != null)
+        {
+            items = items.Where(mr => gameTypes.Contains(mr.GameType));
+        }
+
+        if (gameMode != null)
+        {
+            items = items.Where(mr => mr.GameMode == gameMode);
+        }
+
+        if (status.HasValue)
+        {
+            items = items.Where(mr => mr.Status == status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterString))
+        {
+            items = items.Where(mr => mr.Title.Contains(filterString, StringComparison.OrdinalIgnoreCase));
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<MapRotationDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapRotationDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapRotationDto>>(collection)));
@@ -58,11 +85,31 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, Guid? createdByUserId, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _mapRotations.Values.AsEnumerable();
-        if (gameTypes != null) items = items.Where(mr => gameTypes.Contains(mr.GameType));
-        if (gameMode != null) items = items.Where(mr => mr.GameMode == gameMode);
-        if (status.HasValue) items = items.Where(mr => mr.Status == status.Value);
-        if (!string.IsNullOrWhiteSpace(filterString)) items = items.Where(mr => mr.Title.Contains(filterString, StringComparison.OrdinalIgnoreCase));
-        if (createdByUserId.HasValue) items = items.Where(mr => mr.CreatedByUserId == createdByUserId.Value);
+        if (gameTypes != null)
+        {
+            items = items.Where(mr => gameTypes.Contains(mr.GameType));
+        }
+
+        if (gameMode != null)
+        {
+            items = items.Where(mr => mr.GameMode == gameMode);
+        }
+
+        if (status.HasValue)
+        {
+            items = items.Where(mr => mr.Status == status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterString))
+        {
+            items = items.Where(mr => mr.Title.Contains(filterString, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (createdByUserId.HasValue)
+        {
+            items = items.Where(mr => mr.CreatedByUserId == createdByUserId.Value);
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<MapRotationDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapRotationDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapRotationDto>>(collection)));
@@ -83,16 +130,31 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<MapRotationServerAssignmentDto>> GetServerAssignment(Guid assignmentId, CancellationToken cancellationToken = default)
     {
         if (_serverAssignments.TryGetValue(assignmentId, out var a))
+        {
             return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.OK, new ApiResponse<MapRotationServerAssignmentDto>(a)));
+        }
+
         return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.NotFound, new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("NOT_FOUND", "Server assignment not found"))));
     }
 
     public Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> GetServerAssignments(Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState, int skipEntries, int takeEntries, CancellationToken cancellationToken = default)
     {
         var items = _serverAssignments.Values.AsEnumerable();
-        if (mapRotationId.HasValue) items = items.Where(a => a.MapRotationId == mapRotationId.Value);
-        if (gameServerId.HasValue) items = items.Where(a => a.GameServerId == gameServerId.Value);
-        if (deploymentState.HasValue) items = items.Where(a => a.DeploymentState == deploymentState.Value);
+        if (mapRotationId.HasValue)
+        {
+            items = items.Where(a => a.MapRotationId == mapRotationId.Value);
+        }
+
+        if (gameServerId.HasValue)
+        {
+            items = items.Where(a => a.GameServerId == gameServerId.Value);
+        }
+
+        if (deploymentState.HasValue)
+        {
+            items = items.Where(a => a.DeploymentState == deploymentState.Value);
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<MapRotationServerAssignmentDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapRotationServerAssignmentDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapRotationServerAssignmentDto>>(collection)));

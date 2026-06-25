@@ -25,7 +25,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             base.Validate();
 
             if (DefaultPageSize <= 0)
+            {
                 throw new InvalidOperationException("DefaultPageSize must be greater than 0");
+            }
         }
     }
 }

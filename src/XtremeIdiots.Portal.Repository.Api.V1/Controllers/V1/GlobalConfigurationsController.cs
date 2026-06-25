@@ -70,7 +70,9 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
     async Task<ApiResult<ConfigurationDto>> IGlobalConfigurationsApi.GetConfiguration(string ns, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
+        {
             return new ApiResult<ConfigurationDto>(HttpStatusCode.BadRequest);
+        }
 
         ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
 
@@ -101,7 +103,9 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         }
 
         if (config == null)
+        {
             return new ApiResult<ConfigurationDto>(HttpStatusCode.NotFound);
+        }
 
         return new ApiResponse<ConfigurationDto>(config.ToDto()).ToApiResult();
     }
@@ -126,9 +130,11 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         }
 
         if (dto == null)
+        {
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                 .ToBadRequestResult()
                 .ToHttpResult();
+        }
 
         var response = await ((IGlobalConfigurationsApi)this).UpsertConfiguration(ns, dto, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
@@ -137,21 +143,29 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
     async Task<ApiResult> IGlobalConfigurationsApi.UpsertConfiguration(string ns, UpsertConfigurationDto dto, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
 
         if (!NamespaceSchemaValidationRegistry.IsKnownNamespace(ns))
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         if (string.IsNullOrWhiteSpace(dto.Configuration))
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         try { Newtonsoft.Json.Linq.JToken.Parse(dto.Configuration); }
         catch { return new ApiResult(HttpStatusCode.BadRequest); }
 
         if (!NamespaceSchemaValidationRegistry.TryValidate(ns, dto.Configuration))
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         var isServerListNamespace = string.Equals(ns, ServerListContractConstants.Namespace, StringComparison.OrdinalIgnoreCase);
 
@@ -223,7 +237,9 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
     async Task<ApiResult> IGlobalConfigurationsApi.DeleteConfiguration(string ns, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
 
@@ -238,7 +254,9 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             if (configs.Count == 0)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             context.GlobalConfigurations.RemoveRange(configs);
         }
@@ -248,7 +266,9 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
                 .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
             if (config == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             context.GlobalConfigurations.Remove(config);
         }

@@ -388,7 +388,10 @@ public class MapsControllerTests
         context.Maps.AddRange(map1, map2);
         context.Players.Add(player);
         for (int i = 0; i < 3; i++)
+        {
             context.MapVotes.Add(new MapVote { MapVoteId = Guid.NewGuid(), MapId = map1.MapId, PlayerId = player.PlayerId, Like = true, Timestamp = DateTime.UtcNow.AddMinutes(-i) });
+        }
+
         context.MapVotes.Add(new MapVote { MapVoteId = Guid.NewGuid(), MapId = map2.MapId, PlayerId = player.PlayerId, Like = false, Timestamp = DateTime.UtcNow });
         await context.SaveChangesAsync();
 

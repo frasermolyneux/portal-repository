@@ -68,13 +68,40 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.Title is not null) entity.Title = dto.Title;
-            if (dto.Description is not null) entity.Description = dto.Description;
-            if (dto.GameMode is not null) entity.GameMode = dto.GameMode;
-            if (dto.Status.HasValue) entity.Status = (int)dto.Status.Value;
-            if (dto.Category is not null) entity.Category = dto.Category;
-            if (dto.SequenceOrder.HasValue) entity.SequenceOrder = dto.SequenceOrder.Value;
-            if (dto.LastModifiedByUserId.HasValue) entity.LastModifiedByUserId = dto.LastModifiedByUserId.Value;
+            if (dto.Title is not null)
+            {
+                entity.Title = dto.Title;
+            }
+
+            if (dto.Description is not null)
+            {
+                entity.Description = dto.Description;
+            }
+
+            if (dto.GameMode is not null)
+            {
+                entity.GameMode = dto.GameMode;
+            }
+
+            if (dto.Status.HasValue)
+            {
+                entity.Status = (int)dto.Status.Value;
+            }
+
+            if (dto.Category is not null)
+            {
+                entity.Category = dto.Category;
+            }
+
+            if (dto.SequenceOrder.HasValue)
+            {
+                entity.SequenceOrder = dto.SequenceOrder.Value;
+            }
+
+            if (dto.LastModifiedByUserId.HasValue)
+            {
+                entity.LastModifiedByUserId = dto.LastModifiedByUserId.Value;
+            }
 
             entity.UpdatedAt = DateTime.UtcNow;
         }
@@ -141,17 +168,60 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.DeploymentState.HasValue) entity.DeploymentState = (int)dto.DeploymentState.Value;
-            if (dto.ActivationState.HasValue) entity.ActivationState = (int)dto.ActivationState.Value;
-            if (dto.DeployedVersion.HasValue) entity.DeployedVersion = dto.DeployedVersion.Value;
-            if (dto.ActivatedVersion.HasValue) entity.ActivatedVersion = dto.ActivatedVersion.Value;
-            if (dto.ConfigFilePath is not null) entity.ConfigFilePath = dto.ConfigFilePath;
-            if (dto.ConfigVariableName is not null) entity.ConfigVariableName = dto.ConfigVariableName;
-            if (dto.PlayerCountMin.HasValue) entity.PlayerCountMin = dto.PlayerCountMin.Value;
-            if (dto.PlayerCountMax.HasValue) entity.PlayerCountMax = dto.PlayerCountMax.Value;
-            if (dto.LastError is not null) entity.LastError = dto.LastError;
-            if (dto.LastErrorAt.HasValue) entity.LastErrorAt = dto.LastErrorAt.Value;
-            if (dto.UnassignedAt.HasValue) entity.UnassignedAt = dto.UnassignedAt.Value;
+            if (dto.DeploymentState.HasValue)
+            {
+                entity.DeploymentState = (int)dto.DeploymentState.Value;
+            }
+
+            if (dto.ActivationState.HasValue)
+            {
+                entity.ActivationState = (int)dto.ActivationState.Value;
+            }
+
+            if (dto.DeployedVersion.HasValue)
+            {
+                entity.DeployedVersion = dto.DeployedVersion.Value;
+            }
+
+            if (dto.ActivatedVersion.HasValue)
+            {
+                entity.ActivatedVersion = dto.ActivatedVersion.Value;
+            }
+
+            if (dto.ConfigFilePath is not null)
+            {
+                entity.ConfigFilePath = dto.ConfigFilePath;
+            }
+
+            if (dto.ConfigVariableName is not null)
+            {
+                entity.ConfigVariableName = dto.ConfigVariableName;
+            }
+
+            if (dto.PlayerCountMin.HasValue)
+            {
+                entity.PlayerCountMin = dto.PlayerCountMin.Value;
+            }
+
+            if (dto.PlayerCountMax.HasValue)
+            {
+                entity.PlayerCountMax = dto.PlayerCountMax.Value;
+            }
+
+            if (dto.LastError is not null)
+            {
+                entity.LastError = dto.LastError;
+            }
+
+            if (dto.LastErrorAt.HasValue)
+            {
+                entity.LastErrorAt = dto.LastErrorAt.Value;
+            }
+
+            if (dto.UnassignedAt.HasValue)
+            {
+                entity.UnassignedAt = dto.UnassignedAt.Value;
+            }
 
             entity.UpdatedAt = DateTime.UtcNow;
         }

@@ -67,7 +67,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos
                 };
 
                 if (UserProfile is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(UserProfile.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

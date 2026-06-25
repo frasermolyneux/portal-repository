@@ -66,9 +66,20 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.Text is not null) entity.Text = dto.Text;
-            if (dto.Expires.HasValue) entity.Expires = dto.Expires.Value;
-            if (dto.ForumTopicId.HasValue) entity.ForumTopicId = dto.ForumTopicId.Value;
+            if (dto.Text is not null)
+            {
+                entity.Text = dto.Text;
+            }
+
+            if (dto.Expires.HasValue)
+            {
+                entity.Expires = dto.Expires.Value;
+            }
+
+            if (dto.ForumTopicId.HasValue)
+            {
+                entity.ForumTopicId = dto.ForumTopicId.Value;
+            }
         }
     }
 }

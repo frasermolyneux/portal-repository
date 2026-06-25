@@ -33,19 +33,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/ban-file-monitors", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
+            {
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
+            }
 
             if (banFileMonitorIds != null)
+            {
                 request.AddQueryParameter("banFileMonitorIds", string.Join(",", banFileMonitorIds));
+            }
 
             if (gameServerId.HasValue)
+            {
                 request.AddQueryParameter("gameServerId", gameServerId.ToString());
+            }
 
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

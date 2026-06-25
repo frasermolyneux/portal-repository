@@ -79,7 +79,10 @@ public class FakePlayersApiTests
             .Select(i => RepositoryDtoFactory.CreatePlayer(username: $"Player{i}"))
             .ToList();
 
-        foreach (var p in players) fake.AddPlayer(p);
+        foreach (var p in players)
+        {
+            fake.AddPlayer(p);
+        }
 
         foreach (var p in players)
         {

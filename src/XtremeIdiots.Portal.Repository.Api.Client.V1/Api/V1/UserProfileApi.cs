@@ -58,16 +58,22 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/user-profiles", Method.Get).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(filterString))
+            {
                 request.AddQueryParameter("filterString", filterString.ToString());
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -147,10 +153,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/user-profile/permissions-report", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.Value.ToString());
+            }
 
             if (!string.IsNullOrWhiteSpace(claimType))
+            {
                 request.AddQueryParameter("claimType", claimType);
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

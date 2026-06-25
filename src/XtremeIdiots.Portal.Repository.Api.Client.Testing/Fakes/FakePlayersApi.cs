@@ -48,7 +48,10 @@ public class FakePlayersApi : IPlayersApi
     public Task<ApiResult<PlayerDto>> GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions)
     {
         if (_players.TryGetValue(playerId, out var player))
+        {
             return Task.FromResult(new ApiResult<PlayerDto>(HttpStatusCode.OK, new ApiResponse<PlayerDto>(player)));
+        }
+
         return Task.FromResult(new ApiResult<PlayerDto>(HttpStatusCode.NotFound, new ApiResponse<PlayerDto>(new ApiError("NOT_FOUND", "Player not found"))));
     }
 
@@ -64,14 +67,20 @@ public class FakePlayersApi : IPlayersApi
     {
         var player = _players.Values.FirstOrDefault(p => p.GameType == gameType && p.Guid == guid);
         if (player != null)
+        {
             return Task.FromResult(new ApiResult<PlayerDto>(HttpStatusCode.OK, new ApiResponse<PlayerDto>(player)));
+        }
+
         return Task.FromResult(new ApiResult<PlayerDto>(HttpStatusCode.NotFound, new ApiResponse<PlayerDto>(new ApiError("NOT_FOUND", "Player not found"))));
     }
 
     public Task<ApiResult<CollectionModel<PlayerDto>>> GetPlayers(GameType? gameType, PlayersFilter? filter, string? filterString, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions)
     {
         var items = _players.Values.AsEnumerable();
-        if (gameType.HasValue) items = items.Where(p => p.GameType == gameType.Value);
+        if (gameType.HasValue)
+        {
+            items = items.Where(p => p.GameType == gameType.Value);
+        }
 
         if (filter.HasValue && !string.IsNullOrWhiteSpace(filterString))
         {
@@ -109,7 +118,9 @@ public class FakePlayersApi : IPlayersApi
     private IEnumerable<PlayerDto> ApplyTagFilter(IEnumerable<PlayerDto> items, string trimmedFilter)
     {
         if (!Guid.TryParse(trimmedFilter, out var tagId))
+        {
             return Enumerable.Empty<PlayerDto>();
+        }
 
         return items.Where(player =>
         {
@@ -140,21 +151,30 @@ public class FakePlayersApi : IPlayersApi
     public Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
     {
         if (_players.TryGetValue(dto.PlayerId, out _))
+        {
             return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        }
+
         return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
     }
 
     public Task<ApiResult> UpdatePlayerUsername(UpdatePlayerUsernameDto dto)
     {
         if (_players.TryGetValue(dto.PlayerId, out _))
+        {
             return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        }
+
         return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
     }
 
     public Task<ApiResult> RecordPlayerSession(RecordPlayerSessionDto dto)
     {
         if (_players.TryGetValue(dto.PlayerId, out _))
+        {
             return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        }
+
         return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
     }
 
@@ -190,7 +210,10 @@ public class FakePlayersApi : IPlayersApi
     public Task<ApiResult<ProtectedNameDto>> GetProtectedName(Guid protectedNameId)
     {
         if (_protectedNames.TryGetValue(protectedNameId, out var pn))
+        {
             return Task.FromResult(new ApiResult<ProtectedNameDto>(HttpStatusCode.OK, new ApiResponse<ProtectedNameDto>(pn)));
+        }
+
         return Task.FromResult(new ApiResult<ProtectedNameDto>(HttpStatusCode.NotFound, new ApiResponse<ProtectedNameDto>(new ApiError("NOT_FOUND", "Protected name not found"))));
     }
 
@@ -207,7 +230,10 @@ public class FakePlayersApi : IPlayersApi
     public Task<ApiResult<ProtectedNameUsageReportDto>> GetProtectedNameUsageReport(Guid protectedNameId)
     {
         if (_protectedNameUsageReports.TryGetValue(protectedNameId, out var report))
+        {
             return Task.FromResult(new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.OK, new ApiResponse<ProtectedNameUsageReportDto>(report)));
+        }
+
         return Task.FromResult(new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound, new ApiResponse<ProtectedNameUsageReportDto>(new ApiError("NOT_FOUND", "Report not found"))));
     }
 
@@ -224,7 +250,10 @@ public class FakePlayersApi : IPlayersApi
     public Task<ApiResult<PlayerTagDto>> GetPlayerTagById(Guid playerTagId)
     {
         if (_playerTagsById.TryGetValue(playerTagId, out var tag))
+        {
             return Task.FromResult(new ApiResult<PlayerTagDto>(HttpStatusCode.OK, new ApiResponse<PlayerTagDto>(tag)));
+        }
+
         return Task.FromResult(new ApiResult<PlayerTagDto>(HttpStatusCode.NotFound, new ApiResponse<PlayerTagDto>(new ApiError("NOT_FOUND", "Player tag not found"))));
     }
 

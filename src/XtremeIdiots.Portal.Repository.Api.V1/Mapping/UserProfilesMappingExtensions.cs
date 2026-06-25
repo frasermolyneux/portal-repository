@@ -69,16 +69,55 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.IdentityOid is not null) entity.IdentityOid = dto.IdentityOid;
-            if (dto.XtremeIdiotsForumId is not null) entity.XtremeIdiotsForumId = dto.XtremeIdiotsForumId;
-            if (dto.DemoAuthKey is not null) entity.DemoAuthKey = dto.DemoAuthKey;
-            if (dto.DisplayName is not null) entity.DisplayName = dto.DisplayName;
-            if (dto.FormattedName is not null) entity.FormattedName = dto.FormattedName;
-            if (dto.PrimaryGroup is not null) entity.PrimaryGroup = dto.PrimaryGroup;
-            if (dto.Email is not null) entity.Email = dto.Email;
-            if (dto.PhotoUrl is not null) entity.PhotoUrl = dto.PhotoUrl;
-            if (dto.ProfileUrl is not null) entity.ProfileUrl = dto.ProfileUrl;
-            if (dto.TimeZone is not null) entity.TimeZone = dto.TimeZone;
+            if (dto.IdentityOid is not null)
+            {
+                entity.IdentityOid = dto.IdentityOid;
+            }
+
+            if (dto.XtremeIdiotsForumId is not null)
+            {
+                entity.XtremeIdiotsForumId = dto.XtremeIdiotsForumId;
+            }
+
+            if (dto.DemoAuthKey is not null)
+            {
+                entity.DemoAuthKey = dto.DemoAuthKey;
+            }
+
+            if (dto.DisplayName is not null)
+            {
+                entity.DisplayName = dto.DisplayName;
+            }
+
+            if (dto.FormattedName is not null)
+            {
+                entity.FormattedName = dto.FormattedName;
+            }
+
+            if (dto.PrimaryGroup is not null)
+            {
+                entity.PrimaryGroup = dto.PrimaryGroup;
+            }
+
+            if (dto.Email is not null)
+            {
+                entity.Email = dto.Email;
+            }
+
+            if (dto.PhotoUrl is not null)
+            {
+                entity.PhotoUrl = dto.PhotoUrl;
+            }
+
+            if (dto.ProfileUrl is not null)
+            {
+                entity.ProfileUrl = dto.ProfileUrl;
+            }
+
+            if (dto.TimeZone is not null)
+            {
+                entity.TimeZone = dto.TimeZone;
+            }
         }
 
         /// <summary>

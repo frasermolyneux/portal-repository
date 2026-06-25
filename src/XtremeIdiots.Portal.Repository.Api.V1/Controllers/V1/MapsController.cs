@@ -89,7 +89,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
 
             if (map == null)
+            {
                 return new ApiResult<MapDto>(HttpStatusCode.NotFound);
+            }
 
             var result = map.ToDto();
 
@@ -111,7 +113,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName, cancellationToken).ConfigureAwait(false);
 
             if (map == null)
+            {
                 return new ApiResult<MapDto>(HttpStatusCode.NotFound);
+            }
 
             var result = map.ToDto();
 
@@ -135,10 +139,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> GetMaps(GameType? gameType, string? mapNames, MapsFilter? filter, string? filterString, int? skipEntries, int? takeEntries, MapsOrder? order, CancellationToken cancellationToken = default)
         {
             if (!skipEntries.HasValue)
+            {
                 skipEntries = 0;
+            }
 
             if (!takeEntries.HasValue)
+            {
                 takeEntries = 20;
+            }
 
             string[]? mapNamesFilter = null;
             if (!string.IsNullOrWhiteSpace(mapNames))
@@ -318,7 +326,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var map = await context.Maps.FirstOrDefaultAsync(m => m.MapId == editMapDto.MapId, cancellationToken).ConfigureAwait(false);
             if (map == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             editMapDto.ApplyTo(map);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -373,7 +383,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 var map = await context.Maps.FirstOrDefaultAsync(m => m.MapId == editMapDto.MapId, cancellationToken).ConfigureAwait(false);
                 if (map == null)
+                {
                     return new ApiResult(HttpStatusCode.NotFound);
+                }
 
                 editMapDto.ApplyTo(map);
             }
@@ -411,7 +423,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
 
             if (map == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             context.Remove(map);
 
@@ -435,10 +449,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> GetMapVotes(GameType? gameType, Guid? mapId, int? skipEntries, int? takeEntries, MapVotesOrder? order, CancellationToken cancellationToken = default)
         {
             if (!skipEntries.HasValue)
+            {
                 skipEntries = 0;
+            }
 
             if (!takeEntries.HasValue)
+            {
                 takeEntries = 20;
+            }
 
             var response = await ((IMapsApi)this).GetMapVotes(gameType, mapId, skipEntries.Value, takeEntries.Value, order, cancellationToken).ConfigureAwait(false);
 
@@ -463,10 +481,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             // Apply filters (without Include for efficient counting)
             if (gameType.HasValue)
+            {
                 baseQuery = baseQuery.Where(mv => mv.Map.GameType == gameType.Value.ToGameTypeInt());
+            }
 
             if (mapId.HasValue)
+            {
                 baseQuery = baseQuery.Where(mv => mv.MapId == mapId.Value);
+            }
 
             var filteredCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
@@ -711,11 +733,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
 
             if (map == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             var blobEndpoint = Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint");
             if (string.IsNullOrEmpty(blobEndpoint))
+            {
                 return new ApiResult(HttpStatusCode.InternalServerError);
+            }
 
             var blobServiceClient = new BlobServiceClient(new Uri(blobEndpoint), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("map-images");
@@ -782,11 +808,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
 
             if (map == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             var blobEndpoint = Environment.GetEnvironmentVariable("appdata_storage_blob_endpoint");
             if (string.IsNullOrEmpty(blobEndpoint))
+            {
                 return new ApiResult(HttpStatusCode.InternalServerError);
+            }
 
             try
             {
@@ -826,10 +856,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private IQueryable<Map> ApplyFilter(IQueryable<Map> query, GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString)
         {
             if (gameType.HasValue)
+            {
                 query = query.Where(m => m.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+            }
 
             if (mapNames?.Length > 0)
+            {
                 query = query.Where(m => mapNames.Contains(m.MapName)).AsQueryable();
+            }
 
             if (!string.IsNullOrEmpty(filterString))
             {
@@ -878,7 +912,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static string GetContentTypeFromExtension(string? extension)
         {
             if (string.IsNullOrWhiteSpace(extension))
+            {
                 return "image/jpeg"; // default expected type
+            }
 
             return extension.ToLowerInvariant() switch
             {

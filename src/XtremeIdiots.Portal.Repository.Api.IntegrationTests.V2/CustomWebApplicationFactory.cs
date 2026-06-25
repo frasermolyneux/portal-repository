@@ -59,7 +59,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                     (d.ImplementationType?.FullName?.Contains("SqlServer") == true))
                 .ToList();
             foreach (var descriptor in descriptorsToRemove)
+            {
                 services.Remove(descriptor);
+            }
 
             // Add in-memory database
             services.AddDbContext<PortalDbContext>(options =>

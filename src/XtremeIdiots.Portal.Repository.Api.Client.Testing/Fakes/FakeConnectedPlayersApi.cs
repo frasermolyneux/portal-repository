@@ -194,16 +194,24 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
         IEnumerable<ConnectedPlayerDto> query = _connectedPlayers.Values;
 
         if (playerId.HasValue)
+        {
             query = query.Where(cp => cp.PlayerId == playerId.Value);
+        }
 
         if (userProfileId.HasValue)
+        {
             query = query.Where(cp => cp.UserProfileId == userProfileId.Value);
+        }
 
         if (gameType.HasValue)
+        {
             query = query.Where(cp => cp.GameType == gameType.Value);
+        }
 
         if (isActive.HasValue)
+        {
             query = query.Where(cp => cp.IsActive == isActive.Value);
+        }
 
         var items = query.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<ConnectedPlayerDto> { Items = items };

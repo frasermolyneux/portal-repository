@@ -72,7 +72,9 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             .FirstOrDefaultAsync(cl => cl.ChatMessageId == chatMessageId, cancellationToken).ConfigureAwait(false);
 
         if (chatLog == null)
+        {
             return new ApiResult<ChatMessageDto>(HttpStatusCode.NotFound);
+        }
 
         var result = chatLog.ToDto();
 
@@ -193,7 +195,9 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
         }
 
         if (createChatMessageDtos == null || !createChatMessageDtos.Any())
+        {
             return new ApiResponse().ToBadRequestResult().ToHttpResult();
+        }
 
         var response = await ((IChatMessagesApi)this).CreateChatMessages(createChatMessageDtos, cancellationToken).ConfigureAwait(false);
 
@@ -221,16 +225,22 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
                 if (anon != null && anon.TryGetValue("locked", out var v) && v != null)
                 {
                     if (v is bool b)
+                    {
                         locked = b;
+                    }
                     else if (bool.TryParse(v.ToString(), out var parsed))
+                    {
                         locked = parsed;
+                    }
                 }
             }
             catch { }
         }
 
         if (locked == null)
+        {
             return new ApiResponse().ToBadRequestResult().ToHttpResult();
+        }
 
         var response = await ((IChatMessagesApi)this).SetLock(chatMessageId, locked.Value, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
@@ -248,7 +258,10 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
             .FirstOrDefaultAsync(cm => cm.ChatMessageId == chatMessageId, cancellationToken).ConfigureAwait(false);
 
         if (chatMessage == null)
+        {
             return new ApiResult(HttpStatusCode.NotFound);
+        }
+
         chatMessage.Locked = locked;
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -285,13 +298,19 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     private IQueryable<ChatMessage> ApplyFilter(IQueryable<ChatMessage> query, GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString, bool? lockedOnly = null)
     {
         if (gameType.HasValue)
+        {
             query = query.Where(cl => cl.GameServer.GameType == gameType.Value.ToGameTypeInt());
+        }
 
         if (gameServerId.HasValue)
+        {
             query = query.Where(cl => cl.GameServerId == gameServerId);
+        }
 
         if (playerId.HasValue)
+        {
             query = query.Where(cl => cl.PlayerId == playerId);
+        }
 
         if (!string.IsNullOrWhiteSpace(filterString))
         {
@@ -333,7 +352,9 @@ JOIN ChatMessages c ON c.ChatMessageId = ft.[Key]")
         }
 
         if (lockedOnly.HasValue && lockedOnly.Value)
+        {
             query = query.Where(m => m.Locked);
+        }
 
         return query;
     }

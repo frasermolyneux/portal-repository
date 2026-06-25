@@ -74,7 +74,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
                 };
 
                 if (Player is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(Player.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

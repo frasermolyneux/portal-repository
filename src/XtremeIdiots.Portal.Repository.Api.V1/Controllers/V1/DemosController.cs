@@ -72,7 +72,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken).ConfigureAwait(false);
 
             if (demo == null)
+            {
                 return new ApiResult<DemoDto>(HttpStatusCode.NotFound);
+            }
 
             var result = demo.ToDto();
 
@@ -200,17 +202,23 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> SetDemoFile(Guid demoId, CancellationToken cancellationToken = default)
         {
             if (Request.Form.Files.Count == 0)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage))).ToHttpResult();
+            }
 
             List<string> whitelistedExtensions = [".dm_1", ".dm_6"];
 
             var file = Request.Form.Files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
+            }
 
             var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             using (var stream = System.IO.File.Create(filePath))
+            {
                 await file.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+            }
 
             var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath, cancellationToken).ConfigureAwait(false);
 
@@ -231,7 +239,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken).ConfigureAwait(false);
 
             if (demo == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]!), new DefaultAzureCredential());
             var containerClient = blobServiceClient.GetBlobContainerClient("demos");
@@ -285,7 +295,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(d => d.DemoId == demoId, cancellationToken).ConfigureAwait(false);
 
             if (demo == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             context.Remove(demo);
 

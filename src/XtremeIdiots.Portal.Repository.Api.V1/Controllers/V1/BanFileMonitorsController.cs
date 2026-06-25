@@ -54,7 +54,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(bfm => bfm.BanFileMonitorId == banFileMonitorId, cancellationToken).ConfigureAwait(false);
 
             if (banFileMonitor == null)
+            {
                 return new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound);
+            }
 
             var result = banFileMonitor.ToDto();
             return new ApiResponse<BanFileMonitorDto>(result).ToApiResult();
@@ -131,10 +133,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             CancellationToken cancellationToken = default)
         {
             if (upsertDto is null)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))).ToHttpResult();
+            }
 
             if (upsertDto.GameServerId != gameServerId)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, "GameServerId in the URL must match GameServerId in the request body"))).ToHttpResult();
+            }
 
             var response = await ((IBanFileMonitorsApi)this).UpsertBanFileMonitorStatus(upsertDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -150,7 +156,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .ConfigureAwait(false);
 
             if (!gameServerExists)
+            {
                 return new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound);
+            }
 
             // Pre-cleanup data may have multiple rows per game server. Order by LastCheckUtc
             // and keep the most-recently-touched one as the canonical row going forward.
@@ -193,10 +201,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             if (banFileMonitorIds is { Length: > 0 })
+            {
                 query = query.Where(bfm => banFileMonitorIds.Contains(bfm.BanFileMonitorId));
+            }
 
             if (gameServerId.HasValue)
+            {
                 query = query.Where(bfm => bfm.GameServerId == gameServerId.Value);
+            }
 
             return query;
         }

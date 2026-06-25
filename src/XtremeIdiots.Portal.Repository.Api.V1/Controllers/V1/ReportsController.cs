@@ -73,7 +73,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken).ConfigureAwait(false);
 
             if (report == null)
+            {
                 return new ApiResult<ReportDto>(HttpStatusCode.NotFound);
+            }
 
             var result = report.ToDto();
 
@@ -105,7 +107,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             CancellationToken cancellationToken = default)
         {
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddDays(-14))
+            {
                 cutoff = DateTime.UtcNow.AddDays(-14);
+            }
 
             var response = await ((IReportsApi)this).GetReports(gameType, gameServerId, cutoff, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
 
@@ -174,9 +178,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateReports([FromBody] List<CreateReportDto> createReportDtos, CancellationToken cancellationToken = default)
         {
             if (createReportDtos == null || !createReportDtos.Any())
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IReportsApi)this).CreateReports(createReportDtos, cancellationToken).ConfigureAwait(false);
 
@@ -200,7 +206,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .FirstOrDefaultAsync(gs => gs.GameServerId == report.GameServerId, cancellationToken).ConfigureAwait(false);
 
                 if (gameServer == null)
+                {
                     return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+                }
 
                 report.GameType = gameServer.GameType;
             }
@@ -225,9 +233,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CloseReport(Guid reportId, [FromBody] CloseReportDto closeReportDto, CancellationToken cancellationToken = default)
         {
             if (closeReportDto == null)
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IReportsApi)this).CloseReport(reportId, closeReportDto, cancellationToken).ConfigureAwait(false);
 
@@ -247,14 +257,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(r => r.ReportId == reportId, cancellationToken).ConfigureAwait(false);
 
             if (report == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             var userProfile = await context.UserProfiles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.UserProfileId == closeReportDto.AdminUserProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
+            }
 
             closeReportDto.ApplyTo(report);
 
@@ -278,13 +292,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static IQueryable<Report> ApplyFilters(IQueryable<Report> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter)
         {
             if (gameType.HasValue)
+            {
                 query = query.Where(r => r.GameType == ((GameType)gameType).ToGameTypeInt());
+            }
 
             if (gameServerId.HasValue)
+            {
                 query = query.Where(r => r.GameServerId == gameServerId);
+            }
 
             if (cutoff.HasValue)
+            {
                 query = query.Where(r => r.Timestamp > cutoff);
+            }
 
             if (filter.HasValue)
             {

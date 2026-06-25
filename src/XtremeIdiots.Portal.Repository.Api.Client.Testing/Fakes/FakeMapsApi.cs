@@ -18,7 +18,9 @@ public class FakeMapsApi : IMapsApi
     {
         // Auto-resolve Map navigation from _maps store if not already set
         if (mapVote.Map is null && _maps.TryGetValue(mapVote.MapId, out var map))
+        {
             mapVote = mapVote with { Map = map };
+        }
 
         _mapVotes[mapVote.MapVoteId] = mapVote;
         return this;
@@ -33,7 +35,10 @@ public class FakeMapsApi : IMapsApi
     public Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default)
     {
         if (_maps.TryGetValue(mapId, out var map))
+        {
             return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(map)));
+        }
+
         return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.NotFound, new ApiResponse<MapDto>(new ApiError("NOT_FOUND", "Map not found"))));
     }
 
@@ -41,15 +46,26 @@ public class FakeMapsApi : IMapsApi
     {
         var map = _maps.Values.FirstOrDefault(m => m.GameType == gameType && m.MapName == mapName);
         if (map != null)
+        {
             return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(map)));
+        }
+
         return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.NotFound, new ApiResponse<MapDto>(new ApiError("NOT_FOUND", "Map not found"))));
     }
 
     public Task<ApiResult<CollectionModel<MapDto>>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _maps.Values.AsEnumerable();
-        if (gameType.HasValue) items = items.Where(m => m.GameType == gameType.Value);
-        if (mapNames != null) items = items.Where(m => mapNames.Contains(m.MapName));
+        if (gameType.HasValue)
+        {
+            items = items.Where(m => m.GameType == gameType.Value);
+        }
+
+        if (mapNames != null)
+        {
+            items = items.Where(m => mapNames.Contains(m.MapName));
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<MapDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapDto>>(collection)));
@@ -61,8 +77,15 @@ public class FakeMapsApi : IMapsApi
         var items = _mapVotes.Values.Select(mv =>
             mv.Map is null && _maps.TryGetValue(mv.MapId, out var map) ? mv with { Map = map } : mv);
 
-        if (gameType.HasValue) items = items.Where(mv => mv.Map?.GameType == gameType.Value);
-        if (mapId.HasValue) items = items.Where(mv => mv.MapId == mapId.Value);
+        if (gameType.HasValue)
+        {
+            items = items.Where(mv => mv.Map?.GameType == gameType.Value);
+        }
+
+        if (mapId.HasValue)
+        {
+            items = items.Where(mv => mv.MapId == mapId.Value);
+        }
 
         var totalCount = _mapVotes.Count;
         var filteredCount = items.Count();

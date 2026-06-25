@@ -61,9 +61,13 @@ public class TestServerRestClientService : IRestClientService
             string bodyString;
 
             if (bodyValue is string s)
+            {
                 bodyString = s;
+            }
             else
+            {
                 bodyString = Newtonsoft.Json.JsonConvert.SerializeObject(bodyValue);
+            }
 
             httpRequest.Content = new StringContent(
                 bodyString,

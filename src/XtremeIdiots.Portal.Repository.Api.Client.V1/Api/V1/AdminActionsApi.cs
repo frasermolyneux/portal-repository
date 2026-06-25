@@ -32,22 +32,32 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync($"v1/admin-actions", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.ToString());
+            }
 
             if (playerId.HasValue)
+            {
                 request.AddQueryParameter("playerId", playerId.ToString());
+            }
 
             if (!string.IsNullOrWhiteSpace(adminId))
+            {
                 request.AddQueryParameter("adminId", adminId);
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -59,7 +69,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/admin-actions/active-ban-counts", Method.Get).ConfigureAwait(false);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
             return response.ToApiResult<CollectionModel<ActiveBanCountsDto>>();

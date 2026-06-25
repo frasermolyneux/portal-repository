@@ -24,13 +24,17 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync($"v1/notifications/{userProfileId}", Method.Get).ConfigureAwait(false);
 
             if (unreadOnly.HasValue)
+            {
                 request.AddQueryParameter("unreadOnly", unreadOnly.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

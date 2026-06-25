@@ -17,7 +17,11 @@ public class FakeNotificationsApi : INotificationsApi
     public Task<ApiResult<CollectionModel<NotificationDto>>> GetNotifications(Guid userProfileId, bool? unreadOnly, int skipEntries, int takeEntries, NotificationOrder? order, CancellationToken cancellationToken = default)
     {
         var query = _notifications.Values.Where(n => n.UserProfileId == userProfileId);
-        if (unreadOnly == true) query = query.Where(n => !n.IsRead);
+        if (unreadOnly == true)
+        {
+            query = query.Where(n => !n.IsRead);
+        }
+
         var items = query.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<NotificationDto> { Items = items };
         return Task.FromResult(new ApiResult<CollectionModel<NotificationDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<NotificationDto>>(collection)));

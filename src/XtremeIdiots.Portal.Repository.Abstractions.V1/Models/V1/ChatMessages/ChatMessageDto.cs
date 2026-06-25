@@ -68,10 +68,14 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages
                 };
 
                 if (GameServer is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(GameServer.TelemetryProperties);
+                }
 
                 if (Player is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(Player.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

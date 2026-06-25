@@ -59,7 +59,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken).ConfigureAwait(false);
 
             if (adminAction == null)
+            {
                 return new ApiResult<AdminActionDto>(HttpStatusCode.NotFound);
+            }
 
             var result = adminAction.ToDto();
             return new ApiResponse<AdminActionDto>(result).ToApiResult();
@@ -146,16 +148,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private IQueryable<AdminAction> ApplyFilters(IQueryable<AdminAction> query, GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter)
         {
             if (gameType.HasValue)
+            {
                 query = query.Where(a => a.Player.GameType == (int)gameType.Value);
+            }
 
             if (playerId.HasValue)
+            {
                 query = query.Where(a => a.PlayerId == playerId.Value);
+            }
 
             if (!string.IsNullOrEmpty(adminId))
+            {
                 query = query.Where(a => a.UserProfile != null &&
                     (a.UserProfile.IdentityOid == adminId ||
                      a.UserProfile.XtremeIdiotsForumId == adminId ||
                      a.UserProfile.DemoAuthKey == adminId));
+            }
 
             if (filter.HasValue)
             {
@@ -301,7 +309,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (userProfileId != Guid.Empty)
+                {
                     adminAction.UserProfileId = userProfileId;
+                }
             }
             context.AdminActions.Add(adminAction);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -349,7 +359,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(a => a.AdminActionId == editAdminActionDto.AdminActionId, cancellationToken).ConfigureAwait(false);
 
             if (adminAction == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             editAdminActionDto.ApplyTo(adminAction);
 
@@ -363,7 +375,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
                 if (userProfileId != Guid.Empty)
+                {
                     adminAction.UserProfileId = userProfileId;
+                }
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -397,7 +411,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(a => a.AdminActionId == adminActionId, cancellationToken).ConfigureAwait(false);
 
             if (adminAction == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             context.AdminActions.Remove(adminAction);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

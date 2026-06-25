@@ -47,7 +47,9 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
             .AnyAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (!gameServerExists)
+        {
             return new ApiResult<CollectionModel<ConfigurationDto>>(HttpStatusCode.NotFound);
+        }
 
         var configs = await context.GameServerConfigurations
             .Where(c => c.GameServerId == gameServerId)
@@ -72,14 +74,18 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
     async Task<ApiResult<ConfigurationDto>> IGameServerConfigurationsApi.GetConfiguration(Guid gameServerId, string ns, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
+        {
             return new ApiResult<ConfigurationDto>(HttpStatusCode.BadRequest);
+        }
 
         var config = await context.GameServerConfigurations
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.GameServerId == gameServerId && c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
         if (config == null)
+        {
             return new ApiResult<ConfigurationDto>(HttpStatusCode.NotFound);
+        }
 
         return new ApiResponse<ConfigurationDto>(config.ToDto()).ToApiResult();
     }
@@ -104,9 +110,11 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
         }
 
         if (dto == null)
+        {
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                 .ToBadRequestResult()
                 .ToHttpResult();
+        }
 
         var response = await ((IGameServerConfigurationsApi)this).UpsertConfiguration(gameServerId, ns, dto, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
@@ -115,10 +123,14 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
     async Task<ApiResult> IGameServerConfigurationsApi.UpsertConfiguration(Guid gameServerId, string ns, UpsertConfigurationDto dto, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         if (string.IsNullOrWhiteSpace(dto.Configuration))
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         try { Newtonsoft.Json.Linq.JToken.Parse(dto.Configuration); }
         catch { return new ApiResult(HttpStatusCode.BadRequest); }
@@ -127,10 +139,14 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
             .AnyAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (!gameServerExists)
+        {
             return new ApiResult(HttpStatusCode.NotFound);
+        }
 
         if (!NamespaceSchemaValidationRegistry.TryValidate(ns, dto.Configuration))
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         var existing = await context.GameServerConfigurations
             .FirstOrDefaultAsync(c => c.GameServerId == gameServerId && c.Namespace == ns, cancellationToken).ConfigureAwait(false);
@@ -167,13 +183,17 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
     async Task<ApiResult> IGameServerConfigurationsApi.DeleteConfiguration(Guid gameServerId, string ns, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
+        {
             return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         var config = await context.GameServerConfigurations
             .FirstOrDefaultAsync(c => c.GameServerId == gameServerId && c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
         if (config == null)
+        {
             return new ApiResult(HttpStatusCode.NotFound);
+        }
 
         context.GameServerConfigurations.Remove(config);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

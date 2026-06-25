@@ -109,7 +109,10 @@ public class DashboardController : ControllerBase, IDashboardApi
 
     async Task<ApiResult<CollectionModel<AdminLeaderboardEntryDto>>> IDashboardApi.GetAdminLeaderboard(int days, CancellationToken cancellationToken)
     {
-        if (days <= 0) days = 30;
+        if (days <= 0)
+        {
+            days = 30;
+        }
 
         var cutoff = DateTime.UtcNow.AddDays(-days);
 
@@ -174,7 +177,10 @@ public class DashboardController : ControllerBase, IDashboardApi
 
     async Task<ApiResult<CollectionModel<ModerationTrendDataPointDto>>> IDashboardApi.GetModerationTrend(int days, CancellationToken cancellationToken)
     {
-        if (days <= 0) days = 30;
+        if (days <= 0)
+        {
+            days = 30;
+        }
 
         var cutoff = DateTime.UtcNow.AddDays(-days);
 

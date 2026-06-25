@@ -61,7 +61,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(mr => mr.MapRotationId == mapRotationId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult<MapRotationDto>(HttpStatusCode.NotFound);
+            }
 
             var result = entity.ToDto();
             return new ApiResponse<MapRotationDto>(result).ToApiResult();
@@ -100,9 +102,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 foreach (var gt in split)
                 {
                     if (!Enum.TryParse<GameType>(gt.Trim(), out var gameType) || !Enum.IsDefined(gameType))
+                    {
                         return new ApiResponse(new ApiError("INVALID_GAME_TYPE", $"Invalid game type value: '{gt.Trim()}'."))
                             .ToBadRequestResult()
                             .ToHttpResult();
+                    }
+
                     parsed.Add(gameType);
                 }
                 gameTypesFilter = parsed.ToArray();
@@ -199,9 +204,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateMapRotation([FromBody] CreateMapRotationDto createMapRotationDto, CancellationToken cancellationToken = default)
         {
             if (createMapRotationDto == null)
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IMapRotationsApi)this).CreateMapRotation(createMapRotationDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -227,13 +234,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToListAsync(cancellationToken).ConfigureAwait(false);
 
                 if (maps.Count != distinctMapIds.Count)
+                {
                     return new ApiResult<MapRotationDto>(HttpStatusCode.BadRequest,
                         new ApiResponse<MapRotationDto>(new ApiError("INVALID_MAP_IDS", "One or more map IDs do not exist.")));
+                }
 
                 var gameTypeInt = (int)createMapRotationDto.GameType;
                 if (maps.Any(m => m.GameType != gameTypeInt))
+                {
                     return new ApiResult<MapRotationDto>(HttpStatusCode.BadRequest,
                         new ApiResponse<MapRotationDto>(new ApiError("MAP_GAME_TYPE_MISMATCH", "One or more maps do not match the rotation's game type.")));
+                }
 
                 entity.ContentHash = MapRotationsMappingExtensions.ComputeContentHash(distinctMapIds);
                 entity.MapRotationMaps = distinctMapIds.Select((mapId, index) => new MapRotationMap
@@ -270,12 +281,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> UpdateMapRotation(Guid mapRotationId, [FromBody] UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken = default)
         {
             if (updateMapRotationDto == null)
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             if (updateMapRotationDto.MapRotationId != mapRotationId)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();
+            }
 
             var response = await ((IMapRotationsApi)this).UpdateMapRotation(updateMapRotationDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -294,7 +309,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(mr => mr.MapRotationId == updateMapRotationDto.MapRotationId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             updateMapRotationDto.ApplyTo(entity);
 
@@ -307,12 +324,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ToListAsync(cancellationToken).ConfigureAwait(false);
 
                 if (maps.Count != distinctMapIds.Count)
+                {
                     return new ApiResult(HttpStatusCode.BadRequest,
                         new ApiResponse(new ApiError("INVALID_MAP_IDS", "One or more map IDs do not exist.")));
+                }
 
                 if (maps.Any(m => m.GameType != entity.GameType))
+                {
                     return new ApiResult(HttpStatusCode.BadRequest,
                         new ApiResponse(new ApiError("MAP_GAME_TYPE_MISMATCH", "One or more maps do not match the rotation's game type.")));
+                }
 
                 var newHash = MapRotationsMappingExtensions.ComputeContentHash(distinctMapIds);
                 if (newHash != entity.ContentHash)
@@ -365,16 +386,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(mr => mr.MapRotationId == mapRotationId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             // Block delete if any assignments are actively deployed (allow Removed and Failed)
             if (entity.MapRotationServerAssignments.Any(a => a.DeploymentState != (int)DeploymentState.Removed && a.DeploymentState != (int)DeploymentState.Failed))
+            {
                 return new ApiResult(HttpStatusCode.BadRequest,
                     new ApiResponse(new ApiError("HAS_ACTIVE_ASSIGNMENTS", "Cannot delete a map rotation that has active server assignments. Unassign all servers first.")));
+            }
 
             // Remove children explicitly to avoid FK violations
             foreach (var assignment in entity.MapRotationServerAssignments)
+            {
                 context.MapRotationAssignmentOperations.RemoveRange(assignment.MapRotationAssignmentOperations);
+            }
 
             context.MapRotationServerAssignments.RemoveRange(entity.MapRotationServerAssignments);
             context.MapRotationMaps.RemoveRange(entity.MapRotationMaps);
@@ -414,7 +441,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == assignmentId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.NotFound);
+            }
 
             var result = entity.ToDto();
             return new ApiResponse<MapRotationServerAssignmentDto>(result).ToApiResult();
@@ -467,13 +496,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var totalCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
             if (mapRotationId.HasValue)
+            {
                 query = query.Where(a => a.MapRotationId == mapRotationId.Value);
+            }
 
             if (gameServerId.HasValue)
+            {
                 query = query.Where(a => a.GameServerId == gameServerId.Value);
+            }
 
             if (deploymentState.HasValue)
+            {
                 query = query.Where(a => a.DeploymentState == (int)deploymentState.Value);
+            }
 
             var filteredCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
@@ -505,9 +540,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateServerAssignment([FromBody] CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken = default)
         {
             if (createDto == null)
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IMapRotationsApi)this).CreateServerAssignment(createDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -526,20 +563,26 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(mr => mr.MapRotationId == createDto.MapRotationId, cancellationToken).ConfigureAwait(false);
 
             if (mapRotation == null)
+            {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("MAP_ROTATION_NOT_FOUND", "The specified map rotation does not exist.")));
+            }
 
             var gameServer = await context.GameServers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(gs => gs.GameServerId == createDto.GameServerId, cancellationToken).ConfigureAwait(false);
 
             if (gameServer == null)
+            {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("GAME_SERVER_NOT_FOUND", "The specified game server does not exist.")));
+            }
 
             if (mapRotation.GameType != gameServer.GameType)
+            {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("GAME_TYPE_MISMATCH", "The map rotation game type does not match the game server game type.")));
+            }
 
             var duplicateExists = await context.MapRotationServerAssignments
                 .AnyAsync(a =>
@@ -550,8 +593,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     cancellationToken).ConfigureAwait(false);
 
             if (duplicateExists)
+            {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("DUPLICATE_CONFIG_TARGET", "An active assignment already exists for this game server with the same config file path and variable name.")));
+            }
 
             var entity = createDto.ToEntity();
             context.MapRotationServerAssignments.Add(entity);
@@ -579,12 +624,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> UpdateServerAssignment(Guid assignmentId, [FromBody] UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken = default)
         {
             if (updateDto == null)
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             if (updateDto.MapRotationServerAssignmentId != assignmentId)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();
+            }
 
             var response = await ((IMapRotationsApi)this).UpdateServerAssignment(updateDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -602,7 +651,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == updateDto.MapRotationServerAssignmentId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             updateDto.ApplyTo(entity);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -636,7 +687,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == assignmentId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             entity.DeploymentState = (int)DeploymentState.Removing;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -710,9 +763,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateAssignmentOperation([FromBody] CreateMapRotationAssignmentOperationDto createDto, CancellationToken cancellationToken = default)
         {
             if (createDto == null)
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IMapRotationsApi)this).CreateAssignmentOperation(createDto, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -730,8 +785,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AnyAsync(a => a.MapRotationServerAssignmentId == createDto.MapRotationServerAssignmentId, cancellationToken).ConfigureAwait(false);
 
             if (!assignmentExists)
+            {
                 return new ApiResult<MapRotationAssignmentOperationDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationAssignmentOperationDto>(new ApiError("ASSIGNMENT_NOT_FOUND", "The specified server assignment does not exist.")));
+            }
 
             var entity = createDto.ToEntity();
             context.MapRotationAssignmentOperations.Add(entity);
@@ -776,13 +833,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(op => op.MapRotationAssignmentOperationId == operationId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             entity.Status = (int)status;
             entity.Error = error;
 
             if (status is AssignmentOperationStatus.Succeeded or AssignmentOperationStatus.Failed or AssignmentOperationStatus.Cancelled)
+            {
                 entity.CompletedAt = DateTime.UtcNow;
+            }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();

@@ -17,7 +17,10 @@ public class FakeGameTrackerBannerApi : IGameTrackerBannerApi
     {
         var key = $"{ipAddress}:{queryPort}:{imageName}";
         if (_banners.TryGetValue(key, out var banner))
+        {
             return Task.FromResult(new ApiResult<GameTrackerBannerDto>(HttpStatusCode.OK, new ApiResponse<GameTrackerBannerDto>(banner)));
+        }
+
         var defaultBanner = new GameTrackerBannerDto();
         return Task.FromResult(new ApiResult<GameTrackerBannerDto>(HttpStatusCode.OK, new ApiResponse<GameTrackerBannerDto>(defaultBanner)));
     }

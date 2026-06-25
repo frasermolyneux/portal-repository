@@ -58,10 +58,21 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.Name is not null) entity.Name = dto.Name;
-            if (dto.Description is not null) entity.Description = dto.Description;
+            if (dto.Name is not null)
+            {
+                entity.Name = dto.Name;
+            }
+
+            if (dto.Description is not null)
+            {
+                entity.Description = dto.Description;
+            }
+
             entity.UserDefined = dto.UserDefined; // bool is not nullable, always update
-            if (dto.TagHtml is not null) entity.TagHtml = dto.TagHtml;
+            if (dto.TagHtml is not null)
+            {
+                entity.TagHtml = dto.TagHtml;
+            }
         }
 
         /// <summary>
@@ -117,9 +128,21 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.PlayerId.HasValue) entity.PlayerId = dto.PlayerId.Value;
-            if (dto.TagId.HasValue) entity.TagId = dto.TagId.Value;
-            if (dto.UserProfileId.HasValue) entity.UserProfileId = dto.UserProfileId.Value;
+            if (dto.PlayerId.HasValue)
+            {
+                entity.PlayerId = dto.PlayerId.Value;
+            }
+
+            if (dto.TagId.HasValue)
+            {
+                entity.TagId = dto.TagId.Value;
+            }
+
+            if (dto.UserProfileId.HasValue)
+            {
+                entity.UserProfileId = dto.UserProfileId.Value;
+            }
+
             entity.Assigned = dto.Assigned; // DateTime is not nullable, always update
         }
     }

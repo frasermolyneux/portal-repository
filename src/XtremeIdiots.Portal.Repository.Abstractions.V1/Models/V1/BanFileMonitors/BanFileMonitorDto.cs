@@ -157,7 +157,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
                 };
 
                 if (GameServer is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(GameServer.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

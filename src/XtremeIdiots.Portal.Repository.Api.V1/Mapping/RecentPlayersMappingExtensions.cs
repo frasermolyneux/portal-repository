@@ -72,11 +72,31 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             entity.Name = dto.Name;
             entity.GameType = dto.GameType.ToGameTypeInt();
             entity.PlayerId = dto.PlayerId;
-            if (dto.IpAddress is not null) entity.IpAddress = dto.IpAddress;
-            if (dto.Lat.HasValue) entity.Lat = dto.Lat.Value;
-            if (dto.Long.HasValue) entity.Long = dto.Long.Value;
-            if (dto.CountryCode is not null) entity.CountryCode = dto.CountryCode;
-            if (dto.GameServerId.HasValue) entity.GameServerId = dto.GameServerId.Value;
+            if (dto.IpAddress is not null)
+            {
+                entity.IpAddress = dto.IpAddress;
+            }
+
+            if (dto.Lat.HasValue)
+            {
+                entity.Lat = dto.Lat.Value;
+            }
+
+            if (dto.Long.HasValue)
+            {
+                entity.Long = dto.Long.Value;
+            }
+
+            if (dto.CountryCode is not null)
+            {
+                entity.CountryCode = dto.CountryCode;
+            }
+
+            if (dto.GameServerId.HasValue)
+            {
+                entity.GameServerId = dto.GameServerId.Value;
+            }
+
             entity.Timestamp = DateTime.UtcNow;
         }
     }

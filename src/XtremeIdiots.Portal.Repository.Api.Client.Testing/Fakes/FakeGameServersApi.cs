@@ -23,15 +23,26 @@ public class FakeGameServersApi : IGameServersApi
     public Task<ApiResult<GameServerDto>> GetGameServer(Guid gameServerId, CancellationToken cancellationToken = default)
     {
         if (_gameServers.TryGetValue(gameServerId, out var gs))
+        {
             return Task.FromResult(new ApiResult<GameServerDto>(HttpStatusCode.OK, new ApiResponse<GameServerDto>(gs)));
+        }
+
         return Task.FromResult(new ApiResult<GameServerDto>(HttpStatusCode.NotFound, new ApiResponse<GameServerDto>(new ApiError("NOT_FOUND", "Game server not found"))));
     }
 
     public Task<ApiResult<CollectionModel<GameServerDto>>> GetGameServers(GameType[]? gameTypes, Guid[]? gameServerIds, GameServerFilter? filter, int skipEntries, int takeEntries, GameServerOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _gameServers.Values.AsEnumerable();
-        if (gameTypes != null) items = items.Where(gs => gameTypes.Contains(gs.GameType));
-        if (gameServerIds != null) items = items.Where(gs => gameServerIds.Contains(gs.GameServerId));
+        if (gameTypes != null)
+        {
+            items = items.Where(gs => gameTypes.Contains(gs.GameType));
+        }
+
+        if (gameServerIds != null)
+        {
+            items = items.Where(gs => gameServerIds.Contains(gs.GameServerId));
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<GameServerDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<GameServerDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<GameServerDto>>(collection)));

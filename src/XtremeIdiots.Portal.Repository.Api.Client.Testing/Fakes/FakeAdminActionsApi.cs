@@ -24,14 +24,21 @@ public class FakeAdminActionsApi : IAdminActionsApi
     public Task<ApiResult<AdminActionDto>> GetAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
     {
         if (_adminActions.TryGetValue(adminActionId, out var aa))
+        {
             return Task.FromResult(new ApiResult<AdminActionDto>(HttpStatusCode.OK, new ApiResponse<AdminActionDto>(aa)));
+        }
+
         return Task.FromResult(new ApiResult<AdminActionDto>(HttpStatusCode.NotFound, new ApiResponse<AdminActionDto>(new ApiError("NOT_FOUND", "Admin action not found"))));
     }
 
     public Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _adminActions.Values.AsEnumerable();
-        if (playerId.HasValue) items = items.Where(a => a.PlayerId == playerId.Value);
+        if (playerId.HasValue)
+        {
+            items = items.Where(a => a.PlayerId == playerId.Value);
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<AdminActionDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<AdminActionDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<AdminActionDto>>(collection)));
@@ -40,7 +47,9 @@ public class FakeAdminActionsApi : IAdminActionsApi
     public Task<ApiResult<CollectionModel<ActiveBanCountsDto>>> GetActiveBanCounts(GameType? gameType, CancellationToken cancellationToken = default)
     {
         if (_activeBanCounts.TryGetValue(string.Empty, out var defaultResult))
+        {
             return Task.FromResult(defaultResult);
+        }
 
         var nowUtc = DateTime.UtcNow;
         var soonUtc = nowUtc.AddHours(24);
@@ -49,7 +58,9 @@ public class FakeAdminActionsApi : IAdminActionsApi
             .Where(a => a.Type == AdminActionType.Ban || a.Type == AdminActionType.TempBan);
 
         if (gameType.HasValue)
+        {
             bans = bans.Where(a => a.Player != null && a.Player.GameType == gameType.Value);
+        }
 
         var counts = bans
             .Where(a => a.Type == AdminActionType.Ban
@@ -88,8 +99,15 @@ public class FakeAdminActionsApi : IAdminActionsApi
     /// </summary>
     public FakeAdminActionsApi SetActiveBanCountsResponse(ApiResult<CollectionModel<ActiveBanCountsDto>>? response)
     {
-        if (response is null) _activeBanCounts.TryRemove(string.Empty, out _);
-        else _activeBanCounts[string.Empty] = response;
+        if (response is null)
+        {
+            _activeBanCounts.TryRemove(string.Empty, out _);
+        }
+        else
+        {
+            _activeBanCounts[string.Empty] = response;
+        }
+
         return this;
     }
 

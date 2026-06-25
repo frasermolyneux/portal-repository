@@ -136,7 +136,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(entity);
 
             if (entity.Player is null)
+            {
                 throw new InvalidOperationException("Player navigation property is required for RelatedPlayerDto mapping");
+            }
 
             var adminActions = entity.Player.AdminActions;
             var hasActiveBan = adminActions is { Count: > 0 } && adminActions.Any(aa =>

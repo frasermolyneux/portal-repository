@@ -175,13 +175,19 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     private static IQueryable<GameServerEvent> ApplyFilter(IQueryable<GameServerEvent> query, GameType? gameType, Guid? gameServerId, string? eventType)
     {
         if (gameType.HasValue)
+        {
             query = query.Where(gse => gse.GameServer.GameType == gameType.Value.ToGameTypeInt());
+        }
 
         if (gameServerId.HasValue)
+        {
             query = query.Where(gse => gse.GameServerId == gameServerId);
+        }
 
         if (!string.IsNullOrWhiteSpace(eventType))
+        {
             query = query.Where(gse => gse.EventType == eventType);
+        }
 
         return query;
     }

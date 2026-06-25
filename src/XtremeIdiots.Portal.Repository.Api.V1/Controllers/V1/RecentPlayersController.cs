@@ -59,7 +59,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var take = takeEntries ?? 20;
 
             if (cutoff.HasValue && cutoff.Value < DateTime.UtcNow.AddHours(-48))
+            {
                 cutoff = DateTime.UtcNow.AddHours(-48);
+            }
 
             var response = await ((IRecentPlayersApi)this).GetRecentPlayers(gameType, gameServerId, cutoff, filter, skip, take, order, cancellationToken).ConfigureAwait(false);
 
@@ -118,9 +120,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateRecentPlayers([FromBody] List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken = default)
         {
             if (createRecentPlayerDtos == null || !createRecentPlayerDtos.Any())
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IRecentPlayersApi)this).CreateRecentPlayers(createRecentPlayerDtos, cancellationToken).ConfigureAwait(false);
 
@@ -136,7 +140,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IRecentPlayersApi.CreateRecentPlayers(List<CreateRecentPlayerDto> createRecentPlayerDtos, CancellationToken cancellationToken)
         {
             if (createRecentPlayerDtos == null || !createRecentPlayerDtos.Any())
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+            }
 
             var playerIds = createRecentPlayerDtos.Select(dto => dto.PlayerId).ToList();
 
@@ -172,13 +178,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static IQueryable<RecentPlayer> ApplyFilter(IQueryable<RecentPlayer> query, GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter)
         {
             if (gameType.HasValue)
+            {
                 query = query.Where(rp => rp.GameType == gameType.Value.ToGameTypeInt());
+            }
 
             if (gameServerId.HasValue)
+            {
                 query = query.Where(rp => rp.GameServerId == gameServerId);
+            }
 
             if (cutoff.HasValue)
+            {
                 query = query.Where(rp => rp.Timestamp > cutoff);
+            }
 
             if (filter.HasValue)
             {

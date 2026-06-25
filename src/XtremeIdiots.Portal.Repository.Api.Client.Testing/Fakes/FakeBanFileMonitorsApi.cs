@@ -23,15 +23,26 @@ public class FakeBanFileMonitorsApi : IBanFileMonitorsApi
     public Task<ApiResult<BanFileMonitorDto>> GetBanFileMonitor(Guid banFileMonitorId, CancellationToken cancellationToken = default)
     {
         if (_monitors.TryGetValue(banFileMonitorId, out var m))
+        {
             return Task.FromResult(new ApiResult<BanFileMonitorDto>(HttpStatusCode.OK, new ApiResponse<BanFileMonitorDto>(m)));
+        }
+
         return Task.FromResult(new ApiResult<BanFileMonitorDto>(HttpStatusCode.NotFound, new ApiResponse<BanFileMonitorDto>(new ApiError("NOT_FOUND", "Ban file monitor not found"))));
     }
 
     public Task<ApiResult<CollectionModel<BanFileMonitorDto>>> GetBanFileMonitors(GameType[]? gameTypes, Guid[]? banFileMonitorIds, Guid? gameServerId, int skipEntries, int takeEntries, BanFileMonitorOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _monitors.Values.AsEnumerable();
-        if (gameServerId.HasValue) items = items.Where(m => m.GameServerId == gameServerId.Value);
-        if (banFileMonitorIds != null) items = items.Where(m => banFileMonitorIds.Contains(m.BanFileMonitorId));
+        if (gameServerId.HasValue)
+        {
+            items = items.Where(m => m.GameServerId == gameServerId.Value);
+        }
+
+        if (banFileMonitorIds != null)
+        {
+            items = items.Where(m => banFileMonitorIds.Contains(m.BanFileMonitorId));
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<BanFileMonitorDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<BanFileMonitorDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<BanFileMonitorDto>>(collection)));

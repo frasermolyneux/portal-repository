@@ -66,7 +66,9 @@ public class GameServersController : ControllerBase, IGameServersApi
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
 
         if (gameServer == null)
+        {
             return new ApiResult<GameServerDto>(HttpStatusCode.NotFound);
+        }
 
         var result = gameServer.ToDto();
 
@@ -165,7 +167,9 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         var validationError = ValidateToggleDependencies(gameServer);
         if (validationError != null)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.ToggleDependencyViolation, validationError)));
+        }
 
         context.GameServers.Add(gameServer);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -197,9 +201,11 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
 
         if (createGameServerDtos == null || !createGameServerDtos.Any())
+        {
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                 .ToBadRequestResult()
                 .ToHttpResult();
+        }
 
         var response = await ((IGameServersApi)this).CreateGameServers(createGameServerDtos, cancellationToken).ConfigureAwait(false);
 
@@ -220,7 +226,9 @@ public class GameServersController : ControllerBase, IGameServersApi
         {
             var validationError = ValidateToggleDependencies(gameServer);
             if (validationError != null)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.ToggleDependencyViolation, validationError)));
+            }
         }
 
         await context.GameServers.AddRangeAsync(gameServers, cancellationToken).ConfigureAwait(false);
@@ -256,12 +264,16 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
 
         if (editGameServerDto == null)
+        {
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                 .ToBadRequestResult()
                 .ToHttpResult();
+        }
 
         if (editGameServerDto.GameServerId != gameServerId)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();
+        }
 
         var response = await ((IGameServersApi)this).UpdateGameServer(editGameServerDto, cancellationToken).ConfigureAwait(false);
 
@@ -280,14 +292,18 @@ public class GameServersController : ControllerBase, IGameServersApi
             .FirstOrDefaultAsync(gs => gs.GameServerId == editGameServerDto.GameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer == null)
+        {
             return new ApiResult(HttpStatusCode.NotFound);
+        }
 
         editGameServerDto.ApplyTo(gameServer);
 
         ApplyToggleCascade(gameServer);
         var validationError = ValidateToggleDependencies(gameServer);
         if (validationError != null)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.ToggleDependencyViolation, validationError)));
+        }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
@@ -334,9 +350,11 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
 
         if (updateGameServerOrderDto == null)
+        {
             return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
                 .ToBadRequestResult()
                 .ToHttpResult();
+        }
 
         var response = await ((IGameServersApi)this).UpdateGameServerOrder(updateGameServerOrderDto, cancellationToken).ConfigureAwait(false);
 
@@ -354,11 +372,15 @@ public class GameServersController : ControllerBase, IGameServersApi
         var requestedIds = updateGameServerOrderDto.GameServerIds;
 
         if (requestedIds is null)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "GameServerIds cannot be null")));
+        }
 
         // Validate no duplicate IDs
         if (requestedIds.Distinct().Count() != requestedIds.Count)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "Duplicate game server IDs in request")));
+        }
 
         // Get all non-deleted game servers
         var allServers = await context.GameServers
@@ -369,12 +391,16 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         // Validate the request contains the complete set
         if (requestedIds.Count != allServerIds.Count)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "Request must contain all non-deleted game server IDs")));
+        }
 
         // Validate all requested IDs exist
         var missingIds = requestedIds.Where(id => !allServerIds.Contains(id)).ToList();
         if (missingIds.Count > 0)
+        {
             return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, $"Game server IDs not found: {string.Join(", ", missingIds)}")));
+        }
 
         // Build a lookup for quick access
         var serverLookup = allServers.ToDictionary(gs => gs.GameServerId);
@@ -402,7 +428,9 @@ public class GameServersController : ControllerBase, IGameServersApi
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer == null)
+        {
             return new ApiResult(HttpStatusCode.NotFound);
+        }
 
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
         await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [GameServerId] = {gameServer.GameServerId}", cancellationToken).ConfigureAwait(false);
@@ -434,13 +462,25 @@ public class GameServersController : ControllerBase, IGameServersApi
     private static string? ValidateToggleDependencies(GameServer entity)
     {
         if (entity.AgentEnabled && !IsFileTransportEnabled(entity))
+        {
             return "AgentEnabled requires FileTransportEnabled to be true.";
+        }
+
         if (entity.AgentEnabled && !entity.RconEnabled)
+        {
             return "AgentEnabled requires RconEnabled to be true.";
+        }
+
         if (entity.BanFileSyncEnabled && !IsFileTransportEnabled(entity))
+        {
             return "BanFileSyncEnabled requires FileTransportEnabled to be true.";
+        }
+
         if (entity.BanFileSyncEnabled && !entity.AgentEnabled)
+        {
             return "BanFileSyncEnabled requires AgentEnabled to be true.";
+        }
+
         return null;
     }
 
@@ -458,7 +498,9 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
 
         if (gameServerIds?.Length > 0)
+        {
             query = query.Where(gs => gameServerIds.Contains(gs.GameServerId));
+        }
 
         if (filter.HasValue)
         {

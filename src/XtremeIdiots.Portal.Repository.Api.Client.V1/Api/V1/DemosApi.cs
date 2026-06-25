@@ -34,19 +34,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/demos", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
+            {
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
+            }
 
             if (!string.IsNullOrWhiteSpace(userId))
+            {
                 request.AddQueryParameter("userId", userId);
+            }
 
             if (!string.IsNullOrWhiteSpace(filterString))
+            {
                 request.AddQueryParameter("filterString", filterString);
+            }
 
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

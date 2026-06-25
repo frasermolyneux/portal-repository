@@ -31,19 +31,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/map-rotations", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
+            {
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
+            }
 
             if (gameMode != null)
+            {
                 request.AddQueryParameter("gameMode", gameMode);
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -55,25 +63,37 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/map-rotations", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
+            {
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
+            }
 
             if (gameMode != null)
+            {
                 request.AddQueryParameter("gameMode", gameMode);
+            }
 
             if (status.HasValue)
+            {
                 request.AddQueryParameter("status", status.ToString());
+            }
 
             if (!string.IsNullOrWhiteSpace(filterString))
+            {
                 request.AddQueryParameter("filterString", filterString);
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -85,28 +105,42 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/map-rotations", Method.Get).ConfigureAwait(false);
 
             if (gameTypes != null)
+            {
                 request.AddQueryParameter("gameTypes", string.Join(",", gameTypes));
+            }
 
             if (gameMode != null)
+            {
                 request.AddQueryParameter("gameMode", gameMode);
+            }
 
             if (status.HasValue)
+            {
                 request.AddQueryParameter("status", status.ToString());
+            }
 
             if (!string.IsNullOrWhiteSpace(filterString))
+            {
                 request.AddQueryParameter("filterString", filterString);
+            }
 
             if (createdByUserId.HasValue)
+            {
                 request.AddQueryParameter("createdByUserId", createdByUserId.ToString());
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -156,13 +190,19 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/map-rotations/assignments", Method.Get).ConfigureAwait(false);
 
             if (mapRotationId.HasValue)
+            {
                 request.AddQueryParameter("mapRotationId", mapRotationId.Value.ToString());
+            }
 
             if (gameServerId.HasValue)
+            {
                 request.AddQueryParameter("gameServerId", gameServerId.Value.ToString());
+            }
 
             if (deploymentState.HasValue)
+            {
                 request.AddQueryParameter("deploymentState", deploymentState.ToString());
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
@@ -231,7 +271,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             request.AddQueryParameter("status", status.ToString());
 
             if (error != null)
+            {
                 request.AddQueryParameter("error", error);
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

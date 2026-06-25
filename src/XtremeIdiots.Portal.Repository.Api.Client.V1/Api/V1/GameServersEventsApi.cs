@@ -26,19 +26,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/game-server-events", Method.Get, cancellationToken).ConfigureAwait(false);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.ToString());
+            }
 
             if (gameServerId.HasValue)
+            {
                 request.AddQueryParameter("gameServerId", gameServerId.ToString());
+            }
 
             if (!string.IsNullOrWhiteSpace(eventType))
+            {
                 request.AddQueryParameter("eventType", eventType);
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

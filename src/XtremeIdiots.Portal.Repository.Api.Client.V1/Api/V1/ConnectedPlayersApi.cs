@@ -91,16 +91,24 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var request = await CreateRequestAsync("v1/connected-players", Method.Get).ConfigureAwait(false);
 
             if (playerId.HasValue)
+            {
                 request.AddQueryParameter(nameof(playerId), playerId.Value);
+            }
 
             if (userProfileId.HasValue)
+            {
                 request.AddQueryParameter(nameof(userProfileId), userProfileId.Value);
+            }
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter(nameof(gameType), gameType.Value.ToString());
+            }
 
             if (isActive.HasValue)
+            {
                 request.AddQueryParameter(nameof(isActive), isActive.Value);
+            }
 
             request.AddQueryParameter(nameof(skipEntries), skipEntries);
             request.AddQueryParameter(nameof(takeEntries), takeEntries);

@@ -113,8 +113,16 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            if (dto.InSiteEnabled.HasValue) entity.InSiteEnabled = dto.InSiteEnabled.Value;
-            if (dto.EmailEnabled.HasValue) entity.EmailEnabled = dto.EmailEnabled.Value;
+            if (dto.InSiteEnabled.HasValue)
+            {
+                entity.InSiteEnabled = dto.InSiteEnabled.Value;
+            }
+
+            if (dto.EmailEnabled.HasValue)
+            {
+                entity.EmailEnabled = dto.EmailEnabled.Value;
+            }
+
             entity.LastModified = DateTime.UtcNow;
         }
     }

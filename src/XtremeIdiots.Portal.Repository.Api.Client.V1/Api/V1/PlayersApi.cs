@@ -54,19 +54,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             request.AddQueryParameter(nameof(playerEntityOptions), playerEntityOptions);
 
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.ToString());
+            }
 
             if (filter.HasValue)
+            {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
 
             if (!string.IsNullOrWhiteSpace(filterString))
+            {
                 request.AddQueryParameter("filterString", filterString);
+            }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
 
@@ -83,7 +91,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter("order", order.ToString());
+            }
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
 
@@ -149,7 +159,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             request.AddQueryParameter("skipEntries", skipEntries.ToString());
             request.AddQueryParameter("takeEntries", takeEntries.ToString());
             if (gameType.HasValue)
+            {
                 request.AddQueryParameter("gameType", gameType.Value.ToString());
+            }
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
 
@@ -220,7 +232,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             request.AddQueryParameter(nameof(takeEntries), takeEntries);
 
             if (order.HasValue)
+            {
                 request.AddQueryParameter(nameof(order), order.Value);
+            }
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
 

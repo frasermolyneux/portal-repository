@@ -28,7 +28,9 @@ public class FakeCentralBanFileStatusApi : ICentralBanFileStatusApi
     public Task<ApiResult<CentralBanFileStatusDto>> GetCentralBanFileStatus(GameType gameType, CancellationToken cancellationToken = default)
     {
         if (_statuses.TryGetValue(gameType, out var status))
+        {
             return Task.FromResult(new ApiResult<CentralBanFileStatusDto>(HttpStatusCode.OK, new ApiResponse<CentralBanFileStatusDto>(status)));
+        }
 
         return Task.FromResult(new ApiResult<CentralBanFileStatusDto>(HttpStatusCode.NotFound, new ApiResponse<CentralBanFileStatusDto>(new ApiError("NOT_FOUND", "Central ban file status not found"))));
     }

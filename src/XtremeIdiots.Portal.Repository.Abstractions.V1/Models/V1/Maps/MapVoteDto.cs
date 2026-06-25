@@ -49,13 +49,19 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
                 };
 
                 if (GameServer is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(GameServer.TelemetryProperties);
+                }
 
                 if (Map is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(Map.TelemetryProperties);
+                }
 
                 if (Player is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(Player.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

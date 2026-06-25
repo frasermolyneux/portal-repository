@@ -48,9 +48,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> CreateGameServerStats([FromBody] List<CreateGameServerStatDto> createGameServerStatDtos, CancellationToken cancellationToken = default)
         {
             if (createGameServerStatDtos == null || !createGameServerStatDtos.Any())
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((IGameServersStatsApi)this).CreateGameServerStats(createGameServerStatDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -109,7 +111,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             cutoff ??= DateTime.UtcNow.AddDays(-2);
 
             if (cutoff.Value < DateTime.UtcNow.AddDays(-2))
+            {
                 cutoff = DateTime.UtcNow.AddDays(-2);
+            }
 
             var response = await ((IGameServersStatsApi)this).GetGameServerStatusStats(gameServerId, cutoff.Value, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();

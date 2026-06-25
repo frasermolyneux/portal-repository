@@ -23,7 +23,10 @@ public class FakeUserProfileApi : IUserProfileApi
     public Task<ApiResult<UserProfileDto>> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default)
     {
         if (_userProfiles.TryGetValue(userProfileId, out var up))
+        {
             return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.OK, new ApiResponse<UserProfileDto>(up)));
+        }
+
         return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.NotFound, new ApiResponse<UserProfileDto>(new ApiError("NOT_FOUND", "User profile not found"))));
     }
 
@@ -31,7 +34,10 @@ public class FakeUserProfileApi : IUserProfileApi
     {
         var up = _userProfiles.Values.FirstOrDefault(u => u.IdentityOid == identityId);
         if (up != null)
+        {
             return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.OK, new ApiResponse<UserProfileDto>(up)));
+        }
+
         return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.NotFound, new ApiResponse<UserProfileDto>(new ApiError("NOT_FOUND", "User profile not found"))));
     }
 
@@ -39,7 +45,10 @@ public class FakeUserProfileApi : IUserProfileApi
     {
         var up = _userProfiles.Values.FirstOrDefault(u => u.XtremeIdiotsForumId == xtremeIdiotsId);
         if (up != null)
+        {
             return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.OK, new ApiResponse<UserProfileDto>(up)));
+        }
+
         return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.NotFound, new ApiResponse<UserProfileDto>(new ApiError("NOT_FOUND", "User profile not found"))));
     }
 
@@ -47,7 +56,10 @@ public class FakeUserProfileApi : IUserProfileApi
     {
         var up = _userProfiles.Values.FirstOrDefault(u => u.DemoAuthKey == demoAuthKey);
         if (up != null)
+        {
             return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.OK, new ApiResponse<UserProfileDto>(up)));
+        }
+
         return Task.FromResult(new ApiResult<UserProfileDto>(HttpStatusCode.NotFound, new ApiResponse<UserProfileDto>(new ApiError("NOT_FOUND", "User profile not found"))));
     }
 

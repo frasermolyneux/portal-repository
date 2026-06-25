@@ -23,15 +23,26 @@ public class FakeReportsApi : IReportsApi
     public Task<ApiResult<ReportDto>> GetReport(Guid reportId, CancellationToken cancellationToken = default)
     {
         if (_reports.TryGetValue(reportId, out var report))
+        {
             return Task.FromResult(new ApiResult<ReportDto>(HttpStatusCode.OK, new ApiResponse<ReportDto>(report)));
+        }
+
         return Task.FromResult(new ApiResult<ReportDto>(HttpStatusCode.NotFound, new ApiResponse<ReportDto>(new ApiError("NOT_FOUND", "Report not found"))));
     }
 
     public Task<ApiResult<CollectionModel<ReportDto>>> GetReports(GameType? gameType, Guid? gameServerId, DateTime? cutoff, ReportsFilter? filter, int skipEntries, int takeEntries, ReportsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _reports.Values.AsEnumerable();
-        if (gameType.HasValue) items = items.Where(r => r.GameType == gameType.Value);
-        if (gameServerId.HasValue) items = items.Where(r => r.GameServerId == gameServerId.Value);
+        if (gameType.HasValue)
+        {
+            items = items.Where(r => r.GameType == gameType.Value);
+        }
+
+        if (gameServerId.HasValue)
+        {
+            items = items.Where(r => r.GameServerId == gameServerId.Value);
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<ReportDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<ReportDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<ReportDto>>(collection)));

@@ -86,9 +86,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         public async Task<IActionResult> UpdateNotificationPreferences([FromRoute] Guid userProfileId, [FromBody] List<EditNotificationPreferenceDto> editNotificationPreferenceDtos, CancellationToken cancellationToken = default)
         {
             if (editNotificationPreferenceDtos == null || !editNotificationPreferenceDtos.Any())
+            {
                 return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage))
                     .ToBadRequestResult()
                     .ToHttpResult();
+            }
 
             var response = await ((INotificationPreferencesApi)this).UpdateNotificationPreferences(userProfileId, editNotificationPreferenceDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
@@ -118,7 +120,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             foreach (var dto in editNotificationPreferenceDtos)
             {
                 if (!validTypeIdSet.Contains(dto.NotificationTypeId))
+                {
                     return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+                }
 
                 var existing = existingPreferences
                     .FirstOrDefault(np => np.NotificationTypeId.Equals(dto.NotificationTypeId, StringComparison.OrdinalIgnoreCase));

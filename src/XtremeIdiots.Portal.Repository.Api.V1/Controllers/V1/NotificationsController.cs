@@ -169,13 +169,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AnyAsync(up => up.UserProfileId == createNotificationDto.UserProfileId, cancellationToken).ConfigureAwait(false);
 
             if (!userExists)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
+            }
 
             var notificationTypeExists = await context.NotificationTypes
                 .AnyAsync(nt => nt.NotificationTypeId == createNotificationDto.NotificationTypeId, cancellationToken).ConfigureAwait(false);
 
             if (!notificationTypeExists)
+            {
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+            }
 
             var notification = createNotificationDto.ToEntity();
 
@@ -212,7 +216,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .FirstOrDefaultAsync(n => n.NotificationId == notificationId, cancellationToken).ConfigureAwait(false);
 
             if (notification == null)
+            {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
 
             notification.IsRead = true;
             notification.ReadAt = DateTime.UtcNow;
@@ -263,7 +269,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static IQueryable<Notification> ApplyFilters(IQueryable<Notification> query, bool? unreadOnly)
         {
             if (unreadOnly.HasValue && unreadOnly.Value)
+            {
                 query = query.Where(n => !n.IsRead);
+            }
 
             return query;
         }

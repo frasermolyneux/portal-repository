@@ -62,10 +62,14 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions
                 };
 
                 if (UserProfile is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(UserProfile.TelemetryProperties);
+                }
 
                 if (Player is not null)
+                {
                     telemetryProperties.AddAdditionalProperties(Player.TelemetryProperties);
+                }
 
                 return telemetryProperties;
             }

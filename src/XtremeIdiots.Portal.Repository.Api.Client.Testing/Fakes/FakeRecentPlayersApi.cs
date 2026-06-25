@@ -17,8 +17,16 @@ public class FakeRecentPlayersApi : IRecentPlayersApi
     public Task<ApiResult<CollectionModel<RecentPlayerDto>>> GetRecentPlayers(GameType? gameType, Guid? gameServerId, DateTime? cutoff, RecentPlayersFilter? filter, int skipEntries, int takeEntries, RecentPlayersOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _recentPlayers.AsEnumerable();
-        if (gameType.HasValue) items = items.Where(r => r.GameType == gameType.Value);
-        if (gameServerId.HasValue) items = items.Where(r => r.GameServerId == gameServerId.Value);
+        if (gameType.HasValue)
+        {
+            items = items.Where(r => r.GameType == gameType.Value);
+        }
+
+        if (gameServerId.HasValue)
+        {
+            items = items.Where(r => r.GameServerId == gameServerId.Value);
+        }
+
         var list = items.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<RecentPlayerDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<RecentPlayerDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<RecentPlayerDto>>(collection)));

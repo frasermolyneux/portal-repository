@@ -15,7 +15,10 @@ public class FakeGameServersSecretsApi : IGameServersSecretsApi
     public Task<ApiResult<string>> GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken = default)
     {
         if (_secrets.TryGetValue($"{gameServerId}:{secretId}", out var value))
+        {
             return Task.FromResult(new ApiResult<string>(HttpStatusCode.OK, new ApiResponse<string>(value)));
+        }
+
         return Task.FromResult(new ApiResult<string>(HttpStatusCode.NotFound, new ApiResponse<string>(new ApiError("NOT_FOUND", "Secret not found"))));
     }
 

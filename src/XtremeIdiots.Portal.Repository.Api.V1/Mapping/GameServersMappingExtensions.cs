@@ -90,11 +90,31 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             var hasTransportType = dto.FileTransportType is not null;
             var hasTransportFields = hasTransportEnabled || hasTransportType;
 
-            if (dto.Title is not null) entity.Title = dto.Title;
-            if (dto.Hostname is not null) entity.Hostname = dto.Hostname;
-            if (dto.QueryPort is not null) entity.QueryPort = dto.QueryPort.Value;
-            if (dto.ServerListPosition is not null) entity.ServerListPosition = dto.ServerListPosition.Value;
-            if (dto.AgentEnabled is not null) entity.AgentEnabled = dto.AgentEnabled.Value;
+            if (dto.Title is not null)
+            {
+                entity.Title = dto.Title;
+            }
+
+            if (dto.Hostname is not null)
+            {
+                entity.Hostname = dto.Hostname;
+            }
+
+            if (dto.QueryPort is not null)
+            {
+                entity.QueryPort = dto.QueryPort.Value;
+            }
+
+            if (dto.ServerListPosition is not null)
+            {
+                entity.ServerListPosition = dto.ServerListPosition.Value;
+            }
+
+            if (dto.AgentEnabled is not null)
+            {
+                entity.AgentEnabled = dto.AgentEnabled.Value;
+            }
+
             if (dto.FileTransportEnabled is not null)
             {
                 entity.FileTransportEnabled = dto.FileTransportEnabled.Value;
@@ -128,11 +148,30 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.FtpEnabled = entity.FileTransportEnabled && currentType == FileTransportType.Ftp;
             }
 
-            if (dto.RconEnabled is not null) entity.RconEnabled = dto.RconEnabled.Value;
-            if (dto.BanFileSyncEnabled is not null) entity.BanFileSyncEnabled = dto.BanFileSyncEnabled.Value;
-            if (dto.BanFileRootPath is not null) entity.BanFileRootPath = string.IsNullOrWhiteSpace(dto.BanFileRootPath) ? "/" : dto.BanFileRootPath;
-            if (dto.ServerListEnabled is not null) entity.ServerListEnabled = dto.ServerListEnabled.Value;
-            if (dto.Deleted is not null) entity.Deleted = dto.Deleted.Value;
+            if (dto.RconEnabled is not null)
+            {
+                entity.RconEnabled = dto.RconEnabled.Value;
+            }
+
+            if (dto.BanFileSyncEnabled is not null)
+            {
+                entity.BanFileSyncEnabled = dto.BanFileSyncEnabled.Value;
+            }
+
+            if (dto.BanFileRootPath is not null)
+            {
+                entity.BanFileRootPath = string.IsNullOrWhiteSpace(dto.BanFileRootPath) ? "/" : dto.BanFileRootPath;
+            }
+
+            if (dto.ServerListEnabled is not null)
+            {
+                entity.ServerListEnabled = dto.ServerListEnabled.Value;
+            }
+
+            if (dto.Deleted is not null)
+            {
+                entity.Deleted = dto.Deleted.Value;
+            }
         }
 
         private static void ApplyCreateFileTransport(CreateGameServerDto dto, GameServer entity)

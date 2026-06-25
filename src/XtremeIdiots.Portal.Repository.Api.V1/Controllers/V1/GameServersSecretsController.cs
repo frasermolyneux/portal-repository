@@ -70,14 +70,18 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     async Task<ApiResult<string>> IGameServersSecretsApi.GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(secretId))
+        {
             return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+        }
 
         var gameServer = await context.GameServers
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer is null)
+        {
             return new ApiResult<string>(HttpStatusCode.NotFound);
+        }
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
         var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
@@ -90,7 +94,9 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
         catch (RequestFailedException ex)
         {
             if (ex.Status == 404)
+            {
                 return new ApiResult<string>(HttpStatusCode.NotFound);
+            }
 
             throw;
         }
@@ -125,14 +131,18 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     async Task<ApiResult<string>> IGameServersSecretsApi.SetGameServerSecret(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(secretId))
+        {
             return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+        }
 
         var gameServer = await context.GameServers
             .AsNoTracking()
             .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
 
         if (gameServer is null)
+        {
             return new ApiResult<string>(HttpStatusCode.NotFound);
+        }
 
         var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
         var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
@@ -142,14 +152,18 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (keyVaultResponse.Value.Value != secretValue)
+            {
                 keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken).ConfigureAwait(false);
+            }
 
             return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
         }
         catch (RequestFailedException ex)
         {
             if (ex.Status != 404)
+            {
                 throw;
+            }
         }
 
         var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken).ConfigureAwait(false);
