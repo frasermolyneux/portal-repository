@@ -179,6 +179,42 @@ public class FakeVersionedLiveStatusApi : IVersionedLiveStatusApi
     public ILiveStatusApi V1 { get; }
 }
 
+public class FakeVersionedGlobalAnalyticsApi : IVersionedGlobalAnalyticsApi
+{
+    public FakeVersionedGlobalAnalyticsApi(FakeGlobalAnalyticsApi v1) => V1 = v1;
+    public IGlobalAnalyticsApi V1 { get; }
+}
+
+public class FakeVersionedGameAnalyticsApi : IVersionedGameAnalyticsApi
+{
+    public FakeVersionedGameAnalyticsApi(FakeGameAnalyticsApi v1) => V1 = v1;
+    public IGameAnalyticsApi V1 { get; }
+}
+
+public class FakeVersionedServerAnalyticsApi : IVersionedServerAnalyticsApi
+{
+    public FakeVersionedServerAnalyticsApi(FakeServerAnalyticsApi v1) => V1 = v1;
+    public IServerAnalyticsApi V1 { get; }
+}
+
+public class FakeVersionedDashboardAnalyticsApi : IVersionedDashboardAnalyticsApi
+{
+    public FakeVersionedDashboardAnalyticsApi(FakeDashboardAnalyticsApi v1) => V1 = v1;
+    public IDashboardAnalyticsApi V1 { get; }
+}
+
+public class FakeVersionedMapAnalyticsApi : IVersionedMapAnalyticsApi
+{
+    public FakeVersionedMapAnalyticsApi(FakeMapAnalyticsApi v1) => V1 = v1;
+    public IMapAnalyticsApi V1 { get; }
+}
+
+public class FakeVersionedPlayerAnalyticsV2Api : IVersionedPlayerAnalyticsV2Api
+{
+    public FakeVersionedPlayerAnalyticsV2Api(FakePlayerAnalyticsV2Api v1) => V1 = v1;
+    public IPlayerAnalyticsV2Api V1 { get; }
+}
+
 /// <summary>
 /// In-memory fake of <see cref="IRepositoryApiClient"/> for unit and integration tests.
 /// Eliminates the need for nested mock hierarchies.
@@ -216,6 +252,12 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeGlobalConfigurationsApi GlobalConfigurationsApi { get; } = new();
     public FakeGameServerConfigurationsApi GameServerConfigurationsApi { get; } = new();
     public FakeLiveStatusApi LiveStatusApi { get; } = new();
+    public FakeGlobalAnalyticsApi GlobalAnalyticsApi { get; } = new();
+    public FakeGameAnalyticsApi GameAnalyticsApi { get; } = new();
+    public FakeServerAnalyticsApi ServerAnalyticsApi { get; } = new();
+    public FakeDashboardAnalyticsApi DashboardAnalyticsApi { get; } = new();
+    public FakeMapAnalyticsApi MapAnalyticsApi { get; } = new();
+    public FakePlayerAnalyticsV2Api PlayerAnalyticsV2Api { get; } = new();
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -247,6 +289,12 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedGlobalConfigurationsApi> _globalConfigurations;
     private readonly Lazy<FakeVersionedGameServerConfigurationsApi> _gameServerConfigurations;
     private readonly Lazy<FakeVersionedLiveStatusApi> _liveStatus;
+    private readonly Lazy<FakeVersionedGlobalAnalyticsApi> _globalAnalytics;
+    private readonly Lazy<FakeVersionedGameAnalyticsApi> _gameAnalytics;
+    private readonly Lazy<FakeVersionedServerAnalyticsApi> _serverAnalytics;
+    private readonly Lazy<FakeVersionedDashboardAnalyticsApi> _dashboardAnalytics;
+    private readonly Lazy<FakeVersionedMapAnalyticsApi> _mapAnalytics;
+    private readonly Lazy<FakeVersionedPlayerAnalyticsV2Api> _playerAnalyticsV2;
 
     public FakeRepositoryApiClient()
     {
@@ -280,6 +328,12 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _globalConfigurations = new Lazy<FakeVersionedGlobalConfigurationsApi>(() => new FakeVersionedGlobalConfigurationsApi(GlobalConfigurationsApi));
         _gameServerConfigurations = new Lazy<FakeVersionedGameServerConfigurationsApi>(() => new FakeVersionedGameServerConfigurationsApi(GameServerConfigurationsApi));
         _liveStatus = new Lazy<FakeVersionedLiveStatusApi>(() => new FakeVersionedLiveStatusApi(LiveStatusApi));
+        _globalAnalytics = new Lazy<FakeVersionedGlobalAnalyticsApi>(() => new FakeVersionedGlobalAnalyticsApi(GlobalAnalyticsApi));
+        _gameAnalytics = new Lazy<FakeVersionedGameAnalyticsApi>(() => new FakeVersionedGameAnalyticsApi(GameAnalyticsApi));
+        _serverAnalytics = new Lazy<FakeVersionedServerAnalyticsApi>(() => new FakeVersionedServerAnalyticsApi(ServerAnalyticsApi));
+        _dashboardAnalytics = new Lazy<FakeVersionedDashboardAnalyticsApi>(() => new FakeVersionedDashboardAnalyticsApi(DashboardAnalyticsApi));
+        _mapAnalytics = new Lazy<FakeVersionedMapAnalyticsApi>(() => new FakeVersionedMapAnalyticsApi(MapAnalyticsApi));
+        _playerAnalyticsV2 = new Lazy<FakeVersionedPlayerAnalyticsV2Api>(() => new FakeVersionedPlayerAnalyticsV2Api(PlayerAnalyticsV2Api));
     }
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
@@ -312,6 +366,12 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedGlobalConfigurationsApi GlobalConfigurations => _globalConfigurations.Value;
     public IVersionedGameServerConfigurationsApi GameServerConfigurations => _gameServerConfigurations.Value;
     public IVersionedLiveStatusApi LiveStatus => _liveStatus.Value;
+    public IVersionedGlobalAnalyticsApi GlobalAnalytics => _globalAnalytics.Value;
+    public IVersionedGameAnalyticsApi GameAnalytics => _gameAnalytics.Value;
+    public IVersionedServerAnalyticsApi ServerAnalytics => _serverAnalytics.Value;
+    public IVersionedDashboardAnalyticsApi DashboardAnalytics => _dashboardAnalytics.Value;
+    public IVersionedMapAnalyticsApi MapAnalytics => _mapAnalytics.Value;
+    public IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 => _playerAnalyticsV2.Value;
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,
@@ -348,6 +408,12 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         GlobalConfigurationsApi.Reset();
         GameServerConfigurationsApi.Reset();
         LiveStatusApi.Reset();
+        GlobalAnalyticsApi.Reset();
+        GameAnalyticsApi.Reset();
+        ServerAnalyticsApi.Reset();
+        DashboardAnalyticsApi.Reset();
+        MapAnalyticsApi.Reset();
+        PlayerAnalyticsV2Api.Reset();
         return this;
     }
 }

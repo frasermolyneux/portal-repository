@@ -32,9 +32,17 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.Reports);
         Assert.NotNull(client.UserProfiles);
         Assert.NotNull(client.Tags);
+        Assert.NotNull(client.MapRotations);
+        Assert.NotNull(client.Dashboard);
         Assert.NotNull(client.ApiHealth);
         Assert.NotNull(client.ApiInfo);
         Assert.NotNull(client.ConnectedPlayers);
+        Assert.NotNull(client.GlobalAnalytics);
+        Assert.NotNull(client.GameAnalytics);
+        Assert.NotNull(client.ServerAnalytics);
+        Assert.NotNull(client.DashboardAnalytics);
+        Assert.NotNull(client.MapAnalytics);
+        Assert.NotNull(client.PlayerAnalyticsV2);
     }
 
     [Fact]
@@ -48,6 +56,14 @@ public class FakeRepositoryApiClientTests
         Assert.NotNull(client.ApiInfo);
         Assert.NotNull(client.Tags);
         Assert.NotNull(client.Screenshots);
+        Assert.NotNull(client.MapRotations);
+        Assert.NotNull(client.Dashboard);
+        Assert.NotNull(client.GlobalAnalytics);
+        Assert.NotNull(client.GameAnalytics);
+        Assert.NotNull(client.ServerAnalytics);
+        Assert.NotNull(client.DashboardAnalytics);
+        Assert.NotNull(client.MapAnalytics);
+        Assert.NotNull(client.PlayerAnalyticsV2);
     }
 
     [Fact]

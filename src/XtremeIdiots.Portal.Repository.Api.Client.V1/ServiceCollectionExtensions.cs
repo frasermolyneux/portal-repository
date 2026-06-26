@@ -53,6 +53,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddTypedApiClient<IGlobalConfigurationsApi, GlobalConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IGameServerConfigurationsApi, GameServerConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<ILiveStatusApi, LiveStatusApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGlobalAnalyticsApi, GlobalAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IGameAnalyticsApi, GameAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IServerAnalyticsApi, ServerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IDashboardAnalyticsApi, DashboardAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IMapAnalyticsApi, MapAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IPlayerAnalyticsV2Api, PlayerAnalyticsV2Api, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();
@@ -85,6 +91,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedGlobalConfigurationsApi, VersionedGlobalConfigurationsApi>();
             serviceCollection.AddScoped<IVersionedGameServerConfigurationsApi, VersionedGameServerConfigurationsApi>();
             serviceCollection.AddScoped<IVersionedLiveStatusApi, VersionedLiveStatusApi>();
+            serviceCollection.AddScoped<IVersionedGlobalAnalyticsApi, VersionedGlobalAnalyticsApi>();
+            serviceCollection.AddScoped<IVersionedGameAnalyticsApi, VersionedGameAnalyticsApi>();
+            serviceCollection.AddScoped<IVersionedServerAnalyticsApi, VersionedServerAnalyticsApi>();
+            serviceCollection.AddScoped<IVersionedDashboardAnalyticsApi, VersionedDashboardAnalyticsApi>();
+            serviceCollection.AddScoped<IVersionedMapAnalyticsApi, VersionedMapAnalyticsApi>();
+            serviceCollection.AddScoped<IVersionedPlayerAnalyticsV2Api, VersionedPlayerAnalyticsV2Api>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();

@@ -38,6 +38,10 @@
     <ProjectReference Include="..\XtremeIdiots.Portal.Settings.Contracts.V1\XtremeIdiots.Portal.Settings.Contracts.V1.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="XtremeIdiots.Portal.Repository.Api.Tests.V1" />
+  </ItemGroup>
+
 </Project>
 
 

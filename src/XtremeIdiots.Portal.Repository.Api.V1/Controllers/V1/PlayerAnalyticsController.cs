@@ -12,6 +12,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
+using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
@@ -60,6 +61,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing a collection of cumulative daily player statistics.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticEntryDto>>> IPlayerAnalyticsApi.GetCumulativeDailyPlayers(DateTime cutoff, CancellationToken cancellationToken)
         {
+            if (!AnalyticsQueryValidator.TryValidateWindow(cutoff, DateTime.UtcNow, out _))
+            {
+                return new ApiResult<CollectionModel<PlayerAnalyticEntryDto>>(HttpStatusCode.BadRequest);
+            }
+
             var cumulative = await context.Players
                 .AsNoTracking()
                 .CountAsync(p => p.FirstSeen < cutoff, cancellationToken).ConfigureAwait(false);
@@ -116,6 +122,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing a collection of new daily player statistics grouped by game type.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> IPlayerAnalyticsApi.GetNewDailyPlayersPerGame(DateTime cutoff, CancellationToken cancellationToken)
         {
+            if (!AnalyticsQueryValidator.TryValidateWindow(cutoff, DateTime.UtcNow, out _))
+            {
+                return new ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>(HttpStatusCode.BadRequest);
+            }
+
             // Group by date and game type in SQL instead of loading all rows into memory
             var dailyGameCounts = await context.Players
                 .AsNoTracking()
@@ -167,6 +178,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing a collection of player drop-off statistics grouped by game type.</returns>
         async Task<ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>> IPlayerAnalyticsApi.GetPlayersDropOffPerGameJson(DateTime cutoff, CancellationToken cancellationToken)
         {
+            if (!AnalyticsQueryValidator.TryValidateWindow(cutoff, DateTime.UtcNow, out _))
+            {
+                return new ApiResult<CollectionModel<PlayerAnalyticPerGameEntryDto>>(HttpStatusCode.BadRequest);
+            }
+
             // Group by date and game type in SQL instead of loading all rows into memory
             var dailyGameCounts = await context.Players
                 .AsNoTracking()

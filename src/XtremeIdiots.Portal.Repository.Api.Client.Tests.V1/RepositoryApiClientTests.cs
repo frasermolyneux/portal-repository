@@ -35,6 +35,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedGlobalConfigurationsApi> _globalConfigurations = new();
         private readonly Mock<IVersionedGameServerConfigurationsApi> _gameServerConfigurations = new();
         private readonly Mock<IVersionedLiveStatusApi> _liveStatus = new();
+        private readonly Mock<IVersionedGlobalAnalyticsApi> _globalAnalytics = new();
+        private readonly Mock<IVersionedGameAnalyticsApi> _gameAnalytics = new();
+        private readonly Mock<IVersionedServerAnalyticsApi> _serverAnalytics = new();
+        private readonly Mock<IVersionedDashboardAnalyticsApi> _dashboardAnalytics = new();
+        private readonly Mock<IVersionedMapAnalyticsApi> _mapAnalytics = new();
+        private readonly Mock<IVersionedPlayerAnalyticsV2Api> _playerAnalyticsV2 = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -66,7 +72,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _dashboard.Object,
             _globalConfigurations.Object,
             _gameServerConfigurations.Object,
-            _liveStatus.Object);
+            _liveStatus.Object,
+            _globalAnalytics.Object,
+            _gameAnalytics.Object,
+            _serverAnalytics.Object,
+            _dashboardAnalytics.Object,
+            _mapAnalytics.Object,
+            _playerAnalyticsV2.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -103,6 +115,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_globalConfigurations.Object, client.GlobalConfigurations);
             Assert.Same(_gameServerConfigurations.Object, client.GameServerConfigurations);
             Assert.Same(_liveStatus.Object, client.LiveStatus);
+            Assert.Same(_globalAnalytics.Object, client.GlobalAnalytics);
+            Assert.Same(_gameAnalytics.Object, client.GameAnalytics);
+            Assert.Same(_serverAnalytics.Object, client.ServerAnalytics);
+            Assert.Same(_dashboardAnalytics.Object, client.DashboardAnalytics);
+            Assert.Same(_mapAnalytics.Object, client.MapAnalytics);
+            Assert.Same(_playerAnalyticsV2.Object, client.PlayerAnalyticsV2);
         }
 
         [Fact]
@@ -138,6 +156,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.NotNull(client.GlobalConfigurations);
             Assert.NotNull(client.GameServerConfigurations);
             Assert.NotNull(client.LiveStatus);
+            Assert.NotNull(client.GlobalAnalytics);
+            Assert.NotNull(client.GameAnalytics);
+            Assert.NotNull(client.ServerAnalytics);
+            Assert.NotNull(client.DashboardAnalytics);
+            Assert.NotNull(client.MapAnalytics);
+            Assert.NotNull(client.PlayerAnalyticsV2);
         }
 
         [Fact]
@@ -173,6 +197,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.IsAssignableFrom<IVersionedGlobalConfigurationsApi>(client.GlobalConfigurations);
             Assert.IsAssignableFrom<IVersionedGameServerConfigurationsApi>(client.GameServerConfigurations);
             Assert.IsAssignableFrom<IVersionedLiveStatusApi>(client.LiveStatus);
+            Assert.IsAssignableFrom<IVersionedGlobalAnalyticsApi>(client.GlobalAnalytics);
+            Assert.IsAssignableFrom<IVersionedGameAnalyticsApi>(client.GameAnalytics);
+            Assert.IsAssignableFrom<IVersionedServerAnalyticsApi>(client.ServerAnalytics);
+            Assert.IsAssignableFrom<IVersionedDashboardAnalyticsApi>(client.DashboardAnalytics);
+            Assert.IsAssignableFrom<IVersionedMapAnalyticsApi>(client.MapAnalytics);
+            Assert.IsAssignableFrom<IVersionedPlayerAnalyticsV2Api>(client.PlayerAnalyticsV2);
         }
     }
 }

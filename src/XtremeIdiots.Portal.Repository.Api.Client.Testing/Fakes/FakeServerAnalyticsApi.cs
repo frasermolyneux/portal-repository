@@ -1,0 +1,43 @@
+using System.Net;
+
+using MX.Api.Abstractions;
+
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Servers;
+
+namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
+
+public class FakeServerAnalyticsApi : IServerAnalyticsApi
+{
+    private ServerOverviewDto _overview = new();
+    private ServerTimeseriesDto _timeseries = new();
+    private ServerSummaryDto _summary = new();
+
+    public FakeServerAnalyticsApi SetOverview(ServerOverviewDto overview) { _overview = overview; return this; }
+    public FakeServerAnalyticsApi SetTimeseries(ServerTimeseriesDto timeseries) { _timeseries = timeseries; return this; }
+    public FakeServerAnalyticsApi SetSummary(ServerSummaryDto summary) { _summary = summary; return this; }
+
+    public FakeServerAnalyticsApi Reset()
+    {
+        _overview = new();
+        _timeseries = new();
+        _summary = new();
+        return this;
+    }
+
+    public Task<ApiResult<ServerOverviewDto>> GetOverview(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerOverviewDto>(HttpStatusCode.OK, new ApiResponse<ServerOverviewDto>(_overview)));
+    }
+
+    public Task<ApiResult<ServerTimeseriesDto>> GetTimeseries(Guid gameServerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<ServerTimeseriesDto>(_timeseries)));
+    }
+
+    public Task<ApiResult<ServerSummaryDto>> GetSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerSummaryDto>(_summary)));
+    }
+}

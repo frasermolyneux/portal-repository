@@ -148,4 +148,34 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         ILiveStatusApi V1 { get; }
     }
+
+    public interface IVersionedGlobalAnalyticsApi
+    {
+        IGlobalAnalyticsApi V1 { get; }
+    }
+
+    public interface IVersionedGameAnalyticsApi
+    {
+        IGameAnalyticsApi V1 { get; }
+    }
+
+    public interface IVersionedServerAnalyticsApi
+    {
+        IServerAnalyticsApi V1 { get; }
+    }
+
+    public interface IVersionedDashboardAnalyticsApi
+    {
+        IDashboardAnalyticsApi V1 { get; }
+    }
+
+    public interface IVersionedMapAnalyticsApi
+    {
+        IMapAnalyticsApi V1 { get; }
+    }
+
+    public interface IVersionedPlayerAnalyticsV2Api
+    {
+        IPlayerAnalyticsV2Api V1 { get; }
+    }
 }

@@ -293,4 +293,64 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public ILiveStatusApi V1 { get; }
     }
+
+    public class VersionedGlobalAnalyticsApi : IVersionedGlobalAnalyticsApi
+    {
+        public VersionedGlobalAnalyticsApi(IGlobalAnalyticsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IGlobalAnalyticsApi V1 { get; }
+    }
+
+    public class VersionedGameAnalyticsApi : IVersionedGameAnalyticsApi
+    {
+        public VersionedGameAnalyticsApi(IGameAnalyticsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IGameAnalyticsApi V1 { get; }
+    }
+
+    public class VersionedServerAnalyticsApi : IVersionedServerAnalyticsApi
+    {
+        public VersionedServerAnalyticsApi(IServerAnalyticsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IServerAnalyticsApi V1 { get; }
+    }
+
+    public class VersionedDashboardAnalyticsApi : IVersionedDashboardAnalyticsApi
+    {
+        public VersionedDashboardAnalyticsApi(IDashboardAnalyticsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IDashboardAnalyticsApi V1 { get; }
+    }
+
+    public class VersionedMapAnalyticsApi : IVersionedMapAnalyticsApi
+    {
+        public VersionedMapAnalyticsApi(IMapAnalyticsApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IMapAnalyticsApi V1 { get; }
+    }
+
+    public class VersionedPlayerAnalyticsV2Api : IVersionedPlayerAnalyticsV2Api
+    {
+        public VersionedPlayerAnalyticsV2Api(IPlayerAnalyticsV2Api v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IPlayerAnalyticsV2Api V1 { get; }
+    }
 }

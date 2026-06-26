@@ -34,8 +34,16 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IVersionedTagsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedReportsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedUserProfileApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedMapRotationsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedDashboardApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedConnectedPlayersApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedScreenshotsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedGlobalAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedGameAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedServerAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedDashboardAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedMapAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedPlayerAnalyticsV2Api>());
     }
 
     [Fact]
@@ -51,8 +59,16 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IApiInfoApi>());
         Assert.NotNull(provider.GetRequiredService<ITagsApi>());
         Assert.NotNull(provider.GetRequiredService<IAdminActionsApi>());
+        Assert.NotNull(provider.GetRequiredService<IMapRotationsApi>());
+        Assert.NotNull(provider.GetRequiredService<IDashboardApi>());
         Assert.NotNull(provider.GetRequiredService<IConnectedPlayersApi>());
         Assert.NotNull(provider.GetRequiredService<IScreenshotsApi>());
+        Assert.NotNull(provider.GetRequiredService<IGlobalAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IGameAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IServerAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IDashboardAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IMapAnalyticsApi>());
+        Assert.NotNull(provider.GetRequiredService<IPlayerAnalyticsV2Api>());
     }
 
     [Fact]

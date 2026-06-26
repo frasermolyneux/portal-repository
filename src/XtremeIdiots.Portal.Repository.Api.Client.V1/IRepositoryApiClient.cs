@@ -34,5 +34,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedGlobalConfigurationsApi GlobalConfigurations { get; }
         IVersionedGameServerConfigurationsApi GameServerConfigurations { get; }
         IVersionedLiveStatusApi LiveStatus { get; }
+
+        IVersionedGlobalAnalyticsApi GlobalAnalytics { get; }
+        IVersionedGameAnalyticsApi GameAnalytics { get; }
+        IVersionedServerAnalyticsApi ServerAnalytics { get; }
+        IVersionedDashboardAnalyticsApi DashboardAnalytics { get; }
+        IVersionedMapAnalyticsApi MapAnalytics { get; }
+        IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 { get; }
     }
 }

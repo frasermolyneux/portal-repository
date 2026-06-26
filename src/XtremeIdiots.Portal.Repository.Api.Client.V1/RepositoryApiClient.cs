@@ -36,7 +36,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedDashboardApi dashboard,
             IVersionedGlobalConfigurationsApi globalConfigurations,
             IVersionedGameServerConfigurationsApi gameServerConfigurations,
-            IVersionedLiveStatusApi liveStatus)
+            IVersionedLiveStatusApi liveStatus,
+            IVersionedGlobalAnalyticsApi globalAnalytics,
+            IVersionedGameAnalyticsApi gameAnalytics,
+            IVersionedServerAnalyticsApi serverAnalytics,
+            IVersionedDashboardAnalyticsApi dashboardAnalytics,
+            IVersionedMapAnalyticsApi mapAnalytics,
+            IVersionedPlayerAnalyticsV2Api playerAnalyticsV2)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -68,6 +74,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             GlobalConfigurations = globalConfigurations;
             GameServerConfigurations = gameServerConfigurations;
             LiveStatus = liveStatus;
+            GlobalAnalytics = globalAnalytics;
+            GameAnalytics = gameAnalytics;
+            ServerAnalytics = serverAnalytics;
+            DashboardAnalytics = dashboardAnalytics;
+            MapAnalytics = mapAnalytics;
+            PlayerAnalyticsV2 = playerAnalyticsV2;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -100,5 +112,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedGlobalConfigurationsApi GlobalConfigurations { get; }
         public IVersionedGameServerConfigurationsApi GameServerConfigurations { get; }
         public IVersionedLiveStatusApi LiveStatus { get; }
+        public IVersionedGlobalAnalyticsApi GlobalAnalytics { get; }
+        public IVersionedGameAnalyticsApi GameAnalytics { get; }
+        public IVersionedServerAnalyticsApi ServerAnalytics { get; }
+        public IVersionedDashboardAnalyticsApi DashboardAnalytics { get; }
+        public IVersionedMapAnalyticsApi MapAnalytics { get; }
+        public IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 { get; }
     }
 }

@@ -97,4 +97,40 @@ public class PlayerAnalyticsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
     }
+
+    [Fact]
+    public async Task GetCumulativeDailyPlayers_CutoffInFuture_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayerAnalyticsApi)controller;
+
+        var result = await api.GetCumulativeDailyPlayers(DateTime.UtcNow.AddMinutes(1));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetNewDailyPlayersPerGame_CutoffInFuture_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayerAnalyticsApi)controller;
+
+        var result = await api.GetNewDailyPlayersPerGame(DateTime.UtcNow.AddMinutes(1));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetPlayersDropOffPerGameJson_CutoffInFuture_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IPlayerAnalyticsApi)controller;
+
+        var result = await api.GetPlayersDropOffPerGameJson(DateTime.UtcNow.AddMinutes(1));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
 }

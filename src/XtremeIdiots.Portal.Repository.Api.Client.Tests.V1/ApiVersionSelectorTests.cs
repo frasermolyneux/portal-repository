@@ -166,5 +166,53 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             var selector = new VersionedApiInfoApi(mock.Object);
             Assert.Same(mock.Object, selector.V1);
         }
+
+        [Fact]
+        public void VersionedGlobalAnalyticsApi_ExposesV1()
+        {
+            var mock = new Mock<IGlobalAnalyticsApi>();
+            var selector = new VersionedGlobalAnalyticsApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
+
+        [Fact]
+        public void VersionedGameAnalyticsApi_ExposesV1()
+        {
+            var mock = new Mock<IGameAnalyticsApi>();
+            var selector = new VersionedGameAnalyticsApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
+
+        [Fact]
+        public void VersionedServerAnalyticsApi_ExposesV1()
+        {
+            var mock = new Mock<IServerAnalyticsApi>();
+            var selector = new VersionedServerAnalyticsApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
+
+        [Fact]
+        public void VersionedDashboardAnalyticsApi_ExposesV1()
+        {
+            var mock = new Mock<IDashboardAnalyticsApi>();
+            var selector = new VersionedDashboardAnalyticsApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
+
+        [Fact]
+        public void VersionedMapAnalyticsApi_ExposesV1()
+        {
+            var mock = new Mock<IMapAnalyticsApi>();
+            var selector = new VersionedMapAnalyticsApi(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
+
+        [Fact]
+        public void VersionedPlayerAnalyticsV2Api_ExposesV1()
+        {
+            var mock = new Mock<IPlayerAnalyticsV2Api>();
+            var selector = new VersionedPlayerAnalyticsV2Api(mock.Object);
+            Assert.Same(mock.Object, selector.V1);
+        }
     }
 }
