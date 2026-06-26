@@ -72,11 +72,6 @@ public sealed class BroadcastSettingsValidator
                 result.Errors.Add($"messages[{i}].message is required.");
                 continue;
             }
-
-            if (entry.Message.Length > 120)
-            {
-                result.Errors.Add($"messages[{i}].message must be 120 characters or fewer.");
-            }
         }
 
         return result;
