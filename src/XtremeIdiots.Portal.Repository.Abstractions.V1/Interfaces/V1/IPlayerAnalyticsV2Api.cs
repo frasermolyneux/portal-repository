@@ -9,6 +9,21 @@ public interface IPlayerAnalyticsV2Api
 {
     Task<ApiResult<PlayerOverviewDto>> GetOverview(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
     Task<ApiResult<PlayerTrendsDto>> GetTrends(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default);
+    Task<ApiResult<PlayerTrendsDto>> GetTrends(
+        Guid playerId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        return GetTrends(playerId, fromUtc, toUtc, bucket, cancellationToken);
+    }
+
     Task<ApiResult<PlayerRelatedActivityDto>> GetRelatedActivity(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
     Task<ApiResult<PlayerModerationSummaryDto>> GetModerationSummary(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 }

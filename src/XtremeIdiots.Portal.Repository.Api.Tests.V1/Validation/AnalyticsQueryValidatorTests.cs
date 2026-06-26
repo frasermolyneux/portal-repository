@@ -99,4 +99,156 @@ public class AnalyticsQueryValidatorTests
         Assert.False(valid);
         Assert.Contains(maxDays.ToString(), error);
     }
+
+    [Fact]
+    public void TryValidateComparePeriods_ReturnsFalse_WhenBelowMinimum()
+    {
+        var valid = AnalyticsQueryValidator.TryValidateComparePeriods(AnalyticsQueryDefaults.MinComparePeriods - 1, out var error);
+
+        Assert.False(valid);
+        Assert.Contains(AnalyticsQueryDefaults.MinComparePeriods.ToString(), error);
+    }
+
+    [Fact]
+    public void TryValidateComparePeriods_ReturnsFalse_WhenAboveMaximum()
+    {
+        var valid = AnalyticsQueryValidator.TryValidateComparePeriods(AnalyticsQueryDefaults.MaxComparePeriods + 1, out var error);
+
+        Assert.False(valid);
+        Assert.Contains(AnalyticsQueryDefaults.MaxComparePeriods.ToString(), error);
+    }
+
+    [Fact]
+    public void TryValidateComparePeriods_ReturnsTrue_AtBounds()
+    {
+        var minValid = AnalyticsQueryValidator.TryValidateComparePeriods(AnalyticsQueryDefaults.MinComparePeriods, out _);
+        var maxValid = AnalyticsQueryValidator.TryValidateComparePeriods(AnalyticsQueryDefaults.MaxComparePeriods, out _);
+
+        Assert.True(minValid);
+        Assert.True(maxValid);
+    }
+
+    [Fact]
+    public void TryValidateComparisonOptions_ReturnsFalse_WhenTimezoneMissing()
+    {
+        var valid = AnalyticsQueryValidator.TryValidateComparisonOptions(
+            AnalyticsCompareMode.PreviousPeriod,
+            AnalyticsQueryDefaults.DefaultComparePeriods,
+            AnalyticsAlignMode.None,
+            string.Empty,
+            out var error);
+
+        Assert.False(valid);
+        Assert.Contains("timezone", error);
+    }
+
+    [Fact]
+    public void TryValidateComparisonOptions_ReturnsFalse_WhenComparePeriodsInvalid()
+    {
+        var valid = AnalyticsQueryValidator.TryValidateComparisonOptions(
+            AnalyticsCompareMode.RollingPeriods,
+            AnalyticsQueryDefaults.MaxComparePeriods + 1,
+            AnalyticsAlignMode.Week,
+            "UTC",
+            out var error);
+
+        Assert.False(valid);
+        Assert.Contains(AnalyticsQueryDefaults.MaxComparePeriods.ToString(), error);
+    }
+
+    [Fact]
+    public void TryValidateComparisonOptions_ReturnsTrue_ForValidInputs()
+    {
+        var valid = AnalyticsQueryValidator.TryValidateComparisonOptions(
+            AnalyticsCompareMode.None,
+            AnalyticsQueryDefaults.DefaultComparePeriods,
+            AnalyticsAlignMode.Month,
+            "UTC",
+            out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+    }
+
+    [Fact]
+    public void TryGetAlignedWindow_ReturnsFalse_WhenTimezoneInvalid()
+    {
+        var fromUtc = new DateTime(2025, 1, 7, 10, 0, 0, DateTimeKind.Utc);
+        var toUtc = new DateTime(2025, 1, 8, 10, 0, 0, DateTimeKind.Utc);
+
+        var valid = AnalyticsQueryValidator.TryGetAlignedWindow(
+            fromUtc,
+            toUtc,
+            AnalyticsAlignMode.Week,
+            "Invalid/Timezone",
+            out _,
+            out _,
+            out var error);
+
+        Assert.False(valid);
+        Assert.Contains("timezone", error);
+    }
+
+    [Fact]
+    public void TryGetAlignedWindow_ReturnsInputWindow_WhenAlignNone()
+    {
+        var fromUtc = new DateTime(2025, 1, 7, 10, 0, 0, DateTimeKind.Utc);
+        var toUtc = new DateTime(2025, 1, 8, 10, 0, 0, DateTimeKind.Utc);
+
+        var valid = AnalyticsQueryValidator.TryGetAlignedWindow(
+            fromUtc,
+            toUtc,
+            AnalyticsAlignMode.None,
+            "UTC",
+            out var alignedFromUtc,
+            out var alignedToUtc,
+            out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+        Assert.Equal(fromUtc, alignedFromUtc);
+        Assert.Equal(toUtc, alignedToUtc);
+    }
+
+    [Fact]
+    public void TryGetAlignedWindow_AlignsToWeekBoundaries()
+    {
+        var fromUtc = new DateTime(2025, 1, 8, 10, 0, 0, DateTimeKind.Utc); // Wednesday
+        var toUtc = new DateTime(2025, 1, 10, 18, 0, 0, DateTimeKind.Utc); // Friday
+
+        var valid = AnalyticsQueryValidator.TryGetAlignedWindow(
+            fromUtc,
+            toUtc,
+            AnalyticsAlignMode.Week,
+            "UTC",
+            out var alignedFromUtc,
+            out var alignedToUtc,
+            out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+        Assert.Equal(new DateTime(2025, 1, 6, 0, 0, 0, DateTimeKind.Utc), alignedFromUtc); // Monday start
+        Assert.Equal(new DateTime(2025, 1, 13, 0, 0, 0, DateTimeKind.Utc), alignedToUtc); // Next Monday
+    }
+
+    [Fact]
+    public void TryGetAlignedWindow_AlignsToMonthBoundaries()
+    {
+        var fromUtc = new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        var toUtc = new DateTime(2025, 2, 2, 8, 0, 0, DateTimeKind.Utc);
+
+        var valid = AnalyticsQueryValidator.TryGetAlignedWindow(
+            fromUtc,
+            toUtc,
+            AnalyticsAlignMode.Month,
+            "UTC",
+            out var alignedFromUtc,
+            out var alignedToUtc,
+            out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+        Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), alignedFromUtc);
+        Assert.Equal(new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc), alignedToUtc);
+    }
 }

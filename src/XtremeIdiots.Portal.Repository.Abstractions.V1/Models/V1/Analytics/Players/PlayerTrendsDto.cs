@@ -15,6 +15,18 @@ public record PlayerTrendsDto : IDto
     [JsonProperty]
     public List<AnalyticsTimeseriesPointDto> Points { get; internal set; } = [];
 
+    [JsonProperty]
+    public List<DateTime> Labels { get; internal set; } = [];
+
+    [JsonProperty]
+    public List<AnalyticsSeriesDto> Series { get; internal set; } = [];
+
+    [JsonProperty]
+    public AnalyticsCompareSummaryDto? Summary { get; internal set; }
+
+    [JsonProperty]
+    public AnalyticsCompareMetaDto? Meta { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

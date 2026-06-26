@@ -43,6 +43,21 @@ public class FakeGameAnalyticsApi : IGameAnalyticsApi
         return Task.FromResult(new ApiResult<GameTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<GameTimeseriesDto>(_timeseries)));
     }
 
+    public Task<ApiResult<GameTimeseriesDto>> GetTimeseries(
+        GameType gameType,
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<GameTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<GameTimeseriesDto>(_timeseries)));
+    }
+
     public Task<ApiResult<GameServerBreakdownDto>> GetServerBreakdown(GameType gameType, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<GameServerBreakdownDto>(HttpStatusCode.OK, new ApiResponse<GameServerBreakdownDto>(_serverBreakdown)));

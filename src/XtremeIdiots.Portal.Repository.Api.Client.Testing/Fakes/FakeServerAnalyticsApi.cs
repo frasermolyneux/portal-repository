@@ -36,6 +36,21 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
         return Task.FromResult(new ApiResult<ServerTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<ServerTimeseriesDto>(_timeseries)));
     }
 
+    public Task<ApiResult<ServerTimeseriesDto>> GetTimeseries(
+        Guid gameServerId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<ServerTimeseriesDto>(_timeseries)));
+    }
+
     public Task<ApiResult<ServerSummaryDto>> GetSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<ServerSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerSummaryDto>(_summary)));

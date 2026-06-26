@@ -39,6 +39,21 @@ public class FakePlayerAnalyticsV2Api : IPlayerAnalyticsV2Api
         return Task.FromResult(new ApiResult<PlayerTrendsDto>(HttpStatusCode.OK, new ApiResponse<PlayerTrendsDto>(_trends)));
     }
 
+    public Task<ApiResult<PlayerTrendsDto>> GetTrends(
+        Guid playerId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<PlayerTrendsDto>(HttpStatusCode.OK, new ApiResponse<PlayerTrendsDto>(_trends)));
+    }
+
     public Task<ApiResult<PlayerRelatedActivityDto>> GetRelatedActivity(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<PlayerRelatedActivityDto>(HttpStatusCode.OK, new ApiResponse<PlayerRelatedActivityDto>(_relatedActivity)));

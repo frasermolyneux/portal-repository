@@ -1,5 +1,7 @@
 using XtremeIdiots.Portal.Repository.Api.Client.Testing;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 
@@ -141,5 +143,92 @@ public class FakeRepositoryApiClientTests
         var listResult = await client.ConnectedPlayers.V1.GetConnectedPlayersByUserProfile(userProfileId, 0, 20);
         Assert.Equal(System.Net.HttpStatusCode.OK, listResult.StatusCode);
         Assert.Single(listResult.Result!.Data!.Items!);
+    }
+
+    [Fact]
+    public async Task GlobalAnalytics_V1_GetTimeseriesComparisonOverload_ReturnsConfiguredResponse()
+    {
+        var client = new FakeRepositoryApiClient();
+        var timeseries = RepositoryDtoFactory.CreateGlobalTimeseries();
+        client.GlobalAnalyticsApi.SetTimeseries(timeseries);
+
+        var result = await client.GlobalAnalytics.V1.GetTimeseries(
+            DateTime.UtcNow.AddDays(-7),
+            DateTime.UtcNow,
+            AnalyticsBucket.OneDay,
+            AnalyticsCompareMode.PreviousPeriod,
+            2,
+            AnalyticsAlignMode.Week,
+            "Europe/London",
+            true);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
+        Assert.Same(timeseries, result.Result!.Data);
+    }
+
+    [Fact]
+    public async Task GameAnalytics_V1_GetTimeseriesComparisonOverload_ReturnsConfiguredResponse()
+    {
+        var client = new FakeRepositoryApiClient();
+        var timeseries = RepositoryDtoFactory.CreateGameTimeseries();
+        client.GameAnalyticsApi.SetTimeseries(timeseries);
+
+        var result = await client.GameAnalytics.V1.GetTimeseries(
+            GameType.CallOfDuty4,
+            DateTime.UtcNow.AddDays(-7),
+            DateTime.UtcNow,
+            AnalyticsBucket.OneDay,
+            AnalyticsCompareMode.RollingPeriods,
+            3,
+            AnalyticsAlignMode.Month,
+            "UTC",
+            false);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
+        Assert.Same(timeseries, result.Result!.Data);
+    }
+
+    [Fact]
+    public async Task ServerAnalytics_V1_GetTimeseriesComparisonOverload_ReturnsConfiguredResponse()
+    {
+        var client = new FakeRepositoryApiClient();
+        var timeseries = RepositoryDtoFactory.CreateServerTimeseries();
+        client.ServerAnalyticsApi.SetTimeseries(timeseries);
+
+        var result = await client.ServerAnalytics.V1.GetTimeseries(
+            Guid.NewGuid(),
+            DateTime.UtcNow.AddDays(-7),
+            DateTime.UtcNow,
+            AnalyticsBucket.OneDay,
+            AnalyticsCompareMode.PreviousPeriod,
+            1,
+            AnalyticsAlignMode.None,
+            "UTC",
+            false);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
+        Assert.Same(timeseries, result.Result!.Data);
+    }
+
+    [Fact]
+    public async Task PlayerAnalyticsV2_V1_GetTrendsComparisonOverload_ReturnsConfiguredResponse()
+    {
+        var client = new FakeRepositoryApiClient();
+        var trends = RepositoryDtoFactory.CreatePlayerTrends();
+        client.PlayerAnalyticsV2Api.SetTrends(trends);
+
+        var result = await client.PlayerAnalyticsV2.V1.GetTrends(
+            Guid.NewGuid(),
+            DateTime.UtcNow.AddDays(-7),
+            DateTime.UtcNow,
+            AnalyticsBucket.OneDay,
+            AnalyticsCompareMode.RollingPeriods,
+            4,
+            AnalyticsAlignMode.Week,
+            "Europe/London",
+            true);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
+        Assert.Same(trends, result.Result!.Data);
     }
 }

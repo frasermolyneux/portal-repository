@@ -10,6 +10,21 @@ public interface IGameAnalyticsApi
 {
     Task<ApiResult<GameOverviewDto>> GetOverview(GameType gameType, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
     Task<ApiResult<GameTimeseriesDto>> GetTimeseries(GameType gameType, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default);
+    Task<ApiResult<GameTimeseriesDto>> GetTimeseries(
+        GameType gameType,
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        return GetTimeseries(gameType, fromUtc, toUtc, bucket, cancellationToken);
+    }
+
     Task<ApiResult<GameServerBreakdownDto>> GetServerBreakdown(GameType gameType, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);
     Task<ApiResult<GamePlayerBreakdownDto>> GetPlayerBreakdown(GameType gameType, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);
     Task<ApiResult<GameMapBreakdownDto>> GetMapBreakdown(GameType gameType, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);

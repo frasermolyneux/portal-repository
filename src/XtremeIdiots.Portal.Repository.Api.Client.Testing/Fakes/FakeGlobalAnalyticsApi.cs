@@ -48,6 +48,20 @@ public class FakeGlobalAnalyticsApi : IGlobalAnalyticsApi
         return Task.FromResult(new ApiResult<GlobalTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<GlobalTimeseriesDto>(_timeseries)));
     }
 
+    public Task<ApiResult<GlobalTimeseriesDto>> GetTimeseries(
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<GlobalTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<GlobalTimeseriesDto>(_timeseries)));
+    }
+
     public Task<ApiResult<GlobalGameBreakdownDto>> GetGameBreakdown(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<GlobalGameBreakdownDto>(HttpStatusCode.OK, new ApiResponse<GlobalGameBreakdownDto>(_gameBreakdown)));

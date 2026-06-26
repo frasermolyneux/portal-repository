@@ -17,6 +17,12 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Models;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Games;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Global;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Servers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing;
 
@@ -451,6 +457,86 @@ public static class RepositoryDtoFactory
         {
             Created = created ?? DateTime.UtcNow,
             GameCounts = gameCounts ?? []
+        };
+    }
+
+    public static GlobalTimeseriesDto CreateGlobalTimeseries(
+        AnalyticsBucket bucket = AnalyticsBucket.OneDay,
+        List<GlobalTimeseriesPointDto>? points = null,
+        List<DateTime>? labels = null,
+        List<AnalyticsSeriesDto>? series = null,
+        AnalyticsCompareSummaryDto? summary = null,
+        AnalyticsCompareMetaDto? meta = null)
+    {
+        return new GlobalTimeseriesDto
+        {
+            Bucket = bucket,
+            Points = points ?? [new GlobalTimeseriesPointDto { BucketStartUtc = DateTime.UtcNow.Date, AvgPlayers = 10, PeakPlayers = 20, EventsCount = 50, ChatCount = 30 }],
+            Labels = labels ?? [DateTime.UtcNow.Date],
+            Series = series ?? [],
+            Summary = summary,
+            Meta = meta
+        };
+    }
+
+    public static GameTimeseriesDto CreateGameTimeseries(
+        GameType gameType = GameType.CallOfDuty4,
+        AnalyticsBucket bucket = AnalyticsBucket.OneDay,
+        List<GameTimeseriesPointDto>? points = null,
+        List<DateTime>? labels = null,
+        List<AnalyticsSeriesDto>? series = null,
+        AnalyticsCompareSummaryDto? summary = null,
+        AnalyticsCompareMetaDto? meta = null)
+    {
+        return new GameTimeseriesDto
+        {
+            GameType = gameType,
+            Bucket = bucket,
+            Points = points ?? [new GameTimeseriesPointDto { BucketStartUtc = DateTime.UtcNow.Date, AvgPlayers = 12, EventsCount = 44, ChatCount = 28 }],
+            Labels = labels ?? [DateTime.UtcNow.Date],
+            Series = series ?? [],
+            Summary = summary,
+            Meta = meta
+        };
+    }
+
+    public static ServerTimeseriesDto CreateServerTimeseries(
+        AnalyticsBucket bucket = AnalyticsBucket.OneDay,
+        List<ServerTimeseriesPointDto>? points = null,
+        List<DateTime>? labels = null,
+        List<AnalyticsSeriesDto>? series = null,
+        AnalyticsCompareSummaryDto? summary = null,
+        AnalyticsCompareMetaDto? meta = null)
+    {
+        return new ServerTimeseriesDto
+        {
+            Window = new AnalyticsTimeWindowDto { FromUtc = DateTime.UtcNow.AddDays(-7), ToUtc = DateTime.UtcNow },
+            Bucket = bucket,
+            Points = points ?? [new ServerTimeseriesPointDto { Timestamp = DateTime.UtcNow.Date, UniquePlayers = 15, EventsCount = 60, ChatMessagesCount = 40 }],
+            Labels = labels ?? [DateTime.UtcNow.Date],
+            Series = series ?? [],
+            Summary = summary,
+            Meta = meta
+        };
+    }
+
+    public static PlayerTrendsDto CreatePlayerTrends(
+        AnalyticsBucket bucket = AnalyticsBucket.OneDay,
+        List<AnalyticsTimeseriesPointDto>? points = null,
+        List<DateTime>? labels = null,
+        List<AnalyticsSeriesDto>? series = null,
+        AnalyticsCompareSummaryDto? summary = null,
+        AnalyticsCompareMetaDto? meta = null)
+    {
+        return new PlayerTrendsDto
+        {
+            Window = new AnalyticsTimeWindowDto { FromUtc = DateTime.UtcNow.AddDays(-7), ToUtc = DateTime.UtcNow },
+            Bucket = bucket,
+            Points = points ?? [new AnalyticsTimeseriesPointDto { BucketStartUtc = DateTime.UtcNow.Date, BucketEndUtc = DateTime.UtcNow.Date.AddDays(1), Value = 9 }],
+            Labels = labels ?? [DateTime.UtcNow.Date],
+            Series = series ?? [],
+            Summary = summary,
+            Meta = meta
         };
     }
 
