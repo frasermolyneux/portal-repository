@@ -172,8 +172,8 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
     }
 
     [HttpDelete("game-servers/{gameServerId:guid}/configurations/{ns}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteConfiguration(Guid gameServerId, string ns, CancellationToken cancellationToken = default)
     {
         var response = await ((IGameServerConfigurationsApi)this).DeleteConfiguration(gameServerId, ns, cancellationToken).ConfigureAwait(false);
@@ -192,11 +192,11 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
 
         if (config == null)
         {
-            return new ApiResult(HttpStatusCode.NotFound);
+            return new ApiResult(HttpStatusCode.NoContent);
         }
 
         context.GameServerConfigurations.Remove(config);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return new ApiResponse().ToApiResult();
+        return new ApiResult(HttpStatusCode.NoContent);
     }
 }

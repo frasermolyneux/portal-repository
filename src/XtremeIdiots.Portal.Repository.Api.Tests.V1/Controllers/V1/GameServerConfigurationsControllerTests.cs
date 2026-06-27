@@ -217,20 +217,49 @@ public class GameServerConfigurationsControllerTests
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
         var result = await api.DeleteConfiguration(gs.GameServerId, "delete-ns");
+        var repeatedResult = await api.DeleteConfiguration(gs.GameServerId, "delete-ns");
 
-        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, result.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, repeatedResult.StatusCode);
         Assert.Empty(context.GameServerConfigurations);
     }
 
     [Fact]
-    public async Task DeleteConfiguration_NonExistent_ReturnsNotFound()
+    public async Task DeleteConfiguration_NonExistent_ReturnsNoContent()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var controller = CreateController(context);
         var api = (IGameServerConfigurationsApi)controller;
         var result = await api.DeleteConfiguration(Guid.NewGuid(), "nonexistent");
 
-        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, result.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task DeleteConfiguration_InvalidNamespace_ReturnsBadRequest(string invalidNamespace)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+
+        var result = await api.DeleteConfiguration(Guid.NewGuid(), invalidNamespace);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteConfiguration_NamespaceTooLong_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+
+        var tooLongNamespace = new string('n', 129);
+        var result = await api.DeleteConfiguration(Guid.NewGuid(), tooLongNamespace);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
     }
 
     [Fact]
