@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text;
 
+using Microsoft.EntityFrameworkCore;
+
 using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -262,6 +264,456 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
         var response = await _client.PostAsync("/v1.0/map-rotations/assignments", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateServerAssignment_ReturnsCreated_WhenExistingAssignmentIsRemoving()
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var existingAssignmentId = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                GameType = (int)GameType.CallOfDuty4,
+                Title = "DM Rotation",
+                GameMode = "dm",
+                Version = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "DM Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.Add(new MapRotationServerAssignment
+            {
+                MapRotationServerAssignmentId = existingAssignmentId,
+                MapRotationId = rotationId,
+                GameServerId = serverId,
+                ConfigFilePath = "server.cfg",
+                ConfigVariableName = "sv_maprotation",
+                DeploymentState = (int)DeploymentState.Removing,
+                ActivationState = (int)ActivationState.Inactive,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.SaveChanges();
+        });
+
+        var dto = new CreateMapRotationServerAssignmentDto(rotationId, serverId)
+        {
+            ConfigFilePath = "server.cfg",
+            ConfigVariableName = "sv_maprotation"
+        };
+
+        var json = JsonConvert.SerializeObject(dto);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _client.PostAsync("/v1.0/map-rotations/assignments", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateServerAssignment_SetActive_DeactivatesOtherActiveAssignmentsOnSameTarget()
+    {
+        var rotationIdA = Guid.NewGuid();
+        var rotationIdB = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var assignmentIdA = Guid.NewGuid();
+        var assignmentIdB = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.AddRange(
+                new MapRotation
+                {
+                    MapRotationId = rotationIdA,
+                    GameType = (int)GameType.CallOfDuty4,
+                    Title = "Rotation A",
+                    GameMode = "dm",
+                    Version = 1,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                },
+                new MapRotation
+                {
+                    MapRotationId = rotationIdB,
+                    GameType = (int)GameType.CallOfDuty4,
+                    Title = "Rotation B",
+                    GameMode = "dm",
+                    Version = 1,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "DM Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.AddRange(
+                new MapRotationServerAssignment
+                {
+                    MapRotationServerAssignmentId = assignmentIdA,
+                    MapRotationId = rotationIdA,
+                    GameServerId = serverId,
+                    ConfigFilePath = "server.cfg",
+                    ConfigVariableName = "sv_maprotation",
+                    DeploymentState = (int)DeploymentState.Synced,
+                    ActivationState = (int)ActivationState.Active,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                },
+                new MapRotationServerAssignment
+                {
+                    MapRotationServerAssignmentId = assignmentIdB,
+                    MapRotationId = rotationIdB,
+                    GameServerId = serverId,
+                    ConfigFilePath = "server.cfg",
+                    ConfigVariableName = "sv_maprotation",
+                    DeploymentState = (int)DeploymentState.Synced,
+                    ActivationState = (int)ActivationState.Inactive,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+            ctx.SaveChanges();
+        });
+
+        var dto = new UpdateMapRotationServerAssignmentDto(assignmentIdB)
+        {
+            ActivationState = ActivationState.Active
+        };
+
+        var json = JsonConvert.SerializeObject(dto);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"/v1.0/map-rotations/assignments/{assignmentIdB}")
+        {
+            Content = content
+        };
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+        var assignmentA = await db.MapRotationServerAssignments.FirstAsync(a => a.MapRotationServerAssignmentId == assignmentIdA);
+        var assignmentB = await db.MapRotationServerAssignments.FirstAsync(a => a.MapRotationServerAssignmentId == assignmentIdB);
+
+        Assert.Equal((int)ActivationState.Inactive, assignmentA.ActivationState);
+        Assert.Equal((int)ActivationState.Active, assignmentB.ActivationState);
+    }
+
+    [Fact]
+    public async Task UpdateServerAssignment_ReturnsBadRequest_WhenAssignmentIsRemovedAndSetActive()
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                GameType = (int)GameType.CallOfDuty4,
+                Title = "Rotation",
+                GameMode = "dm",
+                Version = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.Add(new MapRotationServerAssignment
+            {
+                MapRotationServerAssignmentId = assignmentId,
+                MapRotationId = rotationId,
+                GameServerId = serverId,
+                ConfigFilePath = "server.cfg",
+                ConfigVariableName = "sv_maprotation",
+                DeploymentState = (int)DeploymentState.Removed,
+                ActivationState = (int)ActivationState.Inactive,
+                UnassignedAt = DateTime.UtcNow.AddHours(-1),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.SaveChanges();
+        });
+
+        var dto = new UpdateMapRotationServerAssignmentDto(assignmentId)
+        {
+            ActivationState = ActivationState.Active
+        };
+
+        var json = JsonConvert.SerializeObject(dto);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"/v1.0/map-rotations/assignments/{assignmentId}")
+        {
+            Content = content
+        };
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("ASSIGNMENT_REMOVED", body);
+    }
+
+    [Fact]
+    public async Task DeleteServerAssignment_ReturnsBadRequest_WhenRemovedAssignmentIsWithinRetentionWindow()
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                GameType = (int)GameType.CallOfDuty4,
+                Title = "Rotation",
+                GameMode = "dm",
+                Version = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.Add(new MapRotationServerAssignment
+            {
+                MapRotationServerAssignmentId = assignmentId,
+                MapRotationId = rotationId,
+                GameServerId = serverId,
+                DeploymentState = (int)DeploymentState.Removed,
+                ActivationState = (int)ActivationState.Inactive,
+                UnassignedAt = DateTime.UtcNow.AddHours(-2),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.SaveChanges();
+        });
+
+        var response = await _client.DeleteAsync($"/v1.0/map-rotations/assignments/{assignmentId}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("ASSIGNMENT_RETENTION_ACTIVE", body);
+    }
+
+    [Fact]
+    public async Task DeleteServerAssignment_ReturnsBadRequest_WhenRemovedAssignmentHasNullUnassignedAtWithinRetentionWindow()
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                GameType = (int)GameType.CallOfDuty4,
+                Title = "Rotation",
+                GameMode = "dm",
+                Version = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.Add(new MapRotationServerAssignment
+            {
+                MapRotationServerAssignmentId = assignmentId,
+                MapRotationId = rotationId,
+                GameServerId = serverId,
+                DeploymentState = (int)DeploymentState.Removed,
+                ActivationState = (int)ActivationState.Inactive,
+                UnassignedAt = null,
+                CreatedAt = DateTime.UtcNow.AddHours(-2),
+                UpdatedAt = DateTime.UtcNow.AddHours(-2)
+            });
+
+            ctx.SaveChanges();
+        });
+
+        var response = await _client.DeleteAsync($"/v1.0/map-rotations/assignments/{assignmentId}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("ASSIGNMENT_RETENTION_ACTIVE", body);
+    }
+
+    [Fact]
+    public async Task DeleteServerAssignment_RemovesAssignmentAndOperations_WhenRemovedAssignmentIsPastRetentionWindow()
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                GameType = (int)GameType.CallOfDuty4,
+                Title = "Rotation",
+                GameMode = "dm",
+                Version = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.Add(new MapRotationServerAssignment
+            {
+                MapRotationServerAssignmentId = assignmentId,
+                MapRotationId = rotationId,
+                GameServerId = serverId,
+                DeploymentState = (int)DeploymentState.Removed,
+                ActivationState = (int)ActivationState.Inactive,
+                UnassignedAt = DateTime.UtcNow.AddHours(-49),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.MapRotationAssignmentOperations.Add(new MapRotationAssignmentOperation
+            {
+                MapRotationAssignmentOperationId = operationId,
+                MapRotationServerAssignmentId = assignmentId,
+                OperationType = (int)AssignmentOperationType.Remove,
+                Status = (int)AssignmentOperationStatus.Succeeded,
+                StartedAt = DateTime.UtcNow.AddHours(-50),
+                CompletedAt = DateTime.UtcNow.AddHours(-49)
+            });
+
+            ctx.SaveChanges();
+        });
+
+        var response = await _client.DeleteAsync($"/v1.0/map-rotations/assignments/{assignmentId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+
+        var assignment = await db.MapRotationServerAssignments
+            .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == assignmentId);
+        var operation = await db.MapRotationAssignmentOperations
+            .FirstOrDefaultAsync(op => op.MapRotationAssignmentOperationId == operationId);
+
+        Assert.Null(assignment);
+        Assert.Null(operation);
+    }
+
+    [Fact]
+    public async Task DeleteServerAssignment_RemovesAssignment_WhenRemovedAssignmentHasNullUnassignedAtPastRetentionWindow()
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                GameType = (int)GameType.CallOfDuty4,
+                Title = "Rotation",
+                GameMode = "dm",
+                Version = 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "Server",
+                GameType = (int)GameType.CallOfDuty4,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+
+            ctx.MapRotationServerAssignments.Add(new MapRotationServerAssignment
+            {
+                MapRotationServerAssignmentId = assignmentId,
+                MapRotationId = rotationId,
+                GameServerId = serverId,
+                DeploymentState = (int)DeploymentState.Removed,
+                ActivationState = (int)ActivationState.Inactive,
+                UnassignedAt = null,
+                CreatedAt = DateTime.UtcNow.AddHours(-50),
+                UpdatedAt = DateTime.UtcNow.AddHours(-49)
+            });
+
+            ctx.SaveChanges();
+        });
+
+        var response = await _client.DeleteAsync($"/v1.0/map-rotations/assignments/{assignmentId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+
+        var assignment = await db.MapRotationServerAssignments
+            .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == assignmentId);
+
+        Assert.Null(assignment);
     }
 
     [Fact]

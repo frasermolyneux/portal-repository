@@ -589,7 +589,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     a.GameServerId == createDto.GameServerId &&
                     a.ConfigFilePath == createDto.ConfigFilePath &&
                     a.ConfigVariableName == createDto.ConfigVariableName &&
-                    a.DeploymentState != (int)DeploymentState.Removed,
+                    a.DeploymentState != (int)DeploymentState.Removed &&
+                    a.DeploymentState != (int)DeploymentState.Removing &&
+                    a.DeploymentState != (int)DeploymentState.Failed,
                     cancellationToken).ConfigureAwait(false);
 
             if (duplicateExists)
@@ -655,6 +657,35 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            if (updateDto.ActivationState == ActivationState.Active
+                && entity.DeploymentState == (int)DeploymentState.Removed)
+            {
+                return new ApiResult(HttpStatusCode.BadRequest,
+                    new ApiResponse(new ApiError("ASSIGNMENT_REMOVED", "A removed assignment cannot be activated.")));
+            }
+
+            if (updateDto.ActivationState == ActivationState.Active)
+            {
+                var now = DateTime.UtcNow;
+
+                var activeAssignmentsForSameTarget = await context.MapRotationServerAssignments
+                    .Where(a =>
+                        a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId &&
+                        a.GameServerId == entity.GameServerId &&
+                        a.ConfigFilePath == entity.ConfigFilePath &&
+                        a.ConfigVariableName == entity.ConfigVariableName &&
+                        a.ActivationState == (int)ActivationState.Active &&
+                        a.DeploymentState != (int)DeploymentState.Removed)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                foreach (var activeAssignment in activeAssignmentsForSameTarget)
+                {
+                    activeAssignment.ActivationState = (int)ActivationState.Inactive;
+                    activeAssignment.UpdatedAt = now;
+                }
+            }
+
             updateDto.ApplyTo(entity);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
@@ -684,11 +715,35 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IMapRotationsApi.DeleteServerAssignment(Guid assignmentId, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotationServerAssignments
+                .Include(a => a.MapRotationAssignmentOperations)
                 .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == assignmentId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
             {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (entity.DeploymentState == (int)DeploymentState.Removed)
+            {
+                var retentionAnchor = entity.UnassignedAt ?? entity.UpdatedAt;
+                var purgeAt = retentionAnchor.AddHours(48);
+
+                if (DateTime.UtcNow < purgeAt)
+                {
+                    var retentionMessage = $"Removed assignments are retained for 48 hours and cannot be deleted before {purgeAt:O}.";
+
+                    return new ApiResult(HttpStatusCode.BadRequest,
+                        new ApiResponse(new ApiError("ASSIGNMENT_RETENTION_ACTIVE", retentionMessage)));
+                }
+
+                if (entity.MapRotationAssignmentOperations.Count != 0)
+                {
+                    context.MapRotationAssignmentOperations.RemoveRange(entity.MapRotationAssignmentOperations);
+                }
+
+                context.MapRotationServerAssignments.Remove(entity);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                return new ApiResponse().ToApiResult();
             }
 
             entity.DeploymentState = (int)DeploymentState.Removing;
