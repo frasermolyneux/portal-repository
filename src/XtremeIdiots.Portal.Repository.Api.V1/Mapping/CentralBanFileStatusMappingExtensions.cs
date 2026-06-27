@@ -23,16 +23,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 LastRegenerationDurationMs = entity.LastRegenerationDurationMs,
                 LastRegenerationError = entity.LastRegenerationError,
                 ActiveBanSetHash = entity.ActiveBanSetHash,
-                LegacyBlobLastRegeneratedUtc = entity.LegacyBlobLastRegeneratedUtc,
-                LegacyBlobETag = entity.LegacyBlobEtag,
-                LegacyBlobSizeBytes = entity.LegacyBlobSizeBytes,
-                LegacyTotalLineCount = entity.LegacyTotalLineCount,
-                LegacyBanSyncLineCount = entity.LegacyBanSyncLineCount,
-                LegacyExternalLineCount = entity.LegacyExternalLineCount,
-                LegacyExternalSourceLastModifiedUtc = entity.LegacyExternalSourceLastModifiedUtc,
-                LegacyLastRegenerationDurationMs = entity.LegacyLastRegenerationDurationMs,
-                LegacyLastRegenerationError = entity.LegacyLastRegenerationError,
-                LegacyActiveBanSetHash = entity.LegacyActiveBanSetHash,
                 LastUpdatedUtc = entity.LastUpdatedUtc
             };
         }
@@ -95,56 +85,6 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.ActiveBanSetHash is not null)
             {
                 entity.ActiveBanSetHash = dto.ActiveBanSetHash;
-            }
-
-            if (dto.LegacyBlobLastRegeneratedUtc.HasValue)
-            {
-                entity.LegacyBlobLastRegeneratedUtc = dto.LegacyBlobLastRegeneratedUtc.Value;
-            }
-
-            if (dto.LegacyBlobETag is not null)
-            {
-                entity.LegacyBlobEtag = dto.LegacyBlobETag;
-            }
-
-            if (dto.LegacyBlobSizeBytes.HasValue)
-            {
-                entity.LegacyBlobSizeBytes = dto.LegacyBlobSizeBytes.Value;
-            }
-
-            if (dto.LegacyTotalLineCount.HasValue)
-            {
-                entity.LegacyTotalLineCount = dto.LegacyTotalLineCount.Value;
-            }
-
-            if (dto.LegacyBanSyncLineCount.HasValue)
-            {
-                entity.LegacyBanSyncLineCount = dto.LegacyBanSyncLineCount.Value;
-            }
-
-            if (dto.LegacyExternalLineCount.HasValue)
-            {
-                entity.LegacyExternalLineCount = dto.LegacyExternalLineCount.Value;
-            }
-
-            if (dto.LegacyExternalSourceLastModifiedUtc.HasValue)
-            {
-                entity.LegacyExternalSourceLastModifiedUtc = dto.LegacyExternalSourceLastModifiedUtc.Value;
-            }
-
-            if (dto.LegacyLastRegenerationDurationMs.HasValue)
-            {
-                entity.LegacyLastRegenerationDurationMs = dto.LegacyLastRegenerationDurationMs.Value;
-            }
-
-            if (dto.LegacyLastRegenerationError is not null)
-            {
-                entity.LegacyLastRegenerationError = dto.LegacyLastRegenerationError.Length == 0 ? null : dto.LegacyLastRegenerationError;
-            }
-
-            if (dto.LegacyActiveBanSetHash is not null)
-            {
-                entity.LegacyActiveBanSetHash = dto.LegacyActiveBanSetHash;
             }
 
             entity.LastUpdatedUtc = DateTime.UtcNow;

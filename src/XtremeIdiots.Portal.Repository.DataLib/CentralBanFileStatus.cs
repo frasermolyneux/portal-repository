@@ -40,30 +40,5 @@ public partial class CentralBanFileStatus
     public string? ActiveBanSetHash { get; set; }
 
     [Precision(3)]
-    public DateTime? LegacyBlobLastRegeneratedUtc { get; set; }
-
-    [Column("LegacyBlobETag")]
-    [StringLength(100)]
-    public string? LegacyBlobEtag { get; set; }
-
-    public long? LegacyBlobSizeBytes { get; set; }
-
-    public int? LegacyTotalLineCount { get; set; }
-
-    public int? LegacyBanSyncLineCount { get; set; }
-
-    public int? LegacyExternalLineCount { get; set; }
-
-    [Precision(3)]
-    public DateTime? LegacyExternalSourceLastModifiedUtc { get; set; }
-
-    public int? LegacyLastRegenerationDurationMs { get; set; }
-
-    public string? LegacyLastRegenerationError { get; set; }
-
-    [StringLength(128)]
-    public string? LegacyActiveBanSetHash { get; set; }
-
-    [Precision(3)]
     public DateTime LastUpdatedUtc { get; set; }
 }

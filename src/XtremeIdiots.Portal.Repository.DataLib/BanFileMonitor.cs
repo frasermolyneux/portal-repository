@@ -71,47 +71,6 @@ public partial class BanFileMonitor
 
     public int? RemoteExternalCount { get; set; }
 
-    [Precision(3)]
-    public DateTime? LegacyLastCheckUtc { get; set; }
-
-    [StringLength(20)]
-    public string? LegacyLastCheckResult { get; set; }
-
-    [StringLength(500)]
-    public string? LegacyLastCheckErrorMessage { get; set; }
-
-    [StringLength(500)]
-    public string? LegacyRemoteFilePath { get; set; }
-
-    [StringLength(100)]
-    public string? LegacyResolvedForMod { get; set; }
-
-    public long? LegacyRemoteFileSize { get; set; }
-
-    [Precision(3)]
-    public DateTime? LegacyLastPushUtc { get; set; }
-
-    [Column("LegacyLastPushedETag")]
-    [StringLength(100)]
-    public string? LegacyLastPushedEtag { get; set; }
-
-    public long? LegacyLastPushedSize { get; set; }
-
-    [Column("LegacyLastCentralBlobETag")]
-    [StringLength(100)]
-    public string? LegacyLastCentralBlobEtag { get; set; }
-
-    [Precision(3)]
-    public DateTime? LegacyLastCentralBlobUtc { get; set; }
-
-    public int? LegacyRemoteTotalLineCount { get; set; }
-
-    public int? LegacyRemoteUntaggedCount { get; set; }
-
-    public int? LegacyRemoteBanSyncCount { get; set; }
-
-    public int? LegacyRemoteExternalCount { get; set; }
-
     [ForeignKey("GameServerId")]
     [InverseProperty("BanFileMonitors")]
     public virtual GameServer GameServer { get; set; } = null!;

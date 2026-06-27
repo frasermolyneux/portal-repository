@@ -57,36 +57,6 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.CentralBanFileSt
         public string? ActiveBanSetHash { get; internal set; }
 
         [JsonProperty]
-        public DateTime? LegacyBlobLastRegeneratedUtc { get; internal set; }
-
-        [JsonProperty]
-        public string? LegacyBlobETag { get; internal set; }
-
-        [JsonProperty]
-        public long? LegacyBlobSizeBytes { get; internal set; }
-
-        [JsonProperty]
-        public int? LegacyTotalLineCount { get; internal set; }
-
-        [JsonProperty]
-        public int? LegacyBanSyncLineCount { get; internal set; }
-
-        [JsonProperty]
-        public int? LegacyExternalLineCount { get; internal set; }
-
-        [JsonProperty]
-        public DateTime? LegacyExternalSourceLastModifiedUtc { get; internal set; }
-
-        [JsonProperty]
-        public int? LegacyLastRegenerationDurationMs { get; internal set; }
-
-        [JsonProperty]
-        public string? LegacyLastRegenerationError { get; internal set; }
-
-        [JsonProperty]
-        public string? LegacyActiveBanSetHash { get; internal set; }
-
-        [JsonProperty]
         public DateTime LastUpdatedUtc { get; internal set; }
 
         [JsonIgnore]
