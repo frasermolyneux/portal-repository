@@ -4,6 +4,6 @@ public enum MapRotationStatus
 {
     Draft = 0,
     Testing = 1,
-    Active = 2,
+    Published = 2,
     Archived = 3
 }
