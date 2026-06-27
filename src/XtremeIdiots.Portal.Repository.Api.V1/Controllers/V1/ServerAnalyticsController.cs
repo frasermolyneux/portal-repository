@@ -28,6 +28,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
 {
     private const string ChatCommandExecutionEventType = "ChatCommandExecution";
+    private const string ChatCommandDeniedEventType = "ChatCommandDenied";
 
     private readonly PortalDbContext context;
     private readonly ILiveStatusStore liveStatusStore;
@@ -471,39 +472,55 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
         }
 
         // The executed command name is stored only inside the event's JSON payload, so we materialise
-        // the payloads for ChatCommandExecution events in the window and aggregate by command in memory.
+        // the payloads for chat-command events in the window and aggregate by command in memory.
+        // ChatCommandExecution = the command ran; ChatCommandDenied = the caller was blocked (both
+        // carry the same commandPrefix payload).
         var payloads = await context.GameServerEvents
             .AsNoTracking()
             .Where(e => e.GameServerId == gameServerId
-                && e.EventType == ChatCommandExecutionEventType
+                && (e.EventType == ChatCommandExecutionEventType || e.EventType == ChatCommandDeniedEventType)
                 && e.Timestamp >= fromUtc && e.Timestamp < toUtc
                 && e.EventData != null)
-            .Select(e => e.EventData!)
+            .Select(e => new { e.EventType, EventData = e.EventData! })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var executed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var denied = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var payload in payloads)
         {
-            var command = ExtractCommandPrefix(payload);
+            var command = ExtractCommandPrefix(payload.EventData);
             if (string.IsNullOrWhiteSpace(command))
             {
                 continue;
             }
 
-            counts[command] = counts.TryGetValue(command, out var existing) ? existing + 1 : 1;
+            var target = payload.EventType == ChatCommandDeniedEventType ? denied : executed;
+            target[command] = target.TryGetValue(command, out var existing) ? existing + 1 : 1;
         }
 
-        var commands = counts
-            .OrderByDescending(kvp => kvp.Value)
-            .ThenBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+        var commands = executed.Keys
+            .Union(denied.Keys, StringComparer.OrdinalIgnoreCase)
+            .Select(command =>
+            {
+                executed.TryGetValue(command, out var executedCount);
+                denied.TryGetValue(command, out var deniedCount);
+                return new ServerChatCommandCountDto
+                {
+                    Command = command,
+                    Count = executedCount,
+                    DeniedCount = deniedCount
+                };
+            })
+            .OrderByDescending(c => c.Count + c.DeniedCount)
+            .ThenBy(c => c.Command, StringComparer.OrdinalIgnoreCase)
             .Take(top)
-            .Select(kvp => new ServerChatCommandCountDto { Command = kvp.Key, Count = kvp.Value })
             .ToList();
 
         var dto = new ServerChatCommandsSummaryDto
         {
             Window = CreateWindow(fromUtc, toUtc),
-            TotalExecutions = counts.Values.Sum(),
+            TotalExecutions = executed.Values.Sum(),
+            TotalDenied = denied.Values.Sum(),
             Commands = commands
         };
 

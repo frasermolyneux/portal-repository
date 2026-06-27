@@ -11,6 +11,9 @@ public record ServerChatCommandsSummaryDto : IDto
     public int TotalExecutions { get; internal set; }
 
     [JsonProperty]
+    public int TotalDenied { get; internal set; }
+
+    [JsonProperty]
     public List<ServerChatCommandCountDto> Commands { get; internal set; } = [];
 
     [JsonIgnore]

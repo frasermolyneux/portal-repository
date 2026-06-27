@@ -10,6 +10,9 @@ public record ServerChatCommandCountDto : IDto
     [JsonProperty]
     public int Count { get; internal set; }
 
+    [JsonProperty]
+    public int DeniedCount { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }
