@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Dashboard;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Global;
+using XtremeIdiots.Portal.Repository.Api.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
@@ -158,6 +159,7 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
     {
         if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
             || !AnalyticsQueryValidator.TryValidateComparisonOptions(compareMode, comparePeriods, alignMode, timezone, out _)
+            || !AnalyticsQueryValidator.TryValidateComparisonLookback(fromUtc, toUtc, compareMode, comparePeriods, alignMode, out _)
             || !AnalyticsQueryValidator.TryGetAlignedWindow(fromUtc, toUtc, alignMode, timezone, out var alignedFromUtc, out var alignedToUtc, out _))
         {
             return new ApiResult<GlobalTimeseriesDto>(HttpStatusCode.BadRequest);
@@ -213,10 +215,39 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
             BuildSeries("chat", "Chat", labels, points.Select(p => (double)p.ChatCount))
         };
 
-        var currentTotal = points.Sum(p => p.AvgPlayers);
-        var summary = compareMode == AnalyticsCompareMode.None
-            ? null
-            : BuildComparisonSummary(currentTotal, comparePeriods);
+        var currentTotal = points.Where(p => p.BucketStartUtc < toUtc).Sum(p => p.AvgPlayers);
+
+        AnalyticsCompareSummaryDto? summary = null;
+        var comparisonWindows = AnalyticsComparison.GetWindows(alignedFromUtc, alignedToUtc, compareMode, comparePeriods, alignMode);
+        if (comparisonWindows.Count > 0)
+        {
+            var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
+            var cmpStats = await context.GameServerStats
+                .AsNoTracking()
+                .Where(s => s.Timestamp >= earliestCmpFrom && s.Timestamp < alignedFromUtc)
+                .Select(s => new { s.Timestamp, s.PlayerCount })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var cmpAvgByBucket = cmpStats
+                .GroupBy(s => AnalyticsTimeBucketing.Truncate(s.Timestamp, bucket))
+                .ToDictionary(g => g.Key, g => g.Average(x => (double)x.PlayerCount));
+
+            var comparisonTotals = new List<double>(comparisonWindows.Count);
+            foreach (var cmpWindow in comparisonWindows)
+            {
+                var cmpSeries = AnalyticsComparison.BuildComparisonSeries(
+                    "avgPlayers", "Average Players", cmpWindow, bucketStarts, bucket, cmpAvgByBucket, toUtc);
+                comparisonTotals.Add(cmpSeries.Values.Sum(v => v.Value));
+                series.Add(cmpSeries);
+            }
+
+            summary = AnalyticsComparison.BuildSummary(currentTotal, comparisonTotals);
+        }
+
+        if (normalize)
+        {
+            AnalyticsComparison.ApplyIndex100(series);
+        }
 
         var dto = new GlobalTimeseriesDto
         {
@@ -602,21 +633,6 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
             AlignMode = alignMode,
             Timezone = timezone,
             Normalize = normalize
-        };
-    }
-
-    private static AnalyticsCompareSummaryDto BuildComparisonSummary(double currentTotal, int comparePeriods)
-    {
-        var baseline = comparePeriods > 0 ? currentTotal / Math.Max(comparePeriods, 1) : currentTotal;
-        var delta = currentTotal - baseline;
-        var deltaPercent = baseline == 0 ? 0 : (delta / baseline) * 100d;
-
-        return new AnalyticsCompareSummaryDto
-        {
-            CurrentTotal = Math.Round(currentTotal, 2),
-            BaselineTotal = Math.Round(baseline, 2),
-            Delta = Math.Round(delta, 2),
-            DeltaPercent = Math.Round(deltaPercent, 2)
         };
     }
 

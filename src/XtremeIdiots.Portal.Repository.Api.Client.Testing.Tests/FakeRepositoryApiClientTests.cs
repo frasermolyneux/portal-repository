@@ -211,13 +211,13 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
-    public async Task PlayerAnalyticsV2_V1_GetTrendsComparisonOverload_ReturnsConfiguredResponse()
+    public async Task PlayerAnalyticsV2_V1_GetPlayerTimeseriesComparisonOverload_ReturnsConfiguredResponse()
     {
         var client = new FakeRepositoryApiClient();
         var trends = RepositoryDtoFactory.CreatePlayerTrends();
-        client.PlayerAnalyticsV2Api.SetTrends(trends);
+        client.PlayerAnalyticsV2Api.SetPlayerTimeseries(trends);
 
-        var result = await client.PlayerAnalyticsV2.V1.GetTrends(
+        var result = await client.PlayerAnalyticsV2.V1.GetPlayerTimeseries(
             Guid.NewGuid(),
             DateTime.UtcNow.AddDays(-7),
             DateTime.UtcNow,

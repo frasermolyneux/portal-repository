@@ -7,7 +7,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IDashboardAnalyticsApi
 {
-    Task<ApiResult<DashboardSummaryDto>> GetSummary(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
-    Task<ApiResult<DashboardTrendsDto>> GetTrends(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default);
-    Task<ApiResult<DashboardCompositionDto>> GetComposition(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);
+    Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);
+
+    Task<ApiResult<DashboardServerDto>> GetServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default);
 }

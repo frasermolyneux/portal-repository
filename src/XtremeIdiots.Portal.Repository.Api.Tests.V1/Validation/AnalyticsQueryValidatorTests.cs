@@ -251,4 +251,56 @@ public class AnalyticsQueryValidatorTests
         Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), alignedFromUtc);
         Assert.Equal(new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc), alignedToUtc);
     }
+
+    [Fact]
+    public void TryValidateComparisonLookback_ReturnsTrue_WhenCompareModeNone()
+    {
+        var fromUtc = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toUtc = fromUtc.AddDays(300);
+
+        var valid = AnalyticsQueryValidator.TryValidateComparisonLookback(
+            fromUtc, toUtc, AnalyticsCompareMode.None, AnalyticsQueryDefaults.MaxComparePeriods, AnalyticsAlignMode.None, out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+    }
+
+    [Fact]
+    public void TryValidateComparisonLookback_ReturnsTrue_ForWeekAlignmentRegardlessOfSpan()
+    {
+        var fromUtc = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toUtc = fromUtc.AddDays(300);
+
+        var valid = AnalyticsQueryValidator.TryValidateComparisonLookback(
+            fromUtc, toUtc, AnalyticsCompareMode.RollingPeriods, AnalyticsQueryDefaults.MaxComparePeriods, AnalyticsAlignMode.Week, out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+    }
+
+    [Fact]
+    public void TryValidateComparisonLookback_ReturnsFalse_WhenSpanShiftedLookbackExceedsMax()
+    {
+        var fromUtc = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toUtc = fromUtc.AddDays(300); // 300 days x 12 periods = 3600 days > 731
+
+        var valid = AnalyticsQueryValidator.TryValidateComparisonLookback(
+            fromUtc, toUtc, AnalyticsCompareMode.RollingPeriods, AnalyticsQueryDefaults.MaxComparePeriods, AnalyticsAlignMode.None, out var error);
+
+        Assert.False(valid);
+        Assert.Contains(AnalyticsQueryDefaults.MaxComparisonLookbackDays.ToString(), error);
+    }
+
+    [Fact]
+    public void TryValidateComparisonLookback_ReturnsTrue_WhenSpanShiftedLookbackWithinMax()
+    {
+        var fromUtc = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toUtc = fromUtc.AddDays(30); // 30 x 12 = 360 days < 731
+
+        var valid = AnalyticsQueryValidator.TryValidateComparisonLookback(
+            fromUtc, toUtc, AnalyticsCompareMode.RollingPeriods, AnalyticsQueryDefaults.MaxComparePeriods, AnalyticsAlignMode.None, out var error);
+
+        Assert.True(valid);
+        Assert.Equal(string.Empty, error);
+    }
 }

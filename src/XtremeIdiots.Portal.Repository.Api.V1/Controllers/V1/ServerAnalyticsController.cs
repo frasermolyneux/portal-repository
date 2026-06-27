@@ -12,6 +12,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Servers;
+using XtremeIdiots.Portal.Repository.Api.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
@@ -82,8 +83,30 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
 
         var live = await liveStatusStore.GetServerLiveStatusAsync(gameServerId, cancellationToken).ConfigureAwait(false);
 
+        var recentPlayersCount = await context.RecentPlayers
+            .AsNoTracking()
+            .CountAsync(rp => rp.GameServerId == gameServerId && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var reportsCount = await context.Reports
+            .AsNoTracking()
+            .CountAsync(r => r.GameServerId == gameServerId && r.Timestamp >= fromUtc && r.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var correlationWindow = TimeSpan.FromHours(6);
+        var adminActionsCount = await context.AdminActions
+            .AsNoTracking()
+            .CountAsync(a =>
+                a.Created >= fromUtc
+                && a.Created < toUtc
+                && context.RecentPlayers.Any(rp =>
+                    rp.PlayerId == a.PlayerId
+                    && rp.GameServerId == gameServerId
+                    && rp.Timestamp >= a.Created - correlationWindow
+                    && rp.Timestamp <= a.Created + correlationWindow),
+                cancellationToken).ConfigureAwait(false);
+
         var dto = new ServerOverviewDto
         {
+            Window = CreateWindow(fromUtc, toUtc),
             GameServerId = gameServerId,
             Title = !string.IsNullOrWhiteSpace(live?.Title) ? live.Title : server.Title,
             GameType = server.GameType.ToGameType(),
@@ -92,7 +115,10 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             AvgPlayers = stats.Count == 0 ? 0 : Math.Round(stats.Average(), 2),
             PeakPlayers = stats.Count == 0 ? 0 : stats.Max(),
             EventsCount = eventsCount,
-            ChatCount = chatCount
+            ChatCount = chatCount,
+            RecentPlayersCount = recentPlayersCount,
+            AdminActionsCount = adminActionsCount,
+            ReportsCount = reportsCount
         };
 
         return new ApiResponse<ServerOverviewDto>(dto).ToApiResult();
@@ -158,6 +184,7 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
     {
         if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
             || !AnalyticsQueryValidator.TryValidateComparisonOptions(compareMode, comparePeriods, alignMode, timezone, out _)
+            || !AnalyticsQueryValidator.TryValidateComparisonLookback(fromUtc, toUtc, compareMode, comparePeriods, alignMode, out _)
             || !AnalyticsQueryValidator.TryGetAlignedWindow(fromUtc, toUtc, alignMode, timezone, out var alignedFromUtc, out var alignedToUtc, out _))
         {
             return new ApiResult<ServerTimeseriesDto>(HttpStatusCode.BadRequest);
@@ -214,10 +241,39 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             BuildSeries("chatMessages", "Chat Messages", labels, points.Select(p => (double)p.ChatMessagesCount))
         };
 
-        var currentTotal = points.Sum(p => (double)p.UniquePlayers);
-        var summary = compareMode == AnalyticsCompareMode.None
-            ? null
-            : BuildComparisonSummary(currentTotal, comparePeriods);
+        var currentTotal = points.Where(p => p.Timestamp < toUtc).Sum(p => (double)p.UniquePlayers);
+
+        AnalyticsCompareSummaryDto? summary = null;
+        var comparisonWindows = AnalyticsComparison.GetWindows(alignedFromUtc, alignedToUtc, compareMode, comparePeriods, alignMode);
+        if (comparisonWindows.Count > 0)
+        {
+            var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
+            var cmpRecentPlayers = await context.RecentPlayers
+                .AsNoTracking()
+                .Where(rp => rp.GameServerId == gameServerId && rp.Timestamp >= earliestCmpFrom && rp.Timestamp < alignedFromUtc)
+                .Select(rp => new { rp.PlayerId, rp.Timestamp })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var cmpUniqueByBucket = cmpRecentPlayers
+                .GroupBy(x => AnalyticsTimeBucketing.Truncate(x.Timestamp, bucket))
+                .ToDictionary(g => g.Key, g => (double)g.Select(x => x.PlayerId).Distinct().Count());
+
+            var comparisonTotals = new List<double>(comparisonWindows.Count);
+            foreach (var cmpWindow in comparisonWindows)
+            {
+                var cmpSeries = AnalyticsComparison.BuildComparisonSeries(
+                    "uniquePlayers", "Unique Players", cmpWindow, bucketStarts, bucket, cmpUniqueByBucket, toUtc);
+                comparisonTotals.Add(cmpSeries.Values.Sum(v => v.Value));
+                series.Add(cmpSeries);
+            }
+
+            summary = AnalyticsComparison.BuildSummary(currentTotal, comparisonTotals);
+        }
+
+        if (normalize)
+        {
+            AnalyticsComparison.ApplyIndex100(series);
+        }
 
         var dto = new ServerTimeseriesDto
         {
@@ -233,25 +289,63 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
         return new ApiResponse<ServerTimeseriesDto>(dto).ToApiResult();
     }
 
-    [HttpGet("{gameServerId:guid}/summary")]
-    [ProducesResponseType<ServerSummaryDto>(StatusCodes.Status200OK)]
+    [HttpGet("{gameServerId:guid}/players-current")]
+    [ProducesResponseType<ServerPlayersCurrentDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPlayersCurrent(Guid gameServerId, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IServerAnalyticsApi)this).GetPlayersCurrent(gameServerId, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<ServerPlayersCurrentDto>> IServerAnalyticsApi.GetPlayersCurrent(Guid gameServerId, CancellationToken cancellationToken)
+    {
+        var server = await context.GameServers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
+
+        if (server == null)
+        {
+            return new ApiResult<ServerPlayersCurrentDto>(HttpStatusCode.NotFound);
+        }
+
+        var live = await liveStatusStore.GetServerLiveStatusAsync(gameServerId, cancellationToken).ConfigureAwait(false);
+        var players = await liveStatusStore.GetLivePlayersAsync(gameServerId, cancellationToken).ConfigureAwait(false);
+
+        var dto = new ServerPlayersCurrentDto
+        {
+            GameServerId = gameServerId,
+            Online = live?.IsOnline ?? false,
+            CurrentPlayers = live?.CurrentPlayers ?? players.Count,
+            MaxPlayers = live?.MaxPlayers ?? 0,
+            MapName = live?.Map,
+            GameType = server.GameType.ToGameType(),
+            LastUpdatedUtc = live?.LastUpdated,
+            Players = players
+        };
+
+        return new ApiResponse<ServerPlayersCurrentDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("{gameServerId:guid}/events-summary")]
+    [ProducesResponseType<ServerEventsSummaryDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetSummary(
+    public async Task<IActionResult> GetEventsSummary(
         Guid gameServerId,
         [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IServerAnalyticsApi)this).GetSummary(gameServerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var response = await ((IServerAnalyticsApi)this).GetEventsSummary(gameServerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<ServerSummaryDto>> IServerAnalyticsApi.GetSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    async Task<ApiResult<ServerEventsSummaryDto>> IServerAnalyticsApi.GetEventsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
     {
         if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
         {
-            return new ApiResult<ServerSummaryDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<ServerEventsSummaryDto>(HttpStatusCode.BadRequest);
         }
 
         var serverExists = await context.GameServers
@@ -260,40 +354,144 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
 
         if (!serverExists)
         {
-            return new ApiResult<ServerSummaryDto>(HttpStatusCode.NotFound);
+            return new ApiResult<ServerEventsSummaryDto>(HttpStatusCode.NotFound);
         }
 
-        var recentPlayersCount = await context.RecentPlayers
+        var byType = await context.GameServerEvents
             .AsNoTracking()
-            .CountAsync(rp => rp.GameServerId == gameServerId && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+            .Where(e => e.GameServerId == gameServerId && e.Timestamp >= fromUtc && e.Timestamp < toUtc)
+            .GroupBy(e => e.EventType)
+            .Select(g => new { EventType = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var reportsCount = await context.Reports
-            .AsNoTracking()
-            .CountAsync(r => r.GameServerId == gameServerId && r.Timestamp >= fromUtc && r.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+        var items = byType
+            .OrderByDescending(x => x.Count)
+            .Select(x => new ServerEventTypeCountDto { EventType = x.EventType, Count = x.Count })
+            .ToList();
 
-        var correlationWindow = TimeSpan.FromHours(6);
-
-        var adminActionsCount = await context.AdminActions
-            .AsNoTracking()
-            .CountAsync(a =>
-                a.Created >= fromUtc
-                && a.Created < toUtc
-                && context.RecentPlayers.Any(rp =>
-                    rp.PlayerId == a.PlayerId
-                    && rp.GameServerId == gameServerId
-                    && rp.Timestamp >= a.Created - correlationWindow
-                    && rp.Timestamp <= a.Created + correlationWindow),
-                cancellationToken).ConfigureAwait(false);
-
-        var dto = new ServerSummaryDto
+        var dto = new ServerEventsSummaryDto
         {
             Window = CreateWindow(fromUtc, toUtc),
-            RecentPlayersCount = recentPlayersCount,
-            ReportsCount = reportsCount,
-            AdminActionsCount = adminActionsCount
+            TotalEvents = items.Sum(i => i.Count),
+            ByType = items
         };
 
-        return new ApiResponse<ServerSummaryDto>(dto).ToApiResult();
+        return new ApiResponse<ServerEventsSummaryDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("{gameServerId:guid}/chat-summary")]
+    [ProducesResponseType<ServerChatSummaryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChatSummary(
+        Guid gameServerId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IServerAnalyticsApi)this).GetChatSummary(gameServerId, fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<ServerChatSummaryDto>> IServerAnalyticsApi.GetChatSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<ServerChatSummaryDto>(HttpStatusCode.BadRequest);
+        }
+
+        var serverExists = await context.GameServers
+            .AsNoTracking()
+            .AnyAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
+
+        if (!serverExists)
+        {
+            return new ApiResult<ServerChatSummaryDto>(HttpStatusCode.NotFound);
+        }
+
+        var messages = await context.ChatMessages
+            .AsNoTracking()
+            .Where(c => c.GameServerId == gameServerId && c.Timestamp >= fromUtc && c.Timestamp < toUtc)
+            .Select(c => new { c.PlayerId, c.Username })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var topChatters = messages
+            .GroupBy(m => new { m.PlayerId, m.Username })
+            .Select(g => new ServerChatterDto { PlayerId = g.Key.PlayerId, Username = g.Key.Username, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(top)
+            .ToList();
+
+        var dto = new ServerChatSummaryDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            TotalMessages = messages.Count,
+            UniqueChatters = messages.Select(m => m.PlayerId).Distinct().Count(),
+            TopChatters = topChatters
+        };
+
+        return new ApiResponse<ServerChatSummaryDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("{gameServerId:guid}/map-rotation-performance")]
+    [ProducesResponseType<ServerMapRotationPerformanceDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMapRotationPerformance(
+        Guid gameServerId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IServerAnalyticsApi)this).GetMapRotationPerformance(gameServerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<ServerMapRotationPerformanceDto>> IServerAnalyticsApi.GetMapRotationPerformance(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
+        {
+            return new ApiResult<ServerMapRotationPerformanceDto>(HttpStatusCode.BadRequest);
+        }
+
+        var serverExists = await context.GameServers
+            .AsNoTracking()
+            .AnyAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
+
+        if (!serverExists)
+        {
+            return new ApiResult<ServerMapRotationPerformanceDto>(HttpStatusCode.NotFound);
+        }
+
+        var samples = await context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.GameServerId == gameServerId && s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "")
+            .Select(s => new { s.MapName, s.PlayerCount })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var totalSamples = samples.Count;
+        var maps = samples
+            .GroupBy(s => s.MapName)
+            .Select(g => new ServerMapPerformanceItemDto
+            {
+                MapName = g.Key,
+                SampleCount = g.Count(),
+                AvgPlayers = Math.Round(g.Average(x => (double)x.PlayerCount), 2),
+                PeakPlayers = g.Max(x => x.PlayerCount),
+                SharePercent = totalSamples == 0 ? 0 : Math.Round((double)g.Count() / totalSamples * 100d, 2)
+            })
+            .OrderByDescending(x => x.SampleCount)
+            .ToList();
+
+        var dto = new ServerMapRotationPerformanceDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Maps = maps
+        };
+
+        return new ApiResponse<ServerMapRotationPerformanceDto>(dto).ToApiResult();
     }
 
     private static AnalyticsCompareMetaDto BuildCompareMeta(
@@ -310,21 +508,6 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             AlignMode = alignMode,
             Timezone = timezone,
             Normalize = normalize
-        };
-    }
-
-    private static AnalyticsCompareSummaryDto BuildComparisonSummary(double currentTotal, int comparePeriods)
-    {
-        var baseline = comparePeriods > 0 ? currentTotal / Math.Max(comparePeriods, 1) : currentTotal;
-        var delta = currentTotal - baseline;
-        var deltaPercent = baseline == 0 ? 0 : (delta / baseline) * 100d;
-
-        return new AnalyticsCompareSummaryDto
-        {
-            CurrentTotal = Math.Round(currentTotal, 2),
-            BaselineTotal = Math.Round(baseline, 2),
-            Delta = Math.Round(delta, 2),
-            DeltaPercent = Math.Round(deltaPercent, 2)
         };
     }
 

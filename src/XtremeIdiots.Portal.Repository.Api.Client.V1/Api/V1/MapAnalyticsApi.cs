@@ -20,38 +20,84 @@ public class MapAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IMapAnalytic
     {
     }
 
-    public async Task<ApiResult<MapOverviewDto>> GetOverview(Guid mapId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<MapsOverviewDto>> GetOverview(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync($"v1/analytics/maps/{mapId}/overview", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/analytics/maps/overview", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return response.ToApiResult<MapOverviewDto>();
+        return response.ToApiResult<MapsOverviewDto>();
     }
 
-    public async Task<ApiResult<MapTrendsDto>> GetTrends(Guid mapId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<MapsHotspotsDto>> GetHotspots(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync($"v1/analytics/maps/{mapId}/trends", Method.Get).ConfigureAwait(false);
-        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
-        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
-        request.AddQueryParameter("bucket", bucket.ToString());
-
-        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-        return response.ToApiResult<MapTrendsDto>();
-    }
-
-    public async Task<ApiResult<MapRankingsDto>> GetRankings(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
-    {
-        var request = await CreateRequestAsync("v1/analytics/maps/rankings", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/analytics/maps/hotspots", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
         request.AddQueryParameter("top", top.ToString());
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return response.ToApiResult<MapRankingsDto>();
+        return response.ToApiResult<MapsHotspotsDto>();
+    }
+
+    public async Task<ApiResult<MapsTopPlayedDto>> GetTopPlayed(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/maps/top-played", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<MapsTopPlayedDto>();
+    }
+
+    public async Task<ApiResult<MapsTopVotedDto>> GetTopVoted(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/maps/top-voted", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<MapsTopVotedDto>();
+    }
+
+    public async Task<ApiResult<MapsByGameDto>> GetByGame(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/maps/by-game", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<MapsByGameDto>();
+    }
+
+    public async Task<ApiResult<MapsByServerDto>> GetByServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/maps/by-server/{gameServerId}", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<MapsByServerDto>();
+    }
+
+    public async Task<ApiResult<MapDetailDto>> GetMapDetail(Guid mapId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/maps/{mapId}", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<MapDetailDto>();
     }
 }

@@ -10,6 +10,19 @@ public record AnalyticsSeriesDto : IDto
     [JsonProperty]
     public string Label { get; internal set; } = string.Empty;
 
+    /// <summary>
+    /// Distinguishes the current-window series ("current") from prior-period overlay series ("comparison").
+    /// </summary>
+    [JsonProperty]
+    public string Role { get; internal set; } = "current";
+
+    /// <summary>
+    /// Human-readable label for the comparison period this series represents (e.g. "Previous week").
+    /// Empty for current-window series.
+    /// </summary>
+    [JsonProperty]
+    public string PeriodLabel { get; internal set; } = string.Empty;
+
     [JsonProperty]
     public List<AnalyticsSeriesValueDto> Values { get; internal set; } = [];
 

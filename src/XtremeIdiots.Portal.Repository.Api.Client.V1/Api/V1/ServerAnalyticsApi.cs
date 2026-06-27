@@ -73,15 +73,47 @@ public class ServerAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IServerAn
         return response.ToApiResult<ServerTimeseriesDto>();
     }
 
-    public async Task<ApiResult<ServerSummaryDto>> GetSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<ServerPlayersCurrentDto>> GetPlayersCurrent(Guid gameServerId, CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/summary", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/players-current", Method.Get).ConfigureAwait(false);
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<ServerPlayersCurrentDto>();
+    }
+
+    public async Task<ApiResult<ServerEventsSummaryDto>> GetEventsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/events-summary", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return response.ToApiResult<ServerSummaryDto>();
+        return response.ToApiResult<ServerEventsSummaryDto>();
+    }
+
+    public async Task<ApiResult<ServerChatSummaryDto>> GetChatSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/chat-summary", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<ServerChatSummaryDto>();
+    }
+
+    public async Task<ApiResult<ServerMapRotationPerformanceDto>> GetMapRotationPerformance(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/map-rotation-performance", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<ServerMapRotationPerformanceDto>();
     }
 
     private static string ToCompareModeQueryValue(AnalyticsCompareMode compareMode)

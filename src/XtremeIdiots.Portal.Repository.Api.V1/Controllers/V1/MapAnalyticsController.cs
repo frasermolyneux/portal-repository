@@ -1,4 +1,5 @@
 using System.Net;
+
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Maps;
+using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 using XtremeIdiots.Portal.Repository.DataLib;
 
@@ -31,25 +33,329 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         this.context = context;
     }
 
-    [HttpGet("{mapId:guid}/overview")]
-    [ProducesResponseType<MapOverviewDto>(StatusCodes.Status200OK)]
+    [HttpGet("overview")]
+    [ProducesResponseType<MapsOverviewDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetOverview(
-        Guid mapId,
-        [FromQuery] DateTime fromUtc,
-        [FromQuery] DateTime toUtc,
-        CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetOverview([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, CancellationToken cancellationToken = default)
     {
-        var response = await ((IMapAnalyticsApi)this).GetOverview(mapId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var response = await ((IMapAnalyticsApi)this).GetOverview(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<MapOverviewDto>> IMapAnalyticsApi.GetOverview(Guid mapId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    async Task<ApiResult<MapsOverviewDto>> IMapAnalyticsApi.GetOverview(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
     {
         if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
         {
-            return new ApiResult<MapOverviewDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<MapsOverviewDto>(HttpStatusCode.BadRequest);
+        }
+
+        var playStats = context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "");
+
+        var totalPlays = await playStats.CountAsync(cancellationToken).ConfigureAwait(false);
+        var totalMaps = await playStats.Select(s => s.MapName).Distinct().CountAsync(cancellationToken).ConfigureAwait(false);
+        var totalVotes = await context.MapVotes
+            .AsNoTracking()
+            .CountAsync(v => v.Timestamp >= fromUtc && v.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var dto = new MapsOverviewDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            TotalMaps = totalMaps,
+            TotalPlays = totalPlays,
+            TotalVotes = totalVotes
+        };
+
+        return new ApiResponse<MapsOverviewDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("hotspots")]
+    [ProducesResponseType<MapsHotspotsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetHotspots([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IMapAnalyticsApi)this).GetHotspots(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<MapsHotspotsDto>> IMapAnalyticsApi.GetHotspots(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<MapsHotspotsDto>(HttpStatusCode.BadRequest);
+        }
+
+        var grouped = await context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "" && s.GameServer != null && !s.GameServer.Deleted)
+            .GroupBy(s => new { s.MapName, s.GameServer!.GameType })
+            .Select(g => new
+            {
+                g.Key.MapName,
+                g.Key.GameType,
+                Avg = g.Average(x => (double)x.PlayerCount),
+                Peak = g.Max(x => x.PlayerCount),
+                Count = g.Count()
+            })
+            .OrderByDescending(x => x.Avg)
+            .Take(top)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var items = grouped.Select(x => new MapHotspotItemDto
+        {
+            MapName = x.MapName,
+            GameType = x.GameType.ToGameType(),
+            AvgPlayers = Math.Round(x.Avg, 2),
+            PeakPlayers = x.Peak,
+            SampleCount = x.Count
+        }).ToList();
+
+        var dto = new MapsHotspotsDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<MapsHotspotsDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("top-played")]
+    [ProducesResponseType<MapsTopPlayedDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetTopPlayed([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IMapAnalyticsApi)this).GetTopPlayed(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<MapsTopPlayedDto>> IMapAnalyticsApi.GetTopPlayed(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<MapsTopPlayedDto>(HttpStatusCode.BadRequest);
+        }
+
+        var basePlays = context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "" && s.GameServer != null && !s.GameServer.Deleted);
+
+        var totalPlays = await basePlays.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        var grouped = await basePlays
+            .GroupBy(s => new { s.MapName, s.GameServer!.GameType })
+            .Select(g => new { g.Key.MapName, g.Key.GameType, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(top)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var items = grouped.Select(x => new MapTopPlayedItemDto
+        {
+            MapName = x.MapName,
+            GameType = x.GameType.ToGameType(),
+            PlaysCount = x.Count,
+            SharePercent = totalPlays == 0 ? 0 : Math.Round((double)x.Count / totalPlays * 100d, 2)
+        }).ToList();
+
+        var dto = new MapsTopPlayedDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<MapsTopPlayedDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("top-voted")]
+    [ProducesResponseType<MapsTopVotedDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetTopVoted([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IMapAnalyticsApi)this).GetTopVoted(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<MapsTopVotedDto>> IMapAnalyticsApi.GetTopVoted(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<MapsTopVotedDto>(HttpStatusCode.BadRequest);
+        }
+
+        var grouped = await context.MapVotes
+            .AsNoTracking()
+            .Where(v => v.Timestamp >= fromUtc && v.Timestamp < toUtc)
+            .GroupBy(v => v.MapId)
+            .Select(g => new { MapId = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(top)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var mapIds = grouped.Select(x => x.MapId).ToList();
+        var maps = await context.Maps
+            .AsNoTracking()
+            .Where(m => mapIds.Contains(m.MapId))
+            .Select(m => new { m.MapId, m.MapName, m.GameType })
+            .ToDictionaryAsync(m => m.MapId, cancellationToken).ConfigureAwait(false);
+
+        var items = grouped.Select(x =>
+        {
+            maps.TryGetValue(x.MapId, out var m);
+            return new MapTopVotedItemDto
+            {
+                MapId = x.MapId,
+                MapName = string.IsNullOrWhiteSpace(m?.MapName) ? "Unknown" : m.MapName,
+                GameType = (m?.GameType ?? 0).ToGameType(),
+                VotesCount = x.Count
+            };
+        }).ToList();
+
+        var dto = new MapsTopVotedDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<MapsTopVotedDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("by-game")]
+    [ProducesResponseType<MapsByGameDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetByGame([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IMapAnalyticsApi)this).GetByGame(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<MapsByGameDto>> IMapAnalyticsApi.GetByGame(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
+        {
+            return new ApiResult<MapsByGameDto>(HttpStatusCode.BadRequest);
+        }
+
+        var basePlays = context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "" && s.GameServer != null && !s.GameServer.Deleted);
+
+        // Two translatable queries instead of COUNT + COUNT(DISTINCT) in a single grouped projection
+        // (which EF Core does not reliably translate).
+        var playsByGameType = await basePlays
+            .GroupBy(s => s.GameServer!.GameType)
+            .Select(g => new { GameType = g.Key, Plays = g.Count() })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var mapsByGameType = await basePlays
+            .Select(s => new { GameType = s.GameServer!.GameType, s.MapName })
+            .Distinct()
+            .GroupBy(x => x.GameType)
+            .Select(g => new { GameType = g.Key, Maps = g.Count() })
+            .ToDictionaryAsync(x => x.GameType, x => x.Maps, cancellationToken).ConfigureAwait(false);
+
+        var votesByGame = await context.MapVotes
+            .AsNoTracking()
+            .Where(v => v.Timestamp >= fromUtc && v.Timestamp < toUtc)
+            .Join(context.Maps.AsNoTracking(), v => v.MapId, m => m.MapId, (v, m) => m.GameType)
+            .GroupBy(gt => gt)
+            .Select(g => new { GameType = g.Key, Votes = g.Count() })
+            .ToDictionaryAsync(x => x.GameType, x => x.Votes, cancellationToken).ConfigureAwait(false);
+
+        var items = playsByGameType
+            .OrderByDescending(x => x.Plays)
+            .Select(x => new MapsByGameItemDto
+            {
+                GameType = x.GameType.ToGameType(),
+                MapsPlayed = mapsByGameType.GetValueOrDefault(x.GameType, 0),
+                TotalPlays = x.Plays,
+                TotalVotes = votesByGame.GetValueOrDefault(x.GameType, 0)
+            })
+            .ToList();
+
+        var dto = new MapsByGameDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<MapsByGameDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("by-server/{gameServerId:guid}")]
+    [ProducesResponseType<MapsByServerDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByServer(Guid gameServerId, [FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IMapAnalyticsApi)this).GetByServer(gameServerId, fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<MapsByServerDto>> IMapAnalyticsApi.GetByServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<MapsByServerDto>(HttpStatusCode.BadRequest);
+        }
+
+        var serverExists = await context.GameServers
+            .AsNoTracking()
+            .AnyAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
+
+        if (!serverExists)
+        {
+            return new ApiResult<MapsByServerDto>(HttpStatusCode.NotFound);
+        }
+
+        var samples = await context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.GameServerId == gameServerId && s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "")
+            .Select(s => new { s.MapName, s.PlayerCount })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var totalSamples = samples.Count;
+        var items = samples
+            .GroupBy(s => s.MapName)
+            .Select(g => new MapsByServerItemDto
+            {
+                MapName = g.Key,
+                PlaysCount = g.Count(),
+                AvgPlayers = Math.Round(g.Average(x => (double)x.PlayerCount), 2),
+                SharePercent = totalSamples == 0 ? 0 : Math.Round((double)g.Count() / totalSamples * 100d, 2)
+            })
+            .OrderByDescending(x => x.PlaysCount)
+            .Take(top)
+            .ToList();
+
+        var dto = new MapsByServerDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            GameServerId = gameServerId,
+            Items = items
+        };
+
+        return new ApiResponse<MapsByServerDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("{mapId:guid}")]
+    [ProducesResponseType<MapDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMapDetail(Guid mapId, [FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IMapAnalyticsApi)this).GetMapDetail(mapId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<MapDetailDto>> IMapAnalyticsApi.GetMapDetail(Guid mapId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
+        {
+            return new ApiResult<MapDetailDto>(HttpStatusCode.BadRequest);
         }
 
         var map = await context.Maps
@@ -58,28 +364,29 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
 
         if (map == null)
         {
-            return new ApiResult<MapOverviewDto>(HttpStatusCode.NotFound);
+            return new ApiResult<MapDetailDto>(HttpStatusCode.NotFound);
         }
 
         var votesCount = await context.MapVotes
             .AsNoTracking()
             .CountAsync(v => v.MapId == mapId && v.Timestamp >= fromUtc && v.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
-        var playsCount = await context.GameServerStats
+        var playerSamples = await context.GameServerStats
             .AsNoTracking()
-            .CountAsync(s =>
+            .Where(s =>
                 s.MapName == map.MapName
                 && s.Timestamp >= fromUtc
                 && s.Timestamp < toUtc
                 && s.GameServer != null
                 && !s.GameServer.Deleted
-                && s.GameServer.GameType == map.GameType,
-                cancellationToken).ConfigureAwait(false);
+                && s.GameServer.GameType == map.GameType)
+            .Select(s => s.PlayerCount)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var votesForTargetMap = await context.MapVotes
             .AsNoTracking()
-            .Where(v => v.MapId == mapId && v.Timestamp >= fromUtc && v.Timestamp < toUtc)
-            .Select(v => new { v.GameServerId })
+            .Where(v => v.MapId == mapId && v.Timestamp >= fromUtc && v.Timestamp < toUtc && v.GameServerId != null)
+            .Select(v => v.GameServerId)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var voteCountsByServerAndMap = await context.MapVotes
@@ -90,9 +397,9 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var targetVotesByServer = votesForTargetMap
-            .Where(v => v.GameServerId != null)
-            .GroupBy(v => v.GameServerId)
-            .ToDictionary(g => g.Key!.Value, g => g.Count());
+            .Where(id => id != null)
+            .GroupBy(id => id!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
 
         var averagePosition = targetVotesByServer
             .Select(server =>
@@ -109,128 +416,20 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
             .DefaultIfEmpty(0d)
             .Average();
 
-        var dto = new MapOverviewDto
+        var dto = new MapDetailDto
         {
+            Window = CreateWindow(fromUtc, toUtc),
             MapId = mapId,
             MapName = map.MapName ?? "Unknown",
+            GameType = map.GameType.ToGameType(),
             VotesCount = votesCount,
-            PlaysCount = playsCount,
-            AveragePosition = Math.Round(averagePosition, 2)
+            PlaysCount = playerSamples.Count,
+            AveragePosition = Math.Round(averagePosition, 2),
+            AvgPlayers = playerSamples.Count == 0 ? 0 : Math.Round(playerSamples.Average(), 2),
+            PeakPlayers = playerSamples.Count == 0 ? 0 : playerSamples.Max()
         };
 
-        return new ApiResponse<MapOverviewDto>(dto).ToApiResult();
-    }
-
-    [HttpGet("{mapId:guid}/trends")]
-    [ProducesResponseType<MapTrendsDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetTrends(
-        Guid mapId,
-        [FromQuery] DateTime fromUtc,
-        [FromQuery] DateTime toUtc,
-        [FromQuery] AnalyticsBucket bucket,
-        CancellationToken cancellationToken = default)
-    {
-        var response = await ((IMapAnalyticsApi)this).GetTrends(mapId, fromUtc, toUtc, bucket, cancellationToken).ConfigureAwait(false);
-        return response.ToHttpResult();
-    }
-
-    async Task<ApiResult<MapTrendsDto>> IMapAnalyticsApi.GetTrends(Guid mapId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken)
-    {
-        if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _))
-        {
-            return new ApiResult<MapTrendsDto>(HttpStatusCode.BadRequest);
-        }
-
-        var map = await context.Maps
-            .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
-
-        if (map == null)
-        {
-            return new ApiResult<MapTrendsDto>(HttpStatusCode.NotFound);
-        }
-
-        var plays = await context.GameServerStats
-            .AsNoTracking()
-            .Where(s =>
-                s.MapName == map.MapName
-                && s.Timestamp >= fromUtc
-                && s.Timestamp < toUtc
-                && s.GameServer != null
-                && !s.GameServer.Deleted
-                && s.GameServer.GameType == map.GameType)
-            .Select(s => s.Timestamp)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var playsByBucket = plays
-            .GroupBy(t => TruncateToBucket(t, bucket))
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        var bucketStarts = BuildBuckets(fromUtc, toUtc, bucket);
-        var points = bucketStarts.Select(start => new AnalyticsTimeseriesPointDto
-        {
-            BucketStartUtc = start,
-            BucketEndUtc = AddBucket(start, bucket),
-            Value = playsByBucket.GetValueOrDefault(start, 0)
-        }).ToList();
-
-        var dto = new MapTrendsDto
-        {
-            Window = CreateWindow(fromUtc, toUtc),
-            Bucket = bucket,
-            Points = points
-        };
-
-        return new ApiResponse<MapTrendsDto>(dto).ToApiResult();
-    }
-
-    [HttpGet("rankings")]
-    [ProducesResponseType<MapRankingsDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetRankings(
-        [FromQuery] DateTime fromUtc,
-        [FromQuery] DateTime toUtc,
-        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
-        CancellationToken cancellationToken = default)
-    {
-        var response = await ((IMapAnalyticsApi)this).GetRankings(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
-        return response.ToHttpResult();
-    }
-
-    async Task<ApiResult<MapRankingsDto>> IMapAnalyticsApi.GetRankings(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
-    {
-        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
-            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
-        {
-            return new ApiResult<MapRankingsDto>(HttpStatusCode.BadRequest);
-        }
-
-        var topMapsRaw = await context.GameServerStats
-            .AsNoTracking()
-            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null)
-            .GroupBy(s => s.MapName)
-            .Select(g => new { MapName = g.Key, Count = g.Count() })
-            .OrderByDescending(x => x.Count)
-            .Take(top)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var total = topMapsRaw.Sum(x => x.Count);
-
-        var dto = new MapRankingsDto
-        {
-            Window = CreateWindow(fromUtc, toUtc),
-            TopMaps = topMapsRaw.Select(x => new AnalyticsTopItemDto
-            {
-                Key = x.MapName,
-                Label = x.MapName,
-                Count = x.Count,
-                Percentage = total == 0 ? null : Math.Round((double)x.Count * 100d / total, 2)
-            }).ToList()
-        };
-
-        return new ApiResponse<MapRankingsDto>(dto).ToApiResult();
+        return new ApiResponse<MapDetailDto>(dto).ToApiResult();
     }
 
     private static AnalyticsTimeWindowDto CreateWindow(DateTime fromUtc, DateTime toUtc)
@@ -239,37 +438,6 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         {
             FromUtc = fromUtc,
             ToUtc = toUtc
-        };
-    }
-
-    private static List<DateTime> BuildBuckets(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket)
-    {
-        var result = new List<DateTime>();
-        for (var cursor = TruncateToBucket(fromUtc, bucket); cursor < toUtc; cursor = AddBucket(cursor, bucket))
-        {
-            result.Add(cursor);
-        }
-
-        return result;
-    }
-
-    private static DateTime TruncateToBucket(DateTime value, AnalyticsBucket bucket)
-    {
-        return bucket switch
-        {
-            AnalyticsBucket.FifteenMinutes => new DateTime(value.Year, value.Month, value.Day, value.Hour, (value.Minute / 15) * 15, 0, DateTimeKind.Utc),
-            AnalyticsBucket.OneHour => new DateTime(value.Year, value.Month, value.Day, value.Hour, 0, 0, DateTimeKind.Utc),
-            _ => value.Date
-        };
-    }
-
-    private static DateTime AddBucket(DateTime value, AnalyticsBucket bucket)
-    {
-        return bucket switch
-        {
-            AnalyticsBucket.FifteenMinutes => value.AddMinutes(15),
-            AnalyticsBucket.OneHour => value.AddHours(1),
-            _ => value.AddDays(1)
         };
     }
 }

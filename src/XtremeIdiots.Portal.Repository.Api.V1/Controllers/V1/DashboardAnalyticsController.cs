@@ -1,4 +1,5 @@
 using System.Net;
+
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,9 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Dashboard;
+using XtremeIdiots.Portal.Repository.Api.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 using XtremeIdiots.Portal.Repository.DataLib;
 
@@ -24,30 +28,36 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsApi
 {
     private readonly PortalDbContext context;
+    private readonly ILiveStatusStore liveStatusStore;
 
-    public DashboardAnalyticsController(PortalDbContext context)
+    public DashboardAnalyticsController(PortalDbContext context, ILiveStatusStore liveStatusStore)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(liveStatusStore);
         this.context = context;
+        this.liveStatusStore = liveStatusStore;
     }
 
-    [HttpGet("summary")]
-    [ProducesResponseType<DashboardSummaryDto>(StatusCodes.Status200OK)]
+    [HttpGet("home")]
+    [ProducesResponseType<DashboardHomeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetSummary(
+    public async Task<IActionResult> GetHome(
         [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc,
+        [FromQuery] AnalyticsBucket bucket,
+        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IDashboardAnalyticsApi)this).GetSummary(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var response = await ((IDashboardAnalyticsApi)this).GetHome(fromUtc, toUtc, bucket, top, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<DashboardSummaryDto>> IDashboardAnalyticsApi.GetSummary(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    async Task<ApiResult<DashboardHomeDto>> IDashboardAnalyticsApi.GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, CancellationToken cancellationToken)
     {
-        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
+        if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
         {
-            return new ApiResult<DashboardSummaryDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<DashboardHomeDto>(HttpStatusCode.BadRequest);
         }
 
         var activeGamesCount = await context.GameServerStats
@@ -75,38 +85,6 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             .AsNoTracking()
             .CountAsync(r => r.Timestamp >= fromUtc && r.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
-        var dto = new DashboardSummaryDto
-        {
-            Window = CreateWindow(fromUtc, toUtc),
-            ActiveGamesCount = activeGamesCount,
-            ActiveServersCount = activeServersCount,
-            UniquePlayersCount = uniquePlayersCount,
-            ReportsCount = reportsCount
-        };
-
-        return new ApiResponse<DashboardSummaryDto>(dto).ToApiResult();
-    }
-
-    [HttpGet("trends")]
-    [ProducesResponseType<DashboardTrendsDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetTrends(
-        [FromQuery] DateTime fromUtc,
-        [FromQuery] DateTime toUtc,
-        [FromQuery] AnalyticsBucket bucket,
-        CancellationToken cancellationToken = default)
-    {
-        var response = await ((IDashboardAnalyticsApi)this).GetTrends(fromUtc, toUtc, bucket, cancellationToken).ConfigureAwait(false);
-        return response.ToHttpResult();
-    }
-
-    async Task<ApiResult<DashboardTrendsDto>> IDashboardAnalyticsApi.GetTrends(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken)
-    {
-        if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _))
-        {
-            return new ApiResult<DashboardTrendsDto>(HttpStatusCode.BadRequest);
-        }
-
         var recentPlayers = await context.RecentPlayers
             .AsNoTracking()
             .Where(rp => rp.Timestamp >= fromUtc && rp.Timestamp < toUtc)
@@ -114,47 +92,17 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var playersByBucket = recentPlayers
-            .GroupBy(t => TruncateToBucket(t, bucket))
+            .GroupBy(t => AnalyticsTimeBucketing.Truncate(t, bucket))
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var bucketStarts = BuildBuckets(fromUtc, toUtc, bucket);
-        var points = bucketStarts.Select(start => new AnalyticsTimeseriesPointDto
-        {
-            BucketStartUtc = start,
-            BucketEndUtc = AddBucket(start, bucket),
-            Value = playersByBucket.GetValueOrDefault(start, 0)
-        }).ToList();
-
-        var dto = new DashboardTrendsDto
-        {
-            Window = CreateWindow(fromUtc, toUtc),
-            Bucket = bucket,
-            Points = points
-        };
-
-        return new ApiResponse<DashboardTrendsDto>(dto).ToApiResult();
-    }
-
-    [HttpGet("composition")]
-    [ProducesResponseType<DashboardCompositionDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetComposition(
-        [FromQuery] DateTime fromUtc,
-        [FromQuery] DateTime toUtc,
-        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
-        CancellationToken cancellationToken = default)
-    {
-        var response = await ((IDashboardAnalyticsApi)this).GetComposition(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
-        return response.ToHttpResult();
-    }
-
-    async Task<ApiResult<DashboardCompositionDto>> IDashboardAnalyticsApi.GetComposition(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
-    {
-        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
-            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
-        {
-            return new ApiResult<DashboardCompositionDto>(HttpStatusCode.BadRequest);
-        }
+        var trendPoints = AnalyticsTimeBucketing.BuildBuckets(fromUtc, toUtc, bucket)
+            .Select(start => new AnalyticsTimeseriesPointDto
+            {
+                BucketStartUtc = start,
+                BucketEndUtc = AnalyticsTimeBucketing.Add(start, bucket),
+                Value = playersByBucket.GetValueOrDefault(start, 0)
+            })
+            .ToList();
 
         var topGamesRaw = await context.GameServerStats
             .AsNoTracking()
@@ -176,7 +124,7 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
 
         var topMapsRaw = await context.GameServerStats
             .AsNoTracking()
-            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null)
+            .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "")
             .GroupBy(s => s.MapName)
             .Select(g => new { MapName = g.Key, Count = g.Count() })
             .OrderByDescending(x => x.Count)
@@ -187,13 +135,13 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
         var totalServers = topServersRaw.Sum(x => x.Count);
         var totalMaps = topMapsRaw.Sum(x => x.Count);
 
-        var dto = new DashboardCompositionDto
+        var composition = new DashboardCompositionDto
         {
             Window = CreateWindow(fromUtc, toUtc),
             TopGames = topGamesRaw.Select(x => new AnalyticsTopItemDto
             {
                 Key = x.GameType.ToString(),
-                Label = x.GameType.ToString(),
+                Label = x.GameType.ToGameType().ToString(),
                 Count = x.Count,
                 Percentage = totalGames == 0 ? null : Math.Round((double)x.Count * 100d / totalGames, 2)
             }).ToList(),
@@ -213,7 +161,113 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             }).ToList()
         };
 
-        return new ApiResponse<DashboardCompositionDto>(dto).ToApiResult();
+        var dto = new DashboardHomeDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Summary = new DashboardSummaryDto
+            {
+                Window = CreateWindow(fromUtc, toUtc),
+                ActiveGamesCount = activeGamesCount,
+                ActiveServersCount = activeServersCount,
+                UniquePlayersCount = uniquePlayersCount,
+                ReportsCount = reportsCount
+            },
+            Bucket = bucket,
+            TrendPoints = trendPoints,
+            Composition = composition
+        };
+
+        return new ApiResponse<DashboardHomeDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("server/{gameServerId:guid}")]
+    [ProducesResponseType<DashboardServerDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetServer(
+        Guid gameServerId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] AnalyticsBucket bucket,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IDashboardAnalyticsApi)this).GetServer(gameServerId, fromUtc, toUtc, bucket, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<DashboardServerDto>> IDashboardAnalyticsApi.GetServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _))
+        {
+            return new ApiResult<DashboardServerDto>(HttpStatusCode.BadRequest);
+        }
+
+        var server = await context.GameServers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
+
+        if (server == null)
+        {
+            return new ApiResult<DashboardServerDto>(HttpStatusCode.NotFound);
+        }
+
+        var playerCounts = await context.GameServerStats
+            .AsNoTracking()
+            .Where(s => s.GameServerId == gameServerId && s.Timestamp >= fromUtc && s.Timestamp < toUtc)
+            .Select(s => s.PlayerCount)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var eventsCount = await context.GameServerEvents
+            .AsNoTracking()
+            .CountAsync(e => e.GameServerId == gameServerId && e.Timestamp >= fromUtc && e.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var chatCount = await context.ChatMessages
+            .AsNoTracking()
+            .CountAsync(c => c.GameServerId == gameServerId && c.Timestamp >= fromUtc && c.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var recentPlayers = await context.RecentPlayers
+            .AsNoTracking()
+            .Where(rp => rp.GameServerId == gameServerId && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc)
+            .Select(rp => new { rp.PlayerId, rp.Timestamp })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var uniquePlayers = recentPlayers.Select(x => x.PlayerId).Where(id => id != null).Distinct().Count();
+
+        var playersByBucket = recentPlayers
+            .GroupBy(x => AnalyticsTimeBucketing.Truncate(x.Timestamp, bucket))
+            .ToDictionary(g => g.Key, g => g.Select(x => x.PlayerId).Where(id => id != null).Distinct().Count());
+
+        var trendPoints = AnalyticsTimeBucketing.BuildBuckets(fromUtc, toUtc, bucket)
+            .Select(start => new AnalyticsTimeseriesPointDto
+            {
+                BucketStartUtc = start,
+                BucketEndUtc = AnalyticsTimeBucketing.Add(start, bucket),
+                Value = playersByBucket.GetValueOrDefault(start, 0)
+            })
+            .ToList();
+
+        var live = await liveStatusStore.GetServerLiveStatusAsync(gameServerId, cancellationToken).ConfigureAwait(false);
+
+        var dto = new DashboardServerDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            GameServerId = gameServerId,
+            Title = !string.IsNullOrWhiteSpace(live?.Title) ? live.Title : server.Title,
+            GameType = server.GameType.ToGameType(),
+            Online = live?.IsOnline ?? false,
+            CurrentPlayers = live?.CurrentPlayers ?? 0,
+            MaxPlayers = live?.MaxPlayers ?? 0,
+            MapName = live?.Map,
+            AvgPlayers = playerCounts.Count == 0 ? 0 : Math.Round(playerCounts.Average(), 2),
+            PeakPlayers = playerCounts.Count == 0 ? 0 : playerCounts.Max(),
+            EventsCount = eventsCount,
+            ChatCount = chatCount,
+            UniquePlayers = uniquePlayers,
+            Bucket = bucket,
+            TrendPoints = trendPoints
+        };
+
+        return new ApiResponse<DashboardServerDto>(dto).ToApiResult();
     }
 
     private static AnalyticsTimeWindowDto CreateWindow(DateTime fromUtc, DateTime toUtc)
@@ -222,37 +276,6 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
         {
             FromUtc = fromUtc,
             ToUtc = toUtc
-        };
-    }
-
-    private static List<DateTime> BuildBuckets(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket)
-    {
-        var result = new List<DateTime>();
-        for (var cursor = TruncateToBucket(fromUtc, bucket); cursor < toUtc; cursor = AddBucket(cursor, bucket))
-        {
-            result.Add(cursor);
-        }
-
-        return result;
-    }
-
-    private static DateTime TruncateToBucket(DateTime value, AnalyticsBucket bucket)
-    {
-        return bucket switch
-        {
-            AnalyticsBucket.FifteenMinutes => new DateTime(value.Year, value.Month, value.Day, value.Hour, (value.Minute / 15) * 15, 0, DateTimeKind.Utc),
-            AnalyticsBucket.OneHour => new DateTime(value.Year, value.Month, value.Day, value.Hour, 0, 0, DateTimeKind.Utc),
-            _ => value.Date
-        };
-    }
-
-    private static DateTime AddBucket(DateTime value, AnalyticsBucket bucket)
-    {
-        return bucket switch
-        {
-            AnalyticsBucket.FifteenMinutes => value.AddMinutes(15),
-            AnalyticsBucket.OneHour => value.AddHours(1),
-            _ => value.AddDays(1)
         };
     }
 }

@@ -12,17 +12,26 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
 {
     private ServerOverviewDto _overview = new();
     private ServerTimeseriesDto _timeseries = new();
-    private ServerSummaryDto _summary = new();
+    private ServerPlayersCurrentDto _playersCurrent = new();
+    private ServerEventsSummaryDto _eventsSummary = new();
+    private ServerChatSummaryDto _chatSummary = new();
+    private ServerMapRotationPerformanceDto _mapRotationPerformance = new();
 
     public FakeServerAnalyticsApi SetOverview(ServerOverviewDto overview) { _overview = overview; return this; }
     public FakeServerAnalyticsApi SetTimeseries(ServerTimeseriesDto timeseries) { _timeseries = timeseries; return this; }
-    public FakeServerAnalyticsApi SetSummary(ServerSummaryDto summary) { _summary = summary; return this; }
+    public FakeServerAnalyticsApi SetPlayersCurrent(ServerPlayersCurrentDto playersCurrent) { _playersCurrent = playersCurrent; return this; }
+    public FakeServerAnalyticsApi SetEventsSummary(ServerEventsSummaryDto eventsSummary) { _eventsSummary = eventsSummary; return this; }
+    public FakeServerAnalyticsApi SetChatSummary(ServerChatSummaryDto chatSummary) { _chatSummary = chatSummary; return this; }
+    public FakeServerAnalyticsApi SetMapRotationPerformance(ServerMapRotationPerformanceDto mapRotationPerformance) { _mapRotationPerformance = mapRotationPerformance; return this; }
 
     public FakeServerAnalyticsApi Reset()
     {
         _overview = new();
         _timeseries = new();
-        _summary = new();
+        _playersCurrent = new();
+        _eventsSummary = new();
+        _chatSummary = new();
+        _mapRotationPerformance = new();
         return this;
     }
 
@@ -51,8 +60,23 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
         return Task.FromResult(new ApiResult<ServerTimeseriesDto>(HttpStatusCode.OK, new ApiResponse<ServerTimeseriesDto>(_timeseries)));
     }
 
-    public Task<ApiResult<ServerSummaryDto>> GetSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    public Task<ApiResult<ServerPlayersCurrentDto>> GetPlayersCurrent(Guid gameServerId, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new ApiResult<ServerSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerSummaryDto>(_summary)));
+        return Task.FromResult(new ApiResult<ServerPlayersCurrentDto>(HttpStatusCode.OK, new ApiResponse<ServerPlayersCurrentDto>(_playersCurrent)));
+    }
+
+    public Task<ApiResult<ServerEventsSummaryDto>> GetEventsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerEventsSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerEventsSummaryDto>(_eventsSummary)));
+    }
+
+    public Task<ApiResult<ServerChatSummaryDto>> GetChatSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerChatSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerChatSummaryDto>(_chatSummary)));
+    }
+
+    public Task<ApiResult<ServerMapRotationPerformanceDto>> GetMapRotationPerformance(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerMapRotationPerformanceDto>(HttpStatusCode.OK, new ApiResponse<ServerMapRotationPerformanceDto>(_mapRotationPerformance)));
     }
 }

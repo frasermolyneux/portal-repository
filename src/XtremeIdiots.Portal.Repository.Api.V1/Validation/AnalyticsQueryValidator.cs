@@ -100,6 +100,38 @@ internal static class AnalyticsQueryValidator
         return true;
     }
 
+    /// <summary>
+    /// Bounds the total prior-period lookback for span-shifted comparisons (alignMode None), where the
+    /// comparison query span is comparePeriods x the current window span and is otherwise unbounded.
+    /// Week/Month alignment is naturally bounded and always permitted.
+    /// </summary>
+    public static bool TryValidateComparisonLookback(
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods,
+        AnalyticsAlignMode alignMode,
+        out string error)
+    {
+        error = string.Empty;
+
+        if (compareMode == AnalyticsCompareMode.None || alignMode != AnalyticsAlignMode.None)
+        {
+            return true;
+        }
+
+        var periods = compareMode == AnalyticsCompareMode.RollingPeriods ? Math.Max(1, comparePeriods) : 1;
+        var totalLookback = TimeSpan.FromTicks((toUtc - fromUtc).Ticks * periods);
+
+        if (totalLookback > TimeSpan.FromDays(AnalyticsQueryDefaults.MaxComparisonLookbackDays))
+        {
+            error = $"The comparison lookback exceeds {AnalyticsQueryDefaults.MaxComparisonLookbackDays} days. Reduce comparePeriods or the window size, or use week/month alignment.";
+            return false;
+        }
+
+        return true;
+    }
+
     public static bool TryGetAlignedWindow(
         DateTime fromUtc,
         DateTime toUtc,

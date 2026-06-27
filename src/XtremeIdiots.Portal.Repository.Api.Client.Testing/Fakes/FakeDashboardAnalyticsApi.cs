@@ -10,34 +10,26 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 
 public class FakeDashboardAnalyticsApi : IDashboardAnalyticsApi
 {
-    private DashboardSummaryDto _summary = new();
-    private DashboardTrendsDto _trends = new();
-    private DashboardCompositionDto _composition = new();
+    private DashboardHomeDto _home = new();
+    private DashboardServerDto _server = new();
 
-    public FakeDashboardAnalyticsApi SetSummary(DashboardSummaryDto summary) { _summary = summary; return this; }
-    public FakeDashboardAnalyticsApi SetTrends(DashboardTrendsDto trends) { _trends = trends; return this; }
-    public FakeDashboardAnalyticsApi SetComposition(DashboardCompositionDto composition) { _composition = composition; return this; }
+    public FakeDashboardAnalyticsApi SetHome(DashboardHomeDto home) { _home = home; return this; }
+    public FakeDashboardAnalyticsApi SetServer(DashboardServerDto server) { _server = server; return this; }
 
     public FakeDashboardAnalyticsApi Reset()
     {
-        _summary = new();
-        _trends = new();
-        _composition = new();
+        _home = new();
+        _server = new();
         return this;
     }
 
-    public Task<ApiResult<DashboardSummaryDto>> GetSummary(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new ApiResult<DashboardSummaryDto>(HttpStatusCode.OK, new ApiResponse<DashboardSummaryDto>(_summary)));
+        return Task.FromResult(new ApiResult<DashboardHomeDto>(HttpStatusCode.OK, new ApiResponse<DashboardHomeDto>(_home)));
     }
 
-    public Task<ApiResult<DashboardTrendsDto>> GetTrends(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
+    public Task<ApiResult<DashboardServerDto>> GetServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new ApiResult<DashboardTrendsDto>(HttpStatusCode.OK, new ApiResponse<DashboardTrendsDto>(_trends)));
-    }
-
-    public Task<ApiResult<DashboardCompositionDto>> GetComposition(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(new ApiResult<DashboardCompositionDto>(HttpStatusCode.OK, new ApiResponse<DashboardCompositionDto>(_composition)));
+        return Task.FromResult(new ApiResult<DashboardServerDto>(HttpStatusCode.OK, new ApiResponse<DashboardServerDto>(_server)));
     }
 }

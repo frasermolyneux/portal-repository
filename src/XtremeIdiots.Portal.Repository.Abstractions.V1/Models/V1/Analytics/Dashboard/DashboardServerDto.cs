@@ -1,9 +1,11 @@
 using Newtonsoft.Json;
+
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 
-namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Servers;
+namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Dashboard;
 
-public record ServerOverviewDto : IDto
+public record DashboardServerDto : IDto
 {
     [JsonProperty]
     public AnalyticsTimeWindowDto Window { get; internal set; } = new();
@@ -24,6 +26,12 @@ public record ServerOverviewDto : IDto
     public int CurrentPlayers { get; internal set; }
 
     [JsonProperty]
+    public int MaxPlayers { get; internal set; }
+
+    [JsonProperty]
+    public string? MapName { get; internal set; }
+
+    [JsonProperty]
     public double AvgPlayers { get; internal set; }
 
     [JsonProperty]
@@ -36,13 +44,13 @@ public record ServerOverviewDto : IDto
     public int ChatCount { get; internal set; }
 
     [JsonProperty]
-    public int RecentPlayersCount { get; internal set; }
+    public int UniquePlayers { get; internal set; }
 
     [JsonProperty]
-    public int AdminActionsCount { get; internal set; }
+    public AnalyticsBucket Bucket { get; internal set; }
 
     [JsonProperty]
-    public int ReportsCount { get; internal set; }
+    public List<AnalyticsTimeseriesPointDto> TrendPoints { get; internal set; } = [];
 
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];

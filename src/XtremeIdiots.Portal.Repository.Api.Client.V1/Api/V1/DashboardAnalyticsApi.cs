@@ -20,38 +20,28 @@ public class DashboardAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IDashb
     {
     }
 
-    public async Task<ApiResult<DashboardSummaryDto>> GetSummary(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync("v1/analytics/dashboard/summary", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync("v1/analytics/dashboard/home", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("bucket", bucket.ToString());
+        request.AddQueryParameter("top", top.ToString());
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return response.ToApiResult<DashboardSummaryDto>();
+        return response.ToApiResult<DashboardHomeDto>();
     }
 
-    public async Task<ApiResult<DashboardTrendsDto>> GetTrends(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<DashboardServerDto>> GetServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync("v1/analytics/dashboard/trends", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/analytics/dashboard/server/{gameServerId}", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
         request.AddQueryParameter("bucket", bucket.ToString());
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return response.ToApiResult<DashboardTrendsDto>();
-    }
-
-    public async Task<ApiResult<DashboardCompositionDto>> GetComposition(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
-    {
-        var request = await CreateRequestAsync("v1/analytics/dashboard/composition", Method.Get).ConfigureAwait(false);
-        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
-        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
-        request.AddQueryParameter("top", top.ToString());
-
-        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-        return response.ToApiResult<DashboardCompositionDto>();
+        return response.ToApiResult<DashboardServerDto>();
     }
 }

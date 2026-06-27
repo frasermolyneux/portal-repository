@@ -20,33 +20,102 @@ public class PlayerAnalyticsV2Api : BaseApi<RepositoryApiClientOptions>, IPlayer
     {
     }
 
-    public async Task<ApiResult<PlayerOverviewDto>> GetOverview(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<PlayersOverviewDto>> GetOverview(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}/overview", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/analytics/players/overview", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-        return response.ToApiResult<PlayerOverviewDto>();
+        return response.ToApiResult<PlayersOverviewDto>();
     }
 
-    public async Task<ApiResult<PlayerTrendsDto>> GetTrends(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
+    public async Task<ApiResult<PlayersTimeseriesDto>> GetTimeseries(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
     {
-        return await GetTrends(
-            playerId,
-            fromUtc,
-            toUtc,
-            bucket,
-            AnalyticsCompareMode.None,
-            AnalyticsQueryDefaults.DefaultComparePeriods,
-            AnalyticsAlignMode.None,
-            "UTC",
-            false,
-            cancellationToken).ConfigureAwait(false);
+        return await GetTimeseries(
+            fromUtc, toUtc, bucket, AnalyticsCompareMode.None, AnalyticsQueryDefaults.DefaultComparePeriods, AnalyticsAlignMode.None, "UTC", false, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<ApiResult<PlayerTrendsDto>> GetTrends(
+    public async Task<ApiResult<PlayersTimeseriesDto>> GetTimeseries(
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        string timezone = "UTC",
+        bool normalize = false,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/players/timeseries", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("bucket", bucket.ToString());
+        request.AddQueryParameter("compareMode", ToCompareModeQueryValue(compareMode));
+        request.AddQueryParameter("comparePeriods", comparePeriods.ToString());
+        request.AddQueryParameter("alignMode", ToAlignModeQueryValue(alignMode));
+        request.AddQueryParameter("timezone", timezone);
+        request.AddQueryParameter("normalize", normalize ? "true" : "false");
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<PlayersTimeseriesDto>();
+    }
+
+    public async Task<ApiResult<PlayersTopDto>> GetTop(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/players/top", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<PlayersTopDto>();
+    }
+
+    public async Task<ApiResult<PlayersByGameDto>> GetByGame(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/players/by-game", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<PlayersByGameDto>();
+    }
+
+    public async Task<ApiResult<PlayersByServerDto>> GetByServer(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/players/by-server", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<PlayersByServerDto>();
+    }
+
+    public async Task<ApiResult<PlayerDetailDto>> GetPlayerDetail(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<PlayerDetailDto>();
+    }
+
+    public async Task<ApiResult<PlayerTrendsDto>> GetPlayerTimeseries(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
+    {
+        return await GetPlayerTimeseries(
+            playerId, fromUtc, toUtc, bucket, AnalyticsCompareMode.None, AnalyticsQueryDefaults.DefaultComparePeriods, AnalyticsAlignMode.None, "UTC", false, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ApiResult<PlayerTrendsDto>> GetPlayerTimeseries(
         Guid playerId,
         DateTime fromUtc,
         DateTime toUtc,
@@ -58,7 +127,7 @@ public class PlayerAnalyticsV2Api : BaseApi<RepositoryApiClientOptions>, IPlayer
         bool normalize = false,
         CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}/trends", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}/timeseries", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
         request.AddQueryParameter("bucket", bucket.ToString());
@@ -71,28 +140,6 @@ public class PlayerAnalyticsV2Api : BaseApi<RepositoryApiClientOptions>, IPlayer
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
         return response.ToApiResult<PlayerTrendsDto>();
-    }
-
-    public async Task<ApiResult<PlayerRelatedActivityDto>> GetRelatedActivity(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
-    {
-        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}/related", Method.Get).ConfigureAwait(false);
-        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
-        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
-
-        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-        return response.ToApiResult<PlayerRelatedActivityDto>();
-    }
-
-    public async Task<ApiResult<PlayerModerationSummaryDto>> GetModerationSummary(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
-    {
-        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}/moderation", Method.Get).ConfigureAwait(false);
-        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
-        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
-
-        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-
-        return response.ToApiResult<PlayerModerationSummaryDto>();
     }
 
     private static string ToCompareModeQueryValue(AnalyticsCompareMode compareMode)

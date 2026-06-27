@@ -77,7 +77,7 @@ public class AnalyticsQuerySerializationTests
     }
 
     [Fact]
-    public async Task PlayerAnalyticsV2_GetTrends_UsesExpectedCompareQueryValues()
+    public async Task PlayerAnalyticsV2_GetPlayerTimeseries_UsesExpectedCompareQueryValues()
     {
         var rest = new CapturingRestClientService();
         var api = new PlayerAnalyticsV2Api(
@@ -87,7 +87,7 @@ public class AnalyticsQuerySerializationTests
             CreateOptions());
 
         var playerId = Guid.NewGuid();
-        await api.GetTrends(
+        await api.GetPlayerTimeseries(
             playerId,
             new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc),
@@ -99,7 +99,7 @@ public class AnalyticsQuerySerializationTests
             normalize: true,
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal($"v1/analytics/players/{playerId}/trends", rest.LastResource);
+        Assert.Equal($"v1/analytics/players/{playerId}/timeseries", rest.LastResource);
         Assert.Equal("none", rest.Query["compareMode"]);
         Assert.Equal("none", rest.Query["alignMode"]);
         Assert.Equal("1", rest.Query["comparePeriods"]);

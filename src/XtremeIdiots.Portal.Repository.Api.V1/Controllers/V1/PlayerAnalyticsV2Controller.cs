@@ -1,4 +1,5 @@
 using System.Net;
+
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
+using XtremeIdiots.Portal.Repository.Api.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 using XtremeIdiots.Portal.Repository.DataLib;
 
@@ -31,65 +34,50 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
         this.context = context;
     }
 
-    [HttpGet("{playerId:guid}/overview")]
-    [ProducesResponseType<PlayerOverviewDto>(StatusCodes.Status200OK)]
+    [HttpGet("overview")]
+    [ProducesResponseType<PlayersOverviewDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetOverview(
-        Guid playerId,
-        [FromQuery] DateTime fromUtc,
-        [FromQuery] DateTime toUtc,
-        CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetOverview([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayerAnalyticsV2Api)this).GetOverview(playerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var response = await ((IPlayerAnalyticsV2Api)this).GetOverview(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<PlayerOverviewDto>> IPlayerAnalyticsV2Api.GetOverview(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    async Task<ApiResult<PlayersOverviewDto>> IPlayerAnalyticsV2Api.GetOverview(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
     {
         if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
         {
-            return new ApiResult<PlayerOverviewDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<PlayersOverviewDto>(HttpStatusCode.BadRequest);
         }
 
-        var player = await context.Players
+        var activePlayers = await context.Players
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.PlayerId == playerId, cancellationToken).ConfigureAwait(false);
+            .CountAsync(p => p.LastSeen >= fromUtc && p.LastSeen < toUtc, cancellationToken).ConfigureAwait(false);
 
-        if (player == null)
+        var newPlayers = await context.Players
+            .AsNoTracking()
+            .CountAsync(p => p.FirstSeen >= fromUtc && p.FirstSeen < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var returningPlayers = await context.Players
+            .AsNoTracking()
+            .CountAsync(p => p.LastSeen >= fromUtc && p.LastSeen < toUtc && p.FirstSeen < fromUtc, cancellationToken).ConfigureAwait(false);
+
+        var dto = new PlayersOverviewDto
         {
-            return new ApiResult<PlayerOverviewDto>(HttpStatusCode.NotFound);
-        }
-
-        var sessionsCount = await context.RecentPlayers
-            .AsNoTracking()
-            .CountAsync(rp => rp.PlayerId == playerId && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
-
-        var actionCount = await context.AdminActions
-            .AsNoTracking()
-            .CountAsync(a => a.PlayerId == playerId && a.Created >= fromUtc && a.Created < toUtc, cancellationToken).ConfigureAwait(false);
-
-        // Approximate playtime from observed recent-player session snapshots.
-        var playTimeMinutes = sessionsCount;
-
-        var dto = new PlayerOverviewDto
-        {
-            PlayerId = playerId,
-            Username = string.IsNullOrWhiteSpace(player.Username) ? "Unknown" : player.Username,
-            SessionsCount = sessionsCount,
-            TotalPlayTimeMinutes = playTimeMinutes,
-            AdminActionsCount = actionCount
+            Window = CreateWindow(fromUtc, toUtc),
+            TotalPlayers = activePlayers,
+            NewPlayers = newPlayers,
+            ActivePlayers = activePlayers,
+            ReturningPlayers = returningPlayers
         };
 
-        return new ApiResponse<PlayerOverviewDto>(dto).ToApiResult();
+        return new ApiResponse<PlayersOverviewDto>(dto).ToApiResult();
     }
 
-    [HttpGet("{playerId:guid}/trends")]
-    [ProducesResponseType<PlayerTrendsDto>(StatusCodes.Status200OK)]
+    [HttpGet("timeseries")]
+    [ProducesResponseType<PlayersTimeseriesDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetTrends(
-        Guid playerId,
+    public async Task<IActionResult> GetTimeseries(
         [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc,
         [FromQuery] AnalyticsBucket bucket,
@@ -100,38 +88,18 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
         [FromQuery] bool normalize = false,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayerAnalyticsV2Api)this).GetTrends(
-            playerId,
-            fromUtc,
-            toUtc,
-            bucket,
-            compareMode,
-            comparePeriods,
-            alignMode,
-            timezone,
-            normalize,
-            cancellationToken).ConfigureAwait(false);
-
+        var response = await ((IPlayerAnalyticsV2Api)this).GetTimeseries(
+            fromUtc, toUtc, bucket, compareMode, comparePeriods, alignMode, timezone, normalize, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<PlayerTrendsDto>> IPlayerAnalyticsV2Api.GetTrends(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken)
+    async Task<ApiResult<PlayersTimeseriesDto>> IPlayerAnalyticsV2Api.GetTimeseries(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken)
     {
-        return await ((IPlayerAnalyticsV2Api)this).GetTrends(
-            playerId,
-            fromUtc,
-            toUtc,
-            bucket,
-            AnalyticsCompareMode.None,
-            AnalyticsQueryDefaults.DefaultComparePeriods,
-            AnalyticsAlignMode.None,
-            "UTC",
-            false,
-            cancellationToken).ConfigureAwait(false);
+        return await ((IPlayerAnalyticsV2Api)this).GetTimeseries(
+            fromUtc, toUtc, bucket, AnalyticsCompareMode.None, AnalyticsQueryDefaults.DefaultComparePeriods, AnalyticsAlignMode.None, "UTC", false, cancellationToken).ConfigureAwait(false);
     }
 
-    async Task<ApiResult<PlayerTrendsDto>> IPlayerAnalyticsV2Api.GetTrends(
-        Guid playerId,
+    async Task<ApiResult<PlayersTimeseriesDto>> IPlayerAnalyticsV2Api.GetTimeseries(
         DateTime fromUtc,
         DateTime toUtc,
         AnalyticsBucket bucket,
@@ -144,56 +112,79 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
     {
         if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
             || !AnalyticsQueryValidator.TryValidateComparisonOptions(compareMode, comparePeriods, alignMode, timezone, out _)
+            || !AnalyticsQueryValidator.TryValidateComparisonLookback(fromUtc, toUtc, compareMode, comparePeriods, alignMode, out _)
             || !AnalyticsQueryValidator.TryGetAlignedWindow(fromUtc, toUtc, alignMode, timezone, out var alignedFromUtc, out var alignedToUtc, out _))
         {
-            return new ApiResult<PlayerTrendsDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<PlayersTimeseriesDto>(HttpStatusCode.BadRequest);
         }
 
-        var playerExists = await context.Players
+        var newPlayerDates = await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.PlayerId == playerId, cancellationToken).ConfigureAwait(false);
-
-        if (!playerExists)
-        {
-            return new ApiResult<PlayerTrendsDto>(HttpStatusCode.NotFound);
-        }
-
-        var sessions = await context.RecentPlayers
-            .AsNoTracking()
-            .Where(rp => rp.PlayerId == playerId && rp.Timestamp >= alignedFromUtc && rp.Timestamp < alignedToUtc)
-            .Select(rp => rp.Timestamp)
+            .Where(p => p.FirstSeen >= alignedFromUtc && p.FirstSeen < alignedToUtc)
+            .Select(p => p.FirstSeen)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var actions = await context.AdminActions
+        var activeSamples = await context.RecentPlayers
             .AsNoTracking()
-            .Where(a => a.PlayerId == playerId && a.Created >= alignedFromUtc && a.Created < alignedToUtc)
-            .Select(a => a.Created)
+            .Where(rp => rp.PlayerId != null && rp.Timestamp >= alignedFromUtc && rp.Timestamp < alignedToUtc)
+            .Select(rp => new { rp.PlayerId, rp.Timestamp })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var sessionsByBucket = sessions.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
-        var actionsByBucket = actions.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
+        var newByBucket = newPlayerDates.GroupBy(t => AnalyticsTimeBucketing.Truncate(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
+        var activeByBucket = activeSamples
+            .GroupBy(x => AnalyticsTimeBucketing.Truncate(x.Timestamp, bucket))
+            .ToDictionary(g => g.Key, g => g.Select(x => x.PlayerId).Distinct().Count());
 
-        var bucketStarts = BuildBuckets(alignedFromUtc, alignedToUtc, bucket);
-        var points = bucketStarts.Select(start => new AnalyticsTimeseriesPointDto
+        var bucketStarts = AnalyticsTimeBucketing.BuildBuckets(alignedFromUtc, alignedToUtc, bucket);
+        var points = bucketStarts.Select(start => new PlayersTimeseriesPointDto
         {
             BucketStartUtc = start,
-            BucketEndUtc = AddBucket(start, bucket),
-            Value = sessionsByBucket.GetValueOrDefault(start, 0)
+            NewPlayers = newByBucket.GetValueOrDefault(start, 0),
+            ActivePlayers = activeByBucket.GetValueOrDefault(start, 0)
         }).ToList();
 
         var labels = points.Select(p => p.BucketStartUtc).ToList();
         var series = new List<AnalyticsSeriesDto>
         {
-            BuildSeries("sessions", "Sessions", labels, points.Select(p => (double)p.Value)),
-            BuildSeries("moderationActions", "Moderation Actions", labels, labels.Select(l => (double)actionsByBucket.GetValueOrDefault(l, 0)))
+            BuildSeries("newPlayers", "New Players", labels, points.Select(p => (double)p.NewPlayers)),
+            BuildSeries("activePlayers", "Active Players", labels, points.Select(p => (double)p.ActivePlayers))
         };
 
-        var currentTotal = points.Sum(p => (double)p.Value);
-        var summary = compareMode == AnalyticsCompareMode.None
-            ? null
-            : BuildComparisonSummary(currentTotal, comparePeriods);
+        var currentTotal = points.Where(p => p.BucketStartUtc < toUtc).Sum(p => (double)p.ActivePlayers);
 
-        var dto = new PlayerTrendsDto
+        AnalyticsCompareSummaryDto? summary = null;
+        var comparisonWindows = AnalyticsComparison.GetWindows(alignedFromUtc, alignedToUtc, compareMode, comparePeriods, alignMode);
+        if (comparisonWindows.Count > 0)
+        {
+            var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
+            var cmpSamples = await context.RecentPlayers
+                .AsNoTracking()
+                .Where(rp => rp.PlayerId != null && rp.Timestamp >= earliestCmpFrom && rp.Timestamp < alignedFromUtc)
+                .Select(rp => new { rp.PlayerId, rp.Timestamp })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var cmpActiveByBucket = cmpSamples
+                .GroupBy(x => AnalyticsTimeBucketing.Truncate(x.Timestamp, bucket))
+                .ToDictionary(g => g.Key, g => (double)g.Select(x => x.PlayerId).Distinct().Count());
+
+            var comparisonTotals = new List<double>(comparisonWindows.Count);
+            foreach (var cmpWindow in comparisonWindows)
+            {
+                var cmpSeries = AnalyticsComparison.BuildComparisonSeries(
+                    "activePlayers", "Active Players", cmpWindow, bucketStarts, bucket, cmpActiveByBucket, toUtc);
+                comparisonTotals.Add(cmpSeries.Values.Sum(v => v.Value));
+                series.Add(cmpSeries);
+            }
+
+            summary = AnalyticsComparison.BuildSummary(currentTotal, comparisonTotals);
+        }
+
+        if (normalize)
+        {
+            AnalyticsComparison.ApplyIndex100(series);
+        }
+
+        var dto = new PlayersTimeseriesDto
         {
             Window = CreateWindow(fromUtc, toUtc),
             Bucket = bucket,
@@ -204,38 +195,221 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             Meta = BuildCompareMeta(compareMode, comparePeriods, alignMode, timezone, normalize)
         };
 
-        return new ApiResponse<PlayerTrendsDto>(dto).ToApiResult();
+        return new ApiResponse<PlayersTimeseriesDto>(dto).ToApiResult();
     }
 
-    [HttpGet("{playerId:guid}/related")]
-    [ProducesResponseType<PlayerRelatedActivityDto>(StatusCodes.Status200OK)]
+    [HttpGet("top")]
+    [ProducesResponseType<PlayersTopDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetTop(
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IPlayerAnalyticsV2Api)this).GetTop(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<PlayersTopDto>> IPlayerAnalyticsV2Api.GetTop(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<PlayersTopDto>(HttpStatusCode.BadRequest);
+        }
+
+        var topRaw = await context.RecentPlayers
+            .AsNoTracking()
+            .Where(rp => rp.PlayerId != null && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc)
+            .GroupBy(rp => rp.PlayerId!.Value)
+            .Select(g => new { PlayerId = g.Key, Sessions = g.Count() })
+            .OrderByDescending(x => x.Sessions)
+            .Take(top)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var ids = topRaw.Select(x => x.PlayerId).ToList();
+        var players = await context.Players
+            .AsNoTracking()
+            .Where(p => ids.Contains(p.PlayerId))
+            .Select(p => new { p.PlayerId, p.Username, p.GameType, p.LastSeen })
+            .ToDictionaryAsync(p => p.PlayerId, cancellationToken).ConfigureAwait(false);
+
+        var items = topRaw.Select(x =>
+        {
+            players.TryGetValue(x.PlayerId, out var p);
+            return new PlayersTopItemDto
+            {
+                PlayerId = x.PlayerId,
+                Username = string.IsNullOrWhiteSpace(p?.Username) ? "Unknown" : p!.Username!,
+                GameType = (p?.GameType ?? 0).ToGameType(),
+                SessionsCount = x.Sessions,
+                LastSeenUtc = p?.LastSeen ?? default
+            };
+        }).ToList();
+
+        var dto = new PlayersTopDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<PlayersTopDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("by-game")]
+    [ProducesResponseType<PlayersByGameDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetByGame(
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IPlayerAnalyticsV2Api)this).GetByGame(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<PlayersByGameDto>> IPlayerAnalyticsV2Api.GetByGame(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
+        {
+            return new ApiResult<PlayersByGameDto>(HttpStatusCode.BadRequest);
+        }
+
+        var grouped = await context.Players
+            .AsNoTracking()
+            .Where(p => p.LastSeen >= fromUtc && p.LastSeen < toUtc)
+            .GroupBy(p => p.GameType)
+            .Select(g => new
+            {
+                GameType = g.Key,
+                Active = g.Count(),
+                New = g.Count(p => p.FirstSeen >= fromUtc && p.FirstSeen < toUtc)
+            })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var items = grouped
+            .OrderByDescending(x => x.Active)
+            .Select(x => new PlayersByGameItemDto
+            {
+                GameType = x.GameType.ToGameType(),
+                TotalPlayers = x.Active,
+                NewPlayers = x.New,
+                ActivePlayers = x.Active
+            })
+            .ToList();
+
+        var dto = new PlayersByGameDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<PlayersByGameDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("by-server")]
+    [ProducesResponseType<PlayersByServerDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetByServer(
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IPlayerAnalyticsV2Api)this).GetByServer(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<PlayersByServerDto>> IPlayerAnalyticsV2Api.GetByServer(DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<PlayersByServerDto>(HttpStatusCode.BadRequest);
+        }
+
+        var recent = await context.RecentPlayers
+            .AsNoTracking()
+            .Where(rp => rp.PlayerId != null && rp.GameServerId != null && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc)
+            .Select(rp => new { GameServerId = rp.GameServerId!.Value, rp.PlayerId })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var byServer = recent
+            .GroupBy(r => r.GameServerId)
+            .Select(g => new { GameServerId = g.Key, Active = g.Select(x => x.PlayerId).Distinct().Count() })
+            .OrderByDescending(x => x.Active)
+            .Take(top)
+            .ToList();
+
+        var serverIds = byServer.Select(x => x.GameServerId).ToList();
+        var servers = await context.GameServers
+            .AsNoTracking()
+            .Where(gs => serverIds.Contains(gs.GameServerId))
+            .Select(gs => new { gs.GameServerId, gs.Title, gs.GameType })
+            .ToDictionaryAsync(gs => gs.GameServerId, cancellationToken).ConfigureAwait(false);
+
+        var items = byServer.Select(x =>
+        {
+            servers.TryGetValue(x.GameServerId, out var s);
+            return new PlayersByServerItemDto
+            {
+                GameServerId = x.GameServerId,
+                Title = string.IsNullOrWhiteSpace(s?.Title) ? "Unknown" : s!.Title,
+                GameType = (s?.GameType ?? 0).ToGameType(),
+                ActivePlayers = x.Active
+            };
+        }).ToList();
+
+        var dto = new PlayersByServerDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Items = items
+        };
+
+        return new ApiResponse<PlayersByServerDto>(dto).ToApiResult();
+    }
+
+    [HttpGet("{playerId:guid}")]
+    [ProducesResponseType<PlayerDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetRelatedActivity(
+    public async Task<IActionResult> GetPlayerDetail(
         Guid playerId,
         [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayerAnalyticsV2Api)this).GetRelatedActivity(playerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var response = await ((IPlayerAnalyticsV2Api)this).GetPlayerDetail(playerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<PlayerRelatedActivityDto>> IPlayerAnalyticsV2Api.GetRelatedActivity(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    async Task<ApiResult<PlayerDetailDto>> IPlayerAnalyticsV2Api.GetPlayerDetail(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
     {
         if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
         {
-            return new ApiResult<PlayerRelatedActivityDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<PlayerDetailDto>(HttpStatusCode.BadRequest);
         }
 
-        var playerExists = await context.Players
+        var player = await context.Players
             .AsNoTracking()
-            .AnyAsync(p => p.PlayerId == playerId, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(p => p.PlayerId == playerId, cancellationToken).ConfigureAwait(false);
 
-        if (!playerExists)
+        if (player == null)
         {
-            return new ApiResult<PlayerRelatedActivityDto>(HttpStatusCode.NotFound);
+            return new ApiResult<PlayerDetailDto>(HttpStatusCode.NotFound);
         }
+
+        var sessionsCount = await context.RecentPlayers
+            .AsNoTracking()
+            .CountAsync(rp => rp.PlayerId == playerId && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
+
+        var actionCounts = await context.AdminActions
+            .AsNoTracking()
+            .Where(a => a.PlayerId == playerId && a.Created >= fromUtc && a.Created < toUtc)
+            .GroupBy(a => a.Type)
+            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Type, x => x.Count, cancellationToken).ConfigureAwait(false);
 
         var relatedPlayerIds = await context.RecentPlayers
             .AsNoTracking()
@@ -278,36 +452,83 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             .Distinct()
             .CountAsync(cancellationToken).ConfigureAwait(false);
 
-        var dto = new PlayerRelatedActivityDto
+        var dto = new PlayerDetailDto
         {
             Window = CreateWindow(fromUtc, toUtc),
-            RelatedPlayersCount = relatedPlayerIds.Count,
-            SharedIpAddressesCount = sharedIpCount,
-            SharedAliasesCount = sharedAliasCount
+            PlayerId = playerId,
+            Username = string.IsNullOrWhiteSpace(player.Username) ? "Unknown" : player.Username,
+            GameType = player.GameType.ToGameType(),
+            FirstSeenUtc = player.FirstSeen,
+            LastSeenUtc = player.LastSeen,
+            SessionsCount = sessionsCount,
+            // Approximate playtime from observed recent-player session snapshots.
+            TotalPlayTimeMinutes = sessionsCount,
+            Moderation = new PlayerModerationSummaryDto
+            {
+                Window = CreateWindow(fromUtc, toUtc),
+                WarningsCount = actionCounts.GetValueOrDefault((int)AdminActionType.Warning, 0),
+                // Mutes are not represented in AdminActionType in this repository contract.
+                MutesCount = 0,
+                KicksCount = actionCounts.GetValueOrDefault((int)AdminActionType.Kick, 0),
+                BansCount = actionCounts.GetValueOrDefault((int)AdminActionType.Ban, 0)
+            },
+            Related = new PlayerRelatedActivityDto
+            {
+                Window = CreateWindow(fromUtc, toUtc),
+                RelatedPlayersCount = relatedPlayerIds.Count,
+                SharedIpAddressesCount = sharedIpCount,
+                SharedAliasesCount = sharedAliasCount
+            }
         };
 
-        return new ApiResponse<PlayerRelatedActivityDto>(dto).ToApiResult();
+        return new ApiResponse<PlayerDetailDto>(dto).ToApiResult();
     }
 
-    [HttpGet("{playerId:guid}/moderation")]
-    [ProducesResponseType<PlayerModerationSummaryDto>(StatusCodes.Status200OK)]
+    [HttpGet("{playerId:guid}/timeseries")]
+    [ProducesResponseType<PlayerTrendsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetModerationSummary(
+    public async Task<IActionResult> GetPlayerTimeseries(
         Guid playerId,
         [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc,
+        [FromQuery] AnalyticsBucket bucket,
+        [FromQuery] AnalyticsCompareMode compareMode = AnalyticsCompareMode.None,
+        [FromQuery] int comparePeriods = AnalyticsQueryDefaults.DefaultComparePeriods,
+        [FromQuery] AnalyticsAlignMode alignMode = AnalyticsAlignMode.None,
+        [FromQuery] string timezone = "UTC",
+        [FromQuery] bool normalize = false,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlayerAnalyticsV2Api)this).GetModerationSummary(playerId, fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var response = await ((IPlayerAnalyticsV2Api)this).GetPlayerTimeseries(
+            playerId, fromUtc, toUtc, bucket, compareMode, comparePeriods, alignMode, timezone, normalize, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<PlayerModerationSummaryDto>> IPlayerAnalyticsV2Api.GetModerationSummary(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    async Task<ApiResult<PlayerTrendsDto>> IPlayerAnalyticsV2Api.GetPlayerTimeseries(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken)
     {
-        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _))
+        return await ((IPlayerAnalyticsV2Api)this).GetPlayerTimeseries(
+            playerId, fromUtc, toUtc, bucket, AnalyticsCompareMode.None, AnalyticsQueryDefaults.DefaultComparePeriods, AnalyticsAlignMode.None, "UTC", false, cancellationToken).ConfigureAwait(false);
+    }
+
+    async Task<ApiResult<PlayerTrendsDto>> IPlayerAnalyticsV2Api.GetPlayerTimeseries(
+        Guid playerId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        AnalyticsCompareMode compareMode,
+        int comparePeriods,
+        AnalyticsAlignMode alignMode,
+        string timezone,
+        bool normalize,
+        CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
+            || !AnalyticsQueryValidator.TryValidateComparisonOptions(compareMode, comparePeriods, alignMode, timezone, out _)
+            || !AnalyticsQueryValidator.TryValidateComparisonLookback(fromUtc, toUtc, compareMode, comparePeriods, alignMode, out _)
+            || !AnalyticsQueryValidator.TryGetAlignedWindow(fromUtc, toUtc, alignMode, timezone, out var alignedFromUtc, out var alignedToUtc, out _))
         {
-            return new ApiResult<PlayerModerationSummaryDto>(HttpStatusCode.BadRequest);
+            return new ApiResult<PlayerTrendsDto>(HttpStatusCode.BadRequest);
         }
 
         var playerExists = await context.Players
@@ -316,27 +537,85 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
 
         if (!playerExists)
         {
-            return new ApiResult<PlayerModerationSummaryDto>(HttpStatusCode.NotFound);
+            return new ApiResult<PlayerTrendsDto>(HttpStatusCode.NotFound);
         }
 
-        var actionCounts = await context.AdminActions
+        var sessions = await context.RecentPlayers
             .AsNoTracking()
-            .Where(a => a.PlayerId == playerId && a.Created >= fromUtc && a.Created < toUtc)
-            .GroupBy(a => a.Type)
-            .Select(g => new { Type = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Type, x => x.Count, cancellationToken).ConfigureAwait(false);
+            .Where(rp => rp.PlayerId == playerId && rp.Timestamp >= alignedFromUtc && rp.Timestamp < alignedToUtc)
+            .Select(rp => rp.Timestamp)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var dto = new PlayerModerationSummaryDto
+        var actions = await context.AdminActions
+            .AsNoTracking()
+            .Where(a => a.PlayerId == playerId && a.Created >= alignedFromUtc && a.Created < alignedToUtc)
+            .Select(a => a.Created)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var sessionsByBucket = sessions.GroupBy(t => AnalyticsTimeBucketing.Truncate(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
+        var actionsByBucket = actions.GroupBy(t => AnalyticsTimeBucketing.Truncate(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
+
+        var bucketStarts = AnalyticsTimeBucketing.BuildBuckets(alignedFromUtc, alignedToUtc, bucket);
+        var points = bucketStarts.Select(start => new AnalyticsTimeseriesPointDto
         {
-            Window = CreateWindow(fromUtc, toUtc),
-            WarningsCount = actionCounts.GetValueOrDefault((int)AdminActionType.Warning, 0),
-            // Mutes are not represented in AdminActionType in this repository contract.
-            MutesCount = 0,
-            KicksCount = actionCounts.GetValueOrDefault((int)AdminActionType.Kick, 0),
-            BansCount = actionCounts.GetValueOrDefault((int)AdminActionType.Ban, 0)
+            BucketStartUtc = start,
+            BucketEndUtc = AnalyticsTimeBucketing.Add(start, bucket),
+            Value = sessionsByBucket.GetValueOrDefault(start, 0)
+        }).ToList();
+
+        var labels = points.Select(p => p.BucketStartUtc).ToList();
+        var series = new List<AnalyticsSeriesDto>
+        {
+            BuildSeries("sessions", "Sessions", labels, points.Select(p => (double)p.Value)),
+            BuildSeries("moderationActions", "Moderation Actions", labels, labels.Select(l => (double)actionsByBucket.GetValueOrDefault(l, 0)))
         };
 
-        return new ApiResponse<PlayerModerationSummaryDto>(dto).ToApiResult();
+        var currentTotal = points.Where(p => p.BucketStartUtc < toUtc).Sum(p => (double)p.Value);
+
+        AnalyticsCompareSummaryDto? summary = null;
+        var comparisonWindows = AnalyticsComparison.GetWindows(alignedFromUtc, alignedToUtc, compareMode, comparePeriods, alignMode);
+        if (comparisonWindows.Count > 0)
+        {
+            var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
+            var cmpSessions = await context.RecentPlayers
+                .AsNoTracking()
+                .Where(rp => rp.PlayerId == playerId && rp.Timestamp >= earliestCmpFrom && rp.Timestamp < alignedFromUtc)
+                .Select(rp => rp.Timestamp)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var cmpSessionsByBucket = cmpSessions
+                .GroupBy(t => AnalyticsTimeBucketing.Truncate(t, bucket))
+                .ToDictionary(g => g.Key, g => (double)g.Count());
+
+            var comparisonTotals = new List<double>(comparisonWindows.Count);
+            foreach (var cmpWindow in comparisonWindows)
+            {
+                var cmpSeries = AnalyticsComparison.BuildComparisonSeries(
+                    "sessions", "Sessions", cmpWindow, bucketStarts, bucket, cmpSessionsByBucket, toUtc);
+                comparisonTotals.Add(cmpSeries.Values.Sum(v => v.Value));
+                series.Add(cmpSeries);
+            }
+
+            summary = AnalyticsComparison.BuildSummary(currentTotal, comparisonTotals);
+        }
+
+        if (normalize)
+        {
+            AnalyticsComparison.ApplyIndex100(series);
+        }
+
+        var dto = new PlayerTrendsDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Bucket = bucket,
+            Points = points,
+            Labels = labels,
+            Series = series,
+            Summary = summary,
+            Meta = BuildCompareMeta(compareMode, comparePeriods, alignMode, timezone, normalize)
+        };
+
+        return new ApiResponse<PlayerTrendsDto>(dto).ToApiResult();
     }
 
     private static AnalyticsCompareMetaDto BuildCompareMeta(
@@ -353,21 +632,6 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             AlignMode = alignMode,
             Timezone = timezone,
             Normalize = normalize
-        };
-    }
-
-    private static AnalyticsCompareSummaryDto BuildComparisonSummary(double currentTotal, int comparePeriods)
-    {
-        var baseline = comparePeriods > 0 ? currentTotal / Math.Max(comparePeriods, 1) : currentTotal;
-        var delta = currentTotal - baseline;
-        var deltaPercent = baseline == 0 ? 0 : (delta / baseline) * 100d;
-
-        return new AnalyticsCompareSummaryDto
-        {
-            CurrentTotal = Math.Round(currentTotal, 2),
-            BaselineTotal = Math.Round(baseline, 2),
-            Delta = Math.Round(delta, 2),
-            DeltaPercent = Math.Round(deltaPercent, 2)
         };
     }
 
@@ -394,37 +658,6 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
         {
             FromUtc = fromUtc,
             ToUtc = toUtc
-        };
-    }
-
-    private static List<DateTime> BuildBuckets(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket)
-    {
-        var result = new List<DateTime>();
-        for (var cursor = TruncateToBucket(fromUtc, bucket); cursor < toUtc; cursor = AddBucket(cursor, bucket))
-        {
-            result.Add(cursor);
-        }
-
-        return result;
-    }
-
-    private static DateTime TruncateToBucket(DateTime value, AnalyticsBucket bucket)
-    {
-        return bucket switch
-        {
-            AnalyticsBucket.FifteenMinutes => new DateTime(value.Year, value.Month, value.Day, value.Hour, (value.Minute / 15) * 15, 0, DateTimeKind.Utc),
-            AnalyticsBucket.OneHour => new DateTime(value.Year, value.Month, value.Day, value.Hour, 0, 0, DateTimeKind.Utc),
-            _ => value.Date
-        };
-    }
-
-    private static DateTime AddBucket(DateTime value, AnalyticsBucket bucket)
-    {
-        return bucket switch
-        {
-            AnalyticsBucket.FifteenMinutes => value.AddMinutes(15),
-            AnalyticsBucket.OneHour => value.AddHours(1),
-            _ => value.AddDays(1)
         };
     }
 }
