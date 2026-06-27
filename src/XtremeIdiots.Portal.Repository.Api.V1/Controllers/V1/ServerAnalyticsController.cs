@@ -91,7 +91,7 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             .AsNoTracking()
             .CountAsync(r => r.GameServerId == gameServerId && r.Timestamp >= fromUtc && r.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
-        var correlationWindow = TimeSpan.FromHours(6);
+        const double correlationWindowHours = 6;
         var adminActionsCount = await context.AdminActions
             .AsNoTracking()
             .CountAsync(a =>
@@ -100,8 +100,8 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
                 && context.RecentPlayers.Any(rp =>
                     rp.PlayerId == a.PlayerId
                     && rp.GameServerId == gameServerId
-                    && rp.Timestamp >= a.Created - correlationWindow
-                    && rp.Timestamp <= a.Created + correlationWindow),
+                    && rp.Timestamp >= a.Created.AddHours(-correlationWindowHours)
+                    && rp.Timestamp <= a.Created.AddHours(correlationWindowHours)),
                 cancellationToken).ConfigureAwait(false);
 
         var dto = new ServerOverviewDto
