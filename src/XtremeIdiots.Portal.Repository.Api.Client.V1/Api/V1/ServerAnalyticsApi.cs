@@ -105,6 +105,18 @@ public class ServerAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IServerAn
         return response.ToApiResult<ServerChatSummaryDto>();
     }
 
+    public async Task<ApiResult<ServerChatCommandsSummaryDto>> GetChatCommandsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/chat-commands-summary", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        request.AddQueryParameter("top", top.ToString());
+
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return response.ToApiResult<ServerChatCommandsSummaryDto>();
+    }
+
     public async Task<ApiResult<ServerMapRotationPerformanceDto>> GetMapRotationPerformance(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
         var request = await CreateRequestAsync($"v1/analytics/servers/{gameServerId}/map-rotation-performance", Method.Get).ConfigureAwait(false);

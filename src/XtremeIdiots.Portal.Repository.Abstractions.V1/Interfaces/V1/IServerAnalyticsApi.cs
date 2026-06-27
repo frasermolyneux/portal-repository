@@ -29,5 +29,7 @@ public interface IServerAnalyticsApi
 
     Task<ApiResult<ServerChatSummaryDto>> GetChatSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);
 
+    Task<ApiResult<ServerChatCommandsSummaryDto>> GetChatCommandsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default);
+
     Task<ApiResult<ServerMapRotationPerformanceDto>> GetMapRotationPerformance(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 }

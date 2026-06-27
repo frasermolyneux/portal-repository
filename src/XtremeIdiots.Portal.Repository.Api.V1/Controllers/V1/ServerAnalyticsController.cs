@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +27,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 [Route("v{version:apiVersion}/analytics/servers")]
 public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
 {
+    private const string ChatCommandExecutionEventType = "ChatCommandExecution";
+
     private readonly PortalDbContext context;
     private readonly ILiveStatusStore liveStatusStore;
 
@@ -435,6 +438,78 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
         return new ApiResponse<ServerChatSummaryDto>(dto).ToApiResult();
     }
 
+    [HttpGet("{gameServerId:guid}/chat-commands-summary")]
+    [ProducesResponseType<ServerChatCommandsSummaryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChatCommandsSummary(
+        Guid gameServerId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IServerAnalyticsApi)this).GetChatCommandsSummary(gameServerId, fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<ServerChatCommandsSummaryDto>> IServerAnalyticsApi.GetChatCommandsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        {
+            return new ApiResult<ServerChatCommandsSummaryDto>(HttpStatusCode.BadRequest);
+        }
+
+        var serverExists = await context.GameServers
+            .AsNoTracking()
+            .AnyAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
+
+        if (!serverExists)
+        {
+            return new ApiResult<ServerChatCommandsSummaryDto>(HttpStatusCode.NotFound);
+        }
+
+        // The executed command name is stored only inside the event's JSON payload, so we materialise
+        // the payloads for ChatCommandExecution events in the window and aggregate by command in memory.
+        var payloads = await context.GameServerEvents
+            .AsNoTracking()
+            .Where(e => e.GameServerId == gameServerId
+                && e.EventType == ChatCommandExecutionEventType
+                && e.Timestamp >= fromUtc && e.Timestamp < toUtc
+                && e.EventData != null)
+            .Select(e => e.EventData!)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var payload in payloads)
+        {
+            var command = ExtractCommandPrefix(payload);
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                continue;
+            }
+
+            counts[command] = counts.TryGetValue(command, out var existing) ? existing + 1 : 1;
+        }
+
+        var commands = counts
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Take(top)
+            .Select(kvp => new ServerChatCommandCountDto { Command = kvp.Key, Count = kvp.Value })
+            .ToList();
+
+        var dto = new ServerChatCommandsSummaryDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            TotalExecutions = counts.Values.Sum(),
+            Commands = commands
+        };
+
+        return new ApiResponse<ServerChatCommandsSummaryDto>(dto).ToApiResult();
+    }
+
     [HttpGet("{gameServerId:guid}/map-rotation-performance")]
     [ProducesResponseType<ServerMapRotationPerformanceDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -535,6 +610,39 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             FromUtc = fromUtc,
             ToUtc = toUtc
         };
+    }
+
+    /// <summary>
+    /// Extracts the chat command prefix (e.g. "!like") from a ChatCommandExecution event payload.
+    /// The payload is serialised by the events processor with a camelCase "commandPrefix" property;
+    /// matching is case-insensitive to tolerate naming-policy changes. Returns null for malformed
+    /// payloads or payloads without a string command prefix.
+    /// </summary>
+    private static string? ExtractCommandPrefix(string eventData)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(eventData);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (string.Equals(property.Name, "commandPrefix", StringComparison.OrdinalIgnoreCase)
+                    && property.Value.ValueKind == JsonValueKind.String)
+                {
+                    return property.Value.GetString();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Malformed payload — exclude from the breakdown rather than failing the whole request.
+        }
+
+        return null;
     }
 
     private static List<DateTime> BuildBuckets(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket)

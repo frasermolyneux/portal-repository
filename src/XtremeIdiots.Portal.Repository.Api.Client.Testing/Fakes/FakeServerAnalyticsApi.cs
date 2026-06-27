@@ -15,6 +15,7 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
     private ServerPlayersCurrentDto _playersCurrent = new();
     private ServerEventsSummaryDto _eventsSummary = new();
     private ServerChatSummaryDto _chatSummary = new();
+    private ServerChatCommandsSummaryDto _chatCommandsSummary = new();
     private ServerMapRotationPerformanceDto _mapRotationPerformance = new();
 
     public FakeServerAnalyticsApi SetOverview(ServerOverviewDto overview) { _overview = overview; return this; }
@@ -22,6 +23,7 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
     public FakeServerAnalyticsApi SetPlayersCurrent(ServerPlayersCurrentDto playersCurrent) { _playersCurrent = playersCurrent; return this; }
     public FakeServerAnalyticsApi SetEventsSummary(ServerEventsSummaryDto eventsSummary) { _eventsSummary = eventsSummary; return this; }
     public FakeServerAnalyticsApi SetChatSummary(ServerChatSummaryDto chatSummary) { _chatSummary = chatSummary; return this; }
+    public FakeServerAnalyticsApi SetChatCommandsSummary(ServerChatCommandsSummaryDto chatCommandsSummary) { _chatCommandsSummary = chatCommandsSummary; return this; }
     public FakeServerAnalyticsApi SetMapRotationPerformance(ServerMapRotationPerformanceDto mapRotationPerformance) { _mapRotationPerformance = mapRotationPerformance; return this; }
 
     public FakeServerAnalyticsApi Reset()
@@ -31,6 +33,7 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
         _playersCurrent = new();
         _eventsSummary = new();
         _chatSummary = new();
+        _chatCommandsSummary = new();
         _mapRotationPerformance = new();
         return this;
     }
@@ -73,6 +76,11 @@ public class FakeServerAnalyticsApi : IServerAnalyticsApi
     public Task<ApiResult<ServerChatSummaryDto>> GetChatSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<ServerChatSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerChatSummaryDto>(_chatSummary)));
+    }
+
+    public Task<ApiResult<ServerChatCommandsSummaryDto>> GetChatCommandsSummary(Guid gameServerId, DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<ServerChatCommandsSummaryDto>(HttpStatusCode.OK, new ApiResponse<ServerChatCommandsSummaryDto>(_chatCommandsSummary)));
     }
 
     public Task<ApiResult<ServerMapRotationPerformanceDto>> GetMapRotationPerformance(Guid gameServerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
