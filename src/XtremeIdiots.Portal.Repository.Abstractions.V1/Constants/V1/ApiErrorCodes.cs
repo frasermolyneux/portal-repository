@@ -17,6 +17,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string EntityConflict = "ENTITY_CONFLICT";
         public const string EntityIdMismatch = "ENTITY_ID_MISMATCH";
         public const string MissingEntityId = "MISSING_ENTITY_ID";
+        public const string InvalidTagHtml = "INVALID_TAG_HTML";
 
         // Deserialization Errors
         public const string DeserializationError = "DESERIALIZATION_ERROR";

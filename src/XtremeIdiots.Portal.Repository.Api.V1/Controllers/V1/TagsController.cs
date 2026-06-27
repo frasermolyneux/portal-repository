@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -181,6 +182,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the tag was created.</returns>
         async Task<ApiResult> ITagsApi.CreateTag(TagDto tagDto, CancellationToken cancellationToken)
         {
+            if (!TagHtmlSanitizer.TrySanitize(tagDto.TagHtml, out var sanitizedTagHtml, out var tagHtmlError))
+            {
+                var error = string.IsNullOrWhiteSpace(tagHtmlError)
+                    ? ApiErrorMessages.InvalidTagHtmlMessage
+                    : $"{ApiErrorMessages.InvalidTagHtmlMessage}. {tagHtmlError}";
+
+                return new ApiResponse(new ApiError(ApiErrorCodes.InvalidTagHtml, error)).ToBadRequestResult();
+            }
+
+            tagDto.TagHtml = sanitizedTagHtml;
+
             var tag = tagDto.ToEntity();
             context.Tags.Add(tag);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -225,7 +237,25 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var hadTagHtmlInRequest = tagDto.TagHtml is not null;
+
+            if (!TagHtmlSanitizer.TrySanitize(tagDto.TagHtml, out var sanitizedTagHtml, out var tagHtmlError))
+            {
+                var error = string.IsNullOrWhiteSpace(tagHtmlError)
+                    ? ApiErrorMessages.InvalidTagHtmlMessage
+                    : $"{ApiErrorMessages.InvalidTagHtmlMessage}. {tagHtmlError}";
+
+                return new ApiResponse(new ApiError(ApiErrorCodes.InvalidTagHtml, error)).ToBadRequestResult();
+            }
+
+            tagDto.TagHtml = sanitizedTagHtml;
+
             tagDto.ApplyTo(tag);
+            if (hadTagHtmlInRequest && sanitizedTagHtml is null)
+            {
+                tag.TagHtml = null;
+            }
+
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }

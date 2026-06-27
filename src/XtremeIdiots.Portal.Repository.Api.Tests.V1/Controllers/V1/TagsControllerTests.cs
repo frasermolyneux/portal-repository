@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Tags;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
@@ -73,6 +74,48 @@ public class TagsControllerTests
     }
 
     [Fact]
+    public async Task CreateTag_WithUnsafeTagHtml_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (ITagsApi)controller;
+
+        var tagDto = new TagDto
+        {
+            TagId = Guid.NewGuid(),
+            Name = "UnsafeTag",
+            TagHtml = "<img src=x onerror=alert(1)>"
+        };
+
+        var result = await api.CreateTag(tagDto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.Tags);
+        Assert.Equal(ApiErrorCodes.InvalidTagHtml, result.Result?.Errors?.FirstOrDefault()?.Code);
+    }
+
+    [Fact]
+    public async Task CreateTag_WithValidTagHtml_SanitizesAndCreatesEntity()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (ITagsApi)controller;
+
+        var tagDto = new TagDto
+        {
+            TagId = Guid.NewGuid(),
+            Name = "ValidTag",
+            TagHtml = "<span class=\"badge bg-warning\"><i class=\"fa-solid fa-shield\"></i> Moderate Chat</span>"
+        };
+
+        var result = await api.CreateTag(tagDto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var created = Assert.Single(context.Tags);
+        Assert.Equal("<span class=\"badge bg-warning\"><i class=\"fa-solid fa-shield\"></i> Moderate Chat</span>", created.TagHtml);
+    }
+
+    [Fact]
     public async Task UpdateTag_WithValidId_ReturnsOk()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -87,6 +130,71 @@ public class TagsControllerTests
         var result = await api.UpdateTag(tagDto);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateTag_WithUnsafeTagHtml_ReturnsBadRequestAndDoesNotChangeStoredTagHtml()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var tagId = Guid.NewGuid();
+        context.Tags.Add(new Tag
+        {
+            TagId = tagId,
+            Name = "Original",
+            TagHtml = "<span class=\"badge bg-primary\">Original</span>"
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (ITagsApi)controller;
+
+        var tagDto = new TagDto
+        {
+            TagId = tagId,
+            Name = "Updated",
+            TagHtml = "<script>alert('xss')</script>"
+        };
+
+        var result = await api.UpdateTag(tagDto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal(ApiErrorCodes.InvalidTagHtml, result.Result?.Errors?.FirstOrDefault()?.Code);
+
+        var unchanged = await context.Tags.FindAsync(tagId);
+        Assert.NotNull(unchanged);
+        Assert.Equal("<span class=\"badge bg-primary\">Original</span>", unchanged.TagHtml);
+    }
+
+    [Fact]
+    public async Task UpdateTag_WithEmptyTagHtml_ClearsStoredTagHtml()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var tagId = Guid.NewGuid();
+        context.Tags.Add(new Tag
+        {
+            TagId = tagId,
+            Name = "Original",
+            TagHtml = "<span class=\"badge bg-primary\">Original</span>"
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (ITagsApi)controller;
+
+        var tagDto = new TagDto
+        {
+            TagId = tagId,
+            Name = "Updated",
+            TagHtml = "   "
+        };
+
+        var result = await api.UpdateTag(tagDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+
+        var updated = await context.Tags.FindAsync(tagId);
+        Assert.NotNull(updated);
+        Assert.Null(updated.TagHtml);
     }
 
     [Fact]
