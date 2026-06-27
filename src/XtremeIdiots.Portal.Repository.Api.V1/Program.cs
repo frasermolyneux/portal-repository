@@ -88,7 +88,10 @@ builder.Services.AddDbContext<PortalDbContext>(options =>
 // Add services to the container.
 builder.Services.AddMicrosoftIdentityWebApiAuthentication(builder.Configuration);
 
-builder.Services.AddControllers().AddNewtonsoftJson(options =>
+builder.Services.AddControllers(options =>
+{
+    options.ModelBinderProviders.Insert(0, new XtremeIdiots.Portal.Repository.Api.V1.Analytics.AnalyticsEnumModelBinderProvider());
+}).AddNewtonsoftJson(options =>
 {
     options.SerializerSettings.Converters.Add(new UtcDateTimeJsonConverter());
     options.SerializerSettings.Converters.Add(new StringEnumConverter());
