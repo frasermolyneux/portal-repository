@@ -73,6 +73,7 @@ Deploy workflows perform version verification (polling `/v1.0/info` and `/v2.0/i
 - Use C# 13 language features (set in `Directory.Build.props`).
 - Controller routes use `v{version:apiVersion}/...` — no `/api/` prefix.
 - Reference `docs/` for detailed guidance on versioning and backend mapping.
+- Use `.github/instructions/auditing-balance.instructions.md` when adding, reviewing, or removing audit events.
 
 ## Permissions and Authorization
 
