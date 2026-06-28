@@ -1781,11 +1781,11 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <param name="playerEntityOptions">Options for including related player data.</param>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A collection of players associated with the IP address.</returns>
-    [HttpGet("players/with-ip-address/{ipAddress}")]
+    [HttpGet("players/with-ip-address")]
     [ProducesResponseType<CollectionModel<PlayerDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetPlayersWithIpAddress(
-        string ipAddress,
+        [FromQuery] string ipAddress,
         [FromQuery] int skipEntries,
         [FromQuery] int takeEntries,
         [FromQuery] PlayersOrder? order,
