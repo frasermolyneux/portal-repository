@@ -52,6 +52,69 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
+    /// Deletes a player and all associated player-linked data.
+    /// </summary>
+    /// <param name="playerId">The player id to delete.</param>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>A success response indicating the operation completed.</returns>
+    [HttpDelete("data-maintenance/players/{playerId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeletePlayer(Guid playerId, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IDataMaintenanceApi)this).DeletePlayer(playerId, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    /// <summary>
+    /// Deletes a player and all associated player-linked data.
+    /// </summary>
+    /// <param name="playerId">The player id to delete.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+    /// <returns>An API result indicating the operation completed successfully.</returns>
+    async Task<ApiResult> IDataMaintenanceApi.DeletePlayer(Guid playerId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        var player = await context.Players
+            .FirstOrDefaultAsync(p => p.PlayerId == playerId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (player == null)
+        {
+            return new ApiResult(HttpStatusCode.NotFound);
+        }
+
+        var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var connectedPlayerProfiles = await context.ConnectedPlayerProfiles.Where(c => c.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var playerAliases = await context.PlayerAliases.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var playerIpAddresses = await context.PlayerIpAddresses.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var playerTags = await context.PlayerTags.Where(t => t.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var protectedNames = await context.ProtectedNames.Where(n => n.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var recentPlayers = await context.RecentPlayers.Where(r => r.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var reports = await context.Reports.Where(r => r.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        context.AdminActions.RemoveRange(adminActions);
+        context.ChatMessages.RemoveRange(chatMessages);
+        context.ConnectedPlayerProfiles.RemoveRange(connectedPlayerProfiles);
+        context.MapVotes.RemoveRange(mapVotes);
+        context.PlayerAliases.RemoveRange(playerAliases);
+        context.PlayerIpAddresses.RemoveRange(playerIpAddresses);
+        context.PlayerTags.RemoveRange(playerTags);
+        context.ProtectedNames.RemoveRange(protectedNames);
+        context.RecentPlayers.RemoveRange(recentPlayers);
+        context.Reports.RemoveRange(reports);
+        context.Players.Remove(player);
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    /// <summary>
     /// Prunes chat messages older than 12 months to maintain database performance.
     /// Locked chat messages are preserved and will not be deleted.
     /// </summary>

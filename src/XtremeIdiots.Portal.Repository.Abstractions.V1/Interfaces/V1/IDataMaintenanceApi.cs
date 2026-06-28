@@ -4,6 +4,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IDataMaintenanceApi
 {
+    Task<ApiResult> DeletePlayer(Guid playerId, CancellationToken cancellationToken = default);
     Task<ApiResult> PruneChatMessages(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default);

@@ -8,6 +8,7 @@ public class FakeDataMaintenanceApi : IDataMaintenanceApi
 {
     public FakeDataMaintenanceApi Reset() => this;
 
+    public Task<ApiResult> DeletePlayer(Guid playerId, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> PruneChatMessages(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));

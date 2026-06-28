@@ -45,6 +45,249 @@ public class DataMaintenanceControllerTests
         Assert.Throws<ArgumentNullException>(() => new DataMaintenanceController(null!, EmptyConfiguration));
     }
 
+    [Fact]
+    public async Task DeletePlayer_WhenPlayerDoesNotExist_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.DeletePlayer(Guid.NewGuid());
+
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeletePlayer_WhenPlayerExists_RemovesPlayerAndAssociatedData()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var playerId = Guid.NewGuid();
+        var controlPlayerId = Guid.NewGuid();
+        var gameServerId = Guid.NewGuid();
+        var mapId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+        var tagId = Guid.NewGuid();
+
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Test Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            ServerListPosition = 1,
+            FileTransportEnabled = false,
+            FileTransportType = 0,
+            FtpEnabled = false,
+            RconEnabled = false,
+            AgentEnabled = false,
+            BanFileSyncEnabled = false,
+            BanFileRootPath = "/",
+            ServerListEnabled = true,
+            Deleted = false,
+        });
+
+        context.Maps.Add(new Map
+        {
+            MapId = mapId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapName = "mp_test",
+            MapStatus = 0,
+            TotalLikes = 0,
+            TotalDislikes = 0,
+            TotalVotes = 0,
+            LikePercentage = 0,
+            DislikePercentage = 0,
+        });
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "Test User",
+        });
+
+        context.Tags.Add(new Tag
+        {
+            TagId = tagId,
+            Name = "test-tag",
+            UserDefined = true,
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "PlayerToDelete",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = controlPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "PlayerToKeep",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.AdminActions.Add(new AdminAction
+        {
+            AdminActionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Type = 0,
+            Text = "Test admin action",
+            Created = DateTime.UtcNow,
+        });
+
+        context.ChatMessages.Add(new ChatMessage
+        {
+            ChatMessageId = Guid.NewGuid(),
+            GameServerId = gameServerId,
+            PlayerId = playerId,
+            Username = "PlayerToDelete",
+            ChatType = 0,
+            Message = "Test message",
+            Timestamp = DateTime.UtcNow,
+            Locked = false,
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow,
+            IsActive = true,
+        });
+
+        context.MapVotes.Add(new MapVote
+        {
+            MapVoteId = Guid.NewGuid(),
+            MapId = mapId,
+            PlayerId = playerId,
+            GameServerId = gameServerId,
+            Like = true,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Name = "Alias",
+            Added = DateTime.UtcNow,
+            LastUsed = DateTime.UtcNow,
+            ConfidenceScore = 100,
+        });
+
+        context.PlayerIpAddresses.Add(new PlayerIpAddress
+        {
+            PlayerIpAddressId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Address = "127.0.0.1",
+            Added = DateTime.UtcNow,
+            LastUsed = DateTime.UtcNow,
+            ConfidenceScore = 100,
+        });
+
+        context.PlayerTags.Add(new PlayerTag
+        {
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = playerId,
+            TagId = tagId,
+            Assigned = DateTime.UtcNow,
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Name = "ProtectedName",
+            CreatedOn = DateTime.UtcNow,
+            CreatedByUserProfileId = userProfileId,
+        });
+
+        context.RecentPlayers.Add(new RecentPlayer
+        {
+            RecentPlayerId = Guid.NewGuid(),
+            PlayerId = playerId,
+            GameServerId = gameServerId,
+            Name = "RecentPlayer",
+            GameType = (int)GameType.CallOfDuty4,
+            Timestamp = DateTime.UtcNow,
+        });
+
+        context.Reports.Add(new Report
+        {
+            ReportId = Guid.NewGuid(),
+            PlayerId = playerId,
+            UserProfileId = userProfileId,
+            GameServerId = gameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Timestamp = DateTime.UtcNow,
+            Closed = false,
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = controlPlayerId,
+            Name = "Alias-Control",
+            Added = DateTime.UtcNow,
+            LastUsed = DateTime.UtcNow,
+            ConfidenceScore = 100,
+        });
+
+        context.PlayerIpAddresses.Add(new PlayerIpAddress
+        {
+            PlayerIpAddressId = Guid.NewGuid(),
+            PlayerId = controlPlayerId,
+            Address = "127.0.0.2",
+            Added = DateTime.UtcNow,
+            LastUsed = DateTime.UtcNow,
+            ConfidenceScore = 100,
+        });
+
+        context.Reports.Add(new Report
+        {
+            ReportId = Guid.NewGuid(),
+            PlayerId = controlPlayerId,
+            UserProfileId = userProfileId,
+            GameServerId = gameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Timestamp = DateTime.UtcNow,
+            Closed = false,
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.DeletePlayer(playerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(context.Players.Any(p => p.PlayerId == playerId));
+        Assert.False(context.AdminActions.Any(a => a.PlayerId == playerId));
+        Assert.False(context.ChatMessages.Any(c => c.PlayerId == playerId));
+        Assert.False(context.ConnectedPlayerProfiles.Any(c => c.PlayerId == playerId));
+        Assert.False(context.MapVotes.Any(v => v.PlayerId == playerId));
+        Assert.False(context.PlayerAliases.Any(a => a.PlayerId == playerId));
+        Assert.False(context.PlayerIpAddresses.Any(a => a.PlayerId == playerId));
+        Assert.False(context.PlayerTags.Any(t => t.PlayerId == playerId));
+        Assert.False(context.ProtectedNames.Any(n => n.PlayerId == playerId));
+        Assert.False(context.RecentPlayers.Any(r => r.PlayerId == playerId));
+        Assert.False(context.Reports.Any(r => r.PlayerId == playerId));
+
+        Assert.True(context.Players.Any(p => p.PlayerId == controlPlayerId));
+        Assert.True(context.PlayerAliases.Any(a => a.PlayerId == controlPlayerId));
+        Assert.True(context.PlayerIpAddresses.Any(a => a.PlayerId == controlPlayerId));
+        Assert.True(context.Reports.Any(r => r.PlayerId == controlPlayerId));
+    }
+
     [Fact(Skip = "Uses ExecuteSqlInterpolatedAsync which is not supported by the InMemory provider")]
     public async Task PruneChatMessages_RemovesOldUnlockedMessages_PreservesLockedAndRecent()
     {
