@@ -1058,6 +1058,246 @@ public class PlayersControllerTests
 
     #endregion
 
+    #region ProtectedName Usage Report Tests
+
+    [Fact]
+    public async Task GetProtectedNameUsageReport_WhenAliasContainsProtectedName_IncludesUsageInstance()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var ownerId = Guid.NewGuid();
+        var usagePlayerId = Guid.NewGuid();
+        var protectedNameId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = ownerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Owner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = usagePlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "AliasUser",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = protectedNameId,
+            PlayerId = ownerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = usagePlayerId,
+            Name = "ClanTottyX",
+            LastUsed = DateTime.UtcNow.AddHours(-1)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.GetProtectedNameUsageReport(protectedNameId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var usage = Assert.Single(result.Result!.Data!.UsageInstances);
+        Assert.Equal(usagePlayerId, usage.PlayerId);
+        Assert.Equal("AliasUser", usage.Username);
+        Assert.False(usage.IsOwner);
+        Assert.Equal(1, usage.UsageCount);
+    }
+
+    [Fact]
+    public async Task GetProtectedNameUsageReport_WhenProtectedNameContainsAlias_IncludesUsageInstance()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var ownerId = Guid.NewGuid();
+        var usagePlayerId = Guid.NewGuid();
+        var protectedNameId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = ownerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Owner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = usagePlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "ShortAliasUser",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = protectedNameId,
+            PlayerId = ownerId,
+            Name = "TottyXtreme",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = usagePlayerId,
+            Name = "Totty",
+            LastUsed = DateTime.UtcNow.AddHours(-1)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.GetProtectedNameUsageReport(protectedNameId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var usage = Assert.Single(result.Result!.Data!.UsageInstances);
+        Assert.Equal(usagePlayerId, usage.PlayerId);
+        Assert.Equal("ShortAliasUser", usage.Username);
+        Assert.False(usage.IsOwner);
+        Assert.Equal(1, usage.UsageCount);
+    }
+
+    [Fact]
+    public async Task GetProtectedNameUsageReport_WhenPlayerHasMultipleMatches_AggregatesUsageCount()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var ownerId = Guid.NewGuid();
+        var usagePlayerId = Guid.NewGuid();
+        var protectedNameId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = ownerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Owner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = usagePlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "MultiAliasUser",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = protectedNameId,
+            PlayerId = ownerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = usagePlayerId,
+            Name = "Totty",
+            LastUsed = DateTime.UtcNow.AddHours(-2)
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = usagePlayerId,
+            Name = "xTottyx",
+            LastUsed = DateTime.UtcNow.AddHours(-1)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.GetProtectedNameUsageReport(protectedNameId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var usage = Assert.Single(result.Result!.Data!.UsageInstances);
+        Assert.Equal(usagePlayerId, usage.PlayerId);
+        Assert.Equal("MultiAliasUser", usage.Username);
+        Assert.False(usage.IsOwner);
+        Assert.Equal(2, usage.UsageCount);
+    }
+
+    [Fact]
+    public async Task GetProtectedNameUsageReport_WhenAliasIsEmpty_ExcludesUsageInstance()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var ownerId = Guid.NewGuid();
+        var usagePlayerId = Guid.NewGuid();
+        var protectedNameId = Guid.NewGuid();
+
+        context.Players.Add(new Player
+        {
+            PlayerId = ownerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Owner",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = usagePlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "EmptyAliasUser",
+            FirstSeen = DateTime.UtcNow.AddDays(-5),
+            LastSeen = DateTime.UtcNow
+        });
+
+        context.ProtectedNames.Add(new ProtectedName
+        {
+            ProtectedNameId = protectedNameId,
+            PlayerId = ownerId,
+            Name = "Totty",
+            CreatedOn = DateTime.UtcNow.AddDays(-2)
+        });
+
+        context.PlayerAliases.Add(new PlayerAlias
+        {
+            PlayerAliasId = Guid.NewGuid(),
+            PlayerId = usagePlayerId,
+            Name = string.Empty,
+            LastUsed = DateTime.UtcNow.AddHours(-1)
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.GetProtectedNameUsageReport(protectedNameId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Empty(result.Result!.Data!.UsageInstances);
+    }
+
+    #endregion
+
     #region RelatedPlayers Enrichment Tests
 
     [Fact]

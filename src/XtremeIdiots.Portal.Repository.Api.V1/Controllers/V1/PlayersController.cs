@@ -1472,14 +1472,16 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
         }
 
-        // Aggregate alias usage per player in SQL using collation-aware comparison
-        // instead of loading all matching aliases into memory and grouping client-side
+        // Aggregate alias usage per player in SQL and mirror protected-name enforcement matching:
+        // alias contains protected name OR protected name contains alias.
         var usageInstances = protectedName.Name == null
             ? []
             : await context.PlayerAliases
                 .AsNoTracking()
                 .Include(pa => pa.Player)
-                .Where(pa => pa.Name != null && EF.Functions.Like(pa.Name, protectedName.Name))
+                .Where(pa => pa.Name != null
+                    && pa.Name != string.Empty
+                    && (pa.Name.Contains(protectedName.Name) || protectedName.Name.Contains(pa.Name)))
                 .GroupBy(pa => new { pa.PlayerId, pa.Player!.Username })
                 .Select(g => new ProtectedNameUsageReportDto.PlayerUsageDto
                 {
