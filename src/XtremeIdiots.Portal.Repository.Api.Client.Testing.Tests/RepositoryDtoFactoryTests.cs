@@ -282,15 +282,4 @@ public class RepositoryDtoFactoryTests
         Assert.True(vote.Like);
     }
 
-    [Fact]
-    public void CreateScreenshot_WithDefaults_CreatesNonNullDto()
-    {
-        var screenshot = RepositoryDtoFactory.CreateScreenshot();
-
-        Assert.NotEqual(Guid.Empty, screenshot.ScreenshotId);
-        Assert.NotEqual(Guid.Empty, screenshot.GameServerId);
-        Assert.Equal("image/jpeg", screenshot.ContentType);
-        Assert.Equal("agent-monitor", screenshot.Source);
-        Assert.False(screenshot.Deleted);
-    }
 }

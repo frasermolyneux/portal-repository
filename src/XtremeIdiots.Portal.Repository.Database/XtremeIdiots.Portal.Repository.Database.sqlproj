@@ -90,8 +90,6 @@
     <Build Include="dbo\Tables\CentralBanFileStatus.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerProfiles.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerActivationCodes.sql" />
-    <Build Include="dbo\Tables\Screenshots.sql" />
-    <Build Include="dbo\Tables\ScreenshotPendingRequests.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Script.PreDeployment.sql" />

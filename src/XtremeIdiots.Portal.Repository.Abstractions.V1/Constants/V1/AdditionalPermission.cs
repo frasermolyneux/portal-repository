@@ -43,13 +43,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string GameServers_Admin_Rcon_Map = "GameServers.Admin.Rcon.Map";
         public const string GameServers_Admin_Rcon_Say = "GameServers.Admin.Rcon.Say";
         public const string GameServers_Admin_Rcon_Restart = "GameServers.Admin.Rcon.Restart";
-        public const string GameServers_Admin_Rcon_Screenshot = "GameServers.Admin.Rcon.Screenshot";
-        public const string GameServers_Admin_Screenshots_Read = "GameServers.Admin.Screenshots.Read";
-        public const string GameServers_Admin_Screenshots_Delete = "GameServers.Admin.Screenshots.Delete";
         public const string GameServers_Admin_Screenshots_Configure = "GameServers.Admin.Screenshots.Configure";
-        public const string GameServers_Admin_Screenshots_BulkDelete = "GameServers.Admin.Screenshots.BulkDelete";
-        public const string GameServers_Admin_Screenshots_Retention = "GameServers.Admin.Screenshots.Retention";
-        public const string GameServers_Admin_Screenshots_Reconcile = "GameServers.Admin.Screenshots.Reconcile";
 
         // Chat Log
         public const string ChatLog_Read = "ChatLog.Read";
@@ -124,13 +118,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
             new(GameServers_Admin_Rcon_Map, "RCON Map Control", "Load, restart, and skip maps via RCON", "Game Servers", "RCON", PermissionScope.Game),
             new(GameServers_Admin_Rcon_Say, "RCON Say Command", "Send chat messages to players via RCON", "Game Servers", "RCON", PermissionScope.Game),
             new(GameServers_Admin_Rcon_Restart, "RCON Restart Server", "Restart game server via RCON", "Game Servers", "RCON", PermissionScope.Game),
-            new(GameServers_Admin_Rcon_Screenshot, "RCON Take Screenshot", "Request a player screenshot via RCON", "Game Servers", "RCON", PermissionScope.Game),
-            new(GameServers_Admin_Screenshots_Read, "View Server Screenshots", "View and preview server screenshots", "Game Servers", "Screenshots", PermissionScope.Game),
-            new(GameServers_Admin_Screenshots_Delete, "Delete Server Screenshots", "Delete server screenshots", "Game Servers", "Screenshots", PermissionScope.Game),
             new(GameServers_Admin_Screenshots_Configure, "Configure Server Screenshots", "Configure screenshot collection settings on game servers", "Game Servers", "Screenshots", PermissionScope.Game),
-            new(GameServers_Admin_Screenshots_BulkDelete, "Bulk Delete Server Screenshots", "Bulk delete server screenshots by selection or filter scope", "Game Servers", "Screenshots", PermissionScope.Game),
-            new(GameServers_Admin_Screenshots_Retention, "Run Screenshot Retention", "Run retention cleanup for server screenshots", "Game Servers", "Screenshots", PermissionScope.Game),
-            new(GameServers_Admin_Screenshots_Reconcile, "Reconcile Server Screenshots", "Run screenshot metadata/blob reconciliation", "Game Servers", "Screenshots", PermissionScope.Game),
 
             // Chat Log
             new(ChatLog_Read, "View Chat Logs", "View global and game chat logs", "Chat Log", null, PermissionScope.Game),
