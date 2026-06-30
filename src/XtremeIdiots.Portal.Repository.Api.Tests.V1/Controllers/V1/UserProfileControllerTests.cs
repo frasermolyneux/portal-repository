@@ -179,6 +179,38 @@ public class UserProfileControllerTests
     }
 
     [Fact]
+    public async Task CreateUserProfileClaim_WithNullBody_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+
+        var result = await controller.CreateUserProfileClaim(Guid.NewGuid(), null!);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateUserProfileClaim_WithDuplicateClaimTypeAndValueInRequest_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var userProfileId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+
+        var claims = new List<CreateUserProfileClaimDto>
+        {
+            new(userProfileId, AdditionalPermission.MapRotations_Deploy, serverId.ToString(), false),
+            new(userProfileId, AdditionalPermission.MapRotations_Deploy, serverId.ToString(), false)
+        };
+
+        var result = await controller.CreateUserProfileClaim(userProfileId, claims);
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
     public async Task SetUserProfileClaims_WithDuplicateClaimTypeAndValue_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -335,5 +367,92 @@ public class UserProfileControllerTests
         var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
         Assert.Equal(StatusCodes.Status200OK, statusCodeResult.StatusCode);
         Assert.Empty(context.UserProfileClaims.Where(c => c.UserProfileId == userProfileId));
+    }
+
+    [Fact]
+    public async Task CreateUserProfileClaim_WithSameClaimTypeDifferentValues_AddsAdditionalClaim()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var userProfileId = Guid.NewGuid();
+        var existingServerId = Guid.NewGuid();
+        var newServerId = Guid.NewGuid();
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "TestUser",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = userProfileId,
+                    ClaimType = AdditionalPermission.MapRotations_Deploy,
+                    ClaimValue = existingServerId.ToString(),
+                    SystemGenerated = false
+                }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IUserProfileApi)controller;
+
+        var result = await api.CreateUserProfileClaim(userProfileId,
+        [
+            new CreateUserProfileClaimDto(userProfileId, AdditionalPermission.MapRotations_Deploy, newServerId.ToString(), false)
+        ]);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+
+        var claims = context.UserProfileClaims
+            .Where(c => c.UserProfileId == userProfileId && c.ClaimType == AdditionalPermission.MapRotations_Deploy)
+            .ToList();
+
+        Assert.Equal(2, claims.Count);
+        Assert.Contains(claims, c => c.ClaimValue == existingServerId.ToString());
+        Assert.Contains(claims, c => c.ClaimValue == newServerId.ToString());
+    }
+
+    [Fact]
+    public async Task CreateUserProfileClaim_WithDuplicateClaimTypeAndValue_DoesNotAddDuplicate()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var userProfileId = Guid.NewGuid();
+        var existingServerId = Guid.NewGuid();
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "TestUser",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = userProfileId,
+                    ClaimType = AdditionalPermission.MapRotations_Deploy,
+                    ClaimValue = existingServerId.ToString(),
+                    SystemGenerated = false
+                }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IUserProfileApi)controller;
+
+        var result = await api.CreateUserProfileClaim(userProfileId,
+        [
+            new CreateUserProfileClaimDto(userProfileId, AdditionalPermission.MapRotations_Deploy, existingServerId.ToString(), false)
+        ]);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+
+        var claims = context.UserProfileClaims
+            .Where(c => c.UserProfileId == userProfileId && c.ClaimType == AdditionalPermission.MapRotations_Deploy)
+            .ToList();
+
+        Assert.Single(claims);
     }
 }

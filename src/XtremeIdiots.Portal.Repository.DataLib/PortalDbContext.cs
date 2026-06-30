@@ -71,10 +71,6 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<Report> Reports { get; set; }
 
-    public virtual DbSet<Screenshot> Screenshots { get; set; }
-
-    public virtual DbSet<ScreenshotPendingRequest> ScreenshotPendingRequests { get; set; }
-
     public virtual DbSet<Tag> Tags { get; set; }
 
     public virtual DbSet<UserProfile> UserProfiles { get; set; }
@@ -433,37 +429,6 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Player).WithMany(p => p.Reports).HasConstraintName("FK_dbo.Reports_dbo.Players_PlayerId");
 
             entity.HasOne(d => d.UserProfile).WithMany(p => p.ReportUserProfiles).HasConstraintName("FK_dbo.Reports_dbo.UserProfiles_Id");
-        });
-
-        modelBuilder.Entity<Screenshot>(entity =>
-        {
-            entity.Property(e => e.ScreenshotId).HasDefaultValueSql("newsequentialid()");
-            entity.Property(e => e.CreatedUtc).HasDefaultValueSql("getutcdate()");
-            entity.Property(e => e.LastUpdatedUtc).HasDefaultValueSql("getutcdate()");
-            entity.Property(e => e.LinkConfidence).HasDefaultValue("low");
-            entity.Property(e => e.LinkSource).HasDefaultValue("unlinked");
-
-            entity.HasOne(d => d.GameServer).WithMany(p => p.Screenshots)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Screenshots_GameServers");
-        });
-
-        modelBuilder.Entity<ScreenshotPendingRequest>(entity =>
-        {
-            entity.HasIndex(e => new { e.GameServerId, e.ExpiresAtUtc }, "IX_ScreenshotPendingRequests_GameServerId_ExpiresAtUtc_Unconsumed").HasFilter("[ConsumedAtUtc] IS NULL");
-
-            entity.HasIndex(e => new { e.GameServerId, e.PlayerIdentifier }, "IX_ScreenshotPendingRequests_GameServerId_PlayerIdentifier_Unconsumed")
-                .IsUnique()
-                .HasFilter("[ConsumedAtUtc] IS NULL");
-
-            entity.Property(e => e.ScreenshotPendingRequestId).HasDefaultValueSql("newsequentialid()");
-            entity.Property(e => e.CreatedUtc).HasDefaultValueSql("getutcdate()");
-            entity.Property(e => e.LastUpdatedUtc).HasDefaultValueSql("getutcdate()");
-            entity.Property(e => e.RequestedAtUtc).HasDefaultValueSql("getutcdate()");
-
-            entity.HasOne(d => d.GameServer).WithMany(p => p.ScreenshotPendingRequests)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_ScreenshotPendingRequests_GameServers");
         });
 
         modelBuilder.Entity<Tag>(entity =>

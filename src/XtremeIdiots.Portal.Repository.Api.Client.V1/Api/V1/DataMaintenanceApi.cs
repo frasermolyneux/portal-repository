@@ -27,6 +27,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult();
         }
 
+        public async Task<ApiResult> DeletePlayer(Guid playerId, CancellationToken cancellationToken = default)
+        {
+            var response = await ExecuteAsync(await CreateRequestAsync($"v1/data-maintenance/players/{playerId}", Method.Delete), cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
         public async Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default)
         {
             var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-game-server-events", Method.Delete), cancellationToken).ConfigureAwait(false);

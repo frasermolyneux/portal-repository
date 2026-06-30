@@ -19,7 +19,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedGameTrackerBannerApi gameTrackerBanner,
             IVersionedMapsApi maps,
             IVersionedConnectedPlayersApi connectedPlayers,
-            IVersionedScreenshotsApi screenshots,
 
             IVersionedPlayerAnalyticsApi playerAnalytics,
             IVersionedPlayersApi players,
@@ -56,7 +55,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             GameTrackerBanner = gameTrackerBanner;
             Maps = maps;
             ConnectedPlayers = connectedPlayers;
-            Screenshots = screenshots;
 
             PlayerAnalytics = playerAnalytics;
             Players = players;
@@ -94,7 +92,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedGameTrackerBannerApi GameTrackerBanner { get; }
         public IVersionedMapsApi Maps { get; }
         public IVersionedConnectedPlayersApi ConnectedPlayers { get; }
-        public IVersionedScreenshotsApi Screenshots { get; }
 
         public IVersionedPlayerAnalyticsApi PlayerAnalytics { get; }
         public IVersionedPlayersApi Players { get; }

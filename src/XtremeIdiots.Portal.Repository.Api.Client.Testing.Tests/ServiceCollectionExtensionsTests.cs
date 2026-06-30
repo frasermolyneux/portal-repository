@@ -37,7 +37,6 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IVersionedMapRotationsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedDashboardApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedConnectedPlayersApi>());
-        Assert.NotNull(provider.GetRequiredService<IVersionedScreenshotsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedGlobalAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedGameAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedServerAnalyticsApi>());
@@ -62,7 +61,6 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IMapRotationsApi>());
         Assert.NotNull(provider.GetRequiredService<IDashboardApi>());
         Assert.NotNull(provider.GetRequiredService<IConnectedPlayersApi>());
-        Assert.NotNull(provider.GetRequiredService<IScreenshotsApi>());
         Assert.NotNull(provider.GetRequiredService<IGlobalAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IGameAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IServerAnalyticsApi>());

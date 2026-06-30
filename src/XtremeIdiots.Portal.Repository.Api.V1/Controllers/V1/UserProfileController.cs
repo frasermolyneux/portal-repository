@@ -449,6 +449,25 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateUserProfileClaim(Guid userProfileId, [FromBody] List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken = default)
         {
+            if (createUserProfileClaimDtos == null)
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)).ToBadRequestResult().ToHttpResult();
+            }
+
+            // Reject duplicate claim type+value pairs in request
+            var duplicateClaims = createUserProfileClaimDtos
+                .GroupBy(c => new { ClaimType = c.ClaimType.ToUpperInvariant(), ClaimValue = c.ClaimValue.ToUpperInvariant() })
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key.ClaimType)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (duplicateClaims.Any())
+            {
+                var err = new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, $"Duplicate claims: {string.Join(", ", duplicateClaims)}"));
+                return err.ToBadRequestResult().ToHttpResult();
+            }
+
             var response = await ((IUserProfileApi)this).CreateUserProfileClaim(userProfileId, createUserProfileClaimDtos, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
@@ -478,9 +497,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var existingClaimKeys = new HashSet<(string ClaimType, string ClaimValue)>(
+                userProfile.UserProfileClaims.Select(upc => (upc.ClaimType.ToUpperInvariant(), upc.ClaimValue.ToUpperInvariant())));
+
             foreach (var createUserProfileClaimDto in createUserProfileClaimDtos)
             {
-                if (userProfile.UserProfileClaims.Any(upc => upc.ClaimType == createUserProfileClaimDto.ClaimType))
+                var claimKey = (createUserProfileClaimDto.ClaimType.ToUpperInvariant(), createUserProfileClaimDto.ClaimValue.ToUpperInvariant());
+                if (!existingClaimKeys.Add(claimKey))
                 {
                     continue;
                 }

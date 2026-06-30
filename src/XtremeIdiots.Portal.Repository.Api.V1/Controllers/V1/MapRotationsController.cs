@@ -586,6 +586,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var duplicateExists = await context.MapRotationServerAssignments
                 .AnyAsync(a =>
+                    a.MapRotationId == createDto.MapRotationId &&
                     a.GameServerId == createDto.GameServerId &&
                     a.ConfigFilePath == createDto.ConfigFilePath &&
                     a.ConfigVariableName == createDto.ConfigVariableName &&
@@ -597,7 +598,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (duplicateExists)
             {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
-                    new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("DUPLICATE_CONFIG_TARGET", "An active assignment already exists for this game server with the same config file path and variable name.")));
+                    new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("DUPLICATE_CONFIG_TARGET", "An assignment already exists for this rotation and server with the same config file path and variable name.")));
             }
 
             var entity = createDto.ToEntity();
@@ -664,6 +665,33 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     new ApiResponse(new ApiError("ASSIGNMENT_REMOVED", "A removed assignment cannot be activated.")));
             }
 
+            var effectiveConfigFilePath = updateDto.ConfigFilePath ?? entity.ConfigFilePath;
+            var effectiveConfigVariableName = updateDto.ConfigVariableName ?? entity.ConfigVariableName;
+
+            var effectiveDeploymentState = updateDto.DeploymentState ?? (DeploymentState)entity.DeploymentState;
+            if (effectiveDeploymentState != DeploymentState.Removed
+                && effectiveDeploymentState != DeploymentState.Removing
+                && effectiveDeploymentState != DeploymentState.Failed)
+            {
+                var duplicateExists = await context.MapRotationServerAssignments
+                    .AnyAsync(a =>
+                        a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId &&
+                        a.MapRotationId == entity.MapRotationId &&
+                        a.GameServerId == entity.GameServerId &&
+                        a.ConfigFilePath == effectiveConfigFilePath &&
+                        a.ConfigVariableName == effectiveConfigVariableName &&
+                        a.DeploymentState != (int)DeploymentState.Removed &&
+                        a.DeploymentState != (int)DeploymentState.Removing &&
+                        a.DeploymentState != (int)DeploymentState.Failed,
+                        cancellationToken).ConfigureAwait(false);
+
+                if (duplicateExists)
+                {
+                    return new ApiResult(HttpStatusCode.BadRequest,
+                        new ApiResponse(new ApiError("DUPLICATE_CONFIG_TARGET", "An assignment already exists for this rotation and server with the same config file path and variable name.")));
+                }
+            }
+
             if (updateDto.ActivationState == ActivationState.Active)
             {
                 var now = DateTime.UtcNow;
@@ -672,8 +700,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .Where(a =>
                         a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId &&
                         a.GameServerId == entity.GameServerId &&
-                        a.ConfigFilePath == entity.ConfigFilePath &&
-                        a.ConfigVariableName == entity.ConfigVariableName &&
+                        a.ConfigFilePath == effectiveConfigFilePath &&
+                        a.ConfigVariableName == effectiveConfigVariableName &&
                         a.ActivationState == (int)ActivationState.Active &&
                         a.DeploymentState != (int)DeploymentState.Removed)
                     .ToListAsync(cancellationToken)

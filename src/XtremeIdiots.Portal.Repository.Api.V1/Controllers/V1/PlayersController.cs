@@ -1472,14 +1472,16 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
             return new ApiResult<ProtectedNameUsageReportDto>(HttpStatusCode.NotFound);
         }
 
-        // Aggregate alias usage per player in SQL using collation-aware comparison
-        // instead of loading all matching aliases into memory and grouping client-side
+        // Aggregate alias usage per player in SQL and mirror protected-name enforcement matching:
+        // alias contains protected name OR protected name contains alias.
         var usageInstances = protectedName.Name == null
             ? []
             : await context.PlayerAliases
                 .AsNoTracking()
                 .Include(pa => pa.Player)
-                .Where(pa => pa.Name != null && EF.Functions.Like(pa.Name, protectedName.Name))
+                .Where(pa => pa.Name != null
+                    && pa.Name != string.Empty
+                    && (pa.Name.Contains(protectedName.Name) || protectedName.Name.Contains(pa.Name)))
                 .GroupBy(pa => new { pa.PlayerId, pa.Player!.Username })
                 .Select(g => new ProtectedNameUsageReportDto.PlayerUsageDto
                 {
@@ -1781,11 +1783,11 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     /// <param name="playerEntityOptions">Options for including related player data.</param>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A collection of players associated with the IP address.</returns>
-    [HttpGet("players/with-ip-address/{ipAddress}")]
+    [HttpGet("players/with-ip-address")]
     [ProducesResponseType<CollectionModel<PlayerDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetPlayersWithIpAddress(
-        string ipAddress,
+        [FromQuery] string ipAddress,
         [FromQuery] int skipEntries,
         [FromQuery] int takeEntries,
         [FromQuery] PlayersOrder? order,
