@@ -3,6 +3,9 @@ using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Agent;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.BanFiles;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Broadcasts;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ChatCommands;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xCommands;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPlugin;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPower;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Events;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.FileTransport;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Moderation;
@@ -391,6 +394,93 @@ public sealed class NamespaceContractRoundtripTests
     }
 
     [Fact]
+    public void Cod4xPlugin_RoundtripAndValidate_Succeeds()
+    {
+        var input = """
+            {
+                "schemaVersion": 1,
+                "enabled": true,
+                "unknownProperty": "kept"
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<Cod4xPluginSettingsDocument>(input, JsonOptions);
+        Assert.NotNull(document);
+
+        var validation = new Cod4xPluginSettingsValidator().Validate(document);
+        Assert.True(validation.IsValid);
+
+        var output = JsonSerializer.Serialize(document, JsonOptions);
+        var roundtripped = JsonSerializer.Deserialize<Cod4xPluginSettingsDocument>(output, JsonOptions);
+        Assert.NotNull(roundtripped);
+        Assert.True(roundtripped.Enabled);
+    }
+
+    [Fact]
+    public void Cod4xPower_RoundtripAndValidate_Succeeds()
+    {
+        var input = """
+            {
+                "schemaVersion": 1,
+                "enabled": true,
+                "defaultPower": 20,
+                "tagMappings": [
+                { "tag": "COD4_Admin", "power": 80, "enabled": true }
+                ]
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<Cod4xPowerSettingsDocument>(input, JsonOptions);
+        Assert.NotNull(document);
+
+        var validation = new Cod4xPowerSettingsValidator().Validate(document);
+        Assert.True(validation.IsValid);
+
+        var output = JsonSerializer.Serialize(document, JsonOptions);
+        var roundtripped = JsonSerializer.Deserialize<Cod4xPowerSettingsDocument>(output, JsonOptions);
+        Assert.NotNull(roundtripped);
+        Assert.Equal(20, roundtripped.DefaultPower);
+        Assert.NotNull(roundtripped.TagMappings);
+        Assert.Single(roundtripped.TagMappings);
+    }
+
+    [Fact]
+    public void Cod4xCommands_RoundtripAndValidate_Succeeds()
+    {
+        var input = """
+            {
+                "schemaVersion": 1,
+                "enabled": true,
+                "commands": {
+                "kick": { "enabled": true, "minPower": 40 }
+                }
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<Cod4xCommandSettingsDocument>(input, JsonOptions);
+        Assert.NotNull(document);
+
+        var validation = new Cod4xCommandSettingsValidator().Validate(document);
+        Assert.True(validation.IsValid);
+
+        var output = JsonSerializer.Serialize(document, JsonOptions);
+        var roundtripped = JsonSerializer.Deserialize<Cod4xCommandSettingsDocument>(output, JsonOptions);
+        Assert.NotNull(roundtripped);
+        Assert.True(roundtripped.Commands.ContainsKey("kick"));
+    }
+
+    [Fact]
+    public void Cod4xCommands_AliasTargets_ExistInDefaults()
+    {
+        foreach (var (_, target) in Cod4xCommandSettingsConstants.BuiltInCommandAliases)
+        {
+            Assert.True(
+                Cod4xCommandSettingsConstants.BuiltInCommandMinPowerDefaults.ContainsKey(target),
+                $"Alias target '{target}' must exist in built-in command defaults.");
+        }
+    }
+
+    [Fact]
     public void LegacySchemaVersion_IsAcceptedForRolloutTolerance()
     {
         var legacyJson = """
@@ -422,6 +512,9 @@ public sealed class NamespaceContractRoundtripTests
         Assert.False(new BroadcastSettingsValidator().Validate(new BroadcastSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new ChatCommandSettingsValidator().Validate(new ChatCommandSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new WelcomeMessageSettingsValidator().Validate(new WelcomeMessageSettingsDocument { SchemaVersion = 99 }).IsValid);
+        Assert.False(new Cod4xPluginSettingsValidator().Validate(new Cod4xPluginSettingsDocument { SchemaVersion = 99 }).IsValid);
+        Assert.False(new Cod4xPowerSettingsValidator().Validate(new Cod4xPowerSettingsDocument { SchemaVersion = 99 }).IsValid);
+        Assert.False(new Cod4xCommandSettingsValidator().Validate(new Cod4xCommandSettingsDocument { SchemaVersion = 99 }).IsValid);
     }
 
     [Fact]
@@ -465,6 +558,17 @@ public sealed class NamespaceContractRoundtripTests
                 ["!bad"] = new() { FreshnessSeconds = -1 }
             }
         });
+        var cod4xPowerValidation = new Cod4xPowerSettingsValidator().Validate(new Cod4xPowerSettingsDocument
+        {
+            DefaultPower = 101
+        });
+        var cod4xCommandValidation = new Cod4xCommandSettingsValidator().Validate(new Cod4xCommandSettingsDocument
+        {
+            Commands = new Dictionary<string, Cod4xCommandSettingsEntry>(StringComparer.OrdinalIgnoreCase)
+            {
+                [" kick "] = new() { MinPower = 0 }
+            }
+        });
         var welcomeValidation = new WelcomeMessageSettingsValidator().Validate(new WelcomeMessageSettingsDocument
         {
             Rules =
@@ -485,6 +589,11 @@ public sealed class NamespaceContractRoundtripTests
         Assert.False(eventsValidation.IsValid);
         Assert.False(broadcastsValidation.IsValid);
         Assert.False(chatValidation.IsValid);
+        Assert.False(cod4xPowerValidation.IsValid);
+        Assert.False(cod4xCommandValidation.IsValid);
+        Assert.Contains(
+            cod4xCommandValidation.Errors,
+            error => error.Contains("cannot contain leading or trailing whitespace", StringComparison.Ordinal));
         Assert.False(welcomeValidation.IsValid);
     }
 }
