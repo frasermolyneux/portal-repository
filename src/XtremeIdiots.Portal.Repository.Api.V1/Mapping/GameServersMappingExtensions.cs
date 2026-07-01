@@ -20,6 +20,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Hostname = entity.Hostname ?? string.Empty,
                 QueryPort = entity.QueryPort,
                 GameType = entity.GameType.ToGameType(),
+                Platform = NormalizePlatform(entity.Platform),
                 ServerListPosition = entity.ServerListPosition,
                 AgentEnabled = entity.AgentEnabled,
                 FileTransportEnabled = fileTransportEnabled,
@@ -43,6 +44,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Hostname = dto.Hostname,
                 QueryPort = dto.QueryPort,
                 GameType = dto.GameType.ToGameTypeInt(),
+                Platform = (int)NormalizePlatform((int)dto.Platform),
                 ServerListPosition = dto.ServerListPosition,
                 AgentEnabled = dto.AgentEnabled,
                 RconEnabled = dto.RconEnabled,
@@ -98,6 +100,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.Hostname is not null)
             {
                 entity.Hostname = dto.Hostname;
+            }
+
+            if (dto.Platform is not null)
+            {
+                entity.Platform = (int)NormalizePlatform((int)dto.Platform.Value);
             }
 
             if (dto.QueryPort is not null)
@@ -201,6 +208,16 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             }
 
             return fileTransportEnabled ? FileTransportType.Ftp : FileTransportType.Unknown;
+        }
+
+        private static GameServerPlatform NormalizePlatform(int rawPlatform)
+        {
+            if (Enum.IsDefined(typeof(GameServerPlatform), rawPlatform))
+            {
+                return (GameServerPlatform)rawPlatform;
+            }
+
+            return GameServerPlatform.Unknown;
         }
     }
 }

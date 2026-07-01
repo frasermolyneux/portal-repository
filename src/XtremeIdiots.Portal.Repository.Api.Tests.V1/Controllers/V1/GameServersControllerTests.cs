@@ -180,6 +180,7 @@ public class GameServersControllerTests
 
         var dto = new CreateGameServerDto("Full Server", GameType.CallOfDuty4, "fullhost", 28960)
         {
+            Platform = GameServerPlatform.Linux,
             ServerListPosition = 5,
             AgentEnabled = true,
             FileTransportEnabled = true,
@@ -198,6 +199,7 @@ public class GameServersControllerTests
         Assert.Equal("fullhost", entity.Hostname);
         Assert.Equal(28960, entity.QueryPort);
         Assert.Equal((int)GameType.CallOfDuty4, entity.GameType);
+        Assert.Equal((int)GameServerPlatform.Linux, entity.Platform);
         Assert.Equal(5, entity.ServerListPosition);
         Assert.True(entity.AgentEnabled);
         Assert.True(entity.FileTransportEnabled);
@@ -206,6 +208,25 @@ public class GameServersControllerTests
         Assert.True(entity.RconEnabled);
         Assert.True(entity.BanFileSyncEnabled);
         Assert.True(entity.ServerListEnabled);
+    }
+
+    [Fact]
+    public async Task CreateGameServer_InvalidPlatformValue_NormalizesToUnknown()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            Platform = (GameServerPlatform)999
+        };
+
+        var result = await api.CreateGameServer(dto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.Equal((int)GameServerPlatform.Unknown, entity.Platform);
     }
 
     [Fact]
@@ -383,6 +404,68 @@ public class GameServersControllerTests
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GameServers.Single();
         Assert.True(entity.AgentEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_PlatformPatch_UpdatesValue()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Platform = (int)GameServerPlatform.Windows,
+            Hostname = "localhost",
+            QueryPort = 28960
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            Platform = GameServerPlatform.Linux
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.Equal((int)GameServerPlatform.Linux, entity.Platform);
+    }
+
+    [Fact]
+    public async Task UpdateGameServer_InvalidPlatformValue_NormalizesToUnknown()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Platform = (int)GameServerPlatform.Windows,
+            Hostname = "localhost",
+            QueryPort = 28960
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServersApi)controller;
+
+        var editDto = new EditGameServerDto(gameServerId)
+        {
+            Platform = (GameServerPlatform)999
+        };
+
+        var result = await api.UpdateGameServer(editDto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var entity = context.GameServers.Single();
+        Assert.Equal((int)GameServerPlatform.Unknown, entity.Platform);
     }
 
     [Fact]
@@ -919,6 +1002,30 @@ public class GameServersControllerTests
         var json = System.Text.Json.JsonSerializer.Serialize(dto);
 
         Assert.Contains("\"FileTransportType\":\"Sftp\"", json);
+    }
+
+    [Fact]
+    public void GameServerPlatform_DeserializesFromString_WithNewtonsoft()
+    {
+        var json = /*lang=json,strict*/ "{\"title\":\"Server\",\"gameType\":\"CallOfDuty4\",\"platform\":\"Linux\",\"hostname\":\"host\",\"queryPort\":28960}";
+
+        var dto = JsonConvert.DeserializeObject<CreateGameServerDto>(json);
+
+        Assert.NotNull(dto);
+        Assert.Equal(GameServerPlatform.Linux, dto.Platform);
+    }
+
+    [Fact]
+    public void GameServerPlatform_SerializesAsString_WithSystemTextJson()
+    {
+        var dto = new CreateGameServerDto("Server", GameType.CallOfDuty4, "host", 28960)
+        {
+            Platform = GameServerPlatform.Windows
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(dto);
+
+        Assert.Contains("\"Platform\":\"Windows\"", json);
     }
 
     [Fact]

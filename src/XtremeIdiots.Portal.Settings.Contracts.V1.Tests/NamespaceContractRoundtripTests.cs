@@ -400,6 +400,21 @@ public sealed class NamespaceContractRoundtripTests
             {
                 "schemaVersion": 1,
                 "enabled": true,
+                "pluginRootDirectory": "/opt/cod4x/plugins",
+                "runtimeState": {
+                    "currentVersion": "1.2.3",
+                    "previousKnownGoodVersion": "1.2.2",
+                    "lastOperationId": "op-123",
+                    "lastOperationStatus": "Succeeded",
+                    "lastOperationUtc": "2026-07-01T00:00:00Z"
+                },
+                "operationRequest": {
+                    "operationId": "op-124",
+                    "action": "Install",
+                    "targetVersion": "1.2.4",
+                    "requestedAtUtc": "2026-07-01T00:01:00Z",
+                    "requestedBy": "user-1"
+                },
                 "unknownProperty": "kept"
             }
             """;
@@ -414,6 +429,40 @@ public sealed class NamespaceContractRoundtripTests
         var roundtripped = JsonSerializer.Deserialize<Cod4xPluginSettingsDocument>(output, JsonOptions);
         Assert.NotNull(roundtripped);
         Assert.True(roundtripped.Enabled);
+        Assert.Equal("/opt/cod4x/plugins", roundtripped.PluginRootDirectory);
+        Assert.NotNull(roundtripped.RuntimeState);
+        Assert.NotNull(roundtripped.OperationRequest);
+        Assert.Equal(Cod4xPluginOperationAction.Install, roundtripped.OperationRequest.Action);
+    }
+
+    [Fact]
+    public void Cod4xPlugin_RelativeRootDirectory_ReturnsValidationError()
+    {
+        var document = new Cod4xPluginSettingsDocument
+        {
+            PluginRootDirectory = "plugins/cod4x"
+        };
+
+        var validation = new Cod4xPluginSettingsValidator().Validate(document);
+        Assert.False(validation.IsValid);
+        Assert.Contains(validation.Errors, static error => error.Contains("absolute Linux or Windows path", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Cod4xPlugin_InstallWithoutTargetVersion_ReturnsValidationError()
+    {
+        var document = new Cod4xPluginSettingsDocument
+        {
+            OperationRequest = new Cod4xPluginOperationRequest
+            {
+                OperationId = "op-1",
+                Action = Cod4xPluginOperationAction.Install
+            }
+        };
+
+        var validation = new Cod4xPluginSettingsValidator().Validate(document);
+        Assert.False(validation.IsValid);
+        Assert.Contains(validation.Errors, static error => error.Contains("operationRequest.targetVersion is required", StringComparison.Ordinal));
     }
 
     [Fact]

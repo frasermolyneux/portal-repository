@@ -19,6 +19,8 @@ public partial class GameServer
 
     public int GameType { get; set; }
 
+    public int Platform { get; set; }
+
     public string Hostname { get; set; } = null!;
 
     public int QueryPort { get; set; }

@@ -17,6 +17,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         public string? Title { get; set; }
 
         [JsonProperty]
+        [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+        public Constants.V1.GameServerPlatform? Platform { get; set; }
+
+        [JsonProperty]
         public string? Hostname { get; set; }
 
         [JsonProperty]

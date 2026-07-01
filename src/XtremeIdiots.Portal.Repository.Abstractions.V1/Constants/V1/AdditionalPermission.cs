@@ -44,6 +44,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string GameServers_Admin_Rcon_Say = "GameServers.Admin.Rcon.Say";
         public const string GameServers_Admin_Rcon_Restart = "GameServers.Admin.Rcon.Restart";
         public const string GameServers_Admin_Screenshots_Configure = "GameServers.Admin.Screenshots.Configure";
+        public const string GameServers_Admin_CoD4xPluginLifecycle = "GameServers.Admin.CoD4xPluginLifecycle";
 
         // Chat Log
         public const string ChatLog_Read = "ChatLog.Read";
@@ -119,6 +120,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
             new(GameServers_Admin_Rcon_Say, "RCON Say Command", "Send chat messages to players via RCON", "Game Servers", "RCON", PermissionScope.Game),
             new(GameServers_Admin_Rcon_Restart, "RCON Restart Server", "Restart game server via RCON", "Game Servers", "RCON", PermissionScope.Game),
             new(GameServers_Admin_Screenshots_Configure, "Configure Server Screenshots", "Configure screenshot collection settings on game servers", "Game Servers", "Screenshots", PermissionScope.Game),
+            new(GameServers_Admin_CoD4xPluginLifecycle, "Manage CoD4x Plugin Lifecycle", "Install, rollback, and unload CoD4x plugin versions on game servers", "Game Servers", "CoD4x Plugin", PermissionScope.Game),
 
             // Chat Log
             new(ChatLog_Read, "View Chat Logs", "View global and game chat logs", "Chat Log", null, PermissionScope.Game),

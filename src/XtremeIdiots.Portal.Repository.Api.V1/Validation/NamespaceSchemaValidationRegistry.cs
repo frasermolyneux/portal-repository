@@ -3,6 +3,9 @@ using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Agent;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.BanFiles;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Broadcasts;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ChatCommands;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xCommands;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPlugin;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPower;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Events;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.FileTransport;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Moderation;
@@ -51,7 +54,13 @@ internal static class NamespaceSchemaValidationRegistry
             [ChatCommandSettingsConstants.Namespace] = configuration =>
                 new ChatCommandSettingsValidator().Validate(Deserialize<ChatCommandSettingsDocument>(configuration)),
             [WelcomeMessageSettingsConstants.Namespace] = configuration =>
-                new WelcomeMessageSettingsValidator().Validate(Deserialize<WelcomeMessageSettingsDocument>(configuration))
+                new WelcomeMessageSettingsValidator().Validate(Deserialize<WelcomeMessageSettingsDocument>(configuration)),
+            [Cod4xPluginSettingsConstants.Namespace] = configuration =>
+                new Cod4xPluginSettingsValidator().Validate(Deserialize<Cod4xPluginSettingsDocument>(configuration)),
+            [Cod4xPowerSettingsConstants.Namespace] = configuration =>
+                new Cod4xPowerSettingsValidator().Validate(Deserialize<Cod4xPowerSettingsDocument>(configuration)),
+            [Cod4xCommandSettingsConstants.Namespace] = configuration =>
+                new Cod4xCommandSettingsValidator().Validate(Deserialize<Cod4xCommandSettingsDocument>(configuration))
         };
 
     public static bool TryValidate(string ns, string configuration)

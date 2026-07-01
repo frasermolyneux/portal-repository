@@ -3,6 +3,7 @@
     [GameServerId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [Title] NVARCHAR (60) NOT NULL,
     [GameType] INT DEFAULT 0 NOT NULL,
+    [Platform] INT DEFAULT 0 NOT NULL,
     [Hostname] NVARCHAR (MAX) NOT NULL,
     [QueryPort] INT DEFAULT 0 NOT NULL,
     [ServerListPosition] INT DEFAULT 0 NOT NULL,

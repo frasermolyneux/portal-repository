@@ -539,6 +539,78 @@ public class GlobalConfigurationsControllerTests
     }
 
     [Fact]
+    public async Task UpsertConfiguration_Cod4xPluginNamespace_ValidPayload_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"pluginRootDirectory\":\"/opt/cod4x/plugins\"}"
+        };
+
+        var result = await api.UpsertConfiguration("cod4xPlugin", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_Cod4xPluginNamespace_RelativeRootDirectory_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"pluginRootDirectory\":\"plugins/cod4x\"}"
+        };
+
+        var result = await api.UpsertConfiguration("cod4xPlugin", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_Cod4xPowerNamespace_ValidPayload_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"defaultPower\":50,\"tagMappings\":[{\"tag\":\"SeniorAdmin\",\"power\":80,\"enabled\":true}]}"
+        };
+
+        var result = await api.UpsertConfiguration("cod4xPower", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_Cod4xCommandsNamespace_ValidPayload_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"commands\":{\"kick\":{\"enabled\":true,\"minPower\":35}}}"
+        };
+
+        var result = await api.UpsertConfiguration("cod4xCommands", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+    }
+
+    [Fact]
     public async Task UpsertConfiguration_BroadcastsInvalidPayload_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

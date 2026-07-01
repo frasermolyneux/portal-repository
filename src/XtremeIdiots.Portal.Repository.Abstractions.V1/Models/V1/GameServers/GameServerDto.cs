@@ -10,75 +10,79 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
 {
-    public record GameServerDto : IDto
-    {
-        [JsonProperty]
-        public Guid GameServerId { get; internal set; }
+        public record GameServerDto : IDto
+        {
+                [JsonProperty]
+                public Guid GameServerId { get; internal set; }
 
-        [JsonProperty]
+                [JsonProperty]
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public string Title { get; internal set; }
+                public string Title { get; internal set; }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-        [JsonProperty]
-        [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
-        public GameType GameType { get; internal set; }
+                [JsonProperty]
+                [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
+                public GameType GameType { get; internal set; }
 
-        [JsonProperty]
+                [JsonProperty]
+                [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
+                public GameServerPlatform Platform { get; internal set; }
+
+                [JsonProperty]
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public string Hostname { get; internal set; }
+                public string Hostname { get; internal set; }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-        [JsonProperty]
-        public int QueryPort { get; internal set; }
+                [JsonProperty]
+                public int QueryPort { get; internal set; }
 
-        [JsonProperty]
-        public int ServerListPosition { get; internal set; }
+                [JsonProperty]
+                public int ServerListPosition { get; internal set; }
 
-        [JsonProperty]
-        public bool AgentEnabled { get; internal set; }
+                [JsonProperty]
+                public bool AgentEnabled { get; internal set; }
 
-        [JsonProperty]
-        public bool FileTransportEnabled { get; internal set; }
+                [JsonProperty]
+                public bool FileTransportEnabled { get; internal set; }
 
-        [JsonProperty]
-        [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
-        public FileTransportType FileTransportType { get; internal set; }
+                [JsonProperty]
+                [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
+                public FileTransportType FileTransportType { get; internal set; }
 
-        [JsonProperty]
-        public bool FtpEnabled { get; internal set; }
+                [JsonProperty]
+                public bool FtpEnabled { get; internal set; }
 
-        [JsonProperty]
-        public bool RconEnabled { get; internal set; }
+                [JsonProperty]
+                public bool RconEnabled { get; internal set; }
 
-        [JsonProperty]
-        public bool BanFileSyncEnabled { get; internal set; }
+                [JsonProperty]
+                public bool BanFileSyncEnabled { get; internal set; }
 
-        [JsonProperty]
+                [JsonProperty]
 #pragma warning disable CS8618
-        public string BanFileRootPath { get; internal set; } = "/";
+                public string BanFileRootPath { get; internal set; } = "/";
 #pragma warning restore CS8618
 
-        [JsonProperty]
-        public bool ServerListEnabled { get; internal set; }
+                [JsonProperty]
+                public bool ServerListEnabled { get; internal set; }
 
-        [JsonProperty]
-        public bool Deleted { get; internal set; }
+                [JsonProperty]
+                public bool Deleted { get; internal set; }
 
-        [JsonProperty]
-        public List<BanFileMonitorDto> BanFileMonitors { get; internal set; } = [];
+                [JsonProperty]
+                public List<BanFileMonitorDto> BanFileMonitors { get; internal set; } = [];
 
-        public void ClearNoPermissionBanFileMonitors(GameType[] gameTypes, Guid[] banFileMonitorIds)
-        {
-            BanFileMonitors = BanFileMonitors.Where(bfm => bfm.GameServer != null && gameTypes.Contains(bfm.GameServer.GameType) || banFileMonitorIds.Contains(bfm.BanFileMonitorId)).ToList();
-        }
+                public void ClearNoPermissionBanFileMonitors(GameType[] gameTypes, Guid[] banFileMonitorIds)
+                {
+                        BanFileMonitors = BanFileMonitors.Where(bfm => bfm.GameServer != null && gameTypes.Contains(bfm.GameServer.GameType) || banFileMonitorIds.Contains(bfm.BanFileMonitorId)).ToList();
+                }
 
-        [JsonIgnore]
-        public Dictionary<string, string> TelemetryProperties => new()
+                [JsonIgnore]
+                public Dictionary<string, string> TelemetryProperties => new()
         {
             { nameof(GameServerId), GameServerId.ToString() },
             { nameof(GameType), GameType.ToString() },
             { nameof(Title), Title }
         };
-    }
+        }
 }
