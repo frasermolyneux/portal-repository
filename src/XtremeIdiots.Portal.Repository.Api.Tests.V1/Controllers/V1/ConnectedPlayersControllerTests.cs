@@ -1,27 +1,37 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using Moq;
 
 using MX.Observability.ApplicationInsights.Auditing;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPower;
 using Xunit;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class ConnectedPlayersControllerTests
 {
+    private static readonly JsonSerializerOptions CamelCaseJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     private static (ConnectedPlayersController Controller, Mock<IAuditLogger> AuditLoggerMock) CreateControllerWithAuditMock(PortalDbContext context)
     {
         var auditLogger = new Mock<IAuditLogger>();
         return (new ConnectedPlayersController(context, auditLogger.Object), auditLogger);
     }
+
+    private static string SerializeJson(object value) => JsonSerializer.Serialize(value, CamelCaseJsonOptions);
 
     private static ConnectedPlayersController CreateController(PortalDbContext context) => CreateControllerWithAuditMock(context).Controller;
 
@@ -625,6 +635,265 @@ public class ConnectedPlayersControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Empty(context.PlayerTags);
+    }
+
+    [Fact]
+    public async Task GetCod4xAdminRoster_WhenEnabled_ProjectsPowerAndTagsForLinkedPlayers()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        var linkedUserProfileId = Guid.NewGuid();
+        var linkedPlayerId = Guid.NewGuid();
+
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "XI CoD4",
+            GameType = (int)GameType.CallOfDuty4,
+            Platform = 0,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            ServerListPosition = 0,
+            FileTransportEnabled = false,
+            FileTransportType = 0,
+            FtpEnabled = false,
+            RconEnabled = false,
+            AgentEnabled = true,
+            BanFileSyncEnabled = false,
+            BanFileRootPath = "/",
+            ServerListEnabled = true,
+            Deleted = false
+        });
+
+        context.GlobalConfigurations.RemoveRange(
+            context.GlobalConfigurations.Where(configuration => configuration.Namespace == Cod4xPowerSettingsConstants.Namespace));
+        context.GameServerConfigurations.RemoveRange(
+            context.GameServerConfigurations.Where(configuration => configuration.Namespace == Cod4xPowerSettingsConstants.Namespace));
+
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = Cod4xPowerSettingsConstants.Namespace,
+            Configuration = SerializeJson(new
+            {
+                SchemaVersion = 1,
+                Enabled = true,
+                DefaultPower = 10,
+                TagMappings = new[]
+                {
+                    new { Tag = "GameAdmin", Power = 50, Enabled = true },
+                    new { Tag = "Moderator", Power = 35, Enabled = true }
+                }
+            }),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+
+        context.GameServerConfigurations.Add(new GameServerConfiguration
+        {
+            GameServerId = gameServerId,
+            Namespace = Cod4xPowerSettingsConstants.Namespace,
+            Configuration = SerializeJson(new
+            {
+                SchemaVersion = 1,
+                TagMappings = new[]
+                {
+                    new { Tag = "GameAdmin", Power = 60, Enabled = true }
+                }
+            }),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+
+        context.UserProfiles.Add(new UserProfile { UserProfileId = linkedUserProfileId, DisplayName = "AdminUser" });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = linkedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "AdminPlayer",
+            Guid = "76561198000000001",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow,
+            IpAddress = "127.0.0.1"
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            UserProfileId = linkedUserProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            IsActive = true
+        });
+
+        context.UserProfileClaims.Add(new UserProfileClaim
+        {
+            UserProfileClaimId = Guid.NewGuid(),
+            UserProfileId = linkedUserProfileId,
+            SystemGenerated = true,
+            ClaimType = UserProfileClaimType.GameAdmin,
+            ClaimValue = GameType.CallOfDuty4.ToString()
+        });
+
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.GetCod4xAdminRoster(gameServerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var data = Assert.IsType<Cod4xAdminRosterDto>(result.Result?.Data);
+        Assert.True(data.Enabled);
+        Assert.Equal(10, data.DefaultPower);
+        var entry = Assert.Single(data.Entries);
+        Assert.Equal("76561198000000001", entry.PlayerGuid);
+        Assert.Equal(60, entry.Power);
+        Assert.Contains(UserProfileClaimType.GameAdmin, entry.Tags);
+    }
+
+    [Fact]
+    public async Task GetCod4xAdminRoster_WhenServerDefaultPowerProvided_OverridesGlobalDefault()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+        var linkedUserProfileId = Guid.NewGuid();
+        var linkedPlayerId = Guid.NewGuid();
+
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "XI CoD4",
+            GameType = (int)GameType.CallOfDuty4,
+            Platform = 0,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            ServerListPosition = 0,
+            FileTransportEnabled = false,
+            FileTransportType = 0,
+            FtpEnabled = false,
+            RconEnabled = false,
+            AgentEnabled = true,
+            BanFileSyncEnabled = false,
+            BanFileRootPath = "/",
+            ServerListEnabled = true,
+            Deleted = false
+        });
+
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = Cod4xPowerSettingsConstants.Namespace,
+            Configuration = SerializeJson(new
+            {
+                SchemaVersion = 1,
+                Enabled = true,
+                DefaultPower = 10,
+                TagMappings = Array.Empty<object>()
+            }),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+
+        context.GameServerConfigurations.Add(new GameServerConfiguration
+        {
+            GameServerId = gameServerId,
+            Namespace = Cod4xPowerSettingsConstants.Namespace,
+            Configuration = SerializeJson(new
+            {
+                SchemaVersion = 1,
+                DefaultPower = 25,
+                TagMappings = Array.Empty<object>()
+            }),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+
+        context.UserProfiles.Add(new UserProfile { UserProfileId = linkedUserProfileId, DisplayName = "PlayerUser" });
+
+        context.Players.Add(new Player
+        {
+            PlayerId = linkedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "PlayerOne",
+            Guid = "76561198000000002",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow,
+            IpAddress = "127.0.0.1"
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            UserProfileId = linkedUserProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-2),
+            IsActive = true
+        });
+
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.GetCod4xAdminRoster(gameServerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var data = Assert.IsType<Cod4xAdminRosterDto>(result.Result?.Data);
+        Assert.True(data.Enabled);
+        Assert.Equal(25, data.DefaultPower);
+        var entry = Assert.Single(data.Entries);
+        Assert.Equal("76561198000000002", entry.PlayerGuid);
+        Assert.Equal(25, entry.Power);
+        Assert.Empty(entry.Tags);
+    }
+
+    [Fact]
+    public async Task GetCod4xAdminRoster_WhenDisabled_ReturnsEmptyRoster()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = Guid.NewGuid();
+
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "XI CoD4",
+            GameType = (int)GameType.CallOfDuty4,
+            Platform = 0,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            ServerListPosition = 0,
+            FileTransportEnabled = false,
+            FileTransportType = 0,
+            FtpEnabled = false,
+            RconEnabled = false,
+            AgentEnabled = true,
+            BanFileSyncEnabled = false,
+            BanFileRootPath = "/",
+            ServerListEnabled = true,
+            Deleted = false
+        });
+
+        context.GlobalConfigurations.RemoveRange(
+            context.GlobalConfigurations.Where(configuration => configuration.Namespace == Cod4xPowerSettingsConstants.Namespace));
+        context.GameServerConfigurations.RemoveRange(
+            context.GameServerConfigurations.Where(configuration => configuration.Namespace == Cod4xPowerSettingsConstants.Namespace));
+
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = Cod4xPowerSettingsConstants.Namespace,
+            Configuration = SerializeJson(new
+            {
+                SchemaVersion = 1,
+                Enabled = false,
+                DefaultPower = 1,
+                TagMappings = Array.Empty<object>()
+            }),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var api = (IConnectedPlayersApi)CreateController(context);
+        var result = await api.GetCod4xAdminRoster(gameServerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var data = Assert.IsType<Cod4xAdminRosterDto>(result.Result?.Data);
+        Assert.False(data.Enabled);
+        Assert.Empty(data.Entries);
     }
 
     private static string HashToken(string token)

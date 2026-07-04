@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using Asp.Versioning;
 
@@ -19,6 +20,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPower;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -32,6 +34,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private const int ActivationCodeExpiryMinutes = 5;
         private const int ActivationCodeMaxAttempts = 5;
         private const string DefaultActivationSource = "WebsiteActivation";
+        private static readonly JsonSerializerOptions SettingsJsonSerializerOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         private readonly PortalDbContext context;
         private readonly IAuditLogger auditLogger;
@@ -629,6 +635,171 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }.ToApiResult();
         }
 
+        [HttpGet("game-servers/{gameServerId:guid}/connected-players/admin-roster")]
+        [ProducesResponseType<Cod4xAdminRosterDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetCod4xAdminRoster(
+            Guid gameServerId,
+            CancellationToken cancellationToken = default)
+        {
+            var response = await ((IConnectedPlayersApi)this)
+                .GetCod4xAdminRoster(gameServerId, cancellationToken)
+                .ConfigureAwait(false);
+
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult<Cod4xAdminRosterDto>> IConnectedPlayersApi.GetCod4xAdminRoster(
+            Guid gameServerId,
+            CancellationToken cancellationToken)
+        {
+            var gameServer = await context.GameServers
+                .AsNoTracking()
+                .Where(server => server.GameServerId == gameServerId && !server.Deleted)
+                .Select(server => new
+                {
+                    server.GameServerId,
+                    GameType = (GameType)server.GameType,
+                })
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (gameServer is null)
+            {
+                return new ApiResult<Cod4xAdminRosterDto>(
+                    HttpStatusCode.NotFound,
+                    new ApiResponse<Cod4xAdminRosterDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
+            }
+
+            var globalCod4xPowerRaw = await context.GlobalConfigurations
+                .AsNoTracking()
+                .Where(configuration => configuration.Namespace == Cod4xPowerSettingsConstants.Namespace)
+                .Select(configuration => configuration.Configuration)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var serverCod4xPowerRaw = await context.GameServerConfigurations
+                .AsNoTracking()
+                .Where(configuration => configuration.GameServerId == gameServer.GameServerId && configuration.Namespace == Cod4xPowerSettingsConstants.Namespace)
+                .Select(configuration => configuration.Configuration)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var globalCod4xPower = DeserializeCod4xPowerSettings(globalCod4xPowerRaw);
+            var serverCod4xPower = DeserializeCod4xPowerSettings(serverCod4xPowerRaw);
+
+            var defaultPower = Math.Clamp(
+                serverCod4xPower?.DefaultPower ?? globalCod4xPower?.DefaultPower ?? Cod4xPowerSettingsConstants.DefaultPower,
+                Cod4xPowerSettingsConstants.MinPower,
+                Cod4xPowerSettingsConstants.MaxPower);
+
+            var enabled = serverCod4xPower?.Enabled
+                ?? globalCod4xPower?.Enabled
+                ?? false;
+
+            var roster = new Cod4xAdminRosterDto
+            {
+                Enabled = enabled,
+                DefaultPower = defaultPower,
+                Entries = []
+            };
+
+            if (!enabled)
+            {
+                return new ApiResponse<Cod4xAdminRosterDto>(roster).ToApiResult();
+            }
+
+            var effectivePowerMappings = BuildEffectivePowerMappings(globalCod4xPower, serverCod4xPower);
+
+            var activeConnectedPlayers = await context.ConnectedPlayerProfiles
+                .AsNoTracking()
+                .Include(profile => profile.Player)
+                .Where(profile => profile.IsActive && profile.Player.GameType == (int)gameServer.GameType)
+                .Select(profile => new ActiveConnectedPlayerProjection(
+                    profile.Player.Guid ?? string.Empty,
+                    profile.UserProfileId))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            activeConnectedPlayers = activeConnectedPlayers
+                .Where(profile => !string.IsNullOrWhiteSpace(profile.PlayerGuid))
+                .ToList();
+
+            if (activeConnectedPlayers.Count == 0)
+            {
+                return new ApiResponse<Cod4xAdminRosterDto>(roster).ToApiResult();
+            }
+
+            var linkedUserProfileIds = activeConnectedPlayers
+                .Select(profile => profile.UserProfileId)
+                .Distinct()
+                .ToList();
+
+            var linkedClaims = await context.UserProfileClaims
+                .AsNoTracking()
+                .Where(claim => linkedUserProfileIds.Contains(claim.UserProfileId))
+                .Select(claim => new UserProfileClaimProjection(
+                    claim.UserProfileId,
+                    claim.ClaimType,
+                    claim.ClaimValue))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var claimsByUserProfileId = linkedClaims
+                .GroupBy(claim => claim.UserProfileId)
+                .ToDictionary(group => group.Key, group => group.ToList());
+
+            var entriesByPlayerGuid = new Dictionary<string, Cod4xAdminRosterEntryDto>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var connectedPlayer in activeConnectedPlayers)
+            {
+                claimsByUserProfileId.TryGetValue(connectedPlayer.UserProfileId, out var userClaims);
+                var applicableTags = ResolveApplicableTags(
+                    userClaims ?? [],
+                    gameServer.GameType,
+                    gameServer.GameServerId);
+
+                var power = defaultPower;
+                foreach (var tag in applicableTags)
+                {
+                    if (effectivePowerMappings.TryGetValue(tag, out var mappedPower))
+                    {
+                        power = Math.Max(power, mappedPower);
+                    }
+                }
+
+                if (entriesByPlayerGuid.TryGetValue(connectedPlayer.PlayerGuid, out var existingEntry))
+                {
+                    var mergedTags = existingEntry.Tags
+                        .Concat(applicableTags)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    entriesByPlayerGuid[connectedPlayer.PlayerGuid] = existingEntry with
+                    {
+                        Power = Math.Max(existingEntry.Power, power),
+                        Tags = mergedTags
+                    };
+
+                    continue;
+                }
+
+                entriesByPlayerGuid[connectedPlayer.PlayerGuid] = new Cod4xAdminRosterEntryDto
+                {
+                    PlayerGuid = connectedPlayer.PlayerGuid,
+                    Power = power,
+                    Tags = applicableTags
+                };
+            }
+
+            roster.Entries = entriesByPlayerGuid.Values
+                .OrderBy(entry => entry.PlayerGuid, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return new ApiResponse<Cod4xAdminRosterDto>(roster).ToApiResult();
+        }
+
         [HttpDelete("connected-players/{connectedPlayerProfileId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -771,6 +942,164 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             return null;
         }
+
+        private static Cod4xPowerSettingsDocument? DeserializeCod4xPowerSettings(string? rawConfiguration)
+        {
+            if (string.IsNullOrWhiteSpace(rawConfiguration))
+            {
+                return null;
+            }
+
+            try
+            {
+                var settings = JsonSerializer.Deserialize<Cod4xPowerSettingsDocument>(rawConfiguration, SettingsJsonSerializerOptions);
+                if (settings is null)
+                {
+                    return null;
+                }
+
+                using var json = JsonDocument.Parse(rawConfiguration);
+                var root = json.RootElement;
+
+                if (!TryGetPropertyIgnoreCase(root, "enabled", out _))
+                {
+                    settings.Enabled = null;
+                }
+
+                if (!TryGetPropertyIgnoreCase(root, "defaultPower", out _))
+                {
+                    settings.DefaultPower = null;
+                }
+
+                if (!TryGetPropertyIgnoreCase(root, "tagMappings", out _))
+                {
+                    settings.TagMappings = null;
+                }
+
+                return settings;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
+        }
+
+        private static Dictionary<string, int> BuildEffectivePowerMappings(
+            Cod4xPowerSettingsDocument? globalSettings,
+            Cod4xPowerSettingsDocument? serverSettings)
+        {
+            var output = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            ApplySettingsMappings(output, globalSettings?.TagMappings);
+            ApplySettingsMappings(output, serverSettings?.TagMappings);
+
+            return output;
+        }
+
+        private static void ApplySettingsMappings(Dictionary<string, int> mappings, List<Cod4xPowerTagMapping>? tagMappings)
+        {
+            if (tagMappings is null)
+            {
+                return;
+            }
+
+            foreach (var mapping in tagMappings)
+            {
+                if (mapping is null || string.IsNullOrWhiteSpace(mapping.Tag))
+                {
+                    continue;
+                }
+
+                var normalizedTag = mapping.Tag.Trim();
+
+                if (!mapping.Enabled)
+                {
+                    mappings.Remove(normalizedTag);
+                    continue;
+                }
+
+                if (!mapping.Power.HasValue)
+                {
+                    continue;
+                }
+
+                mappings[normalizedTag] = Math.Clamp(
+                    mapping.Power.Value,
+                    Cod4xPowerSettingsConstants.MinPower,
+                    Cod4xPowerSettingsConstants.MaxPower);
+            }
+        }
+
+        private static List<string> ResolveApplicableTags(
+            IReadOnlyCollection<UserProfileClaimProjection> claims,
+            GameType gameType,
+            Guid gameServerId)
+        {
+            var output = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var claim in claims)
+            {
+                if (string.IsNullOrWhiteSpace(claim.ClaimType))
+                {
+                    continue;
+                }
+
+                if (!IsClaimApplicable(claim.ClaimValue, gameType, gameServerId))
+                {
+                    continue;
+                }
+
+                output.Add(claim.ClaimType.Trim());
+            }
+
+            return output
+                .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool IsClaimApplicable(string claimValue, GameType gameType, Guid gameServerId)
+        {
+            if (string.IsNullOrWhiteSpace(claimValue))
+            {
+                return true;
+            }
+
+            if (string.Equals(claimValue, gameType.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(claimValue, GameType.Unknown.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(claimValue, gameServerId.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private sealed record ActiveConnectedPlayerProjection(string PlayerGuid, Guid UserProfileId);
+
+        private sealed record UserProfileClaimProjection(Guid UserProfileId, string ClaimType, string ClaimValue);
 
         private async Task ReconcileConnectedPlayerTagForPlayer(Guid playerId, CancellationToken cancellationToken)
         {

@@ -117,6 +117,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<CollectionModel<ConnectedPlayerDto>>();
         }
 
+        public async Task<ApiResult<Cod4xAdminRosterDto>> GetCod4xAdminRoster(
+            Guid gameServerId,
+            CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/game-servers/{gameServerId}/connected-players/admin-roster", Method.Get).ConfigureAwait(false);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+            return response.ToApiResult<Cod4xAdminRosterDto>();
+        }
+
         public async Task<ApiResult> ForceUnlinkConnectedPlayer(
             Guid connectedPlayerProfileId,
             ForceUnlinkConnectedPlayerDto dto,

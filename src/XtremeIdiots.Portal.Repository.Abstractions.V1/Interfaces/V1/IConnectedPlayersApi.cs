@@ -36,6 +36,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
             int takeEntries,
             CancellationToken cancellationToken = default);
 
+        Task<ApiResult<Cod4xAdminRosterDto>> GetCod4xAdminRoster(
+            Guid gameServerId,
+            CancellationToken cancellationToken = default);
+
         Task<ApiResult> ForceUnlinkConnectedPlayer(
             Guid connectedPlayerProfileId,
             ForceUnlinkConnectedPlayerDto dto,

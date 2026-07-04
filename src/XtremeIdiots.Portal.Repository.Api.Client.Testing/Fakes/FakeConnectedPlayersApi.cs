@@ -221,6 +221,30 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
             new ApiResponse<CollectionModel<ConnectedPlayerDto>>(collection)));
     }
 
+    public Task<ApiResult<Cod4xAdminRosterDto>> GetCod4xAdminRoster(
+        Guid gameServerId,
+        CancellationToken cancellationToken = default)
+    {
+        var roster = new Cod4xAdminRosterDto
+        {
+            Enabled = true,
+            DefaultPower = 1,
+            Entries = _connectedPlayers.Values
+                .Where(static cp => cp.IsActive)
+                .Select(static cp => new Cod4xAdminRosterEntryDto
+                {
+                    PlayerGuid = cp.PlayerId.ToString(),
+                    Power = 1,
+                    Tags = []
+                })
+                .ToList()
+        };
+
+        return Task.FromResult(new ApiResult<Cod4xAdminRosterDto>(
+            HttpStatusCode.OK,
+            new ApiResponse<Cod4xAdminRosterDto>(roster)));
+    }
+
     public Task<ApiResult> ForceUnlinkConnectedPlayer(
         Guid connectedPlayerProfileId,
         ForceUnlinkConnectedPlayerDto dto,
