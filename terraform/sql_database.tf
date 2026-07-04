@@ -6,5 +6,5 @@ resource "azurerm_mssql_database" "database" {
 
   sku_name = "S0"
 
-  max_size_gb = 2
+  max_size_gb = 5
 }
