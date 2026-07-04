@@ -1,6 +1,9 @@
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using Moq;
+using MX.Observability.ApplicationInsights.Auditing;
+using Newtonsoft.Json;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -13,11 +16,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class PlayersControllerTests
 {
-    private PlayersController CreateController(PortalDbContext context)
+    private static (PlayersController Controller, Mock<IAuditLogger> AuditLoggerMock) CreateControllerWithAuditMock(PortalDbContext context)
     {
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        return new PlayersController(context, memoryCache);
+        var auditLogger = new Mock<IAuditLogger>();
+        return (new PlayersController(context, memoryCache, auditLogger.Object), auditLogger);
     }
+
+    private static PlayersController CreateController(PortalDbContext context) => CreateControllerWithAuditMock(context).Controller;
 
     [Fact]
     public async Task GetPlayer_WithValidId_ReturnsOk()
@@ -377,6 +383,66 @@ public class PlayersControllerTests
     }
 
     [Fact]
+    public async Task CreatePlayer_WithMeaningfulSteamId_PersistsNormalizedSteamId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IPlayersApi)CreateController(context);
+
+        var createDto = new CreatePlayerDto("TestPlayer", "testguid-steam-1", GameType.CallOfDuty4)
+        {
+            SteamId = " 76561198000000001 "
+        };
+
+        var result = await api.CreatePlayer(createDto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var player = Assert.Single(context.Players);
+        Assert.Equal("76561198000000001", player.SteamId);
+    }
+
+    [Fact]
+    public async Task CreatePlayer_WithZeroSteamId_DoesNotPersistSteamId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IPlayersApi)CreateController(context);
+
+        var createDto = new CreatePlayerDto("TestPlayer", "testguid-steam-2", GameType.CallOfDuty4)
+        {
+            SteamId = "0"
+        };
+
+        var result = await api.CreatePlayer(createDto);
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var player = Assert.Single(context.Players);
+        Assert.Null(player.SteamId);
+    }
+
+    [Fact]
+    public async Task CreatePlayers_WithInvalidSteamId_DoesNotPersistSteamId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IPlayersApi)CreateController(context);
+
+        var createDtos = new List<CreatePlayerDto>
+        {
+            new("TestPlayer1", "testguid-steam-batch-1", GameType.CallOfDuty4)
+            {
+                SteamId = "   "
+            },
+            new("TestPlayer2", "testguid-steam-batch-2", GameType.CallOfDuty4)
+            {
+                SteamId = "0"
+            }
+        };
+
+        var result = await api.CreatePlayers(createDtos);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.All(context.Players, player => Assert.Null(player.SteamId));
+    }
+
+    [Fact]
     public async Task GetPlayer_WithAliasesOption_LoadsAliases()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -722,6 +788,88 @@ public class PlayersControllerTests
         var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(Guid.NewGuid(), "Name"));
 
         Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task RecordPlayerSession_WithMeaningfulSteamId_UpdatesSteamId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player",
+            Guid = "guid-1",
+            SteamId = null,
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(playerId, "Player", "76561198000000001"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("76561198000000001", player.SteamId);
+    }
+
+    [Fact]
+    public async Task RecordPlayerSession_WithZeroSteamId_DoesNotOverwriteExistingSteamId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player",
+            Guid = "guid-1",
+            SteamId = "76561198000000042",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IPlayersApi)CreateController(context);
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(playerId, "Player", "0"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var player = context.Players.First(p => p.PlayerId == playerId);
+        Assert.Equal("76561198000000042", player.SteamId);
+    }
+
+    [Fact]
+    public async Task RecordPlayerSession_WhenSteamIdChanges_EmitsAudit()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Player",
+            Guid = "guid-1",
+            SteamId = "76561198000000042",
+            FirstSeen = DateTime.UtcNow.AddDays(-10),
+            LastSeen = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+
+        var (controller, auditLoggerMock) = CreateControllerWithAuditMock(context);
+        var api = (IPlayersApi)controller;
+
+        var result = await api.RecordPlayerSession(new RecordPlayerSessionDto(playerId, "Player", "76561198000000001"));
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var auditInvocation = Assert.Single(auditLoggerMock.Invocations, invocation => invocation.Method.Name == "LogAudit");
+        var auditPayload = Assert.Single(auditInvocation.Arguments);
+        var auditPayloadJson = JsonConvert.SerializeObject(auditPayload);
+
+        Assert.Contains("PlayerSteamIdChanged", auditPayloadJson, StringComparison.Ordinal);
+        Assert.Contains("76561198000000042", auditPayloadJson, StringComparison.Ordinal);
+        Assert.Contains("76561198000000001", auditPayloadJson, StringComparison.Ordinal);
     }
 
     #endregion

@@ -8,6 +8,9 @@ using Microsoft.Extensions.Caching.Memory;
 
 using Newtonsoft.Json;
 
+using MX.Observability.ApplicationInsights.Auditing;
+using MX.Observability.ApplicationInsights.Auditing.Models;
+
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -28,14 +31,17 @@ public class PlayersController : ControllerBase, IPlayersApi
 {
     private readonly PortalDbContext context;
     private readonly IMemoryCache _memoryCache;
+    private readonly IAuditLogger auditLogger;
 
     public PlayersController(
         PortalDbContext context,
-        IMemoryCache memoryCache)
+        IMemoryCache memoryCache,
+        IAuditLogger auditLogger)
     {
         ArgumentNullException.ThrowIfNull(context);
         this.context = context;
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        this.auditLogger = auditLogger ?? throw new ArgumentNullException(nameof(auditLogger));
     }
 
     private void InvalidateTagPlayerCountsCache()
@@ -730,6 +736,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
         }
 
+        createPlayerDto.SteamId = NormalizeIncomingSteamId(createPlayerDto.SteamId);
         var player = createPlayerDto.ToEntity();
         player.FirstSeen = DateTime.UtcNow;
         player.LastSeen = DateTime.UtcNow;
@@ -783,6 +790,7 @@ public class PlayersController : ControllerBase, IPlayersApi
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.PlayerConflictMessage)).ToConflictResult();
             }
 
+            createPlayerDto.SteamId = NormalizeIncomingSteamId(createPlayerDto.SteamId);
             var player = createPlayerDto.ToEntity();
             player.FirstSeen = DateTime.UtcNow;
             player.LastSeen = DateTime.UtcNow;
@@ -1017,8 +1025,42 @@ public class PlayersController : ControllerBase, IPlayersApi
             });
         }
 
+        UpdateSteamIdIfMeaningfulAndChanged(player, dto.SteamId);
+
         await context.SaveChangesAsync().ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
+    }
+
+    private static string? NormalizeIncomingSteamId(string? steamId)
+    {
+        if (string.IsNullOrWhiteSpace(steamId))
+        {
+            return null;
+        }
+
+        var trimmed = steamId.Trim();
+        return string.Equals(trimmed, "0", StringComparison.Ordinal) ? null : trimmed;
+    }
+
+    private void UpdateSteamIdIfMeaningfulAndChanged(Player player, string? incomingSteamId)
+    {
+        var normalizedSteamId = NormalizeIncomingSteamId(incomingSteamId);
+        if (normalizedSteamId is null || string.Equals(player.SteamId, normalizedSteamId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var previousSteamId = player.SteamId;
+        player.SteamId = normalizedSteamId;
+
+        auditLogger.LogAudit(AuditEvent.SystemAction("PlayerSteamIdChanged", AuditAction.Update)
+            .WithTarget(player.PlayerId.ToString(), "Player")
+            .WithSource(nameof(PlayersController))
+            .WithProperty("PlayerGuid", player.Guid ?? string.Empty)
+            .WithProperty("GameType", player.GameType.ToGameType().ToString())
+            .WithProperty("PreviousSteamId", previousSteamId ?? string.Empty)
+            .WithProperty("NewSteamId", normalizedSteamId)
+            .Build());
     }
 
     private IQueryable<Player> ApplyFilter(IQueryable<Player> query, GameType? gameType, PlayersFilter? filter, string? filterString)

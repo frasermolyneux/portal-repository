@@ -29,6 +29,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         public string Guid { get; private set; }
 
         [JsonProperty]
+        public string? SteamId { get; set; }
+
+        [JsonProperty]
         public string? IpAddress { get; set; }
 
         [JsonIgnore]
@@ -36,7 +39,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         {
             { nameof(GameType), GameType.ToString() },
             { nameof(Username), Username.ToString() },
-            { nameof(Guid), Guid.ToString() }
+            { nameof(Guid), Guid.ToString() },
+            { nameof(SteamId), SteamId ?? string.Empty }
         };
     }
 }

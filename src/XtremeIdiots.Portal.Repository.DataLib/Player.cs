@@ -30,6 +30,9 @@ public partial class Player
     [StringLength(50)]
     public string? Guid { get; set; }
 
+    [StringLength(50)]
+    public string? SteamId { get; set; }
+
     [Column(TypeName = "datetime")]
     public DateTime FirstSeen { get; set; }
 

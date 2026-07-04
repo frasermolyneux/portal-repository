@@ -1,6 +1,8 @@
 using System.Net;
 
 using Microsoft.Extensions.Caching.Memory;
+using Moq;
+using MX.Observability.ApplicationInsights.Auditing;
 using Xunit;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -16,7 +18,8 @@ public class PlayersControllerPlayerTagsTests
     private static PlayersController CreateController(PortalDbContext context)
     {
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        return new PlayersController(context, memoryCache);
+        var auditLogger = new Mock<IAuditLogger>();
+        return new PlayersController(context, memoryCache, auditLogger.Object);
     }
 
     [Fact]

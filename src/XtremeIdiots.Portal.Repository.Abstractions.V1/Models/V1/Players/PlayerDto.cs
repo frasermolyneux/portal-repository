@@ -27,6 +27,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         public string Guid { get; internal set; } = string.Empty;
 
         [JsonProperty]
+        public string? SteamId { get; internal set; }
+
+        [JsonProperty]
         public DateTime FirstSeen { get; internal set; }
 
         [JsonProperty]
@@ -79,7 +82,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
             { nameof(PlayerId), PlayerId.ToString() },
             { nameof(GameType), GameType.ToString() },
             { nameof(Username), Username.ToString() },
-            { nameof(Guid), Guid.ToString() }
+            { nameof(Guid), Guid.ToString() },
+            { nameof(SteamId), SteamId ?? string.Empty }
         };
     }
 }

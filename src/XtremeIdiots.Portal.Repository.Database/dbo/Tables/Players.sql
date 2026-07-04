@@ -4,6 +4,7 @@
     [GameType] INT NOT NULL,
     [Username] NVARCHAR (100) NULL,
     [Guid] NVARCHAR (50) NULL,
+    [SteamId] NVARCHAR (50) NULL,
     [FirstSeen] DATETIME NOT NULL,
     [LastSeen] DATETIME NOT NULL,
     [IpAddress] NVARCHAR (60) NULL,

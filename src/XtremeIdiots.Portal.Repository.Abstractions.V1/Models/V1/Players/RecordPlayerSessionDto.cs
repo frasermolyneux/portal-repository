@@ -9,10 +9,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
     /// </summary>
     public record RecordPlayerSessionDto : IDto
     {
-        public RecordPlayerSessionDto(Guid playerId, string username)
+        public RecordPlayerSessionDto(Guid playerId, string username, string? steamId = null)
         {
             PlayerId = playerId;
             Username = username;
+            SteamId = steamId;
         }
 
         [JsonProperty]
@@ -21,11 +22,15 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players
         [JsonProperty]
         public string Username { get; set; }
 
+        [JsonProperty]
+        public string? SteamId { get; set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {
             { nameof(PlayerId), PlayerId.ToString() },
-            { nameof(Username), Username }
+            { nameof(Username), Username },
+            { nameof(SteamId), SteamId ?? string.Empty }
         };
     }
 }

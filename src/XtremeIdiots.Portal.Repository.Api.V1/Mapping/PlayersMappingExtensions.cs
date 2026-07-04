@@ -26,6 +26,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameType = entity.GameType.ToGameType(),
                 Username = entity.Username ?? string.Empty,
                 Guid = entity.Guid ?? string.Empty,
+                SteamId = entity.SteamId,
                 FirstSeen = entity.FirstSeen,
                 LastSeen = entity.LastSeen,
                 IpAddress = entity.IpAddress ?? string.Empty,
@@ -66,6 +67,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameType = dto.GameType.ToGameTypeInt(),
                 Username = dto.Username,
                 Guid = dto.Guid,
+                SteamId = dto.SteamId,
                 IpAddress = dto.IpAddress,
                 FirstSeen = now,
                 LastSeen = now
