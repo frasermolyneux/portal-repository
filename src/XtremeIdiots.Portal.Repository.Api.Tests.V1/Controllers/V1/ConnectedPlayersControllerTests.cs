@@ -680,8 +680,8 @@ public class ConnectedPlayersControllerTests
                 DefaultPower = 10,
                 TagMappings = new[]
                 {
-                    new { Tag = "GameAdmin", Power = 50, Enabled = true },
-                    new { Tag = "Moderator", Power = 35, Enabled = true }
+                    new { Tag = "game-admin", Power = 50, Enabled = true },
+                    new { Tag = "moderator", Power = 35, Enabled = true }
                 }
             }),
             LastModifiedUtc = DateTime.UtcNow
@@ -696,13 +696,16 @@ public class ConnectedPlayersControllerTests
                 SchemaVersion = 1,
                 TagMappings = new[]
                 {
-                    new { Tag = "GameAdmin", Power = 60, Enabled = true }
+                    new { Tag = "game-admin", Power = 60, Enabled = true }
                 }
             }),
             LastModifiedUtc = DateTime.UtcNow
         });
 
         context.UserProfiles.Add(new UserProfile { UserProfileId = linkedUserProfileId, DisplayName = "AdminUser" });
+
+        var gameAdminTagId = Guid.NewGuid();
+        context.Tags.Add(new Tag { TagId = gameAdminTagId, Name = "game-admin", UserDefined = false });
 
         context.Players.Add(new Player
         {
@@ -725,13 +728,12 @@ public class ConnectedPlayersControllerTests
             IsActive = true
         });
 
-        context.UserProfileClaims.Add(new UserProfileClaim
+        context.PlayerTags.Add(new PlayerTag
         {
-            UserProfileClaimId = Guid.NewGuid(),
-            UserProfileId = linkedUserProfileId,
-            SystemGenerated = true,
-            ClaimType = UserProfileClaimType.GameAdmin,
-            ClaimValue = GameType.CallOfDuty4.ToString()
+            PlayerTagId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            TagId = gameAdminTagId,
+            Assigned = DateTime.UtcNow
         });
 
         await context.SaveChangesAsync();
@@ -746,7 +748,7 @@ public class ConnectedPlayersControllerTests
         var entry = Assert.Single(data.Entries);
         Assert.Equal("76561198000000001", entry.PlayerGuid);
         Assert.Equal(60, entry.Power);
-        Assert.Contains(UserProfileClaimType.GameAdmin, entry.Tags);
+        Assert.Contains("game-admin", entry.Tags);
     }
 
     [Fact]

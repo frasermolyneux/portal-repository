@@ -716,6 +716,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .Include(profile => profile.Player)
                 .Where(profile => profile.IsActive && profile.Player.GameType == (int)gameServer.GameType)
                 .Select(profile => new ActiveConnectedPlayerProjection(
+                    profile.PlayerId,
                     profile.Player.Guid ?? string.Empty,
                     profile.UserProfileId))
                 .ToListAsync(cancellationToken)
@@ -730,34 +731,39 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResponse<Cod4xAdminRosterDto>(roster).ToApiResult();
             }
 
-            var linkedUserProfileIds = activeConnectedPlayers
-                .Select(profile => profile.UserProfileId)
+            var linkedPlayerIds = activeConnectedPlayers
+                .Select(profile => profile.PlayerId)
                 .Distinct()
                 .ToList();
 
-            var linkedClaims = await context.UserProfileClaims
+            var playerTagAssignments = await context.PlayerTags
                 .AsNoTracking()
-                .Where(claim => linkedUserProfileIds.Contains(claim.UserProfileId))
-                .Select(claim => new UserProfileClaimProjection(
-                    claim.UserProfileId,
-                    claim.ClaimType,
-                    claim.ClaimValue))
+                .Where(playerTag => playerTag.PlayerId != null
+                    && linkedPlayerIds.Contains(playerTag.PlayerId.Value)
+                    && playerTag.Tag != null)
+                .Select(playerTag => new PlayerTagProjection(
+                    playerTag.PlayerId!.Value,
+                    playerTag.Tag!.Name))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            var claimsByUserProfileId = linkedClaims
-                .GroupBy(claim => claim.UserProfileId)
-                .ToDictionary(group => group.Key, group => group.ToList());
+            var tagsByPlayerId = playerTagAssignments
+                .GroupBy(assignment => assignment.PlayerId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .Select(assignment => assignment.TagName?.Trim() ?? string.Empty)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                        .ToList());
 
             var entriesByPlayerGuid = new Dictionary<string, Cod4xAdminRosterEntryDto>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var connectedPlayer in activeConnectedPlayers)
             {
-                claimsByUserProfileId.TryGetValue(connectedPlayer.UserProfileId, out var userClaims);
-                var applicableTags = ResolveApplicableTags(
-                    userClaims ?? [],
-                    gameServer.GameType,
-                    gameServer.GameServerId);
+                tagsByPlayerId.TryGetValue(connectedPlayer.PlayerId, out var applicableTags);
+                applicableTags ??= [];
 
                 var power = defaultPower;
                 foreach (var tag in applicableTags)
@@ -1045,61 +1051,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
         }
 
-        private static List<string> ResolveApplicableTags(
-            IReadOnlyCollection<UserProfileClaimProjection> claims,
-            GameType gameType,
-            Guid gameServerId)
-        {
-            var output = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private sealed record ActiveConnectedPlayerProjection(Guid PlayerId, string PlayerGuid, Guid UserProfileId);
 
-            foreach (var claim in claims)
-            {
-                if (string.IsNullOrWhiteSpace(claim.ClaimType))
-                {
-                    continue;
-                }
-
-                if (!IsClaimApplicable(claim.ClaimValue, gameType, gameServerId))
-                {
-                    continue;
-                }
-
-                output.Add(claim.ClaimType.Trim());
-            }
-
-            return output
-                .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
-        private static bool IsClaimApplicable(string claimValue, GameType gameType, Guid gameServerId)
-        {
-            if (string.IsNullOrWhiteSpace(claimValue))
-            {
-                return true;
-            }
-
-            if (string.Equals(claimValue, gameType.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (string.Equals(claimValue, GameType.Unknown.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (string.Equals(claimValue, gameServerId.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        private sealed record ActiveConnectedPlayerProjection(string PlayerGuid, Guid UserProfileId);
-
-        private sealed record UserProfileClaimProjection(Guid UserProfileId, string ClaimType, string ClaimValue);
+        private sealed record PlayerTagProjection(Guid PlayerId, string TagName);
 
         private async Task ReconcileConnectedPlayerTagForPlayer(Guid playerId, CancellationToken cancellationToken)
         {
