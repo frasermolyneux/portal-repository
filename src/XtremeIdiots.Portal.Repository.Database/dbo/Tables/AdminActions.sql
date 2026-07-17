@@ -1,4 +1,5 @@
-﻿CREATE TABLE [dbo].[AdminActions] (
+﻿CREATE TABLE [dbo].[AdminActions]
+(
     [AdminActionId] UNIQUEIDENTIFIER DEFAULT (newsequentialid()) NOT NULL,
     [PlayerId] UNIQUEIDENTIFIER NOT NULL,
     [UserProfileId] UNIQUEIDENTIFIER NULL,

@@ -1,4 +1,5 @@
-CREATE TABLE [dbo].[AutomationActionStates] (
+CREATE TABLE [dbo].[AutomationActionStates]
+(
     [PlayerId] UNIQUEIDENTIFIER NOT NULL,
     [AutomationFeature] INT NOT NULL,
     [AutomationRuleId] NVARCHAR (128) NOT NULL,
