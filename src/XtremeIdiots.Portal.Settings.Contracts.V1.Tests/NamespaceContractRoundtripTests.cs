@@ -12,6 +12,7 @@ using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Moderation;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Rcon;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Screenshots;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ServerList;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.WelcomeMessages;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Tests;
@@ -400,6 +401,7 @@ public sealed class NamespaceContractRoundtripTests
             {
                 "schemaVersion": 1,
                 "enabled": true,
+                "vpnProtectionEnabled": true,
                 "pluginRootDirectory": "/opt/cod4x/plugins",
                 "runtimeState": {
                     "currentVersion": "1.2.3",
@@ -429,6 +431,7 @@ public sealed class NamespaceContractRoundtripTests
         var roundtripped = JsonSerializer.Deserialize<Cod4xPluginSettingsDocument>(output, JsonOptions);
         Assert.NotNull(roundtripped);
         Assert.True(roundtripped.Enabled);
+        Assert.True(roundtripped.VpnProtectionEnabled);
         Assert.Equal("/opt/cod4x/plugins", roundtripped.PluginRootDirectory);
         Assert.NotNull(roundtripped.RuntimeState);
         Assert.NotNull(roundtripped.OperationRequest);
@@ -561,6 +564,7 @@ public sealed class NamespaceContractRoundtripTests
         Assert.False(new BroadcastSettingsValidator().Validate(new BroadcastSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new ChatCommandSettingsValidator().Validate(new ChatCommandSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new WelcomeMessageSettingsValidator().Validate(new WelcomeMessageSettingsDocument { SchemaVersion = 99 }).IsValid);
+        Assert.False(new VpnProtectionSettingsValidator().Validate(new VpnProtectionSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new Cod4xPluginSettingsValidator().Validate(new Cod4xPluginSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new Cod4xPowerSettingsValidator().Validate(new Cod4xPowerSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new Cod4xCommandSettingsValidator().Validate(new Cod4xCommandSettingsDocument { SchemaVersion = 99 }).IsValid);
@@ -582,14 +586,22 @@ public sealed class NamespaceContractRoundtripTests
             Rules = [null!],
             RuleOverrides = [null!]
         };
+        var malformedVpnProtection = new VpnProtectionSettingsDocument
+        {
+            Rules = [null!],
+            RuleOverrides = [null!],
+            ExcludedPlayerTags = null!
+        };
 
         var broadcastException = Record.Exception(() => new BroadcastSettingsValidator().Validate(malformedBroadcasts));
         var chatException = Record.Exception(() => new ChatCommandSettingsValidator().Validate(malformedChatCommands));
         var welcomeException = Record.Exception(() => new WelcomeMessageSettingsValidator().Validate(malformedWelcomeMessages));
+        var vpnProtectionException = Record.Exception(() => new VpnProtectionSettingsValidator().Validate(malformedVpnProtection));
 
         Assert.Null(broadcastException);
         Assert.Null(chatException);
         Assert.Null(welcomeException);
+        Assert.Null(vpnProtectionException);
     }
 
     [Fact]

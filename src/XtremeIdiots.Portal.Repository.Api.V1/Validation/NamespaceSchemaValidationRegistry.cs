@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Rcon;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Screenshots;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ServerList;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.WelcomeMessages;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Validation;
@@ -55,6 +56,8 @@ internal static class NamespaceSchemaValidationRegistry
                 new ChatCommandSettingsValidator().Validate(Deserialize<ChatCommandSettingsDocument>(configuration)),
             [WelcomeMessageSettingsConstants.Namespace] = configuration =>
                 new WelcomeMessageSettingsValidator().Validate(Deserialize<WelcomeMessageSettingsDocument>(configuration)),
+            [VpnProtectionSettingsConstants.Namespace] = configuration =>
+                new VpnProtectionSettingsValidator().Validate(Deserialize<VpnProtectionSettingsDocument>(configuration)),
             [Cod4xPluginSettingsConstants.Namespace] = configuration =>
                 new Cod4xPluginSettingsValidator().Validate(Deserialize<Cod4xPluginSettingsDocument>(configuration)),
             [Cod4xPowerSettingsConstants.Namespace] = configuration =>

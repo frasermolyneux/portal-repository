@@ -22,6 +22,9 @@ public sealed class Cod4xPluginSettingsDocument
     // Global default is false. Server-level null means inherit global.
     public bool? Enabled { get; set; }
 
+    // Global default is false. Server-level null means inherit global.
+    public bool? VpnProtectionEnabled { get; set; }
+
     // Absolute remote directory containing plugin binaries.
     public string? PluginRootDirectory { get; set; }
 

@@ -16,6 +16,10 @@ This package is the canonical owner of typed settings contracts for platform set
 - `broadcasts`
 - `chatCommands`
 - `welcomeMessages`
+- `vpnProtection`
+- `cod4xPlugin`
+- `cod4xPower`
+- `cod4xCommands`
 
 ## Schema Compatibility Policy
 

@@ -329,6 +329,27 @@ public class GameServerConfigurationsControllerTests
     }
 
     [Fact]
+    public async Task UpsertConfiguration_VpnProtectionNamespace_ValidOverride_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateTestGameServer();
+        context.GameServers.Add(gs);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"ruleOverrides\":[{\"id\":\"vpn\",\"action\":\"Kick\"}],\"excludedPlayerTags\":[\"Server Exempt\"]}"
+        };
+
+        var result = await api.UpsertConfiguration(gs.GameServerId, "vpnProtection", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GameServerConfigurations);
+    }
+
+    [Fact]
     public async Task UpsertConfiguration_KnownNamespace_NullPayload_ReturnsBadRequest()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

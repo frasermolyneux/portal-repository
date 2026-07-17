@@ -575,6 +575,42 @@ public class GlobalConfigurationsControllerTests
     }
 
     [Fact]
+    public async Task UpsertConfiguration_VpnProtectionNamespace_ValidPayload_ReturnsOk()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"rules\":[{\"id\":\"vpn\",\"signal\":\"ProxyCheckIsVpn\",\"operator\":\"Equal\",\"expectedValue\":\"true\",\"action\":\"Ban\"}],\"excludedPlayerTags\":[\"Trusted VPN\"]}"
+        };
+
+        var result = await api.UpsertConfiguration("vpnProtection", dto);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_VpnProtectionNamespace_InvalidRule_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"rules\":[{\"id\":\"vpn\",\"signal\":\"ProxyCheckIsVpn\",\"operator\":\"GreaterThan\",\"expectedValue\":\"true\",\"action\":\"Ban\"}],\"excludedPlayerTags\":[]}"
+        };
+
+        var result = await api.UpsertConfiguration("vpnProtection", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
+    [Fact]
     public async Task UpsertConfiguration_Cod4xPowerNamespace_ValidPayload_ReturnsOk()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
