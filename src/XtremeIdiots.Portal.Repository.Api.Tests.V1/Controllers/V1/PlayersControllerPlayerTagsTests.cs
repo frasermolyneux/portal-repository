@@ -347,6 +347,6 @@ public class PlayersControllerPlayerTagsTests
             .OrderBy(id => id)
             .ToArray();
 
-        Assert.Equal([firstIpId, secondIpId].OrderBy(id => id), returnedIds);
+        Assert.Equal(new[] { firstIpId, secondIpId }.OrderBy(id => id), returnedIds);
     }
 }
