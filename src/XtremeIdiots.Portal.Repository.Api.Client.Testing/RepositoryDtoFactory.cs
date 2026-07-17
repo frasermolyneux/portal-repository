@@ -80,6 +80,36 @@ public static class RepositoryDtoFactory
         };
     }
 
+    public static VpnDetectedTagReconciliationCandidateDto CreateVpnDetectedTagReconciliationCandidate(
+        Guid? playerIpAddressId = null,
+        Guid? playerId = null,
+        string ipAddress = "198.51.100.10",
+        DateTime? lastUsed = null,
+        bool hasVpnDetectedTag = false)
+    {
+        return new VpnDetectedTagReconciliationCandidateDto
+        {
+            PlayerIpAddressId = playerIpAddressId ?? Guid.NewGuid(),
+            PlayerId = playerId ?? Guid.NewGuid(),
+            IpAddress = ipAddress,
+            LastUsed = lastUsed ?? DateTime.UtcNow,
+            HasVpnDetectedTag = hasVpnDetectedTag
+        };
+    }
+
+    public static VpnDetectedTagReconciliationPageDto CreateVpnDetectedTagReconciliationPage(
+        List<VpnDetectedTagReconciliationCandidateDto>? candidates = null,
+        DateTime? nextLastUsedUtc = null,
+        Guid? nextPlayerIpAddressId = null)
+    {
+        return new VpnDetectedTagReconciliationPageDto
+        {
+            Candidates = candidates ?? [],
+            NextLastUsedUtc = nextLastUsedUtc,
+            NextPlayerIpAddressId = nextPlayerIpAddressId
+        };
+    }
+
     public static GameServerDto CreateGameServer(
         Guid? gameServerId = null,
         string title = "Test Server",

@@ -18,6 +18,7 @@ public class FakePlayersApi : IPlayersApi
     private readonly ConcurrentDictionary<Guid, ProtectedNameUsageReportDto> _protectedNameUsageReports = new();
     private readonly ConcurrentDictionary<Guid, List<PlayerTagDto>> _playerTags = new();
     private readonly ConcurrentDictionary<Guid, PlayerTagDto> _playerTagsById = new();
+    private readonly ConcurrentDictionary<Guid, VpnDetectedTagReconciliationCandidateDto> _vpnDetectedTagReconciliationCandidates = new();
 
     public FakePlayersApi AddPlayer(PlayerDto player) { _players[player.PlayerId] = player; return this; }
     public FakePlayersApi AddPlayerAliases(Guid playerId, List<PlayerAliasDto> aliases) { _playerAliases[playerId] = aliases; return this; }
@@ -26,6 +27,7 @@ public class FakePlayersApi : IPlayersApi
     public FakePlayersApi AddProtectedNameUsageReport(Guid protectedNameId, ProtectedNameUsageReportDto report) { _protectedNameUsageReports[protectedNameId] = report; return this; }
     public FakePlayersApi AddPlayerTags(Guid playerId, List<PlayerTagDto> tags) { _playerTags[playerId] = tags; return this; }
     public FakePlayersApi AddPlayerTagById(PlayerTagDto tag) { _playerTagsById[tag.PlayerTagId] = tag; return this; }
+    public FakePlayersApi AddVpnDetectedTagReconciliationCandidate(VpnDetectedTagReconciliationCandidateDto candidate) { _vpnDetectedTagReconciliationCandidates[candidate.PlayerIpAddressId] = candidate; return this; }
     public FakePlayersApi AddErrorResponse(string operationKey, HttpStatusCode statusCode, string errorCode, string errorMessage)
     {
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
@@ -42,6 +44,7 @@ public class FakePlayersApi : IPlayersApi
         _protectedNameUsageReports.Clear();
         _playerTags.Clear();
         _playerTagsById.Clear();
+        _vpnDetectedTagReconciliationCandidates.Clear();
         return this;
     }
 
@@ -139,6 +142,30 @@ public class FakePlayersApi : IPlayersApi
         return Task.FromResult(new ApiResult<CollectionModel<PlayerDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<PlayerDto>>(collection)));
     }
 
+    public Task<ApiResult<VpnDetectedTagReconciliationPageDto>> GetVpnDetectedTagReconciliationCandidates(DateTime cutoffUtc, DateTime? afterLastUsedUtc, Guid? afterPlayerIpAddressId, int takeEntries)
+    {
+        var candidates = _vpnDetectedTagReconciliationCandidates.Values
+            .Where(candidate => candidate.LastUsed >= cutoffUtc)
+            .Where(candidate => !afterLastUsedUtc.HasValue ||
+                candidate.LastUsed > afterLastUsedUtc.Value ||
+                (candidate.LastUsed == afterLastUsedUtc.Value &&
+                    afterPlayerIpAddressId.HasValue &&
+                    candidate.PlayerIpAddressId.CompareTo(afterPlayerIpAddressId.Value) > 0))
+            .OrderBy(candidate => candidate.LastUsed)
+            .ThenBy(candidate => candidate.PlayerIpAddressId)
+            .Take(takeEntries + 1)
+            .ToList();
+        var hasMore = candidates.Count > takeEntries;
+        var page = new VpnDetectedTagReconciliationPageDto
+        {
+            Candidates = candidates.Take(takeEntries).ToList(),
+            NextLastUsedUtc = hasMore ? candidates[takeEntries - 1].LastUsed : null,
+            NextPlayerIpAddressId = hasMore ? candidates[takeEntries - 1].PlayerIpAddressId : null
+        };
+
+        return Task.FromResult(new ApiResult<VpnDetectedTagReconciliationPageDto>(HttpStatusCode.OK, new ApiResponse<VpnDetectedTagReconciliationPageDto>(page)));
+    }
+
     public Task<ApiResult<CollectionModel<IpAddressDto>>> GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order)
     {
         var items = _playerIpAddresses.TryGetValue(playerId, out var ips) ? ips.Skip(skipEntries).Take(takeEntries).ToList() : [];
@@ -156,6 +183,38 @@ public class FakePlayersApi : IPlayersApi
         }
 
         return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
+    }
+
+    public Task<ApiResult> SetVpnDetectedTag(Guid playerId, SetVpnDetectedTagDto dto)
+    {
+        if (!_players.ContainsKey(playerId))
+        {
+            return Task.FromResult(new ApiResult(HttpStatusCode.NotFound, new ApiResponse(new ApiError("NOT_FOUND", "Player not found"))));
+        }
+
+        var tags = _playerTags.GetOrAdd(playerId, []);
+        lock (tags)
+        {
+            var matchingSystemTags = tags
+                .Where(tag => string.Equals(tag.Tag?.Name, "vpn-detected", StringComparison.OrdinalIgnoreCase) && tag.Tag?.UserDefined == false)
+                .ToList();
+            if (dto.IsDetected && matchingSystemTags.Count == 0)
+            {
+                tags.Add(new PlayerTagDto
+                {
+                    PlayerTagId = Guid.NewGuid(),
+                    PlayerId = playerId,
+                    Assigned = DateTime.UtcNow,
+                    Tag = new TagDto { Name = "vpn-detected", UserDefined = false }
+                });
+            }
+            else if (!dto.IsDetected && matchingSystemTags.Count > 0)
+            {
+                tags.RemoveAll(tag => matchingSystemTags.Contains(tag));
+            }
+        }
+
+        return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     }
 
     public Task<ApiResult> UpdatePlayerUsername(UpdatePlayerUsernameDto dto)

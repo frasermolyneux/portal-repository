@@ -15,6 +15,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult<CollectionModel<PlayerDto>>> GetPlayersWithIpAddress(string ipAddress, int skipEntries, int takeEntries, PlayersOrder? order, PlayerEntityOptions playerEntityOptions);
         Task<ApiResult<CollectionModel<IpAddressDto>>> GetPlayerIpAddresses(Guid playerId, int skipEntries, int takeEntries, IpAddressesOrder? order);
 
+        /// <summary>
+        /// Retrieves a stable cursor-paged projection of IP addresses used since a cutoff for VPN tag reconciliation.
+        /// </summary>
+        Task<ApiResult<VpnDetectedTagReconciliationPageDto>> GetVpnDetectedTagReconciliationCandidates(DateTime cutoffUtc, DateTime? afterLastUsedUtc, Guid? afterPlayerIpAddressId, int takeEntries);
+
         Task<ApiResult> CreatePlayer(CreatePlayerDto createPlayerDto);
         Task<ApiResult> CreatePlayers(List<CreatePlayerDto> createPlayerDtos);
 
@@ -22,6 +27,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         /// Updates only the player's IP address and IP history. Does not modify aliases or LastSeen.
         /// </summary>
         Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto);
+
+        /// <summary>
+        /// Idempotently converges the system-managed <c>vpn-detected</c> tag for a player.
+        /// </summary>
+        Task<ApiResult> SetVpnDetectedTag(Guid playerId, SetVpnDetectedTagDto dto);
 
         /// <summary>
         /// Updates only the player's username and alias history. Does not modify IP or LastSeen.

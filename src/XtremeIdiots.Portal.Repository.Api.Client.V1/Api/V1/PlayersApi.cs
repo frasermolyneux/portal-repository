@@ -100,6 +100,27 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<CollectionModel<PlayerDto>>();
         }
 
+        public async Task<ApiResult<VpnDetectedTagReconciliationPageDto>> GetVpnDetectedTagReconciliationCandidates(DateTime cutoffUtc, DateTime? afterLastUsedUtc, Guid? afterPlayerIpAddressId, int takeEntries)
+        {
+            var request = await CreateRequestAsync("v1/players/vpn-detected-reconciliation-candidates", Method.Get).ConfigureAwait(false);
+            request.AddQueryParameter(nameof(cutoffUtc), cutoffUtc.ToString("O"));
+            request.AddQueryParameter(nameof(takeEntries), takeEntries.ToString());
+
+            if (afterLastUsedUtc.HasValue)
+            {
+                request.AddQueryParameter(nameof(afterLastUsedUtc), afterLastUsedUtc.Value.ToString("O"));
+            }
+
+            if (afterPlayerIpAddressId.HasValue)
+            {
+                request.AddQueryParameter(nameof(afterPlayerIpAddressId), afterPlayerIpAddressId.Value.ToString());
+            }
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+
+            return response.ToApiResult<VpnDetectedTagReconciliationPageDto>();
+        }
+
         public async Task<ApiResult> CreatePlayer(CreatePlayerDto createPlayerDto)
         {
             var request = await CreateRequestAsync("v1/players", Method.Post).ConfigureAwait(false);
@@ -123,6 +144,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public async Task<ApiResult> UpdatePlayerIpAddress(UpdatePlayerIpAddressDto dto)
         {
             var request = await CreateRequestAsync($"v1/players/{dto.PlayerId}/ip-address", Method.Patch).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+
+            var response = await ExecuteAsync(request).ConfigureAwait(false);
+
+            return response.ToApiResult();
+        }
+
+        public async Task<ApiResult> SetVpnDetectedTag(Guid playerId, SetVpnDetectedTagDto dto)
+        {
+            var request = await CreateRequestAsync($"v1/players/{playerId}/system-tags/vpn-detected", Method.Put).ConfigureAwait(false);
             request.AddJsonBody(dto);
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);

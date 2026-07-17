@@ -18,3 +18,8 @@ CREATE UNIQUE NONCLUSTERED INDEX [IX_PlayerTagId]
 GO
 CREATE NONCLUSTERED INDEX [IX_PlayerId]
     ON [dbo].[PlayerTags]([PlayerId] ASC);
+
+GO
+CREATE UNIQUE NONCLUSTERED INDEX [UX_PlayerTags_PlayerId_TagId]
+  ON [dbo].[PlayerTags]([PlayerId] ASC, [TagId] ASC)
+  WHERE [PlayerId] IS NOT NULL AND [TagId] IS NOT NULL;

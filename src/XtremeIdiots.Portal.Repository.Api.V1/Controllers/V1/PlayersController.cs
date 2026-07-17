@@ -898,6 +898,90 @@ public class PlayersController : ControllerBase, IPlayersApi
     }
 
     /// <summary>
+    /// Idempotently adds or removes the system-managed <c>vpn-detected</c> tag for a player.
+    /// </summary>
+    [HttpPut("players/{playerId:guid}/system-tags/vpn-detected")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetVpnDetectedTag(Guid playerId, [FromBody] SetVpnDetectedTagDto dto, CancellationToken cancellationToken = default)
+    {
+        if (dto is null)
+        {
+            return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
+                .ToBadRequestResult()
+                .ToHttpResult();
+        }
+
+        var response = await ((IPlayersApi)this).SetVpnDetectedTag(playerId, dto).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult> IPlayersApi.SetVpnDetectedTag(Guid playerId, SetVpnDetectedTagDto dto)
+    {
+        if (!await context.Players.AsNoTracking().AnyAsync(player => player.PlayerId == playerId).ConfigureAwait(false))
+        {
+            return new ApiResult(HttpStatusCode.NotFound);
+        }
+
+        var vpnDetectedTag = await context.Tags
+            .SingleOrDefaultAsync(tag => tag.Name == "vpn-detected" && !tag.UserDefined)
+            .ConfigureAwait(false);
+        if (vpnDetectedTag is null)
+        {
+            return new ApiResult(HttpStatusCode.NotFound);
+        }
+
+        var playerTags = await context.PlayerTags
+            .Where(tag => tag.PlayerId == playerId && tag.TagId == vpnDetectedTag.TagId)
+            .ToListAsync()
+            .ConfigureAwait(false);
+        var changed = false;
+
+        if (dto.IsDetected && playerTags.Count == 0)
+        {
+            context.PlayerTags.Add(new PlayerTag
+            {
+                PlayerId = playerId,
+                TagId = vpnDetectedTag.TagId,
+                Assigned = DateTime.UtcNow
+            });
+            changed = true;
+        }
+        else if (!dto.IsDetected && playerTags.Count > 0)
+        {
+            context.PlayerTags.RemoveRange(playerTags);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            try
+            {
+                await context.SaveChangesAsync().ConfigureAwait(false);
+            }
+            catch (DbUpdateException ex) when (dto.IsDetected && IsVpnDetectedTagUniqueConstraintViolation(ex))
+            {
+                context.ChangeTracker.Clear();
+                return new ApiResponse().ToApiResult();
+            }
+
+            InvalidateTagPlayerCountsCache();
+
+            auditLogger.LogAudit(AuditEvent.SystemAction("VpnDetectedTagUpdated", AuditAction.Update)
+                .WithTarget(playerId.ToString(), "Player")
+                .WithSource(nameof(PlayersController))
+                .WithProperty("IsDetected", dto.IsDetected.ToString())
+                .Build());
+        }
+
+        return new ApiResponse().ToApiResult();
+    }
+
+    private static bool IsVpnDetectedTagUniqueConstraintViolation(DbUpdateException exception) =>
+        exception.InnerException?.Message.Contains("UX_PlayerTags_PlayerId_TagId", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>
     /// Updates only a player's username and alias history.
     /// </summary>
     [HttpPatch("players/{playerId:guid}/username")]
@@ -1815,6 +1899,87 @@ JOIN Players p ON p.PlayerId = a.PlayerId")
     #endregion
 
     #region Players with IP Address
+
+    /// <summary>
+    /// Retrieves a cursor-paged projection of recent player IP associations for VPN tag reconciliation.
+    /// </summary>
+    [HttpGet("players/vpn-detected-reconciliation-candidates")]
+    [ProducesResponseType<VpnDetectedTagReconciliationPageDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetVpnDetectedTagReconciliationCandidates(
+        [FromQuery] DateTime cutoffUtc,
+        [FromQuery] DateTime? afterLastUsedUtc,
+        [FromQuery] Guid? afterPlayerIpAddressId,
+        [FromQuery] int takeEntries,
+        CancellationToken cancellationToken = default)
+    {
+        if (cutoffUtc == default || cutoffUtc > DateTime.UtcNow ||
+            afterLastUsedUtc.HasValue != afterPlayerIpAddressId.HasValue ||
+            afterLastUsedUtc > DateTime.UtcNow ||
+            takeEntries is < 1 or > 500)
+        {
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequestBody, "A past UTC cutoff and takeEntries between 1 and 500 are required."))
+                .ToBadRequestResult()
+                .ToHttpResult();
+        }
+
+        var response = await ((IPlayersApi)this)
+            .GetVpnDetectedTagReconciliationCandidates(cutoffUtc, afterLastUsedUtc, afterPlayerIpAddressId, takeEntries)
+            .ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<VpnDetectedTagReconciliationPageDto>> IPlayersApi.GetVpnDetectedTagReconciliationCandidates(
+        DateTime cutoffUtc,
+        DateTime? afterLastUsedUtc,
+        Guid? afterPlayerIpAddressId,
+        int takeEntries)
+    {
+        var query = context.PlayerIpAddresses
+            .AsNoTracking()
+            .Where(playerIp => playerIp.PlayerId != null &&
+                playerIp.Address != null &&
+                playerIp.LastUsed >= cutoffUtc);
+
+        if (afterLastUsedUtc.HasValue)
+        {
+            query = query.Where(playerIp =>
+                playerIp.LastUsed > afterLastUsedUtc.Value ||
+                (playerIp.LastUsed == afterLastUsedUtc.Value &&
+                    playerIp.PlayerIpAddressId.CompareTo(afterPlayerIpAddressId!.Value) > 0));
+        }
+
+        var candidates = await query
+            .OrderBy(playerIp => playerIp.LastUsed)
+            .ThenBy(playerIp => playerIp.PlayerIpAddressId)
+            .Select(playerIp => new VpnDetectedTagReconciliationCandidateDto
+            {
+                PlayerIpAddressId = playerIp.PlayerIpAddressId,
+                PlayerId = playerIp.PlayerId!.Value,
+                IpAddress = playerIp.Address!,
+                LastUsed = playerIp.LastUsed,
+                HasVpnDetectedTag = context.PlayerTags.Any(playerTag =>
+                    playerTag.PlayerId == playerIp.PlayerId &&
+                    playerTag.Tag != null &&
+                    playerTag.Tag.Name == "vpn-detected" &&
+                    !playerTag.Tag.UserDefined)
+            })
+            .Take(takeEntries + 1)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var hasMore = candidates.Count > takeEntries;
+        var pageCandidates = candidates.Take(takeEntries).ToList();
+        var page = new VpnDetectedTagReconciliationPageDto
+        {
+            Candidates = pageCandidates,
+            NextLastUsedUtc = hasMore ? pageCandidates[^1].LastUsed : null,
+            NextPlayerIpAddressId = hasMore ? pageCandidates[^1].PlayerIpAddressId : null
+        };
+
+        return new ApiResponse<VpnDetectedTagReconciliationPageDto>(page).ToApiResult();
+    }
+
     /// <summary>
     /// Retrieves all players associated with a specific IP address.
     /// </summary>

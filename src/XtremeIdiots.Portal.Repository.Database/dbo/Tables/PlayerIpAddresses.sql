@@ -16,3 +16,8 @@ CREATE NONCLUSTERED INDEX [IX_Players_PlayerId]
 GO
 CREATE NONCLUSTERED INDEX [IX_Address]
     ON [dbo].[PlayerIpAddresses]([Address] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_PlayerIpAddresses_LastUsed_Address_PlayerId]
+    ON [dbo].[PlayerIpAddresses]([LastUsed] ASC, [PlayerIpAddressId] ASC)
+    INCLUDE ([Address], [PlayerId]);

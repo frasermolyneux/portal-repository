@@ -299,7 +299,7 @@ END
 -- VPN Detected Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE [Name] = 'vpn-detected')
+WHERE LOWER([Name]) = 'vpn-detected')
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
@@ -308,6 +308,11 @@ BEGIN
 
     PRINT 'Inserted vpn-detected tag'
 END
+
+UPDATE [dbo].[Tags]
+SET [UserDefined] = 0
+WHERE LOWER([Name]) = 'vpn-detected'
+    AND [UserDefined] <> 0
 
 -- Moderate Chat Tag
 IF NOT EXISTS (SELECT *
