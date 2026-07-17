@@ -15,6 +15,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<AdminAction> AdminActions { get; set; }
 
+    public virtual DbSet<AutomationActionState> AutomationActionStates { get; set; }
+
     public virtual DbSet<BanFileMonitor> BanFileMonitors { get; set; }
 
     public virtual DbSet<CentralBanFileStatus> CentralBanFileStatuses { get; set; }
@@ -83,6 +85,14 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.AdminActionId).HasName("PK_dbo.AdminActions");
 
+            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_ActiveBan")
+                .IsUnique()
+                .HasFilter("[Source] = 1 AND [AutomationIsActive] = 1 AND [Type] IN (3, 4)");
+
+            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_NonBan")
+                .IsUnique()
+                .HasFilter("[Source] = 1 AND [Type] IN (0, 1, 2)");
+
             entity.Property(e => e.AdminActionId).HasDefaultValueSql("newsequentialid()");
             entity.Property(e => e.ForumTopicId).HasDefaultValueSql("NULL");
 
@@ -91,6 +101,17 @@ public partial class PortalDbContext : DbContext
                 .HasConstraintName("FK_dbo.AdminActions_dbo.Players_PlayerId");
 
             entity.HasOne(d => d.UserProfile).WithMany(p => p.AdminActions).HasConstraintName("FK_dbo.AdminActions_dbo.UserProfiles_UserProfileId");
+        });
+
+        modelBuilder.Entity<AutomationActionState>(entity =>
+        {
+            entity.HasKey(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId }).HasName("PK_dbo.AutomationActionStates");
+
+            entity.Property(e => e.LastUpdatedUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasOne(d => d.Player).WithMany(p => p.AutomationActionStates)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_dbo.AutomationActionStates_dbo.Players_PlayerId");
         });
 
         modelBuilder.Entity<BanFileMonitor>(entity =>

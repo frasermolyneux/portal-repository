@@ -42,6 +42,15 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions
         public DateTime? Expires { get; internal set; }
 
         [JsonProperty]
+        public ActionSource Source { get; internal set; }
+
+        [JsonProperty]
+        public AutomationFeature? AutomationFeature { get; internal set; }
+
+        [JsonProperty]
+        public string? AutomationRuleId { get; internal set; }
+
+        [JsonProperty]
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         public PlayerDto Player { get; internal set; }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.

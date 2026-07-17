@@ -11,6 +11,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Retrieves a paginated list of admin actions with automation provenance filters.
+        /// </summary>
+        Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, ActionSource? source, AutomationFeature? automationFeature, string? automationRuleId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Returns aggregate counts of currently-active bans per game type, used by
         /// the ban file monitor dashboard. When <paramref name="gameType"/> is
         /// supplied, the collection contains exactly one entry; otherwise one entry
@@ -19,6 +24,11 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult<CollectionModel<ActiveBanCountsDto>>> GetActiveBanCounts(GameType? gameType, CancellationToken cancellationToken = default);
 
         Task<ApiResult> CreateAdminAction(CreateAdminActionDto createAdminActionDto, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Creates an automated action only when an equal or stronger action for the automation rule does not already exist.
+        /// </summary>
+        Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureAutomatedAction(EnsureAutomatedActionDto ensureAutomatedActionDto, CancellationToken cancellationToken = default);
 
         Task<ApiResult> UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default);
 

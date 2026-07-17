@@ -4,6 +4,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 
@@ -82,6 +83,80 @@ public class FakeRepositoryApiClientTests
         var result = await client.ApiHealth.V1.CheckHealth();
 
         Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminActions_V1_EnsureAutomatedAction_ReusesEqualRuleAction()
+    {
+        var client = new FakeRepositoryApiClient();
+        var playerId = Guid.NewGuid();
+        var request = new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Observation,
+            "VPN Protection: vpn",
+            AutomationFeature.VpnProtection,
+            "vpn");
+
+        var first = await client.AdminActions.V1.EnsureAutomatedAction(request);
+        var second = await client.AdminActions.V1.EnsureAutomatedAction(request);
+
+        Assert.True(first.Result!.Data!.Created);
+        Assert.False(second.Result!.Data!.Created);
+        Assert.Equal(first.Result.Data.AdminAction.AdminActionId, second.Result.Data.AdminAction.AdminActionId);
+    }
+
+    [Fact]
+    public async Task AdminActions_V1_EnsureAutomatedAction_LiftedBanStartsNewCycle()
+    {
+        var client = new FakeRepositoryApiClient();
+        var request = new EnsureAutomatedActionDto(
+            Guid.NewGuid(),
+            AdminActionType.Ban,
+            "VPN Protection: vpn",
+            AutomationFeature.VpnProtection,
+            "vpn");
+
+        var first = await client.AdminActions.V1.EnsureAutomatedAction(request);
+        await client.AdminActions.V1.UpdateAdminAction(new EditAdminActionDto(first.Result!.Data!.AdminAction.AdminActionId)
+        {
+            Expires = DateTime.UtcNow
+        });
+
+        var second = await client.AdminActions.V1.EnsureAutomatedAction(request);
+
+        Assert.True(second.Result!.Data!.Created);
+        Assert.NotEqual(first.Result.Data.AdminAction.AdminActionId, second.Result.Data.AdminAction.AdminActionId);
+    }
+
+    [Fact]
+    public async Task AdminActions_V1_EnsureAutomatedAction_StrongerBanExpiresLowerBan()
+    {
+        var client = new FakeRepositoryApiClient();
+        var playerId = Guid.NewGuid();
+        var temporaryBan = new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.TempBan,
+            "VPN Protection: vpn",
+            AutomationFeature.VpnProtection,
+            "vpn")
+        {
+            Expires = DateTime.UtcNow.AddDays(1)
+        };
+        var permanentBan = new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Ban,
+            "VPN Protection: vpn",
+            AutomationFeature.VpnProtection,
+            "vpn");
+
+        var first = await client.AdminActions.V1.EnsureAutomatedAction(temporaryBan);
+        var second = await client.AdminActions.V1.EnsureAutomatedAction(permanentBan);
+
+        var actions = await client.AdminActions.V1.GetAdminActions(null, playerId, null, null, 0, 20, null);
+        var expiredTemporaryBan = Assert.Single(actions.Result!.Data!.Items!, action => action.AdminActionId == first.Result!.Data!.AdminAction.AdminActionId);
+
+        Assert.True(second.Result!.Data!.Created);
+        Assert.True(expiredTemporaryBan.Expires <= DateTime.UtcNow);
     }
 
     [Fact]

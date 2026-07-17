@@ -32,6 +32,15 @@ public partial class AdminAction
     [Column(TypeName = "datetime")]
     public DateTime? Expires { get; set; }
 
+    public byte Source { get; set; }
+
+    public int? AutomationFeature { get; set; }
+
+    [StringLength(128)]
+    public string? AutomationRuleId { get; set; }
+
+    public bool AutomationIsActive { get; set; }
+
     [ForeignKey("PlayerId")]
     [InverseProperty("AdminActions")]
     public virtual Player Player { get; set; } = null!;

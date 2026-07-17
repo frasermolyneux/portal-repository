@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using System.Data;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -10,6 +11,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
+using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using Asp.Versioning;
 
@@ -89,9 +91,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] int skipEntries = 0,
             [FromQuery] int takeEntries = 20,
             [FromQuery] AdminActionOrder? order = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            [FromQuery] ActionSource? source = null,
+            [FromQuery] AutomationFeature? automationFeature = null,
+            [FromQuery] string? automationRuleId = null)
         {
-            var response = await ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+            var response = await ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, source, automationFeature, automationRuleId, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -107,7 +112,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="order">Optional ordering criteria for results.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing a paginated collection of admin actions.</returns>
-        async Task<ApiResult<CollectionModel<AdminActionDto>>> IAdminActionsApi.GetAdminActions(
+        Task<ApiResult<CollectionModel<AdminActionDto>>> IAdminActionsApi.GetAdminActions(
             GameType? gameType,
             Guid? playerId,
             string? adminId,
@@ -116,12 +121,26 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             int takeEntries,
             AdminActionOrder? order,
             CancellationToken cancellationToken)
+            => ((IAdminActionsApi)this).GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, null, null, null, cancellationToken);
+
+        async Task<ApiResult<CollectionModel<AdminActionDto>>> IAdminActionsApi.GetAdminActions(
+            GameType? gameType,
+            Guid? playerId,
+            string? adminId,
+            AdminActionFilter? filter,
+            int skipEntries,
+            int takeEntries,
+            AdminActionOrder? order,
+            ActionSource? source,
+            AutomationFeature? automationFeature,
+            string? automationRuleId,
+            CancellationToken cancellationToken)
         {
             // Use lightweight query without includes for counting
             var countQuery = context.AdminActions.AsNoTracking().AsQueryable();
             var totalCount = await countQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
-            var filteredCountQuery = ApplyFilters(countQuery, gameType, playerId, adminId, filter);
+            var filteredCountQuery = ApplyFilters(countQuery, gameType, playerId, adminId, filter, source, automationFeature, automationRuleId);
             var filteredCount = await filteredCountQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Build data query with includes only for the paginated results
@@ -131,7 +150,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 .AsNoTracking()
                 .AsQueryable();
 
-            var filteredDataQuery = ApplyFilters(dataQuery, gameType, playerId, adminId, filter);
+            var filteredDataQuery = ApplyFilters(dataQuery, gameType, playerId, adminId, filter, source, automationFeature, automationRuleId);
             var orderedQuery = ApplyOrderingAndPagination(filteredDataQuery, skipEntries, takeEntries, order);
             var adminActions = await orderedQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
@@ -145,7 +164,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }.ToApiResult();
         }
 
-        private IQueryable<AdminAction> ApplyFilters(IQueryable<AdminAction> query, GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter)
+        private IQueryable<AdminAction> ApplyFilters(IQueryable<AdminAction> query, GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, ActionSource? source, AutomationFeature? automationFeature, string? automationRuleId)
         {
             if (gameType.HasValue)
             {
@@ -163,6 +182,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     (a.UserProfile.IdentityOid == adminId ||
                      a.UserProfile.XtremeIdiotsForumId == adminId ||
                      a.UserProfile.DemoAuthKey == adminId));
+            }
+
+            if (source.HasValue)
+            {
+                query = query.Where(a => a.Source == (byte)source.Value);
+            }
+
+            if (automationFeature.HasValue)
+            {
+                query = query.Where(a => a.AutomationFeature == (int)automationFeature.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(automationRuleId))
+            {
+                query = query.Where(a => a.AutomationRuleId == automationRuleId);
             }
 
             if (filter.HasValue)
@@ -319,6 +353,106 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
+        /// Creates an action for an automation rule only when an equal or stronger action does not already exist.
+        /// </summary>
+        /// <param name="ensureAutomatedActionDto">The automation action to ensure.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>The created or existing action.</returns>
+        [HttpPost("admin-actions/ensure-automated")]
+        [ProducesResponseType<EnsureAutomatedActionResultDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<EnsureAutomatedActionResultDto>(StatusCodes.Status201Created)]
+        public async Task<IActionResult> EnsureAutomatedAction([FromBody] EnsureAutomatedActionDto ensureAutomatedActionDto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IAdminActionsApi)this).EnsureAutomatedAction(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult<EnsureAutomatedActionResultDto>> IAdminActionsApi.EnsureAutomatedAction(EnsureAutomatedActionDto ensureAutomatedActionDto, CancellationToken cancellationToken)
+        {
+            if (!context.Database.IsRelational())
+            {
+                return await EnsureAutomatedActionCoreAsync(ensureAutomatedActionDto, null, cancellationToken).ConfigureAwait(false);
+            }
+
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                await using var transaction = await context.Database
+                    .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                    .ConfigureAwait(false);
+
+                try
+                {
+                    var state = await GetOrCreateAutomationActionStateAsync(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
+                    var result = await EnsureAutomatedActionCoreAsync(ensureAutomatedActionDto, state, cancellationToken).ConfigureAwait(false);
+
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    return result;
+                }
+                catch (DbUpdateException) when (attempt == 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                    context.ChangeTracker.Clear();
+                }
+            }
+
+            throw new InvalidOperationException("Unable to serialize the automated action decision.");
+        }
+
+        private async Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureAutomatedActionCoreAsync(
+            EnsureAutomatedActionDto ensureAutomatedActionDto,
+            AutomationActionState? state,
+            CancellationToken cancellationToken)
+        {
+            var nowUtc = DateTime.UtcNow;
+            var existingActions = await GetAutomationActionsAsync(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
+
+            if (DeactivateExpiredAutomationBans(existingActions, nowUtc))
+            {
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            var existingAction = FindEqualOrStrongerAction(existingActions, ensureAutomatedActionDto.Type, nowUtc);
+            if (existingAction is not null)
+            {
+                if (state is not null)
+                {
+                    state.LastUpdatedUtc = nowUtc;
+                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                return ToEnsureResult(existingAction, created: false, HttpStatusCode.OK);
+            }
+
+            DeactivateLowerActiveBans(existingActions, ensureAutomatedActionDto.Type, nowUtc);
+
+            var adminAction = new AdminAction
+            {
+                PlayerId = ensureAutomatedActionDto.PlayerId,
+                Type = ensureAutomatedActionDto.Type.ToAdminActionTypeInt(),
+                Text = ensureAutomatedActionDto.Text,
+                Expires = ensureAutomatedActionDto.Expires,
+                Created = nowUtc,
+                Source = (byte)ActionSource.Automation,
+                AutomationFeature = (int)ensureAutomatedActionDto.AutomationFeature,
+                AutomationRuleId = ensureAutomatedActionDto.AutomationRuleId,
+                AutomationIsActive = IsBan(ensureAutomatedActionDto.Type)
+            };
+
+            if (!string.IsNullOrEmpty(ensureAutomatedActionDto.AdminId))
+            {
+                adminAction.UserProfileId = await ResolveUserProfileIdAsync(ensureAutomatedActionDto.AdminId, cancellationToken).ConfigureAwait(false);
+            }
+
+            context.AdminActions.Add(adminAction);
+
+            state?.LastUpdatedUtc = nowUtc;
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return ToEnsureResult(adminAction, created: true, HttpStatusCode.Created);
+        }
+
+        /// <summary>
         /// Partially updates an existing admin action. Uses PATCH semantics: only non-null properties in the payload are applied.
         /// </summary>
         /// <param name="adminActionId">The unique identifier of the admin action to update.</param>
@@ -365,6 +499,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             editAdminActionDto.ApplyTo(adminAction);
 
+            if (adminAction.Source == (byte)ActionSource.Automation
+                && IsBan(adminAction.Type.ToAdminActionType())
+                && adminAction.Expires <= DateTime.UtcNow)
+            {
+                adminAction.AutomationIsActive = false;
+            }
+
             // Match provided admin identifier (could be Identity OID or Forum Id) to a UserProfile
             if (!string.IsNullOrEmpty(editAdminActionDto.AdminId))
             {
@@ -382,6 +523,128 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
+        }
+
+        private async Task<List<AdminAction>> GetAutomationActionsAsync(EnsureAutomatedActionDto dto, CancellationToken cancellationToken)
+        {
+            return await context.AdminActions
+                .Where(action => action.PlayerId == dto.PlayerId
+                    && action.Source == (byte)ActionSource.Automation
+                    && action.AutomationFeature == (int)dto.AutomationFeature
+                    && action.AutomationRuleId == dto.AutomationRuleId)
+                .OrderByDescending(action => action.Type)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private async Task<AutomationActionState> GetOrCreateAutomationActionStateAsync(EnsureAutomatedActionDto dto, CancellationToken cancellationToken)
+        {
+            var state = await context.AutomationActionStates
+                .SingleOrDefaultAsync(existing => existing.PlayerId == dto.PlayerId
+                    && existing.AutomationFeature == (int)dto.AutomationFeature
+                    && existing.AutomationRuleId == dto.AutomationRuleId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (state is not null)
+            {
+                return state;
+            }
+
+            state = new AutomationActionState
+            {
+                PlayerId = dto.PlayerId,
+                AutomationFeature = (int)dto.AutomationFeature,
+                AutomationRuleId = dto.AutomationRuleId,
+                LastUpdatedUtc = DateTime.UtcNow
+            };
+            context.AutomationActionStates.Add(state);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return state;
+        }
+
+        private static bool DeactivateExpiredAutomationBans(IEnumerable<AdminAction> actions, DateTime nowUtc)
+        {
+            var changed = false;
+
+            foreach (var action in actions.Where(action => action.AutomationIsActive
+                && IsBan(action.Type.ToAdminActionType())
+                && action.Expires.HasValue
+                && action.Expires <= nowUtc))
+            {
+                action.AutomationIsActive = false;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static AdminAction? FindEqualOrStrongerAction(IEnumerable<AdminAction> actions, AdminActionType requestedType, DateTime nowUtc)
+        {
+            return actions
+                .Where(action => IsActionRelevant(action, nowUtc))
+                .FirstOrDefault(action => GetSeverity(action.Type.ToAdminActionType()) >= GetSeverity(requestedType));
+        }
+
+        private static void DeactivateLowerActiveBans(IEnumerable<AdminAction> actions, AdminActionType requestedType, DateTime nowUtc)
+        {
+            if (!IsBan(requestedType))
+            {
+                return;
+            }
+
+            foreach (var action in actions.Where(action => action.AutomationIsActive
+                && IsBan(action.Type.ToAdminActionType())
+                && GetSeverity(action.Type.ToAdminActionType()) < GetSeverity(requestedType)))
+            {
+                action.AutomationIsActive = false;
+                action.Expires = nowUtc;
+            }
+        }
+
+        private static bool IsActionRelevant(AdminAction action, DateTime nowUtc)
+        {
+            if (!IsBan(action.Type.ToAdminActionType()))
+            {
+                return true;
+            }
+
+            return action.AutomationIsActive
+                && (!action.Expires.HasValue || action.Expires > nowUtc);
+        }
+
+        private static bool IsBan(AdminActionType type) => type is AdminActionType.Ban or AdminActionType.TempBan;
+
+        private static int GetSeverity(AdminActionType type) => type switch
+        {
+            AdminActionType.Observation => 0,
+            AdminActionType.Warning => 1,
+            AdminActionType.Kick => 2,
+            AdminActionType.TempBan => 3,
+            AdminActionType.Ban => 4,
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported admin action type.")
+        };
+
+        private static ApiResult<EnsureAutomatedActionResultDto> ToEnsureResult(AdminAction action, bool created, HttpStatusCode statusCode)
+        {
+            var result = new EnsureAutomatedActionResultDto
+            {
+                Created = created,
+                AdminAction = action.ToDto(expand: false)
+            };
+
+            return new ApiResponse<EnsureAutomatedActionResultDto>(result).ToApiResult(statusCode);
+        }
+
+        private async Task<Guid?> ResolveUserProfileIdAsync(string adminId, CancellationToken cancellationToken)
+        {
+            var userProfileId = await context.UserProfiles
+                .Where(profile => profile.IdentityOid == adminId || profile.XtremeIdiotsForumId == adminId)
+                .Select(profile => (Guid?)profile.UserProfileId)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            return userProfileId;
         }
 
         /// <summary>

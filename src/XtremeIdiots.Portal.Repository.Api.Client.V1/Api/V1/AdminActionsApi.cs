@@ -27,7 +27,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<AdminActionDto>();
         }
 
-        public async Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, CancellationToken cancellationToken = default)
+        public Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, CancellationToken cancellationToken = default)
+            => GetAdminActions(gameType, playerId, adminId, filter, skipEntries, takeEntries, order, null, null, null, cancellationToken);
+
+        public async Task<ApiResult<CollectionModel<AdminActionDto>>> GetAdminActions(GameType? gameType, Guid? playerId, string? adminId, AdminActionFilter? filter, int skipEntries, int takeEntries, AdminActionOrder? order, ActionSource? source, AutomationFeature? automationFeature, string? automationRuleId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions", Method.Get).ConfigureAwait(false);
 
@@ -59,6 +62,21 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
                 request.AddQueryParameter("order", order.ToString());
             }
 
+            if (source.HasValue)
+            {
+                request.AddQueryParameter("source", source.ToString());
+            }
+
+            if (automationFeature.HasValue)
+            {
+                request.AddQueryParameter("automationFeature", automationFeature.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(automationRuleId))
+            {
+                request.AddQueryParameter("automationRuleId", automationRuleId);
+            }
+
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult<CollectionModel<AdminActionDto>>();
@@ -85,6 +103,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
             return response.ToApiResult();
+        }
+
+        public async Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureAutomatedAction(EnsureAutomatedActionDto ensureAutomatedActionDto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/admin-actions/ensure-automated", Method.Post).ConfigureAwait(false);
+            request.AddJsonBody(ensureAutomatedActionDto);
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult<EnsureAutomatedActionResultDto>();
         }
 
         public async Task<ApiResult> UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)

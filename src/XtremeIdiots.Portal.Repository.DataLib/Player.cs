@@ -46,6 +46,9 @@ public partial class Player
     public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<AutomationActionState> AutomationActionStates { get; set; } = new List<AutomationActionState>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 
     [InverseProperty("Player")]

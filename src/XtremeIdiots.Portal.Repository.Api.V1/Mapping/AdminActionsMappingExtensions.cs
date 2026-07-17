@@ -1,4 +1,5 @@
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
@@ -30,6 +31,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Text = entity.Text,
                 Created = entity.Created,
                 Expires = entity.Expires,
+                Source = (ActionSource)entity.Source,
+                AutomationFeature = entity.AutomationFeature is null ? null : (AutomationFeature)entity.AutomationFeature.Value,
+                AutomationRuleId = entity.AutomationRuleId,
                 Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null!,
                 UserProfile = expand && entity.UserProfile is not null ? entity.UserProfile.ToDto(false) : null
             };
@@ -51,7 +55,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Text = dto.Text,
                 Expires = dto.Expires,
                 ForumTopicId = dto.ForumTopicId,
-                Created = DateTime.UtcNow
+                Created = DateTime.UtcNow,
+                Source = (byte)ActionSource.Manual,
+                AutomationIsActive = false
             };
         }
 

@@ -150,7 +150,10 @@ public static class RepositoryDtoFactory
         AdminActionType type = AdminActionType.Warning,
         string text = "Test admin action",
         DateTime? created = null,
-        DateTime? expires = null)
+        DateTime? expires = null,
+        ActionSource source = ActionSource.Manual,
+        AutomationFeature? automationFeature = null,
+        string? automationRuleId = null)
     {
         return new AdminActionDto
         {
@@ -160,7 +163,10 @@ public static class RepositoryDtoFactory
             Type = type,
             Text = text,
             Created = created ?? DateTime.UtcNow,
-            Expires = expires
+            Expires = expires,
+            Source = source,
+            AutomationFeature = automationFeature,
+            AutomationRuleId = automationRuleId
         };
     }
 
