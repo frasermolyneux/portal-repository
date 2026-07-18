@@ -9,8 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("GameServerEventId", Name = "IX_GameServerEventId", IsUnique = true)]
-[Index("GameServerId", "Timestamp", Name = "IX_GameServerEvents_GameServerId_Timestamp", IsDescending = new[] { false, true })]
-[Index("Timestamp", Name = "IX_GameServerEvents_Timestamp", AllDescending = true)]
+[Index("GameServerId", "Timestamp", Name = "IX_GameServerEvents_GameServerId_Timestamp")]
+[Index("Timestamp", Name = "IX_GameServerEvents_Timestamp")]
 [Index("GameServerId", Name = "IX_GameServerId")]
 public partial class GameServerEvent
 {

@@ -160,6 +160,52 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
+    public async Task AdminActions_V1_ForumTopicPublicationClaim_PreventsRepostAfterAmbiguousFailure()
+    {
+        var client = new FakeRepositoryApiClient();
+        var action = await client.AdminActions.V1.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            Guid.NewGuid(),
+            AdminActionType.Ban,
+            "Imported from server RCON dumpbanlist",
+            AutomationFeature.RconBanImport,
+            "cod4x:server:canonical-puid:permanent"));
+        var adminActionId = action.Result!.Data!.AdminAction.AdminActionId;
+
+        var firstClaim = await client.AdminActions.V1.ClaimForumTopicPublication(adminActionId);
+        var repeatedClaim = await client.AdminActions.V1.ClaimForumTopicPublication(adminActionId);
+
+        Assert.NotNull(firstClaim.Result?.Data?.ClaimId);
+        Assert.False(firstClaim.Result?.Data?.RequiresManualRecovery);
+        Assert.Null(repeatedClaim.Result?.Data?.ClaimId);
+        Assert.True(repeatedClaim.Result?.Data?.RequiresManualRecovery);
+    }
+
+    [Fact]
+    public async Task AdminActions_V1_CompleteForumTopicPublication_LinksClaimedTopic()
+    {
+        var client = new FakeRepositoryApiClient();
+        var action = await client.AdminActions.V1.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            Guid.NewGuid(),
+            AdminActionType.Ban,
+            "Imported from server RCON dumpbanlist",
+            AutomationFeature.RconBanImport,
+            "cod4x:server:canonical-puid:permanent"));
+        var adminActionId = action.Result!.Data!.AdminAction.AdminActionId;
+        var claim = await client.AdminActions.V1.ClaimForumTopicPublication(adminActionId);
+        var claimId = Assert.IsType<Guid>(claim.Result?.Data?.ClaimId);
+
+        var complete = await client.AdminActions.V1.CompleteForumTopicPublication(
+            adminActionId,
+            new CompleteForumTopicPublicationDto(claimId, 12345));
+        var afterCompletion = await client.AdminActions.V1.ClaimForumTopicPublication(adminActionId);
+
+        Assert.True(complete.IsSuccess);
+        Assert.Equal(12345, afterCompletion.Result?.Data?.ForumTopicId);
+        Assert.Null(afterCompletion.Result?.Data?.ClaimId);
+        Assert.False(afterCompletion.Result?.Data?.RequiresManualRecovery);
+    }
+
+    [Fact]
     public void GameServers_V1_ReturnsFakeGameServersApiInstance()
     {
         var client = new FakeRepositoryApiClient();

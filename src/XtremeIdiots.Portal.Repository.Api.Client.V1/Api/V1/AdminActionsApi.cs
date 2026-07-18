@@ -115,6 +115,23 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<EnsureAutomatedActionResultDto>();
         }
 
+        public async Task<ApiResult<ForumTopicPublicationClaimResultDto>> ClaimForumTopicPublication(Guid adminActionId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/admin-actions/{adminActionId}/forum-topic-publication/claim", Method.Post).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return response.ToApiResult<ForumTopicPublicationClaimResultDto>();
+        }
+
+        public async Task<ApiResult> CompleteForumTopicPublication(Guid adminActionId, CompleteForumTopicPublicationDto dto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/admin-actions/{adminActionId}/forum-topic-publication/complete", Method.Post).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult();
+        }
+
         public async Task<ApiResult> UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/admin-actions/{editAdminActionDto.AdminActionId}", Method.Patch).ConfigureAwait(false);

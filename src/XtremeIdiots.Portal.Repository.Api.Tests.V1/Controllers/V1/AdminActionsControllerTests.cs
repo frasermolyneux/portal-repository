@@ -187,6 +187,106 @@ public class AdminActionsControllerTests
     }
 
     [Fact]
+    public async Task EnsureAutomatedAction_RepeatedRconBanImport_ReusesAction()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var controller = CreateController(context);
+        var api = (IAdminActionsApi)controller;
+        var request = new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Ban,
+            "VPN Protection: matched rule 'proxycheck-risk-score-dangerous'",
+            AutomationFeature.RconBanImport,
+            "cod4x:server:canonical-puid:permanent");
+
+        var first = await api.EnsureAutomatedAction(request);
+        var second = await api.EnsureAutomatedAction(request);
+
+        Assert.True(first.Result?.Data?.Created);
+        Assert.False(second.Result?.Data?.Created);
+        Assert.Single(context.AdminActions);
+        Assert.Equal((int)AutomationFeature.RconBanImport, context.AdminActions.Single().AutomationFeature);
+    }
+
+    [Fact]
+    public async Task ClaimForumTopicPublication_RepeatedClaimRequiresManualRecovery()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var action = AddAutomatedRconImportAction(context, playerId);
+        await context.SaveChangesAsync();
+        var api = (IAdminActionsApi)CreateController(context);
+
+        var first = await api.ClaimForumTopicPublication(action.AdminActionId);
+        var second = await api.ClaimForumTopicPublication(action.AdminActionId);
+
+        Assert.True(first.IsSuccess);
+        Assert.NotNull(first.Result?.Data?.ClaimId);
+        Assert.False(first.Result?.Data?.RequiresManualRecovery);
+        Assert.True(second.IsSuccess);
+        Assert.Null(second.Result?.Data?.ClaimId);
+        Assert.True(second.Result?.Data?.RequiresManualRecovery);
+        Assert.Equal(first.Result?.Data?.ClaimId, context.AdminActions.Single().ForumTopicPublicationClaimId);
+    }
+
+    [Fact]
+    public async Task CompleteForumTopicPublication_ValidClaimLinksTopicAndMakesFutureClaimsNoOp()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var action = AddAutomatedRconImportAction(context, playerId);
+        await context.SaveChangesAsync();
+        var api = (IAdminActionsApi)CreateController(context);
+        var claim = await api.ClaimForumTopicPublication(action.AdminActionId);
+        var claimId = Assert.IsType<Guid>(claim.Result?.Data?.ClaimId);
+
+        var complete = await api.CompleteForumTopicPublication(action.AdminActionId, new CompleteForumTopicPublicationDto(claimId, 12345));
+        var repeatedClaim = await api.ClaimForumTopicPublication(action.AdminActionId);
+
+        Assert.True(complete.IsSuccess);
+        Assert.Equal(12345, context.AdminActions.Single().ForumTopicId);
+        Assert.True(repeatedClaim.IsSuccess);
+        Assert.Equal(12345, repeatedClaim.Result?.Data?.ForumTopicId);
+        Assert.Null(repeatedClaim.Result?.Data?.ClaimId);
+        Assert.False(repeatedClaim.Result?.Data?.RequiresManualRecovery);
+    }
+
+    [Fact]
+    public async Task CompleteForumTopicPublication_WrongClaimReturnsConflict()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var action = AddAutomatedRconImportAction(context, playerId);
+        await context.SaveChangesAsync();
+        var api = (IAdminActionsApi)CreateController(context);
+        await api.ClaimForumTopicPublication(action.AdminActionId);
+
+        var complete = await api.CompleteForumTopicPublication(action.AdminActionId, new CompleteForumTopicPublicationDto(Guid.NewGuid(), 12345));
+
+        Assert.Equal(HttpStatusCode.Conflict, complete.StatusCode);
+        Assert.Null(context.AdminActions.Single().ForumTopicId);
+    }
+
+    [Fact]
+    public async Task UpdateAdminAction_RconBanImportForumTopicLinkReturnsConflict()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var action = AddAutomatedRconImportAction(context, playerId);
+        await context.SaveChangesAsync();
+        var api = (IAdminActionsApi)CreateController(context);
+
+        var result = await api.UpdateAdminAction(new EditAdminActionDto(action.AdminActionId)
+        {
+            ForumTopicId = 12345
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+        Assert.Null(context.AdminActions.Single().ForumTopicId);
+    }
+
+    [Fact]
     public async Task GetAdminActions_AutomationSourceFilter_ReturnsOnlyAutomatedActions()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -340,4 +440,22 @@ public class AdminActionsControllerTests
         "VPN Protection: vpn",
         AutomationFeature.VpnProtection,
         "vpn");
+
+    private static AdminAction AddAutomatedRconImportAction(PortalDbContext context, Guid playerId)
+    {
+        var action = new AdminAction
+        {
+            AdminActionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            Type = (int)AdminActionType.Ban,
+            Text = "Imported from server RCON dumpbanlist",
+            Created = DateTime.UtcNow,
+            Source = (byte)ActionSource.Automation,
+            AutomationFeature = (int)AutomationFeature.RconBanImport,
+            AutomationRuleId = "cod4x:server:canonical-puid:permanent",
+            AutomationIsActive = true
+        };
+        context.AdminActions.Add(action);
+        return action;
+    }
 }

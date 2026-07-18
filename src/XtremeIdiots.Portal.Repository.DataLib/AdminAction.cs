@@ -41,6 +41,10 @@ public partial class AdminAction
 
     public bool AutomationIsActive { get; set; }
 
+    public Guid? ForumTopicPublicationClaimId { get; set; }
+
+    public DateTime? ForumTopicPublicationClaimedUtc { get; set; }
+
     [ForeignKey("PlayerId")]
     [InverseProperty("AdminActions")]
     public virtual Player Player { get; set; } = null!;

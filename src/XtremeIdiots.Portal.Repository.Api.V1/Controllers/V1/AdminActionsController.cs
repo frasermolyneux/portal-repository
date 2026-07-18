@@ -398,6 +398,130 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             throw new InvalidOperationException("Unable to serialize the automated action decision.");
         }
 
+        /// <summary>
+        /// Claims the right to create a forum topic for an admin action exactly once.
+        /// </summary>
+        [HttpPost("admin-actions/{adminActionId:guid}/forum-topic-publication/claim")]
+        [ProducesResponseType<ForumTopicPublicationClaimResultDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ClaimForumTopicPublication(Guid adminActionId, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IAdminActionsApi)this).ClaimForumTopicPublication(adminActionId, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult<ForumTopicPublicationClaimResultDto>> IAdminActionsApi.ClaimForumTopicPublication(Guid adminActionId, CancellationToken cancellationToken)
+        {
+            if (!context.Database.IsRelational())
+            {
+                return await ClaimForumTopicPublicationCoreAsync(adminActionId, cancellationToken).ConfigureAwait(false);
+            }
+
+            await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+            var response = await ClaimForumTopicPublicationCoreAsync(adminActionId, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return response;
+        }
+
+        /// <summary>
+        /// Completes a claimed forum-topic publication and stores the resulting topic identifier.
+        /// </summary>
+        [HttpPost("admin-actions/{adminActionId:guid}/forum-topic-publication/complete")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CompleteForumTopicPublication(Guid adminActionId, [FromBody] CompleteForumTopicPublicationDto dto, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IAdminActionsApi)this).CompleteForumTopicPublication(adminActionId, dto, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult> IAdminActionsApi.CompleteForumTopicPublication(Guid adminActionId, CompleteForumTopicPublicationDto dto, CancellationToken cancellationToken)
+        {
+            if (!context.Database.IsRelational())
+            {
+                return await CompleteForumTopicPublicationCoreAsync(adminActionId, dto, cancellationToken).ConfigureAwait(false);
+            }
+
+            await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+            var response = await CompleteForumTopicPublicationCoreAsync(adminActionId, dto, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return response;
+        }
+
+        private async Task<ApiResult<ForumTopicPublicationClaimResultDto>> ClaimForumTopicPublicationCoreAsync(Guid adminActionId, CancellationToken cancellationToken)
+        {
+            var action = await context.AdminActions
+                .SingleOrDefaultAsync(existing => existing.AdminActionId == adminActionId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (action is null)
+            {
+                return new ApiResult<ForumTopicPublicationClaimResultDto>(HttpStatusCode.NotFound);
+            }
+
+            if (action.ForumTopicId.HasValue)
+            {
+                return ToForumTopicPublicationClaimResult(action, null, requiresManualRecovery: false);
+            }
+
+            if (action.ForumTopicPublicationClaimId.HasValue)
+            {
+                return ToForumTopicPublicationClaimResult(action, null, requiresManualRecovery: true);
+            }
+
+            var claimId = Guid.NewGuid();
+            action.ForumTopicPublicationClaimId = claimId;
+            action.ForumTopicPublicationClaimedUtc = DateTime.UtcNow;
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return ToForumTopicPublicationClaimResult(action, claimId, requiresManualRecovery: false);
+        }
+
+        private async Task<ApiResult> CompleteForumTopicPublicationCoreAsync(Guid adminActionId, CompleteForumTopicPublicationDto dto, CancellationToken cancellationToken)
+        {
+            var action = await context.AdminActions
+                .SingleOrDefaultAsync(existing => existing.AdminActionId == adminActionId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (action is null)
+            {
+                return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (action.ForumTopicId == dto.ForumTopicId)
+            {
+                return new ApiResponse().ToApiResult();
+            }
+
+            if (action.ForumTopicId.HasValue || action.ForumTopicPublicationClaimId != dto.ClaimId)
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, "The forum topic publication claim is not valid for this action."))
+                    .ToApiResult(HttpStatusCode.Conflict);
+            }
+
+            action.ForumTopicId = dto.ForumTopicId;
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return new ApiResponse().ToApiResult();
+        }
+
+        private static ApiResult<ForumTopicPublicationClaimResultDto> ToForumTopicPublicationClaimResult(
+            AdminAction action,
+            Guid? claimId,
+            bool requiresManualRecovery)
+        {
+            var result = new ForumTopicPublicationClaimResultDto
+            {
+                AdminActionId = action.AdminActionId,
+                ForumTopicId = action.ForumTopicId,
+                ClaimId = claimId,
+                RequiresManualRecovery = requiresManualRecovery
+            };
+
+            return new ApiResponse<ForumTopicPublicationClaimResultDto>(result).ToApiResult();
+        }
+
         private async Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureAutomatedActionCoreAsync(
             EnsureAutomatedActionDto ensureAutomatedActionDto,
             AutomationActionState? state,
@@ -495,6 +619,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (adminAction == null)
             {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (editAdminActionDto.ForumTopicId.HasValue &&
+                adminAction.Source == (byte)ActionSource.Automation &&
+                adminAction.AutomationFeature == (int)AutomationFeature.RconBanImport)
+            {
+                return new ApiResponse(new ApiError(
+                    ApiErrorCodes.EntityConflict,
+                    "RCON-import forum topics must be linked through the publication claim workflow."))
+                    .ToApiResult(HttpStatusCode.Conflict);
             }
 
             editAdminActionDto.ApplyTo(adminAction);

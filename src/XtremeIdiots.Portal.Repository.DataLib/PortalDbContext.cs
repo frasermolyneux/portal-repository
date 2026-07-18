@@ -94,7 +94,6 @@ public partial class PortalDbContext : DbContext
                 .HasFilter("[Source] = 1 AND [Type] IN (0, 1, 2)");
 
             entity.Property(e => e.AdminActionId).HasDefaultValueSql("newsequentialid()");
-            entity.Property(e => e.ForumTopicId).HasDefaultValueSql("NULL");
 
             entity.HasOne(d => d.Player).WithMany(p => p.AdminActions)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -403,6 +402,10 @@ public partial class PortalDbContext : DbContext
         modelBuilder.Entity<PlayerTag>(entity =>
         {
             entity.HasKey(e => e.PlayerTagId).HasName("PK_dbo.PlayerTags");
+
+            entity.HasIndex(e => new { e.PlayerId, e.TagId }, "UX_PlayerTags_PlayerId_TagId")
+                .IsUnique()
+                .HasFilter("[PlayerId] IS NOT NULL AND [TagId] IS NOT NULL");
 
             entity.Property(e => e.PlayerTagId).HasDefaultValueSql("newsequentialid()");
 

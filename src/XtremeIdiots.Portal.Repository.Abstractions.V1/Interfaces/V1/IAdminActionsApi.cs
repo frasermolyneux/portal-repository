@@ -30,6 +30,16 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         /// </summary>
         Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureAutomatedAction(EnsureAutomatedActionDto ensureAutomatedActionDto, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Atomically claims the right to create a forum topic for an action. A claim is never automatically replayed after an ambiguous external failure.
+        /// </summary>
+        Task<ApiResult<ForumTopicPublicationClaimResultDto>> ClaimForumTopicPublication(Guid adminActionId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Links a forum topic to an action after the caller successfully completes its publication claim.
+        /// </summary>
+        Task<ApiResult> CompleteForumTopicPublication(Guid adminActionId, CompleteForumTopicPublicationDto dto, CancellationToken cancellationToken = default);
+
         Task<ApiResult> UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default);
 
         Task<ApiResult> DeleteAdminAction(Guid adminActionId, CancellationToken cancellationToken = default);

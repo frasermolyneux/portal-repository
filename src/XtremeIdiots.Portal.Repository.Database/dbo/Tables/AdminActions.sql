@@ -12,6 +12,8 @@
     [AutomationFeature] INT NULL,
     [AutomationRuleId] NVARCHAR (128) NULL,
     [AutomationIsActive] BIT CONSTRAINT [DF_AdminActions_AutomationIsActive] DEFAULT ((0)) NOT NULL,
+    [ForumTopicPublicationClaimId] UNIQUEIDENTIFIER NULL,
+    [ForumTopicPublicationClaimedUtc] DATETIME2 NULL,
     CONSTRAINT [PK_dbo.AdminActions] PRIMARY KEY CLUSTERED ([AdminActionId] ASC),
     CONSTRAINT [CK_AdminActions_AutomationMetadata] CHECK ([Source] = 0 OR ([AutomationFeature] IS NOT NULL AND [AutomationRuleId] IS NOT NULL)),
     CONSTRAINT [FK_dbo.AdminActions_dbo.UserProfiles_UserProfileId] FOREIGN KEY ([UserProfileId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId]),

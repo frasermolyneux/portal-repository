@@ -10,6 +10,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 public class FakeAdminActionsApi : IAdminActionsApi
 {
     private readonly ConcurrentDictionary<Guid, AdminActionDto> _adminActions = new();
+    private readonly ConcurrentDictionary<Guid, Guid> _forumTopicPublicationClaims = new();
     private readonly ConcurrentDictionary<string, (HttpStatusCode StatusCode, ApiError Error)> _errorResponses = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ApiResult<CollectionModel<ActiveBanCountsDto>>> _activeBanCounts = new();
 
@@ -19,7 +20,7 @@ public class FakeAdminActionsApi : IAdminActionsApi
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
         return this;
     }
-    public FakeAdminActionsApi Reset() { _adminActions.Clear(); _errorResponses.Clear(); _activeBanCounts.Clear(); return this; }
+    public FakeAdminActionsApi Reset() { _adminActions.Clear(); _forumTopicPublicationClaims.Clear(); _errorResponses.Clear(); _activeBanCounts.Clear(); return this; }
 
     public Task<ApiResult<AdminActionDto>> GetAdminAction(Guid adminActionId, CancellationToken cancellationToken = default)
     {
@@ -172,6 +173,53 @@ public class FakeAdminActionsApi : IAdminActionsApi
 
         return Task.FromResult(ToEnsureResult(action, created: true, HttpStatusCode.Created));
     }
+    public Task<ApiResult<ForumTopicPublicationClaimResultDto>> ClaimForumTopicPublication(Guid adminActionId, CancellationToken cancellationToken = default)
+    {
+        if (!_adminActions.TryGetValue(adminActionId, out var action))
+        {
+            return Task.FromResult(new ApiResult<ForumTopicPublicationClaimResultDto>(HttpStatusCode.NotFound));
+        }
+
+        if (action.ForumTopicId.HasValue)
+        {
+            return Task.FromResult(ToForumTopicPublicationClaimResult(action, null, requiresManualRecovery: false));
+        }
+
+        if (_forumTopicPublicationClaims.TryGetValue(adminActionId, out _))
+        {
+            return Task.FromResult(ToForumTopicPublicationClaimResult(action, null, requiresManualRecovery: true));
+        }
+
+        var claimId = Guid.NewGuid();
+        if (!_forumTopicPublicationClaims.TryAdd(adminActionId, claimId))
+        {
+            return Task.FromResult(ToForumTopicPublicationClaimResult(action, null, requiresManualRecovery: true));
+        }
+
+        return Task.FromResult(ToForumTopicPublicationClaimResult(action, claimId, requiresManualRecovery: false));
+    }
+    public Task<ApiResult> CompleteForumTopicPublication(Guid adminActionId, CompleteForumTopicPublicationDto dto, CancellationToken cancellationToken = default)
+    {
+        if (!_adminActions.TryGetValue(adminActionId, out var action))
+        {
+            return Task.FromResult(new ApiResult(HttpStatusCode.NotFound));
+        }
+
+        if (action.ForumTopicId == dto.ForumTopicId)
+        {
+            return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        }
+
+        if (action.ForumTopicId.HasValue ||
+            !_forumTopicPublicationClaims.TryGetValue(adminActionId, out var claimId) ||
+            claimId != dto.ClaimId)
+        {
+            return Task.FromResult(new ApiResult(HttpStatusCode.Conflict));
+        }
+
+        action.ForumTopicId = dto.ForumTopicId;
+        return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    }
     public Task<ApiResult> UpdateAdminAction(EditAdminActionDto editAdminActionDto, CancellationToken cancellationToken = default)
     {
         if (!_adminActions.TryGetValue(editAdminActionDto.AdminActionId, out var action))
@@ -204,6 +252,17 @@ public class FakeAdminActionsApi : IAdminActionsApi
         {
             Created = created,
             AdminAction = action
+        }));
+    }
+
+    private static ApiResult<ForumTopicPublicationClaimResultDto> ToForumTopicPublicationClaimResult(AdminActionDto action, Guid? claimId, bool requiresManualRecovery)
+    {
+        return new ApiResult<ForumTopicPublicationClaimResultDto>(HttpStatusCode.OK, new ApiResponse<ForumTopicPublicationClaimResultDto>(new ForumTopicPublicationClaimResultDto
+        {
+            AdminActionId = action.AdminActionId,
+            ForumTopicId = action.ForumTopicId,
+            ClaimId = claimId,
+            RequiresManualRecovery = requiresManualRecovery
         }));
     }
 
