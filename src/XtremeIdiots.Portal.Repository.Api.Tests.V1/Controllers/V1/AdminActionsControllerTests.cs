@@ -210,6 +210,82 @@ public class AdminActionsControllerTests
     }
 
     [Fact]
+    public async Task EnsureAutomatedAction_RconBanImportPromotionRetainsForumTopic()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var api = (IAdminActionsApi)CreateController(context);
+        const string lifecycleId = "cod4x:server:canonical-puid";
+        var temporary = new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.TempBan,
+            "VPN Protection: temporary rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId)
+        {
+            Expires = DateTime.UtcNow.AddMinutes(30)
+        };
+
+        var temporaryResult = await api.EnsureAutomatedAction(temporary);
+        var actionId = temporaryResult.Result!.Data!.AdminAction.AdminActionId;
+        var claim = await api.ClaimForumTopicPublication(actionId);
+        await api.CompleteForumTopicPublication(
+            actionId,
+            new CompleteForumTopicPublicationDto(Assert.IsType<Guid>(claim.Result?.Data?.ClaimId), 12345));
+
+        var permanentResult = await api.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Ban,
+            "VPN Protection: permanent rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId));
+
+        var action = Assert.Single(context.AdminActions);
+        Assert.False(permanentResult.Result?.Data?.Created);
+        Assert.Equal(actionId, permanentResult.Result?.Data?.AdminAction.AdminActionId);
+        Assert.Equal((int)AdminActionType.Ban, action.Type);
+        Assert.Null(action.Expires);
+        Assert.Equal(12345, action.ForumTopicId);
+        Assert.Equal("VPN Protection: permanent rule", action.Text);
+    }
+
+    [Fact]
+    public async Task EnsureAutomatedAction_RconBanImportPromotionRetainsPublicationClaim()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = await AddPlayerAsync(context);
+        var api = (IAdminActionsApi)CreateController(context);
+        const string lifecycleId = "cod4x:server:canonical-puid";
+        var temporaryResult = await api.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.TempBan,
+            "VPN Protection: temporary rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId)
+        {
+            Expires = DateTime.UtcNow.AddMinutes(30)
+        });
+        var actionId = temporaryResult.Result!.Data!.AdminAction.AdminActionId;
+        var claim = await api.ClaimForumTopicPublication(actionId);
+        var claimId = Assert.IsType<Guid>(claim.Result?.Data?.ClaimId);
+
+        var permanentResult = await api.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Ban,
+            "VPN Protection: permanent rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId));
+        var completeResult = await api.CompleteForumTopicPublication(
+            actionId,
+            new CompleteForumTopicPublicationDto(claimId, 12345));
+
+        Assert.False(permanentResult.Result?.Data?.Created);
+        Assert.Equal(actionId, permanentResult.Result?.Data?.AdminAction.AdminActionId);
+        Assert.True(completeResult.IsSuccess);
+        Assert.Equal(12345, context.AdminActions.Single().ForumTopicId);
+    }
+
+    [Fact]
     public async Task ClaimForumTopicPublication_RepeatedClaimRequiresManualRecovery()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

@@ -74,46 +74,49 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.DeletePlayer(Guid playerId, CancellationToken cancellationToken)
     {
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-
-        var player = await context.Players
-            .FirstOrDefaultAsync(p => p.PlayerId == playerId, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (player == null)
+        var executionStrategy = context.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteInTransactionAsync(async operationCancellationToken =>
         {
-            return new ApiResult(HttpStatusCode.NotFound);
-        }
+            var player = await context.Players
+                .FirstOrDefaultAsync(p => p.PlayerId == playerId, operationCancellationToken)
+                .ConfigureAwait(false);
 
-        var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var connectedPlayerProfiles = await context.ConnectedPlayerProfiles.Where(c => c.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var playerAliases = await context.PlayerAliases.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var playerIpAddresses = await context.PlayerIpAddresses.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var playerTags = await context.PlayerTags.Where(t => t.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var protectedNames = await context.ProtectedNames.Where(n => n.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var recentPlayers = await context.RecentPlayers.Where(r => r.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var reports = await context.Reports.Where(r => r.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+            if (player == null)
+            {
+                return new ApiResult(HttpStatusCode.NotFound);
+            }
 
-        context.AdminActions.RemoveRange(adminActions);
-        context.AutomationActionStates.RemoveRange(automationActionStates);
-        context.ChatMessages.RemoveRange(chatMessages);
-        context.ConnectedPlayerProfiles.RemoveRange(connectedPlayerProfiles);
-        context.MapVotes.RemoveRange(mapVotes);
-        context.PlayerAliases.RemoveRange(playerAliases);
-        context.PlayerIpAddresses.RemoveRange(playerIpAddresses);
-        context.PlayerTags.RemoveRange(playerTags);
-        context.ProtectedNames.RemoveRange(protectedNames);
-        context.RecentPlayers.RemoveRange(recentPlayers);
-        context.Reports.RemoveRange(reports);
-        context.Players.Remove(player);
+            var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var connectedPlayerProfiles = await context.ConnectedPlayerProfiles.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var playerAliases = await context.PlayerAliases.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var playerIpAddresses = await context.PlayerIpAddresses.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var playerTags = await context.PlayerTags.Where(t => t.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var protectedNames = await context.ProtectedNames.Where(n => n.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var recentPlayers = await context.RecentPlayers.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var reports = await context.Reports.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            context.AdminActions.RemoveRange(adminActions);
+            context.AutomationActionStates.RemoveRange(automationActionStates);
+            context.ChatMessages.RemoveRange(chatMessages);
+            context.ConnectedPlayerProfiles.RemoveRange(connectedPlayerProfiles);
+            context.MapVotes.RemoveRange(mapVotes);
+            context.PlayerAliases.RemoveRange(playerAliases);
+            context.PlayerIpAddresses.RemoveRange(playerIpAddresses);
+            context.PlayerTags.RemoveRange(playerTags);
+            context.ProtectedNames.RemoveRange(protectedNames);
+            context.RecentPlayers.RemoveRange(recentPlayers);
+            context.Reports.RemoveRange(reports);
+            context.Players.Remove(player);
 
-        return new ApiResponse().ToApiResult();
+            await context.SaveChangesAsync(operationCancellationToken).ConfigureAwait(false);
+
+            return new ApiResponse().ToApiResult();
+        }, async operationCancellationToken => !await context.Players
+            .AnyAsync(p => p.PlayerId == playerId, operationCancellationToken)
+            .ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

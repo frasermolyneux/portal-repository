@@ -147,6 +147,12 @@ public class FakeAdminActionsApi : IAdminActionsApi
             return Task.FromResult(ToEnsureResult(existing, created: false, HttpStatusCode.OK));
         }
 
+        var promotedRconImportBan = PromoteRconImportTemporaryBan(ensureAutomatedActionDto);
+        if (promotedRconImportBan is not null)
+        {
+            return Task.FromResult(ToEnsureResult(promotedRconImportBan, created: false, HttpStatusCode.OK));
+        }
+
         if (IsBan(ensureAutomatedActionDto.Type))
         {
             foreach (var lowerBan in _adminActions.Values.Where(action => action.PlayerId == ensureAutomatedActionDto.PlayerId
@@ -172,6 +178,32 @@ public class FakeAdminActionsApi : IAdminActionsApi
         _adminActions[action.AdminActionId] = action;
 
         return Task.FromResult(ToEnsureResult(action, created: true, HttpStatusCode.Created));
+    }
+
+    private AdminActionDto? PromoteRconImportTemporaryBan(EnsureAutomatedActionDto dto)
+    {
+        if (dto.AutomationFeature != AutomationFeature.RconBanImport || dto.Type != AdminActionType.Ban)
+        {
+            return null;
+        }
+
+        var temporaryBan = _adminActions.Values.SingleOrDefault(action =>
+            action.PlayerId == dto.PlayerId &&
+            action.Source == ActionSource.Automation &&
+            action.AutomationFeature == AutomationFeature.RconBanImport &&
+            string.Equals(action.AutomationRuleId, dto.AutomationRuleId, StringComparison.Ordinal) &&
+            action.Type == AdminActionType.TempBan &&
+            IsRelevant(action));
+        if (temporaryBan is null)
+        {
+            return null;
+        }
+
+        temporaryBan.Type = AdminActionType.Ban;
+        temporaryBan.Text = dto.Text;
+        temporaryBan.Expires = null;
+
+        return temporaryBan;
     }
     public Task<ApiResult<ForumTopicPublicationClaimResultDto>> ClaimForumTopicPublication(Guid adminActionId, CancellationToken cancellationToken = default)
     {

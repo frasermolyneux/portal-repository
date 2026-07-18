@@ -160,6 +160,75 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
+    public async Task AdminActions_V1_RconBanImportPromotionRetainsForumTopic()
+    {
+        var client = new FakeRepositoryApiClient();
+        var playerId = Guid.NewGuid();
+        const string lifecycleId = "cod4x:server:canonical-puid";
+        var temporary = await client.AdminActions.V1.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.TempBan,
+            "VPN Protection: temporary rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId)
+        {
+            Expires = DateTime.UtcNow.AddMinutes(30)
+        });
+        var actionId = temporary.Result!.Data!.AdminAction.AdminActionId;
+        var claim = await client.AdminActions.V1.ClaimForumTopicPublication(actionId);
+        await client.AdminActions.V1.CompleteForumTopicPublication(
+            actionId,
+            new CompleteForumTopicPublicationDto(Assert.IsType<Guid>(claim.Result?.Data?.ClaimId), 12345));
+
+        var permanent = await client.AdminActions.V1.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Ban,
+            "VPN Protection: permanent rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId));
+
+        Assert.False(permanent.Result?.Data?.Created);
+        Assert.Equal(actionId, permanent.Result?.Data?.AdminAction.AdminActionId);
+        Assert.Equal(AdminActionType.Ban, permanent.Result?.Data?.AdminAction.Type);
+        Assert.Equal(12345, permanent.Result?.Data?.AdminAction.ForumTopicId);
+    }
+
+    [Fact]
+    public async Task AdminActions_V1_RconBanImportPromotionRetainsPublicationClaim()
+    {
+        var client = new FakeRepositoryApiClient();
+        var playerId = Guid.NewGuid();
+        const string lifecycleId = "cod4x:server:canonical-puid";
+        var temporary = await client.AdminActions.V1.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.TempBan,
+            "VPN Protection: temporary rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId)
+        {
+            Expires = DateTime.UtcNow.AddMinutes(30)
+        });
+        var actionId = temporary.Result!.Data!.AdminAction.AdminActionId;
+        var claim = await client.AdminActions.V1.ClaimForumTopicPublication(actionId);
+        var claimId = Assert.IsType<Guid>(claim.Result?.Data?.ClaimId);
+
+        var permanent = await client.AdminActions.V1.EnsureAutomatedAction(new EnsureAutomatedActionDto(
+            playerId,
+            AdminActionType.Ban,
+            "VPN Protection: permanent rule",
+            AutomationFeature.RconBanImport,
+            lifecycleId));
+        var complete = await client.AdminActions.V1.CompleteForumTopicPublication(
+            actionId,
+            new CompleteForumTopicPublicationDto(claimId, 12345));
+
+        Assert.False(permanent.Result?.Data?.Created);
+        Assert.Equal(actionId, permanent.Result?.Data?.AdminAction.AdminActionId);
+        Assert.True(complete.IsSuccess);
+        Assert.Equal(12345, permanent.Result?.Data?.AdminAction.ForumTopicId);
+    }
+
+    [Fact]
     public async Task AdminActions_V1_ForumTopicPublicationClaim_PreventsRepostAfterAmbiguousFailure()
     {
         var client = new FakeRepositoryApiClient();

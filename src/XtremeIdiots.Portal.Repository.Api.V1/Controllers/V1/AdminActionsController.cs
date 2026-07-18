@@ -547,6 +547,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return ToEnsureResult(existingAction, created: false, HttpStatusCode.OK);
             }
 
+            var promotedRconImportBan = PromoteRconImportTemporaryBan(existingActions, ensureAutomatedActionDto);
+            if (promotedRconImportBan is not null)
+            {
+                state?.LastUpdatedUtc = nowUtc;
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+                return ToEnsureResult(promotedRconImportBan, created: false, HttpStatusCode.OK);
+            }
+
             DeactivateLowerActiveBans(existingActions, ensureAutomatedActionDto.Type, nowUtc);
 
             var adminAction = new AdminAction
@@ -574,6 +583,31 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return ToEnsureResult(adminAction, created: true, HttpStatusCode.Created);
+        }
+
+        private static AdminAction? PromoteRconImportTemporaryBan(
+            IEnumerable<AdminAction> actions,
+            EnsureAutomatedActionDto dto)
+        {
+            if (dto.AutomationFeature != AutomationFeature.RconBanImport || dto.Type != AdminActionType.Ban)
+            {
+                return null;
+            }
+
+            var temporaryBan = actions.SingleOrDefault(action =>
+                action.AutomationIsActive &&
+                action.Type.ToAdminActionType() == AdminActionType.TempBan);
+            if (temporaryBan is null)
+            {
+                return null;
+            }
+
+            temporaryBan.Type = AdminActionType.Ban.ToAdminActionTypeInt();
+            temporaryBan.Text = dto.Text;
+            temporaryBan.Expires = null;
+            temporaryBan.AutomationIsActive = true;
+
+            return temporaryBan;
         }
 
         /// <summary>
