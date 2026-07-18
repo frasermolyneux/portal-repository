@@ -141,6 +141,14 @@ public class DataMaintenanceControllerTests
             Created = DateTime.UtcNow,
         });
 
+        context.AutomationActionStates.Add(new AutomationActionState
+        {
+            PlayerId = playerId,
+            AutomationFeature = 1,
+            AutomationRuleId = "test-rule",
+            LastUpdatedUtc = DateTime.UtcNow,
+        });
+
         context.ChatMessages.Add(new ChatMessage
         {
             ChatMessageId = Guid.NewGuid(),
@@ -272,6 +280,7 @@ public class DataMaintenanceControllerTests
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.False(context.Players.Any(p => p.PlayerId == playerId));
         Assert.False(context.AdminActions.Any(a => a.PlayerId == playerId));
+        Assert.False(context.AutomationActionStates.Any(s => s.PlayerId == playerId));
         Assert.False(context.ChatMessages.Any(c => c.PlayerId == playerId));
         Assert.False(context.ConnectedPlayerProfiles.Any(c => c.PlayerId == playerId));
         Assert.False(context.MapVotes.Any(v => v.PlayerId == playerId));

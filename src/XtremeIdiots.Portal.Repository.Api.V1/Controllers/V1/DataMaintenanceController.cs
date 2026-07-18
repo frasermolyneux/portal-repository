@@ -86,6 +86,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }
 
         var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
         var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
         var connectedPlayerProfiles = await context.ConnectedPlayerProfiles.Where(c => c.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
         var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -97,6 +98,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var reports = await context.Reports.Where(r => r.PlayerId == playerId).ToListAsync(cancellationToken).ConfigureAwait(false);
 
         context.AdminActions.RemoveRange(adminActions);
+        context.AutomationActionStates.RemoveRange(automationActionStates);
         context.ChatMessages.RemoveRange(chatMessages);
         context.ConnectedPlayerProfiles.RemoveRange(connectedPlayerProfiles);
         context.MapVotes.RemoveRange(mapVotes);
