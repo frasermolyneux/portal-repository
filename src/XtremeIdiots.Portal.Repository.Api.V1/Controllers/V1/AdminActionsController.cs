@@ -374,28 +374,37 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return await EnsureAutomatedActionCoreAsync(ensureAutomatedActionDto, null, cancellationToken).ConfigureAwait(false);
             }
 
-            for (var attempt = 0; attempt < 2; attempt++)
+            var strategy = context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
-                await using var transaction = await context.Database
-                    .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
-                    .ConfigureAwait(false);
+                // The retrying execution strategy may re-invoke this delegate on a transient
+                // fault. Reset any entities tracked by a prior (failed) attempt so each run
+                // starts from committed database state and cannot flush stale/duplicate rows.
+                context.ChangeTracker.Clear();
 
-                try
+                for (var attempt = 0; attempt < 2; attempt++)
                 {
-                    var state = await GetOrCreateAutomationActionStateAsync(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
-                    var result = await EnsureAutomatedActionCoreAsync(ensureAutomatedActionDto, state, cancellationToken).ConfigureAwait(false);
+                    await using var transaction = await context.Database
+                        .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                        .ConfigureAwait(false);
 
-                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                    return result;
-                }
-                catch (DbUpdateException) when (attempt == 0)
-                {
-                    await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-                    context.ChangeTracker.Clear();
-                }
-            }
+                    try
+                    {
+                        var state = await GetOrCreateAutomationActionStateAsync(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
+                        var result = await EnsureAutomatedActionCoreAsync(ensureAutomatedActionDto, state, cancellationToken).ConfigureAwait(false);
 
-            throw new InvalidOperationException("Unable to serialize the automated action decision.");
+                        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                        return result;
+                    }
+                    catch (DbUpdateException) when (attempt == 0)
+                    {
+                        await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                        context.ChangeTracker.Clear();
+                    }
+                }
+
+                throw new InvalidOperationException("Unable to serialize the automated action decision.");
+            }).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -417,10 +426,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return await ClaimForumTopicPublicationCoreAsync(adminActionId, cancellationToken).ConfigureAwait(false);
             }
 
-            await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
-            var response = await ClaimForumTopicPublicationCoreAsync(adminActionId, cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return response;
+            var strategy = context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                // Reset tracking so an outer transient retry re-reads committed state.
+                context.ChangeTracker.Clear();
+
+                await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+                var response = await ClaimForumTopicPublicationCoreAsync(adminActionId, cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return response;
+            }).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -443,10 +459,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return await CompleteForumTopicPublicationCoreAsync(adminActionId, dto, cancellationToken).ConfigureAwait(false);
             }
 
-            await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
-            var response = await CompleteForumTopicPublicationCoreAsync(adminActionId, dto, cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return response;
+            var strategy = context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                // Reset tracking so an outer transient retry re-reads committed state.
+                context.ChangeTracker.Clear();
+
+                await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+                var response = await CompleteForumTopicPublicationCoreAsync(adminActionId, dto, cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return response;
+            }).ConfigureAwait(false);
         }
 
         private async Task<ApiResult<ForumTopicPublicationClaimResultDto>> ClaimForumTopicPublicationCoreAsync(Guid adminActionId, CancellationToken cancellationToken)
