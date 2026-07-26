@@ -87,6 +87,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var executionStrategy = context.Database.CreateExecutionStrategy();
             return await executionStrategy.ExecuteAsync(async () =>
             {
+                // Reset tracking so an outer transient retry re-reads committed state.
+                context.ChangeTracker.Clear();
+
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
                 var existingActiveCodes = await context.ConnectedPlayerActivationCodes
@@ -263,6 +266,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var executionStrategy = context.Database.CreateExecutionStrategy();
             return await executionStrategy.ExecuteAsync(async () =>
             {
+                // Reset tracking so an outer transient retry re-reads committed state.
+                context.ChangeTracker.Clear();
+
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
                 var activationCode = await context.ConnectedPlayerActivationCodes
@@ -483,6 +489,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var executionStrategy = context.Database.CreateExecutionStrategy();
             var createResult = await executionStrategy.ExecuteAsync(async () =>
             {
+                // Reset tracking so an outer transient retry re-reads committed state.
+                context.ChangeTracker.Clear();
+
                 try
                 {
                     await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
