@@ -149,6 +149,110 @@ public class UserProfileControllerTests
     }
 
     [Fact]
+    public async Task GetUserProfiles_WithWebmastersFilter_ReturnsOnlyWebmasters()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var webmasterProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = webmasterProfileId,
+            DisplayName = "Webmaster",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = webmasterProfileId,
+                    ClaimType = UserProfileClaimType.Webmaster,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true
+                }
+            ]
+        });
+
+        var seniorAdminProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = seniorAdminProfileId,
+            DisplayName = "SeniorAdmin",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = seniorAdminProfileId,
+                    ClaimType = UserProfileClaimType.SeniorAdmin,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true
+                }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IUserProfileApi)controller;
+        var result = await api.GetUserProfiles(null, UserProfileFilter.Webmasters, 0, 50, null);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Single(items);
+        Assert.Equal(webmasterProfileId, items[0].UserProfileId);
+    }
+
+    [Fact]
+    public async Task GetUserProfiles_WithAnyAdminFilter_IncludesWebmasters()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var webmasterProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = webmasterProfileId,
+            DisplayName = "Webmaster",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = webmasterProfileId,
+                    ClaimType = UserProfileClaimType.Webmaster,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true
+                }
+            ]
+        });
+
+        var registeredUserProfileId = Guid.NewGuid();
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = registeredUserProfileId,
+            DisplayName = "RegisteredUser",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = registeredUserProfileId,
+                    ClaimType = UserProfileClaimType.RegisteredUser,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true
+                }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IUserProfileApi)controller;
+        var result = await api.GetUserProfiles(null, UserProfileFilter.AnyAdmin, 0, 50, null);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Single(items);
+        Assert.Equal(webmasterProfileId, items[0].UserProfileId);
+    }
+
+    [Fact]
     public async Task CreateUserProfile_CreatesEntity()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

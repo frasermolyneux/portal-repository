@@ -607,6 +607,66 @@ public class DataMaintenanceControllerTests
     }
 
     [Fact]
+    public async Task ReconcileConnectedPlayerTags_ProjectsWebmasterClaimToSeniorAdminTag()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+
+        var linkedPlayerId = Guid.NewGuid();
+        var userProfileId = Guid.NewGuid();
+
+        var tags = AddRequiredConnectedPlayerTags(context);
+        var seniorAdminTagId = tags.SeniorAdminTagId;
+
+        context.Players.Add(new Player
+        {
+            PlayerId = linkedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "WebmasterPlayer",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+
+        context.UserProfiles.Add(new UserProfile
+        {
+            UserProfileId = userProfileId,
+            DisplayName = "Webmaster",
+            UserProfileClaims =
+            [
+                new UserProfileClaim
+                {
+                    UserProfileClaimId = Guid.NewGuid(),
+                    UserProfileId = userProfileId,
+                    ClaimType = UserProfileClaimType.Webmaster,
+                    ClaimValue = GameType.Unknown.ToString(),
+                    SystemGenerated = true,
+                }
+            ]
+        });
+
+        context.ConnectedPlayerProfiles.Add(new ConnectedPlayerProfile
+        {
+            ConnectedPlayerProfileId = Guid.NewGuid(),
+            PlayerId = linkedPlayerId,
+            UserProfileId = userProfileId,
+            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+            LinkedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+            IsActive = true,
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IDataMaintenanceApi)controller;
+
+        var result = await api.ReconcileConnectedPlayerTags();
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var seniorAdminTaggedPlayers = context.PlayerTags.Where(pt => pt.TagId == seniorAdminTagId).Select(pt => pt.PlayerId).ToList();
+        Assert.Single(seniorAdminTaggedPlayers);
+        Assert.Equal(linkedPlayerId, seniorAdminTaggedPlayers[0]);
+    }
+
+    [Fact]
     public async Task ReconcileConnectedPlayerTags_RemovesDuplicateTagsForLinkedPlayers()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

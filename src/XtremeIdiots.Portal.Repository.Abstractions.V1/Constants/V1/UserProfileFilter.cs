@@ -26,13 +26,18 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         Moderators = 3,
 
         /// <summary>
-        /// User profiles that have any administrative claim (SeniorAdmin, HeadAdmin, GameAdmin, Moderator).
+        /// User profiles that have any administrative claim (Webmaster, SeniorAdmin, HeadAdmin, GameAdmin, Moderator).
         /// </summary>
         AnyAdmin = 4,
 
         /// <summary>
         /// User profiles that have any non-system-generated (manually assigned) permission claim.
         /// </summary>
-        HasAdditionalPermissions = 5
+        HasAdditionalPermissions = 5,
+
+        /// <summary>
+        /// User profiles that have a Webmaster claim.
+        /// </summary>
+        Webmasters = 6
     }
 }

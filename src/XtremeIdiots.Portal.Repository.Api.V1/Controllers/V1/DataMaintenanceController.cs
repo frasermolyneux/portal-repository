@@ -491,6 +491,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
         var roleClaimTypes = new[]
         {
+            UserProfileClaimType.Webmaster,
             UserProfileClaimType.SeniorAdmin,
             UserProfileClaimType.HeadAdmin,
             UserProfileClaimType.GameAdmin,
@@ -532,7 +533,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 continue;
             }
 
-            if (claims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin))
+            if (claims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster || c.ClaimType == UserProfileClaimType.SeniorAdmin))
             {
                 seniorAdminPlayerIds.Add(ownership.PlayerId);
             }

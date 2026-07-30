@@ -170,6 +170,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
             UserProfileClaimType.UserProfileId,
             UserProfileClaimType.XtremeIdiotsId,
             UserProfileClaimType.PhotoUrl,
+            UserProfileClaimType.Webmaster,
             UserProfileClaimType.SeniorAdmin,
             UserProfileClaimType.HeadAdmin,
             UserProfileClaimType.GameAdmin,

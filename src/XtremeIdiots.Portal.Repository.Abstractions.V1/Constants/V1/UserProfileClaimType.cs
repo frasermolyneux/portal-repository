@@ -6,6 +6,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public static string XtremeIdiotsId => nameof(XtremeIdiotsId);
         public static string PhotoUrl => nameof(PhotoUrl);
         public static string Email => nameof(Email);
+        public static string Webmaster => nameof(Webmaster);
         public static string SeniorAdmin => nameof(SeniorAdmin);
         public static string HeadAdmin => nameof(HeadAdmin);
         public static string GameAdmin => nameof(GameAdmin);

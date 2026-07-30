@@ -251,11 +251,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 query = filter.Value switch
                 {
+                    UserProfileFilter.Webmasters => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster)),
                     UserProfileFilter.SeniorAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin)),
                     UserProfileFilter.HeadAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.HeadAdmin)),
                     UserProfileFilter.GameAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.GameAdmin)),
                     UserProfileFilter.Moderators => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Moderator)),
-                    UserProfileFilter.AnyAdmin => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator)),
+                    UserProfileFilter.AnyAdmin => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster || c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator)),
                     UserProfileFilter.HasAdditionalPermissions => query.Where(up => up.UserProfileClaims.Any(c => !c.SystemGenerated)),
                     _ => query
                 };
