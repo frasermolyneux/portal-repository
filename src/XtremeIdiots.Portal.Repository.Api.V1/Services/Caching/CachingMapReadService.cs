@@ -108,7 +108,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
             try
             {
-                var wasMiss = false;
+                var cached = await cache.TryGetAsync<ApiResult<MapDto>>(key, cancellationToken).ConfigureAwait(false);
+                if (cached.Found)
+                {
+                    metrics.RecordHit(RepositoryCacheKeys.SurfaceMap);
+                    metrics.RecordLatency(RepositoryCacheKeys.SurfaceMap, sw.Elapsed.TotalMilliseconds);
+                    return cached.Value!;
+                }
+
                 var result = await cache.GetOrCreateAsync(
                     key,
                     policy,
@@ -119,20 +126,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                         {
                             throw new FactoryAbortException(fetched);
                         }
-                        wasMiss = true;
                         return fetched;
                     },
                     cancellationToken).ConfigureAwait(false);
 
-                if (wasMiss)
-                {
-                    metrics.RecordMiss(RepositoryCacheKeys.SurfaceMap);
-                }
-                else
-                {
-                    metrics.RecordHit(RepositoryCacheKeys.SurfaceMap);
-                }
-
+                metrics.RecordMiss(RepositoryCacheKeys.SurfaceMap);
                 metrics.RecordLatency(RepositoryCacheKeys.SurfaceMap, sw.Elapsed.TotalMilliseconds);
                 return result;
             }

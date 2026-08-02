@@ -90,7 +90,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
             try
             {
-                var wasMiss = false;
+                var cached = await cache.TryGetAsync<ApiResult<ConfigurationDto>>(key, cancellationToken).ConfigureAwait(false);
+                if (cached.Found)
+                {
+                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
+                    metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
+                    return cached.Value!;
+                }
+
                 var result = await cache.GetOrCreateAsync(
                     key,
                     policy,
@@ -101,20 +108,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                         {
                             throw new FactoryAbortException<ConfigurationDto>(fetched);
                         }
-                        wasMiss = true;
                         return fetched;
                     },
                     cancellationToken).ConfigureAwait(false);
 
-                if (wasMiss)
-                {
-                    metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
-                }
-                else
-                {
-                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
-                }
-
+                metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
                 metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 return result;
             }
@@ -167,7 +165,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
             try
             {
-                var wasMiss = false;
+                var cached = await cache.TryGetAsync<ApiResult<ConfigurationDto>>(key, cancellationToken).ConfigureAwait(false);
+                if (cached.Found)
+                {
+                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
+                    metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
+                    return cached.Value!;
+                }
+
                 var result = await cache.GetOrCreateAsync(
                     key,
                     policy,
@@ -178,20 +183,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                         {
                             throw new FactoryAbortException<ConfigurationDto>(fetched);
                         }
-                        wasMiss = true;
                         return fetched;
                     },
                     cancellationToken).ConfigureAwait(false);
 
-                if (wasMiss)
-                {
-                    metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
-                }
-                else
-                {
-                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
-                }
-
+                metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
                 metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 return result;
             }
@@ -236,7 +232,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
             try
             {
-                var wasMiss = false;
+                var cached = await cache.TryGetAsync<ApiResult<CollectionModel<ConfigurationDto>>>(key, cancellationToken).ConfigureAwait(false);
+                if (cached.Found)
+                {
+                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
+                    metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
+                    return cached.Value!;
+                }
+
                 var result = await cache.GetOrCreateAsync(
                     key,
                     policy,
@@ -247,20 +250,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                         {
                             throw new FactoryAbortException<CollectionModel<ConfigurationDto>>(fetched);
                         }
-                        wasMiss = true;
                         return fetched;
                     },
                     cancellationToken).ConfigureAwait(false);
 
-                if (wasMiss)
-                {
-                    metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
-                }
-                else
-                {
-                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
-                }
-
+                metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
                 metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 return result;
             }
@@ -302,27 +296,25 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
             try
             {
-                var wasMiss = false;
+                var cached = await cache.TryGetAsync<ApiResult<CollectionModel<ConfigurationDto>>>(key, cancellationToken).ConfigureAwait(false);
+                if (cached.Found)
+                {
+                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
+                    metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
+                    return cached.Value!;
+                }
+
                 var result = await cache.GetOrCreateAsync(
                     key,
                     policy,
                     async ct =>
                     {
                         var fetched = await inner.GetGlobalConfigurationsAsync(ct).ConfigureAwait(false);
-                        wasMiss = true;
                         return fetched;
                     },
                     cancellationToken).ConfigureAwait(false);
 
-                if (wasMiss)
-                {
-                    metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
-                }
-                else
-                {
-                    metrics.RecordHit(RepositoryCacheKeys.SurfaceSettings);
-                }
-
+                metrics.RecordMiss(RepositoryCacheKeys.SurfaceSettings);
                 metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 return result;
             }
