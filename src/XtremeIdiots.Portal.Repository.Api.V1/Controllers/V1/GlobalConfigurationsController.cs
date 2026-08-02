@@ -15,6 +15,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 using ServerListContractConstants = XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ServerList.ServerListSettingsConstants;
 
@@ -31,11 +33,20 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
     private static readonly string LegacyServerListNamespaceLower = LegacyServerListNamespace.ToLowerInvariant();
 
     private readonly PortalDbContext context;
+    private readonly IConfigurationReadService configurationReadService;
+    private readonly IRepositoryCacheInvalidator cacheInvalidator;
 
-    public GlobalConfigurationsController(PortalDbContext context)
+    public GlobalConfigurationsController(
+        PortalDbContext context,
+        IConfigurationReadService configurationReadService,
+        IRepositoryCacheInvalidator cacheInvalidator)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(configurationReadService);
+        ArgumentNullException.ThrowIfNull(cacheInvalidator);
         this.context = context;
+        this.configurationReadService = configurationReadService;
+        this.cacheInvalidator = cacheInvalidator;
     }
 
     [HttpGet("configurations")]
@@ -74,40 +85,7 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
             return new ApiResult<ConfigurationDto>(HttpStatusCode.BadRequest);
         }
 
-        ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
-
-        var isServerListNamespace = string.Equals(ns, ServerListContractConstants.Namespace, StringComparison.OrdinalIgnoreCase);
-
-        GlobalConfiguration? config;
-        if (isServerListNamespace)
-        {
-            var configs = await context.GlobalConfigurations
-                .AsNoTracking()
-                .Where(c =>
-                    c.Namespace.ToLower() == CanonicalServerListNamespaceLower ||
-                    c.Namespace.ToLower() == LegacyServerListNamespaceLower)
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-            config = configs.FirstOrDefault(c => string.Equals(c.Namespace, ServerListContractConstants.Namespace, StringComparison.Ordinal))
-                ?? configs.FirstOrDefault(c => string.Equals(c.Namespace, LegacyServerListNamespace, StringComparison.Ordinal))
-                ?? configs
-                    .OrderByDescending(c => c.LastModifiedUtc)
-                    .ThenBy(c => c.Namespace, StringComparer.Ordinal)
-                    .FirstOrDefault();
-        }
-        else
-        {
-            config = await context.GlobalConfigurations
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Namespace == ns, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (config == null)
-        {
-            return new ApiResult<ConfigurationDto>(HttpStatusCode.NotFound);
-        }
-
-        return new ApiResponse<ConfigurationDto>(config.ToDto()).ToApiResult();
+        return await configurationReadService.GetGlobalConfigurationAsync(ns, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpPut("configurations/{ns}")]
@@ -222,6 +200,7 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateGlobalNamespaceAsync(ns, cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -274,6 +253,7 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateGlobalNamespaceAsync(ns, cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 }

@@ -39,6 +39,15 @@ locals {
   app_service_plan             = data.terraform_remote_state.portal_core.outputs.app_service_plans["apps"]
   sql_server                   = data.terraform_remote_state.portal_core.outputs.sql_server
 
+  # Shared cache Storage Account from portal-core. Shape (as of the portal-core
+  # coordination update): { id, name, table_endpoint }. Consumed with try() so
+  # `terraform plan` succeeds against portal-core state versions that have not
+  # yet published the output; the API host falls back to legacy per-repository
+  # Table Storage in that case.
+  cache_storage                       = try(data.terraform_remote_state.portal_core.outputs.cache_storage, null)
+  shared_cache_storage_table_endpoint = try(local.cache_storage.table_endpoint, null)
+  shared_cache_storage_id             = try(local.cache_storage.id, null)
+
   # Local Resource Naming
   web_app_name_v1            = "app-portal-repo-${var.environment}-${var.location}-v1-${random_id.environment_id.hex}"
   web_app_name_v2            = "app-portal-repo-${var.environment}-${var.location}-v2-${random_id.environment_id.hex}"

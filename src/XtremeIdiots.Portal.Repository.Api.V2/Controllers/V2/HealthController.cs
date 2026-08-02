@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using XtremeIdiots.Portal.Repository.Api.V2.Extensions;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V2;
 
@@ -9,6 +10,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V2;
 [AllowAnonymous]
 [ApiVersion("2.0")]
 [Route("v{version:apiVersion}/health")]
+[NoStoreCache]
 public class HealthController : ControllerBase
 {
     private readonly HealthCheckService _healthCheckService;

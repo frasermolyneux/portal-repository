@@ -86,6 +86,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             bool? isActive,
             int skipEntries,
             int takeEntries,
+            string? searchString = null,
+            ConnectedPlayersOrder? order = null,
             CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/connected-players", Method.Get).ConfigureAwait(false);
@@ -112,6 +114,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
             request.AddQueryParameter(nameof(skipEntries), skipEntries);
             request.AddQueryParameter(nameof(takeEntries), takeEntries);
+
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                request.AddQueryParameter(nameof(searchString), searchString);
+            }
+
+            if (order.HasValue)
+            {
+                request.AddQueryParameter(nameof(order), order.Value.ToString());
+            }
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
             return response.ToApiResult<CollectionModel<ConnectedPlayerDto>>();

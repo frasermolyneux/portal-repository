@@ -2,6 +2,7 @@ using System.Reflection;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using XtremeIdiots.Portal.Repository.Api.V2.Extensions;
 using XtremeIdiots.Portal.RepositoryWebApi.Models;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V2;
@@ -10,6 +11,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V2;
 [AllowAnonymous]
 [ApiVersion("2.0")]
 [Route("v{version:apiVersion}/info")]
+[NoStoreCache]
 public class ApiInfoController : ControllerBase
 {
     [HttpGet]

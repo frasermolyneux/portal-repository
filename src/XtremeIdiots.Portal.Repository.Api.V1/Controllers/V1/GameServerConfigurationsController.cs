@@ -15,6 +15,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -26,11 +28,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class GameServerConfigurationsController : ControllerBase, IGameServerConfigurationsApi
 {
     private readonly PortalDbContext context;
+    private readonly IConfigurationReadService configurationReadService;
+    private readonly IRepositoryCacheInvalidator cacheInvalidator;
 
-    public GameServerConfigurationsController(PortalDbContext context)
+    public GameServerConfigurationsController(
+        PortalDbContext context,
+        IConfigurationReadService configurationReadService,
+        IRepositoryCacheInvalidator cacheInvalidator)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(configurationReadService);
+        ArgumentNullException.ThrowIfNull(cacheInvalidator);
         this.context = context;
+        this.configurationReadService = configurationReadService;
+        this.cacheInvalidator = cacheInvalidator;
     }
 
     [HttpGet("game-servers/{gameServerId:guid}/configurations")]
@@ -73,21 +84,7 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
 
     async Task<ApiResult<ConfigurationDto>> IGameServerConfigurationsApi.GetConfiguration(Guid gameServerId, string ns, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
-        {
-            return new ApiResult<ConfigurationDto>(HttpStatusCode.BadRequest);
-        }
-
-        var config = await context.GameServerConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.GameServerId == gameServerId && c.Namespace == ns, cancellationToken).ConfigureAwait(false);
-
-        if (config == null)
-        {
-            return new ApiResult<ConfigurationDto>(HttpStatusCode.NotFound);
-        }
-
-        return new ApiResponse<ConfigurationDto>(config.ToDto()).ToApiResult();
+        return await configurationReadService.GetServerConfigurationAsync(gameServerId, ns, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpPut("game-servers/{gameServerId:guid}/configurations/{ns}")]
@@ -168,6 +165,7 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateServerSettingsAsync(gameServerId, ns, cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -197,6 +195,7 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
 
         context.GameServerConfigurations.Remove(config);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateServerSettingsAsync(gameServerId, ns, cancellationToken).ConfigureAwait(false);
         return new ApiResult(HttpStatusCode.NoContent);
     }
 }

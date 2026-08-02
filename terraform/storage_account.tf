@@ -62,11 +62,11 @@ resource "azurerm_storage_account" "table_storage" {
 }
 
 resource "azurerm_storage_table" "live_status" {
-  name                 = "GameServerLiveStatus"
-  storage_account_name = azurerm_storage_account.table_storage.name
+  name               = "GameServerLiveStatus"
+  storage_account_id = azurerm_storage_account.table_storage.id
 }
 
 resource "azurerm_storage_table" "live_players" {
-  name                 = "GameServerLivePlayers"
-  storage_account_name = azurerm_storage_account.table_storage.name
+  name               = "GameServerLivePlayers"
+  storage_account_id = azurerm_storage_account.table_storage.id
 }

@@ -20,6 +20,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.18" />
+        <PackageReference Include="MX.Caching.Testing" Version="0.1.5" />
         <!-- Pin patched version to override vulnerable transitive (NU1903: CVE-2026-50648 and related, affected <= 10.0.9) pulled via Microsoft.NET.Test.Sdk. -->
         <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
     </ItemGroup>

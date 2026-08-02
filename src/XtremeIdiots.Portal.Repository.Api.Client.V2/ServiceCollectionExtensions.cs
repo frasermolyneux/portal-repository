@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using MX.Api.Client.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V2;
+using XtremeIdiots.Portal.Repository.Api.Client.V2.Caching;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V2
 {
@@ -16,6 +17,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V2
             this IServiceCollection serviceCollection,
             Action<RepositoryApiOptionsBuilder> configureOptions)
         {
+            // Register library default cache policies per sub-API interface. Consumers opt in
+            // per client with UseLibraryDefaults() on their CacheBuilder.
+            serviceCollection.AddDefaultCachePolicies<IApiInfoApi>(RepositoryApiCacheDefaults.ConfigureApiInfo);
+            serviceCollection.AddDefaultCachePolicies<IApiHealthApi>(RepositoryApiCacheDefaults.ConfigureApiHealth);
+
             // Register API info endpoint
             serviceCollection.AddTypedApiClient<IApiInfoApi, ApiInfoApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
 

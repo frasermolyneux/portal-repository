@@ -583,10 +583,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] bool? isActive = true,
             [FromQuery] int skipEntries = 0,
             [FromQuery] int takeEntries = 20,
+            [FromQuery] string? searchString = null,
+            [FromQuery] ConnectedPlayersOrder? order = null,
             CancellationToken cancellationToken = default)
         {
             var response = await ((IConnectedPlayersApi)this)
-                .GetConnectedPlayers(playerId, userProfileId, gameType, isActive, skipEntries, takeEntries, cancellationToken)
+                .GetConnectedPlayers(playerId, userProfileId, gameType, isActive, skipEntries, takeEntries, searchString, order, cancellationToken)
                 .ConfigureAwait(false);
 
             return response.ToHttpResult();
@@ -599,12 +601,34 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             bool? isActive,
             int skipEntries,
             int takeEntries,
+            string? searchString,
+            ConnectedPlayersOrder? order,
             CancellationToken cancellationToken)
         {
-            var query = context.ConnectedPlayerProfiles
+            if (skipEntries < 0)
+            {
+                skipEntries = 0;
+            }
+
+            if (takeEntries <= 0)
+            {
+                takeEntries = 20;
+            }
+
+            if (takeEntries > 500)
+            {
+                takeEntries = 500;
+            }
+
+            var baseQuery = context.ConnectedPlayerProfiles
                 .AsNoTracking()
                 .Include(cp => cp.Player)
                 .AsQueryable();
+
+            // Unfiltered total (matches DataTables' recordsTotal semantics).
+            var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+
+            var query = baseQuery;
 
             if (playerId.HasValue)
             {
@@ -626,10 +650,42 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 query = query.Where(cp => cp.IsActive == isActive.Value);
             }
 
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                var s = searchString.Trim();
+                var isGuid = Guid.TryParse(s, out var searchGuid);
+                var isGameType = Enum.TryParse<GameType>(s, ignoreCase: true, out var searchGameType);
+                var lowered = s.ToLowerInvariant();
+
+                query = query.Where(cp =>
+                    (cp.Player.Username != null && EF.Functions.Like(cp.Player.Username.ToLower(), "%" + lowered + "%"))
+                    || EF.Functions.Like(cp.LinkMethod.ToLower(), "%" + lowered + "%")
+                    || (isGuid && (cp.PlayerId == searchGuid || cp.UserProfileId == searchGuid))
+                    || (isGameType && cp.Player.GameType == (int)searchGameType));
+            }
+
             var filteredCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
-            var entities = await query
-                .OrderByDescending(cp => cp.LinkedAtUtc)
+            var ordered = (order ?? ConnectedPlayersOrder.LinkedAtUtcDesc) switch
+            {
+                ConnectedPlayersOrder.GameTypeAsc => query.OrderBy(cp => cp.Player.GameType).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.GameTypeDesc => query.OrderByDescending(cp => cp.Player.GameType).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.UsernameAsc => query.OrderBy(cp => cp.Player.Username).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.UsernameDesc => query.OrderByDescending(cp => cp.Player.Username).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.LinkMethodAsc => query.OrderBy(cp => cp.LinkMethod).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.LinkMethodDesc => query.OrderByDescending(cp => cp.LinkMethod).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.IsActiveAsc => query.OrderBy(cp => cp.IsActive).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.IsActiveDesc => query.OrderByDescending(cp => cp.IsActive).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.LinkedAtUtcAsc => query.OrderBy(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.UnlinkedAtUtcAsc => query.OrderBy(cp => cp.UnlinkedAtUtc).ThenByDescending(cp => cp.LinkedAtUtc),
+                ConnectedPlayersOrder.UnlinkedAtUtcDesc => query.OrderByDescending(cp => cp.UnlinkedAtUtc).ThenByDescending(cp => cp.LinkedAtUtc),
+                _ => query.OrderByDescending(cp => cp.LinkedAtUtc),
+            };
+
+            // Stable tie-breaker on the unique PK — ensures Skip/Take pagination is deterministic
+            // when the primary sort column contains ties (e.g. rows sharing the same LinkedAtUtc).
+            var entities = await ordered
+                .ThenBy(cp => cp.ConnectedPlayerProfileId)
                 .Skip(skipEntries)
                 .Take(takeEntries)
                 .ToListAsync(cancellationToken)
@@ -640,7 +696,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var model = new CollectionModel<ConnectedPlayerDto>(entries);
             return new ApiResponse<CollectionModel<ConnectedPlayerDto>>(model)
             {
-                Pagination = new ApiPagination(filteredCount, filteredCount, skipEntries, takeEntries)
+                Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
             }.ToApiResult();
         }
 

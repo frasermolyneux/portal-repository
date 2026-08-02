@@ -34,6 +34,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
             bool? isActive,
             int skipEntries,
             int takeEntries,
+            string? searchString = null,
+            ConnectedPlayersOrder? order = null,
             CancellationToken cancellationToken = default);
 
         Task<ApiResult<Cod4xAdminRosterDto>> GetCod4xAdminRoster(
