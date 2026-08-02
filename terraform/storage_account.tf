@@ -12,6 +12,9 @@ resource "azurerm_storage_account" "web_api_storage" {
   https_traffic_only_enabled = true
   min_tls_version            = "TLS1_2"
 
+  // Required for map images, demos, and gametracker containers to be public
+  allow_nested_items_to_be_public = true
+
   local_user_enabled        = false
   shared_access_key_enabled = false
 
