@@ -43,8 +43,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                 new KeyValuePair<string, object?>("tag", tag));
 
         /// <summary>
-        /// Records a cache operation failure (read fall-through, write error, or eviction error).
-        /// Use <paramref name="operation"/> values: <c>read</c>, <c>write</c>, <c>evict</c>.
+        /// Records a cache operation failure (read fall-through, write error, eviction error, or oversize rejection).
+        /// Use <paramref name="operation"/> values: <c>read</c>, <c>write</c>, <c>evict</c>, <c>oversize</c>.
         /// </summary>
         public void RecordFailure(string surface, string operation)
             => _failures.Add(1,

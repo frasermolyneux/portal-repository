@@ -20,6 +20,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
         private readonly RepositoryCacheMetrics metrics;
         private readonly ILogger<RepositoryCacheInvalidator> logger;
 
+        // Sanitize user-supplied string values before including in log messages to prevent log injection (CWE-117).
+        private static string SanitizeForLog(string value) =>
+            value.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
+
         public RepositoryCacheInvalidator(IMxCache cache, RepositoryCacheMetrics metrics, ILogger<RepositoryCacheInvalidator> logger)
         {
             ArgumentNullException.ThrowIfNull(cache);
@@ -80,7 +84,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogWarning(ex, "Cache invalidation failed for server settings {GameServerId}/{Ns}. Tag index may be stale until TTL.", gameServerId, ns);
+                logger.LogWarning(ex, "Cache invalidation failed for server settings {GameServerId}/{Ns}. Tag index may be stale until TTL.", gameServerId, SanitizeForLog(ns));
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "evict");
             }
 
@@ -120,7 +124,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    logger.LogWarning(ex, "Cache invalidation failed for global namespace {Ns} (tag {Tag}). Tag index may be stale until TTL.", ns, tag);
+                    logger.LogWarning(ex, "Cache invalidation failed for global namespace {Ns} (tag {Tag}). Tag index may be stale until TTL.", SanitizeForLog(ns), SanitizeForLog(tag));
                     metrics.RecordFailure(surface, "evict");
                 }
             }

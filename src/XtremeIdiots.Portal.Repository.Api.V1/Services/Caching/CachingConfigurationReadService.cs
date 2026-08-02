@@ -42,6 +42,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
         private readonly RepositoryCacheMetrics metrics;
         private readonly ILogger<CachingConfigurationReadService> logger;
 
+        // Sanitize user-supplied string values before including in log messages to prevent log injection (CWE-117).
+        private static string SanitizeForLog(string value) =>
+            value.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
+
         public CachingConfigurationReadService(
             IConfigurationReadService inner,
             IMxCache cache,
@@ -126,13 +130,15 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                 logger.LogWarning(
                     ex,
                     "Cache value too large for server config {GameServerId}/{Ns} ({ValueLength} bytes, max {MaximumLength}); skipping cache write.",
-                    gameServerId, ns, ex.ValueLength, ex.MaximumLength);
+                    gameServerId, SanitizeForLog(ns), ex.ValueLength, ex.MaximumLength);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "oversize");
                 return await inner.GetServerConfigurationAsync(gameServerId, ns, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogWarning(ex, "Cache read failed for server config {GameServerId}/{Ns}; falling back to origin.", gameServerId, ns);
+                logger.LogWarning(ex, "Cache read failed for server config {GameServerId}/{Ns}; falling back to origin.", gameServerId, SanitizeForLog(ns));
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "read");
                 return await inner.GetServerConfigurationAsync(gameServerId, ns, cancellationToken).ConfigureAwait(false);
             }
@@ -201,13 +207,15 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                 logger.LogWarning(
                     ex,
                     "Cache value too large for global config {Ns} ({ValueLength} bytes, max {MaximumLength}); skipping cache write.",
-                    ns, ex.ValueLength, ex.MaximumLength);
+                    SanitizeForLog(ns), ex.ValueLength, ex.MaximumLength);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "oversize");
                 return await inner.GetGlobalConfigurationAsync(ns, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogWarning(ex, "Cache read failed for global config {Ns}; falling back to origin.", ns);
+                logger.LogWarning(ex, "Cache read failed for global config {Ns}; falling back to origin.", SanitizeForLog(ns));
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "read");
                 return await inner.GetGlobalConfigurationAsync(ns, cancellationToken).ConfigureAwait(false);
             }
@@ -269,12 +277,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                     ex,
                     "Cache value too large for server config collection {GameServerId} ({ValueLength} bytes, max {MaximumLength}); skipping cache write.",
                     gameServerId, ex.ValueLength, ex.MaximumLength);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "oversize");
                 return await inner.GetServerConfigurationsAsync(gameServerId, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Cache read failed for server config collection {GameServerId}; falling back to origin.", gameServerId);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "read");
                 return await inner.GetServerConfigurationsAsync(gameServerId, cancellationToken).ConfigureAwait(false);
             }
@@ -324,12 +334,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                     ex,
                     "Cache value too large for global config collection ({ValueLength} bytes, max {MaximumLength}); skipping cache write.",
                     ex.ValueLength, ex.MaximumLength);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "oversize");
                 return await inner.GetGlobalConfigurationsAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Cache read failed for global config collection; falling back to origin.");
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceSettings, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceSettings, "read");
                 return await inner.GetGlobalConfigurationsAsync(cancellationToken).ConfigureAwait(false);
             }

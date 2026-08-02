@@ -379,10 +379,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            foreach (var editMapDto in editMapDtos)
-            {
-                await cacheInvalidator.InvalidateMapAsync(editMapDto.MapId, cancellationToken).ConfigureAwait(false);
-            }
+            await Task.WhenAll(editMapDtos.Select(dto => cacheInvalidator.InvalidateMapAsync(dto.MapId, cancellationToken))).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -681,10 +678,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            foreach (var mapId in mapIds.Distinct())
-            {
-                await cacheInvalidator.InvalidateMapAsync(mapId, cancellationToken).ConfigureAwait(false);
-            }
+            await Task.WhenAll(mapIds.Distinct().Select(id => cacheInvalidator.InvalidateMapAsync(id, cancellationToken))).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

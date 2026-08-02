@@ -113,6 +113,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                     ex,
                     "Cache value too large for game server {GameServerId} ({ValueLength} bytes, max {MaximumLength}); skipping cache write.",
                     gameServerId, ex.ValueLength, ex.MaximumLength);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceGameServer, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceGameServer, "oversize");
                 return await inner.GetGameServerAsync(gameServerId, cancellationToken).ConfigureAwait(false);
             }
@@ -120,6 +121,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
             {
                 // A5 — Cache resilience: read failure falls back to authoritative SQL path.
                 logger.LogWarning(ex, "Cache read failed for game server {GameServerId}; falling back to origin.", gameServerId);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceGameServer, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceGameServer, "read");
                 return await inner.GetGameServerAsync(gameServerId, cancellationToken).ConfigureAwait(false);
             }

@@ -128,6 +128,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
                     ex,
                     "Cache value too large for dashboard {Metric}/{Window} ({ValueLength} bytes, max {MaximumLength}); skipping cache write.",
                     metric, window, ex.ValueLength, ex.MaximumLength);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceDashboard, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceDashboard, "oversize");
                 return await factory(cancellationToken).ConfigureAwait(false);
             }
@@ -135,6 +136,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
             {
                 // A5 — resilience: cache failure falls back to authoritative SQL path.
                 logger.LogWarning(ex, "Cache read failed for dashboard {Metric}/{Window}; falling back to origin.", metric, window);
+                metrics.RecordLatency(RepositoryCacheKeys.SurfaceDashboard, sw.Elapsed.TotalMilliseconds);
                 metrics.RecordFailure(RepositoryCacheKeys.SurfaceDashboard, "read");
                 return await factory(cancellationToken).ConfigureAwait(false);
             }
