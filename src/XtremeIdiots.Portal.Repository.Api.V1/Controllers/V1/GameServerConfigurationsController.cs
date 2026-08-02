@@ -54,23 +54,7 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
 
     async Task<ApiResult<CollectionModel<ConfigurationDto>>> IGameServerConfigurationsApi.GetConfigurations(Guid gameServerId, CancellationToken cancellationToken)
     {
-        var gameServerExists = await context.GameServers
-            .AnyAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
-
-        if (!gameServerExists)
-        {
-            return new ApiResult<CollectionModel<ConfigurationDto>>(HttpStatusCode.NotFound);
-        }
-
-        var configs = await context.GameServerConfigurations
-            .Where(c => c.GameServerId == gameServerId)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var entries = configs.Select(c => c.ToDto()).ToList();
-        var data = new CollectionModel<ConfigurationDto>(entries);
-
-        return new ApiResponse<CollectionModel<ConfigurationDto>>(data).ToApiResult();
+        return await configurationReadService.GetServerConfigurationsAsync(gameServerId, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpGet("game-servers/{gameServerId:guid}/configurations/{ns}")]

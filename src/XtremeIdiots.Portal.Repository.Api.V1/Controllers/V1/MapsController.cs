@@ -20,6 +20,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -31,15 +33,23 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     {
         private readonly PortalDbContext context;
         private readonly ILogger<MapsController> logger;
+        private readonly IMapReadService mapReadService;
+        private readonly IRepositoryCacheInvalidator cacheInvalidator;
 
         public MapsController(
             PortalDbContext context,
-            ILogger<MapsController> logger)
+            ILogger<MapsController> logger,
+            IMapReadService mapReadService,
+            IRepositoryCacheInvalidator cacheInvalidator)
         {
             ArgumentNullException.ThrowIfNull(context);
             this.context = context;
             ArgumentNullException.ThrowIfNull(logger);
             this.logger = logger;
+            ArgumentNullException.ThrowIfNull(mapReadService);
+            this.mapReadService = mapReadService;
+            ArgumentNullException.ThrowIfNull(cacheInvalidator);
+            this.cacheInvalidator = cacheInvalidator;
         }
 
         /// <summary>
@@ -83,19 +93,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing the map details if found; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult<MapDto>> IMapsApi.GetMap(Guid mapId, CancellationToken cancellationToken)
         {
-            var map = await context.Maps
-                .Include(m => m.MapVotes)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
-
-            if (map == null)
-            {
-                return new ApiResult<MapDto>(HttpStatusCode.NotFound);
-            }
-
-            var result = map.ToDto();
-
-            return new ApiResponse<MapDto>(result).ToApiResult();
+            return await mapReadService.GetMapByIdAsync(mapId, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -107,19 +105,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing the map details if found; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult<MapDto>> IMapsApi.GetMap(GameType gameType, string mapName, CancellationToken cancellationToken)
         {
-            var map = await context.Maps
-                .Include(m => m.MapVotes)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName, cancellationToken).ConfigureAwait(false);
-
-            if (map == null)
-            {
-                return new ApiResult<MapDto>(HttpStatusCode.NotFound);
-            }
-
-            var result = map.ToDto();
-
-            return new ApiResponse<MapDto>(result).ToApiResult();
+            return await mapReadService.GetMapByGameTypeAndNameAsync(gameType, mapName, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -332,6 +318,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             editMapDto.ApplyTo(map);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await cacheInvalidator.InvalidateMapAsync(editMapDto.MapId, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -392,6 +379,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+            await Task.WhenAll(editMapDtos.Select(dto => cacheInvalidator.InvalidateMapAsync(dto.MapId, cancellationToken))).ConfigureAwait(false);
+
             return new ApiResponse().ToApiResult();
         }
 
@@ -430,6 +419,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             context.Remove(map);
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await cacheInvalidator.InvalidateMapAsync(mapId, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -561,6 +551,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     GROUP BY [MapId]
                 ) v ON m.[MapId] = v.[MapId]", cancellationToken).ConfigureAwait(false);
 
+            await cacheInvalidator.InvalidateAllMapsAsync(cancellationToken).ConfigureAwait(false);
+
             return new ApiResponse().ToApiResult();
         }
 
@@ -606,6 +598,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await cacheInvalidator.InvalidateMapAsync(upsertMapVoteDto.MapId, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -684,6 +677,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            await Task.WhenAll(mapIds.Distinct().Select(id => cacheInvalidator.InvalidateMapAsync(id, cancellationToken))).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -776,6 +771,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             map.MapImageUri = blobClient.Uri.ToString();
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await cacheInvalidator.InvalidateMapAsync(mapId, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }
@@ -840,6 +836,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             map.MapImageUri = null;
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await cacheInvalidator.InvalidateMapAsync(mapId, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();
         }

@@ -96,5 +96,34 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
 
             return new ApiResponse<ConfigurationDto>(config.ToDto()).ToApiResult();
         }
+
+        public async Task<ApiResult<CollectionModel<ConfigurationDto>>> GetServerConfigurationsAsync(Guid gameServerId, CancellationToken cancellationToken)
+        {
+            var gameServerExists = await context.GameServers
+                .AnyAsync(gs => gs.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
+
+            if (!gameServerExists)
+            {
+                return new ApiResult<CollectionModel<ConfigurationDto>>(HttpStatusCode.NotFound);
+            }
+
+            var configs = await context.GameServerConfigurations
+                .Where(c => c.GameServerId == gameServerId)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var entries = configs.Select(c => c.ToDto()).ToList();
+            return new ApiResponse<CollectionModel<ConfigurationDto>>(new CollectionModel<ConfigurationDto>(entries)).ToApiResult();
+        }
+
+        public async Task<ApiResult<CollectionModel<ConfigurationDto>>> GetGlobalConfigurationsAsync(CancellationToken cancellationToken)
+        {
+            var configs = await context.GlobalConfigurations
+                .AsNoTracking()
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+            var entries = configs.Select(c => c.ToDto()).ToList();
+            return new ApiResponse<CollectionModel<ConfigurationDto>>(new CollectionModel<ConfigurationDto>(entries)).ToApiResult();
+        }
     }
 }
