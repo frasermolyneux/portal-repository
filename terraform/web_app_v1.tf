@@ -48,6 +48,16 @@ resource "azurerm_linux_web_app" "app_v1" {
     "appdata_storage_blob_endpoint"  = azurerm_storage_account.web_api_storage.primary_blob_endpoint
     "appdata_storage_table_endpoint" = azurerm_storage_account.table_storage.primary_table_endpoint
 
+    # Shared cache Table endpoint from portal-core. When present the API host
+    # prefers this over the legacy `appdata_storage_table_endpoint` for
+    # `ILiveStatusStore` and configures MX.Caching to use TableStorage as the
+    # cross-instance backend + tag index. When absent the host falls back to
+    # in-memory caching and the legacy Table Storage account (dev / rollback).
+    "shared_cache_storage_table_endpoint" = local.shared_cache_storage_table_endpoint
+    "MxCaching__Backend"                  = local.shared_cache_storage_table_endpoint != null ? "TableStorage" : "InMemory"
+    "MxCaching__TableStorage__Endpoint"   = local.shared_cache_storage_table_endpoint
+    "MxCaching__TableStorage__TableName"  = "RepositoryCache"
+
     // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler
     "APPINSIGHTS_PROFILERFEATURE_VERSION"  = "1.0.0"
     "DiagnosticServices_EXTENSION_VERSION" = "~3"

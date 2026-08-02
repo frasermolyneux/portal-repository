@@ -10,9 +10,12 @@ using Newtonsoft.Json.Converters;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V1;
 using XtremeIdiots.Portal.Repository.Api.V1.Serialization;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 using XtremeIdiots.Portal.Repository.Api.V1.TableStorage;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V1.OpenApi;
+using MX.Caching;
 using MX.Observability.ApplicationInsights.AspNetCore;
 using Scalar.AspNetCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -127,8 +130,15 @@ builder.Services.AddHealthChecks()
         name: "sql-database",
         tags: ["dependency"]);
 
-// Register Table Storage for live status
-var tableEndpoint = builder.Configuration["appdata_storage_table_endpoint"];
+// Register Table Storage for live status.
+// Prefer the shared cache Table Storage endpoint published by portal-core
+// (managed-identity only, no keys). Fall back to the legacy appdata storage
+// endpoint / connection string only when the shared endpoint is not yet
+// wired — this keeps dev-boxes and non-migrated environments booting cleanly.
+var sharedCacheTableEndpoint = builder.Configuration["shared_cache_storage_table_endpoint"];
+var legacyTableEndpoint = builder.Configuration["appdata_storage_table_endpoint"];
+var tableEndpoint = !string.IsNullOrWhiteSpace(sharedCacheTableEndpoint) ? sharedCacheTableEndpoint : legacyTableEndpoint;
+
 if (!string.IsNullOrWhiteSpace(tableEndpoint))
 {
     var managedIdentityClientId = builder.Configuration["AzureAppConfiguration:ManagedIdentityClientId"];
@@ -154,7 +164,41 @@ else
     }
 }
 
+// Register MX.Caching. When the `MxCaching` section is configured with
+// `Backend=TableStorage` and a `TableStorage:Endpoint`, MX.Caching self-creates
+// its own configured table on startup; portal-core does not pre-provision it.
+// When the section is absent (dev/tests) MX.Caching falls back to an in-memory
+// backend, and the caching decorators remain functional (per-instance only).
+var mxCachingConfigured = builder.Configuration.GetSection("MxCaching").GetChildren().Any();
+builder.Services.AddMxCaching(builder.Configuration);
+
+// Repository read-service seams + optional cache-aside decorators.
+builder.Services.AddRepositoryReadServices(enableCaching: mxCachingConfigured);
+
 var app = builder.Build();
+
+// MI-safe creation of LiveStatus tables. portal-core provisions the shared
+// cache Storage Account without SAS keys and does not pre-create tables to
+// keep `shared_access_key_enabled=false`. TableStorageLiveStatusStore relies
+// on these tables existing, so bootstrap them here via managed identity
+// before we start serving requests.
+using (var scope = app.Services.CreateScope())
+{
+    var tableSvc = scope.ServiceProvider.GetService<TableServiceClient>();
+    if (tableSvc != null)
+    {
+        try
+        {
+            await tableSvc.CreateTableIfNotExistsAsync("GameServerLiveStatus").ConfigureAwait(false);
+            await tableSvc.CreateTableIfNotExistsAsync("GameServerLivePlayers").ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.LiveStatusTables");
+            logger.LogError(ex, "Failed to ensure LiveStatus tables exist. LiveStatus writes will fail until this is resolved.");
+        }
+    }
+}
 
 if (isAzureAppConfigurationEnabled)
 {

@@ -904,4 +904,152 @@ public class ConnectedPlayersControllerTests
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash);
     }
+
+    // ---- GetConnectedPlayers search + sort + pagination ----
+
+    private static async Task<PortalDbContext> SeedFourConnectedPlayersAsync()
+    {
+        var ctx = DbContextHelper.CreateInMemoryContext();
+
+        // Four players so we can prove filter + sort semantics.
+        var p1 = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, Username = "AlphaOne", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+        var p2 = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, Username = "BravoTwo", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+        var p3 = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, Username = "Charlie", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+        var p4 = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, Username = "Delta", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+        ctx.Players.AddRange(p1, p2, p3, p4);
+
+        var up1 = new UserProfile { UserProfileId = Guid.NewGuid(), DisplayName = "u1" };
+        var up2 = new UserProfile { UserProfileId = Guid.NewGuid(), DisplayName = "u2" };
+        var up3 = new UserProfile { UserProfileId = Guid.NewGuid(), DisplayName = "u3" };
+        var up4 = new UserProfile { UserProfileId = Guid.NewGuid(), DisplayName = "u4" };
+        ctx.UserProfiles.AddRange(up1, up2, up3, up4);
+
+        var t0 = DateTime.UtcNow.AddHours(-4);
+        ctx.ConnectedPlayerProfiles.AddRange(
+            new ConnectedPlayerProfile { ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = p1.PlayerId, UserProfileId = up1.UserProfileId, LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(), LinkedAtUtc = t0.AddHours(1), IsActive = true },
+            new ConnectedPlayerProfile { ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = p2.PlayerId, UserProfileId = up2.UserProfileId, LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(), LinkedAtUtc = t0.AddHours(2), IsActive = true },
+            new ConnectedPlayerProfile { ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = p3.PlayerId, UserProfileId = up3.UserProfileId, LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(), LinkedAtUtc = t0.AddHours(3), IsActive = false, UnlinkedAtUtc = t0.AddHours(3.5) },
+            new ConnectedPlayerProfile { ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = p4.PlayerId, UserProfileId = up4.UserProfileId, LinkMethod = ConnectedPlayerLinkMethod.TrustedWebsite.ToString(), LinkedAtUtc = t0.AddHours(4), IsActive = true }
+        );
+
+        await ctx.SaveChangesAsync();
+        return ctx;
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_DefaultOrder_IsLinkedAtUtcDescending()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: 0, takeEntries: 20);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Equal(4, items.Count);
+        for (var i = 1; i < items.Count; i++)
+        {
+            Assert.True(items[i - 1].LinkedAtUtc >= items[i].LinkedAtUtc);
+        }
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_TotalCount_IgnoresFilters_FilteredCountRespectsThem()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, GameType.CallOfDuty5, isActive: null, skipEntries: 0, takeEntries: 20);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var pagination = result.Result!.Pagination!;
+        Assert.Equal(4, pagination.TotalCount);
+        Assert.Equal(2, pagination.FilteredCount);
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_SearchUsernameSubstring_MatchesCaseInsensitive()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: 0, takeEntries: 20, searchString: "alpha");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Single(items);
+        Assert.Equal("AlphaOne", items[0].Username);
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_SearchLinkMethod_MatchesEnumString()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: 0, takeEntries: 20, searchString: "activationcode");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.All(items, i => Assert.Equal(ConnectedPlayerLinkMethod.ActivationCode, i.LinkMethod));
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_SearchGameTypeString_Matches()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: 0, takeEntries: 20, searchString: "CallOfDuty4");
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.All(items, i => Assert.Equal(GameType.CallOfDuty4, i.GameType));
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_OrderUsernameAsc_SortsAscending()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: 0, takeEntries: 20, order: ConnectedPlayersOrder.UsernameAsc);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var names = result.Result!.Data!.Items!.Select(i => i.Username).ToList();
+        Assert.Equal(new[] { "AlphaOne", "BravoTwo", "Charlie", "Delta" }, names);
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_OrderLinkedAtAsc_SortsOldestFirst()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: 0, takeEntries: 20, order: ConnectedPlayersOrder.LinkedAtUtcAsc);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        for (var i = 1; i < items.Count; i++)
+        {
+            Assert.True(items[i - 1].LinkedAtUtc <= items[i].LinkedAtUtc);
+        }
+    }
+
+    [Fact]
+    public async Task GetConnectedPlayers_ClampsSkipAndTake()
+    {
+        using var context = await SeedFourConnectedPlayersAsync();
+        var api = (IConnectedPlayersApi)CreateController(context);
+
+        // takeEntries=0 → clamped up to 20 (all rows returned when there are only 4).
+        var result = await api.GetConnectedPlayers(null, null, null, isActive: null, skipEntries: -5, takeEntries: 0);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var items = result.Result!.Data!.Items!.ToList();
+        Assert.Equal(4, items.Count);
+    }
 }
+

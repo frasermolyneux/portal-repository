@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using MX.Api.Client.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Api.Client.V1.Caching;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
@@ -16,6 +17,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             this IServiceCollection serviceCollection,
             Action<RepositoryApiOptionsBuilder> configureOptions)
         {
+            // Register library default cache policies per sub-API interface (the same interface
+            // supplied to AddTypedApiClient below). Consumers opt in per client with
+            // UseLibraryDefaults() on their CacheBuilder.
+            serviceCollection.AddDefaultCachePolicies<IGameServersApi>(RepositoryApiCacheDefaults.ConfigureGameServers);
+            serviceCollection.AddDefaultCachePolicies<IMapsApi>(RepositoryApiCacheDefaults.ConfigureMaps);
+            serviceCollection.AddDefaultCachePolicies<IUserProfileApi>(RepositoryApiCacheDefaults.ConfigureUserProfile);
+            serviceCollection.AddDefaultCachePolicies<IApiInfoApi>(RepositoryApiCacheDefaults.ConfigureApiInfo);
+            serviceCollection.AddDefaultCachePolicies<IApiHealthApi>(RepositoryApiCacheDefaults.ConfigureApiHealth);
+
             // Register V1 API implementations using the new typed pattern
             serviceCollection.AddTypedApiClient<IAdminActionsApi, AdminActionsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
             serviceCollection.AddTypedApiClient<IBanFileMonitorsApi, BanFileMonitorsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);

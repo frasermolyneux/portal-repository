@@ -4,6 +4,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
@@ -12,7 +14,8 @@ public class GlobalConfigurationsControllerTests
 {
     private GlobalConfigurationsController CreateController(PortalDbContext context)
     {
-        return new GlobalConfigurationsController(context);
+        var readService = new ConfigurationReadService(context);
+        return new GlobalConfigurationsController(context, readService, new NoOpRepositoryCacheInvalidator());
     }
 
     [Fact]

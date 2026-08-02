@@ -189,6 +189,8 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
         bool? isActive,
         int skipEntries,
         int takeEntries,
+        string? searchString = null,
+        ConnectedPlayersOrder? order = null,
         CancellationToken cancellationToken = default)
     {
         IEnumerable<ConnectedPlayerDto> query = _connectedPlayers.Values;
@@ -212,6 +214,35 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
         {
             query = query.Where(cp => cp.IsActive == isActive.Value);
         }
+
+        if (!string.IsNullOrWhiteSpace(searchString))
+        {
+            var s = searchString.Trim();
+            var isGuid = Guid.TryParse(s, out var searchGuid);
+            var isGameType = Enum.TryParse<GameType>(s, ignoreCase: true, out var searchGameType);
+            var lowered = s.ToLowerInvariant();
+            query = query.Where(cp =>
+                (cp.Username != null && cp.Username.Contains(lowered, StringComparison.OrdinalIgnoreCase))
+                || cp.LinkMethod.ToString().Contains(lowered, StringComparison.OrdinalIgnoreCase)
+                || (isGuid && (cp.PlayerId == searchGuid || cp.UserProfileId == searchGuid))
+                || (isGameType && cp.GameType == searchGameType));
+        }
+
+        query = (order ?? ConnectedPlayersOrder.LinkedAtUtcDesc) switch
+        {
+            ConnectedPlayersOrder.GameTypeAsc => query.OrderBy(cp => cp.GameType),
+            ConnectedPlayersOrder.GameTypeDesc => query.OrderByDescending(cp => cp.GameType),
+            ConnectedPlayersOrder.UsernameAsc => query.OrderBy(cp => cp.Username, StringComparer.OrdinalIgnoreCase),
+            ConnectedPlayersOrder.UsernameDesc => query.OrderByDescending(cp => cp.Username, StringComparer.OrdinalIgnoreCase),
+            ConnectedPlayersOrder.LinkMethodAsc => query.OrderBy(cp => cp.LinkMethod.ToString(), StringComparer.OrdinalIgnoreCase),
+            ConnectedPlayersOrder.LinkMethodDesc => query.OrderByDescending(cp => cp.LinkMethod.ToString(), StringComparer.OrdinalIgnoreCase),
+            ConnectedPlayersOrder.IsActiveAsc => query.OrderBy(cp => cp.IsActive),
+            ConnectedPlayersOrder.IsActiveDesc => query.OrderByDescending(cp => cp.IsActive),
+            ConnectedPlayersOrder.LinkedAtUtcAsc => query.OrderBy(cp => cp.LinkedAtUtc),
+            ConnectedPlayersOrder.UnlinkedAtUtcAsc => query.OrderBy(cp => cp.UnlinkedAtUtc),
+            ConnectedPlayersOrder.UnlinkedAtUtcDesc => query.OrderByDescending(cp => cp.UnlinkedAtUtc),
+            _ => query.OrderByDescending(cp => cp.LinkedAtUtc),
+        };
 
         var items = query.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<ConnectedPlayerDto> { Items = items };

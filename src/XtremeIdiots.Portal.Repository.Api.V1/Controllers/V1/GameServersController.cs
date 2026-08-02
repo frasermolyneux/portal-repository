@@ -17,6 +17,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -27,13 +29,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class GameServersController : ControllerBase, IGameServersApi
 {
     private readonly PortalDbContext context;
+    private readonly IGameServerReadService gameServerReadService;
+    private readonly IRepositoryCacheInvalidator cacheInvalidator;
 
 
     public GameServersController(
-        PortalDbContext context)
+        PortalDbContext context,
+        IGameServerReadService gameServerReadService,
+        IRepositoryCacheInvalidator cacheInvalidator)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(gameServerReadService);
+        ArgumentNullException.ThrowIfNull(cacheInvalidator);
         this.context = context;
+        this.gameServerReadService = gameServerReadService;
+        this.cacheInvalidator = cacheInvalidator;
     }
 
     /// <summary>
@@ -60,19 +70,7 @@ public class GameServersController : ControllerBase, IGameServersApi
     /// <returns>An API result containing the game server details if found; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult<GameServerDto>> IGameServersApi.GetGameServer(Guid gameServerId, CancellationToken cancellationToken)
     {
-        var gameServer = await context.GameServers
-            .Include(gs => gs.BanFileMonitors)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(gs => gs.GameServerId == gameServerId && !gs.Deleted, cancellationToken).ConfigureAwait(false);
-
-        if (gameServer == null)
-        {
-            return new ApiResult<GameServerDto>(HttpStatusCode.NotFound);
-        }
-
-        var result = gameServer.ToDto();
-
-        return new ApiResponse<GameServerDto>(result).ToApiResult();
+        return await gameServerReadService.GetGameServerAsync(gameServerId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -173,6 +171,8 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         context.GameServers.Add(gameServer);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateGameServerAsync(gameServer.GameServerId, cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateDashboardAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
 
@@ -233,6 +233,12 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         await context.GameServers.AddRangeAsync(gameServers, cancellationToken).ConfigureAwait(false);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var gs in gameServers)
+        {
+            await cacheInvalidator.InvalidateGameServerAsync(gs.GameServerId, cancellationToken).ConfigureAwait(false);
+        }
+        await cacheInvalidator.InvalidateDashboardAsync(cancellationToken).ConfigureAwait(false);
 
         return new ApiResponse().ToApiResult();
     }
@@ -306,6 +312,8 @@ public class GameServersController : ControllerBase, IGameServersApi
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateGameServerAsync(gameServer.GameServerId, cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateDashboardAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
@@ -413,6 +421,12 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        foreach (var id in requestedIds)
+        {
+            await cacheInvalidator.InvalidateGameServerAsync(id, cancellationToken).ConfigureAwait(false);
+        }
+        await cacheInvalidator.InvalidateDashboardAsync(cancellationToken).ConfigureAwait(false);
+
         return new ApiResponse().ToApiResult();
     }
 
@@ -437,6 +451,8 @@ public class GameServersController : ControllerBase, IGameServersApi
 
         gameServer.Deleted = true;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateGameServerAsync(gameServer.GameServerId, cancellationToken).ConfigureAwait(false);
+        await cacheInvalidator.InvalidateDashboardAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
     }
 
