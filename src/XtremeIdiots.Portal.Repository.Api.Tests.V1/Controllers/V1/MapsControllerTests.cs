@@ -6,6 +6,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -16,7 +18,9 @@ public class MapsControllerTests
     private MapsController CreateController(PortalDbContext context)
     {
         var logger = new Mock<ILogger<MapsController>>();
-        return new MapsController(context, logger.Object);
+        var mapReadService = new MapReadService(context);
+        var cacheInvalidator = new NoOpRepositoryCacheInvalidator();
+        return new MapsController(context, logger.Object, mapReadService, cacheInvalidator);
     }
 
     [Fact]

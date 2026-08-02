@@ -19,6 +19,7 @@ using MX.Caching;
 using MX.Observability.ApplicationInsights.AspNetCore;
 using Scalar.AspNetCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Caching.Hybrid;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,10 +63,9 @@ if (!string.IsNullOrWhiteSpace(appConfigEndpoint))
 
 builder.Services.AddSingleton<ITelemetryInitializer, TelemetryInitializer>();
 builder.Services.AddLogging();
-builder.Services.AddMemoryCache(options =>
-{
-    options.SizeLimit = 1024;
-});
+// IMemoryCache without SizeLimit: HybridCache uses IMemoryCache for its L1 tier and does
+// not assign entry sizes; a SizeLimit without entry sizes causes every L1 write to throw.
+builder.Services.AddMemoryCache();
 
 builder.Services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
 {
@@ -171,6 +171,13 @@ else
 // backend, and the caching decorators remain functional (per-instance only).
 var mxCachingConfigured = builder.Configuration.GetSection("MxCaching").GetChildren().Any();
 builder.Services.AddMxCaching(builder.Configuration);
+
+// A1 — Serialization correctness: Portal Repository DTOs use internal-set properties
+// decorated with [Newtonsoft.Json.JsonProperty]. HybridCache's default STJ serializer
+// cannot set these properties on deserialization, resulting in blank/default fields on
+// cache hits. Register the Newtonsoft factory so every cached type is round-tripped
+// correctly through the shared Table Storage backend.
+builder.Services.AddSingleton<IHybridCacheSerializerFactory, NewtonsoftHybridCacheSerializerFactory>();
 
 // Repository read-service seams + optional cache-aside decorators.
 builder.Services.AddRepositoryReadServices(enableCaching: mxCachingConfigured);

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 
@@ -28,6 +29,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
                 services.AddScoped<GameServerReadService>();
                 services.AddScoped<DashboardService>();
                 services.AddScoped<ConfigurationReadService>();
+                services.AddScoped<MapReadService>();
 
                 // Public seams resolve to the caching decorator, which delegates into the
                 // concrete implementations above on miss.
@@ -35,27 +37,42 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
                     new CachingGameServerReadService(
                         sp.GetRequiredService<GameServerReadService>(),
                         sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
-                        sp.GetRequiredService<RepositoryCacheMetrics>()));
+                        sp.GetRequiredService<RepositoryCacheMetrics>(),
+                        sp.GetRequiredService<ILogger<CachingGameServerReadService>>()));
 
                 services.AddScoped<IDashboardService>(sp =>
                     new CachingDashboardService(
                         sp.GetRequiredService<DashboardService>(),
                         sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
-                        sp.GetRequiredService<RepositoryCacheMetrics>()));
+                        sp.GetRequiredService<RepositoryCacheMetrics>(),
+                        sp.GetRequiredService<ILogger<CachingDashboardService>>()));
 
                 services.AddScoped<IConfigurationReadService>(sp =>
                     new CachingConfigurationReadService(
                         sp.GetRequiredService<ConfigurationReadService>(),
                         sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
-                        sp.GetRequiredService<RepositoryCacheMetrics>()));
+                        sp.GetRequiredService<RepositoryCacheMetrics>(),
+                        sp.GetRequiredService<ILogger<CachingConfigurationReadService>>()));
 
-                services.AddScoped<IRepositoryCacheInvalidator, RepositoryCacheInvalidator>();
+                services.AddScoped<IMapReadService>(sp =>
+                    new CachingMapReadService(
+                        sp.GetRequiredService<MapReadService>(),
+                        sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
+                        sp.GetRequiredService<RepositoryCacheMetrics>(),
+                        sp.GetRequiredService<ILogger<CachingMapReadService>>()));
+
+                services.AddScoped<IRepositoryCacheInvalidator>(sp =>
+                    new RepositoryCacheInvalidator(
+                        sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
+                        sp.GetRequiredService<RepositoryCacheMetrics>(),
+                        sp.GetRequiredService<ILogger<RepositoryCacheInvalidator>>()));
             }
             else
             {
                 services.AddScoped<IGameServerReadService, GameServerReadService>();
                 services.AddScoped<IDashboardService, DashboardService>();
                 services.AddScoped<IConfigurationReadService, ConfigurationReadService>();
+                services.AddScoped<IMapReadService, MapReadService>();
                 services.AddScoped<IRepositoryCacheInvalidator, NoOpRepositoryCacheInvalidator>();
             }
 

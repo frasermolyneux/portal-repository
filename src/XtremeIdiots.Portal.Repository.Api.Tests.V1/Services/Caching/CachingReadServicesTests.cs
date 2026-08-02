@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 
 using System.Net;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
 using MX.Api.Abstractions;
 using MX.Caching.Testing;
 
@@ -50,7 +52,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         {
             var inner = new CountingGameServerReadService();
             var cache = new FakeMxCache();
-            var subject = new CachingGameServerReadService(inner, cache, CreateMetrics());
+            var subject = new CachingGameServerReadService(inner, cache, CreateMetrics(), NullLogger<CachingGameServerReadService>.Instance);
             var id = Guid.NewGuid();
 
             var first = await subject.GetGameServerAsync(id, CancellationToken.None);
@@ -66,7 +68,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         {
             var inner = new CountingGameServerReadService { Factory = _ => new ApiResult<GameServerDto>(HttpStatusCode.NotFound) };
             var cache = new FakeMxCache();
-            var subject = new CachingGameServerReadService(inner, cache, CreateMetrics());
+            var subject = new CachingGameServerReadService(inner, cache, CreateMetrics(), NullLogger<CachingGameServerReadService>.Instance);
             var id = Guid.NewGuid();
 
             _ = await subject.GetGameServerAsync(id, CancellationToken.None);
@@ -81,8 +83,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingGameServerReadService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingGameServerReadService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingGameServerReadService(inner, cache, metrics, NullLogger<CachingGameServerReadService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
             var id = Guid.NewGuid();
 
             _ = await subject.GetGameServerAsync(id, CancellationToken.None);
@@ -98,8 +100,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingGameServerReadService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingGameServerReadService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingGameServerReadService(inner, cache, metrics, NullLogger<CachingGameServerReadService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
             var idA = Guid.NewGuid();
             var idB = Guid.NewGuid();
 
@@ -138,7 +140,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         {
             var inner = new CountingDashboardService();
             var cache = new FakeMxCache();
-            var subject = new CachingDashboardService(inner, cache, CreateMetrics());
+            var subject = new CachingDashboardService(inner, cache, CreateMetrics(), NullLogger<CachingDashboardService>.Instance);
 
             _ = await subject.GetDashboardSummaryAsync(CancellationToken.None);
             _ = await subject.GetDashboardSummaryAsync(CancellationToken.None);
@@ -160,7 +162,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         {
             var inner = new CountingDashboardService();
             var cache = new FakeMxCache();
-            var subject = new CachingDashboardService(inner, cache, CreateMetrics());
+            var subject = new CachingDashboardService(inner, cache, CreateMetrics(), NullLogger<CachingDashboardService>.Instance);
 
             _ = await subject.GetAdminLeaderboardAsync(30, CancellationToken.None);
             _ = await subject.GetAdminLeaderboardAsync(7, CancellationToken.None);
@@ -176,8 +178,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingDashboardService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingDashboardService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingDashboardService(inner, cache, metrics, NullLogger<CachingDashboardService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
 
             _ = await subject.GetDashboardSummaryAsync(CancellationToken.None);
             _ = await subject.GetAdminLeaderboardAsync(30, CancellationToken.None);
@@ -197,12 +199,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         {
             public int ServerCalls { get; private set; }
             public int GlobalCalls { get; private set; }
+            public int ServerCollectionCalls { get; private set; }
+            public int GlobalCollectionCalls { get; private set; }
 
             public Task<ApiResult<ConfigurationDto>> GetServerConfigurationAsync(Guid gameServerId, string ns, CancellationToken cancellationToken)
             { ServerCalls++; return Task.FromResult(Ok(new ConfigurationDto())); }
 
             public Task<ApiResult<ConfigurationDto>> GetGlobalConfigurationAsync(string ns, CancellationToken cancellationToken)
             { GlobalCalls++; return Task.FromResult(Ok(new ConfigurationDto())); }
+
+            public Task<ApiResult<CollectionModel<ConfigurationDto>>> GetServerConfigurationsAsync(Guid gameServerId, CancellationToken cancellationToken)
+            { ServerCollectionCalls++; return Task.FromResult(Ok(new CollectionModel<ConfigurationDto>())); }
+
+            public Task<ApiResult<CollectionModel<ConfigurationDto>>> GetGlobalConfigurationsAsync(CancellationToken cancellationToken)
+            { GlobalCollectionCalls++; return Task.FromResult(Ok(new CollectionModel<ConfigurationDto>())); }
         }
 
         [Fact]
@@ -210,7 +220,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         {
             var inner = new CountingConfigurationReadService();
             var cache = new FakeMxCache();
-            var subject = new CachingConfigurationReadService(inner, cache, CreateMetrics());
+            var subject = new CachingConfigurationReadService(inner, cache, CreateMetrics(), NullLogger<CachingConfigurationReadService>.Instance);
             var id = Guid.NewGuid();
 
             _ = await subject.GetServerConfigurationAsync(id, "ftp", CancellationToken.None);
@@ -226,8 +236,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingConfigurationReadService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingConfigurationReadService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingConfigurationReadService(inner, cache, metrics, NullLogger<CachingConfigurationReadService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
             var id = Guid.NewGuid();
 
             _ = await subject.GetServerConfigurationAsync(id, "ftp", CancellationToken.None);
@@ -247,8 +257,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingConfigurationReadService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingConfigurationReadService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingConfigurationReadService(inner, cache, metrics, NullLogger<CachingConfigurationReadService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
 
             var idA = Guid.NewGuid();
             var idB = Guid.NewGuid();
@@ -280,8 +290,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingConfigurationReadService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingConfigurationReadService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingConfigurationReadService(inner, cache, metrics, NullLogger<CachingConfigurationReadService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
             var id = Guid.NewGuid();
 
             var canonical = NamespaceSchemaValidationRegistry.NormalizeNamespace("serverList");
@@ -315,8 +325,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingConfigurationReadService();
             var cache = new FakeMxCache();
             var metrics = CreateMetrics();
-            var subject = new CachingConfigurationReadService(inner, cache, metrics);
-            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var subject = new CachingConfigurationReadService(inner, cache, metrics, NullLogger<CachingConfigurationReadService>.Instance);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics, NullLogger<RepositoryCacheInvalidator>.Instance);
             var id = Guid.NewGuid();
 
             var canonical = NamespaceSchemaValidationRegistry.NormalizeNamespace("serverList");

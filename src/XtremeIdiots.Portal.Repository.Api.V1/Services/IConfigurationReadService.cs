@@ -24,5 +24,16 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
         /// canonical/legacy server-list namespace compatibility behaviour.
         /// </summary>
         Task<ApiResult<ConfigurationDto>> GetGlobalConfigurationAsync(string ns, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Returns all per-server configuration documents for a single game server.
+        /// Returns <c>NotFound</c> when the game server does not exist.
+        /// </summary>
+        Task<ApiResult<CollectionModel<ConfigurationDto>>> GetServerConfigurationsAsync(Guid gameServerId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Returns all global configuration documents.
+        /// </summary>
+        Task<ApiResult<CollectionModel<ConfigurationDto>>> GetGlobalConfigurationsAsync(CancellationToken cancellationToken);
     }
 }

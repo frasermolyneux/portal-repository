@@ -59,14 +59,7 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
 
     async Task<ApiResult<CollectionModel<ConfigurationDto>>> IGlobalConfigurationsApi.GetConfigurations(CancellationToken cancellationToken)
     {
-        var configs = await context.GlobalConfigurations
-            .AsNoTracking()
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var entries = configs.Select(c => c.ToDto()).ToList();
-        var data = new CollectionModel<ConfigurationDto>(entries);
-
-        return new ApiResponse<CollectionModel<ConfigurationDto>>(data).ToApiResult();
+        return await configurationReadService.GetGlobalConfigurationsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     [HttpGet("configurations/{ns}")]
