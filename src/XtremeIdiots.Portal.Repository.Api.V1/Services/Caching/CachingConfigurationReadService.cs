@@ -32,7 +32,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
         public async Task<ApiResult<ConfigurationDto>> GetServerConfigurationAsync(Guid gameServerId, string ns, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(ns))
+            // Defence-in-depth: mirror the inner service's rejection of oversized namespaces so
+            // an oversized value never reaches key/tag construction. Callers going through
+            // controllers already short-circuit on the same guard.
+            if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
             {
                 return await inner.GetServerConfigurationAsync(gameServerId, ns, cancellationToken).ConfigureAwait(false);
             }
@@ -75,7 +78,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
         public async Task<ApiResult<ConfigurationDto>> GetGlobalConfigurationAsync(string ns, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(ns))
+            if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128)
             {
                 return await inner.GetGlobalConfigurationAsync(ns, cancellationToken).ConfigureAwait(false);
             }

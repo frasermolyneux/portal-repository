@@ -666,7 +666,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var filteredCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
-            query = (order ?? ConnectedPlayersOrder.LinkedAtUtcDesc) switch
+            var ordered = (order ?? ConnectedPlayersOrder.LinkedAtUtcDesc) switch
             {
                 ConnectedPlayersOrder.GameTypeAsc => query.OrderBy(cp => cp.Player.GameType).ThenByDescending(cp => cp.LinkedAtUtc),
                 ConnectedPlayersOrder.GameTypeDesc => query.OrderByDescending(cp => cp.Player.GameType).ThenByDescending(cp => cp.LinkedAtUtc),
@@ -682,7 +682,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 _ => query.OrderByDescending(cp => cp.LinkedAtUtc),
             };
 
-            var entities = await query
+            // Stable tie-breaker on the unique PK — ensures Skip/Take pagination is deterministic
+            // when the primary sort column contains ties (e.g. rows sharing the same LinkedAtUtc).
+            var entities = await ordered
+                .ThenBy(cp => cp.ConnectedPlayerProfileId)
                 .Skip(skipEntries)
                 .Take(takeEntries)
                 .ToListAsync(cancellationToken)

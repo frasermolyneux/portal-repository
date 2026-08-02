@@ -53,9 +53,11 @@ resource "azurerm_linux_web_app" "app_v1" {
     # `ILiveStatusStore` and configures MX.Caching to use TableStorage as the
     # cross-instance backend + tag index. When absent the host falls back to
     # in-memory caching and the legacy Table Storage account (dev / rollback).
-    "shared_cache_storage_table_endpoint" = local.shared_cache_storage_table_endpoint
+    # coalesce() is used because app_settings values must be strings (not null)
+    # even when the upstream `cache_storage` output is not yet published.
+    "shared_cache_storage_table_endpoint" = coalesce(local.shared_cache_storage_table_endpoint, "")
     "MxCaching__Backend"                  = local.shared_cache_storage_table_endpoint != null ? "TableStorage" : "InMemory"
-    "MxCaching__TableStorage__Endpoint"   = local.shared_cache_storage_table_endpoint
+    "MxCaching__TableStorage__Endpoint"   = coalesce(local.shared_cache_storage_table_endpoint, "")
     "MxCaching__TableStorage__TableName"  = "RepositoryCache"
 
     // https://learn.microsoft.com/en-us/azure/azure-monitor/profiler/profiler-azure-functions#app-settings-for-enabling-profiler

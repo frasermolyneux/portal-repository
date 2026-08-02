@@ -305,5 +305,39 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             Assert.Equal(2, inner.GlobalCalls);
             Assert.Equal(2, inner.ServerCalls);
         }
+
+        [Fact]
+        public async Task RepositoryCacheInvalidator_NormalizesLegacyAlias_SoAliasWritesEvictCanonicalTaggedReads()
+        {
+            // Symmetric to the previous test but from the opposite direction: a write path that
+            // uses the legacy alias must still evict the canonical-tagged cache entries produced
+            // by the read decorator, otherwise stale entries linger until TTL.
+            var inner = new CountingConfigurationReadService();
+            var cache = new FakeMxCache();
+            var metrics = CreateMetrics();
+            var subject = new CachingConfigurationReadService(inner, cache, metrics);
+            var invalidator = new RepositoryCacheInvalidator(cache, metrics);
+            var id = Guid.NewGuid();
+
+            var canonical = NamespaceSchemaValidationRegistry.NormalizeNamespace("serverList");
+            Assert.NotEqual("serverList", canonical);
+
+            _ = await subject.GetServerConfigurationAsync(id, canonical, CancellationToken.None); // miss (canonical tag)
+            _ = await subject.GetGlobalConfigurationAsync(canonical, CancellationToken.None); // miss (canonical tag)
+
+            Assert.Equal(1, inner.ServerCalls);
+            Assert.Equal(1, inner.GlobalCalls);
+
+            // Invalidate via the alias — must be normalized inside the invalidator to hit the
+            // canonical tag used by the reads above.
+            await invalidator.InvalidateServerSettingsAsync(id, "serverList", CancellationToken.None);
+            await invalidator.InvalidateGlobalNamespaceAsync("serverList", CancellationToken.None);
+
+            _ = await subject.GetServerConfigurationAsync(id, canonical, CancellationToken.None); // miss again
+            _ = await subject.GetGlobalConfigurationAsync(canonical, CancellationToken.None); // miss again
+
+            Assert.Equal(2, inner.ServerCalls);
+            Assert.Equal(2, inner.GlobalCalls);
+        }
     }
 }
