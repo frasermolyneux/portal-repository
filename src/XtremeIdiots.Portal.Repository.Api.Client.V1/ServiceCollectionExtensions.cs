@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using MX.Api.Client.Configuration;
 using MX.Api.Client.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Api.Client.V1.Caching;
@@ -17,6 +18,32 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             this IServiceCollection serviceCollection,
             Action<RepositoryApiOptionsBuilder> configureOptions)
         {
+            ArgumentNullException.ThrowIfNull(serviceCollection);
+            ArgumentNullException.ThrowIfNull(configureOptions);
+
+            // Run configureOptions once against a throwaway probe to extract any caching delegate the
+            // consumer captured through RepositoryApiOptionsBuilder.WithCaching(Action<CacheBuilder>).
+            // The probe's remaining state is discarded - only the captured cache delegate is reused.
+            var probe = new RepositoryApiOptionsBuilder();
+            configureOptions(probe);
+            var capturedCache = probe.CapturedCacheConfigure;
+
+            // One SharedCacheConfiguration per AddRepositoryApiClient invocation, shared across every
+            // typed sub-API registration. The library scopes operations per typed client at apply time
+            // and skips non-matching siblings; ValidateAllOperationsMatched() below guards against typos
+            // (an expression that never matched any registered typed client).
+            var sharedCache = capturedCache is null
+                ? null
+                : new SharedCacheConfiguration(capturedCache);
+
+            Action<RepositoryApiOptionsBuilder> perClient = sharedCache is null
+                ? configureOptions
+                : builder =>
+                {
+                    configureOptions(builder);
+                    builder.WithSharedCaching(sharedCache);
+                };
+
             // Register library default cache policies per sub-API interface (the same interface
             // supplied to AddTypedApiClient below). Consumers opt in per client with
             // UseLibraryDefaults() on their CacheBuilder.
@@ -27,47 +54,53 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddDefaultCachePolicies<IApiHealthApi>(RepositoryApiCacheDefaults.ConfigureApiHealth);
 
             // Register V1 API implementations using the new typed pattern
-            serviceCollection.AddTypedApiClient<IAdminActionsApi, AdminActionsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IBanFileMonitorsApi, BanFileMonitorsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<ICentralBanFileStatusApi, CentralBanFileStatusApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IChatMessagesApi, ChatMessagesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IDataMaintenanceApi, DataMaintenanceApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IDemosApi, DemosApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGameServersApi, GameServersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGameServersEventsApi, GameServersEventsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGameServersStatsApi, GameServersStatsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGameTrackerBannerApi, GameTrackerBannerApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IMapsApi, MapsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IConnectedPlayersApi, ConnectedPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IAdminActionsApi, AdminActionsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IBanFileMonitorsApi, BanFileMonitorsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<ICentralBanFileStatusApi, CentralBanFileStatusApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IChatMessagesApi, ChatMessagesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IDataMaintenanceApi, DataMaintenanceApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IDemosApi, DemosApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGameServersApi, GameServersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGameServersEventsApi, GameServersEventsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGameServersStatsApi, GameServersStatsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGameTrackerBannerApi, GameTrackerBannerApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IMapsApi, MapsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IConnectedPlayersApi, ConnectedPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
 
-            serviceCollection.AddTypedApiClient<IPlayerAnalyticsApi, PlayerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IPlayersApi, PlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IRecentPlayersApi, RecentPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IReportsApi, ReportsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<ITagsApi, TagsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IUserProfileApi, UserProfileApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IPlayerAnalyticsApi, PlayerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IPlayersApi, PlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IRecentPlayersApi, RecentPlayersApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IReportsApi, ReportsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<ITagsApi, TagsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IUserProfileApi, UserProfileApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
 
             // Register API info endpoint
-            serviceCollection.AddTypedApiClient<IApiInfoApi, ApiInfoApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IApiInfoApi, ApiInfoApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
 
             // Register API health endpoint
-            serviceCollection.AddTypedApiClient<IApiHealthApi, ApiHealthApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<IApiHealthApi, ApiHealthApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
 
             // Register Notification API implementations
-            serviceCollection.AddTypedApiClient<INotificationTypesApi, NotificationTypesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<INotificationPreferencesApi, NotificationPreferencesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<INotificationsApi, NotificationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IMapRotationsApi, MapRotationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IDashboardApi, DashboardApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGlobalConfigurationsApi, GlobalConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGameServerConfigurationsApi, GameServerConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<ILiveStatusApi, LiveStatusApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGlobalAnalyticsApi, GlobalAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IGameAnalyticsApi, GameAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IServerAnalyticsApi, ServerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IDashboardAnalyticsApi, DashboardAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IMapAnalyticsApi, MapAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
-            serviceCollection.AddTypedApiClient<IPlayerAnalyticsV2Api, PlayerAnalyticsV2Api, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(configureOptions);
+            serviceCollection.AddTypedApiClient<INotificationTypesApi, NotificationTypesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<INotificationPreferencesApi, NotificationPreferencesApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<INotificationsApi, NotificationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IMapRotationsApi, MapRotationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IDashboardApi, DashboardApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGlobalConfigurationsApi, GlobalConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGameServerConfigurationsApi, GameServerConfigurationsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<ILiveStatusApi, LiveStatusApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGlobalAnalyticsApi, GlobalAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IGameAnalyticsApi, GameAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IServerAnalyticsApi, ServerAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IDashboardAnalyticsApi, DashboardAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IMapAnalyticsApi, MapAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<IPlayerAnalyticsV2Api, PlayerAnalyticsV2Api, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+
+            // Once every typed sub-API has been registered, verify every operation captured on the
+            // shared cache configuration matched at least one registered typed client. Throws
+            // InvalidOperationException on orphaned operations (e.g. a consumer expression that
+            // targets an interface which is not a registered Repository sub-API).
+            sharedCache?.ValidateAllOperationsMatched();
 
             // Register version selectors as scoped
             serviceCollection.AddScoped<IVersionedAdminActionsApi, VersionedAdminActionsApi>();

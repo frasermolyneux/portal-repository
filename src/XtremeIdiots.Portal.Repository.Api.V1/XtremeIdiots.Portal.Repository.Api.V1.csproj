@@ -24,7 +24,7 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
     <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.0.2" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
-    <PackageReference Include="MX.Api.Abstractions" Version="2.3.76" />
+    <PackageReference Include="MX.Api.Abstractions" Version="2.3.77" />
     <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.76" />
     <PackageReference Include="MX.Caching" Version="0.1.6" />
     <PackageReference Include="MX.Caching.Abstractions" Version="0.1.6" />

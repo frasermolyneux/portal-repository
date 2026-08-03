@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 
 using MX.Api.Client.Configuration;
 
@@ -10,6 +9,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     /// </summary>
     public class RepositoryApiOptionsBuilder : ApiClientOptionsBuilder<RepositoryApiClientOptions, RepositoryApiOptionsBuilder>
     {
+        /// <summary>
+        /// Cache configuration delegate captured from a consumer <see cref="WithCaching(Action{CacheBuilder})"/> call.
+        /// </summary>
+        /// <remarks>
+        /// Applied per typed sub-API by <see cref="ServiceCollectionExtensions.AddRepositoryApiClient"/> via a single
+        /// <see cref="SharedCacheConfiguration"/> instance and <c>WithSharedCaching</c>, which scopes operations to
+        /// the currently-configured typed client. See also <see cref="ServiceCollectionExtensions"/> for orchestration.
+        /// </remarks>
+        internal Action<CacheBuilder>? CapturedCacheConfigure { get; private set; }
+
         /// <summary>
         /// Creates a new instance of the RepositoryApiOptionsBuilder
         /// </summary>
@@ -38,25 +47,26 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         }
 
         /// <summary>
-        /// Configures caching for the Repository API client with cross-sub-API scope isolation.
+        /// Captures a caching configuration delegate for cross-sub-API application.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The <see cref="ServiceCollectionExtensions.AddRepositoryApiClient"/> registration
-        /// re-invokes the consumer's configuration delegate once per typed sub-API
-        /// (<see cref="Abstractions.Interfaces.V1.IAdminActionsApi"/>,
-        /// <see cref="Abstractions.Interfaces.V1.IGameServersApi"/>, etc.). MX.Api.Client 2.3.76
-        /// scopes each builder to a single typed client, so an expression such as
+        /// <see cref="ServiceCollectionExtensions.AddRepositoryApiClient"/> re-invokes the consumer's configuration
+        /// delegate once per typed sub-API (<see cref="Abstractions.Interfaces.V1.IAdminActionsApi"/>,
+        /// <see cref="Abstractions.Interfaces.V1.IGameServersApi"/>, etc.). The base
+        /// <see cref="ApiClientOptionsBuilder{TOptions,TBuilder}.WithCaching(Action{CacheBuilder})"/> scopes each call to
+        /// a single typed client, so an expression such as
         /// <c>c.NotCached&lt;IGameServersApi, ...&gt;(x =&gt; x.GetGameServer(...))</c> would throw
         /// <see cref="ArgumentException"/> when replayed against every non-matching typed client.
         /// </para>
         /// <para>
-        /// This override captures the consumer's intent once against an unscoped shadow builder,
-        /// then replays only the operations whose declaring interface is assignable to the
-        /// currently-configured typed client, preserving library-default opt-in and consumer
-        /// overrides while eliminating the cross-client crash. Library defaults registered via
-        /// <see cref="MX.Api.Client.Extensions.ApiClientExtensions.AddDefaultCachePolicies{TClient}"/>
-        /// continue to apply per typed client as designed.
+        /// This override captures the delegate on <see cref="CapturedCacheConfigure"/> without applying it.
+        /// <see cref="ServiceCollectionExtensions.AddRepositoryApiClient"/> creates a single
+        /// <see cref="SharedCacheConfiguration"/> from the captured delegate and applies it to every typed client via
+        /// <see cref="ApiClientOptionsBuilder{TOptions,TBuilder}.WithSharedCaching(SharedCacheConfiguration)"/>, which
+        /// natively scopes operations to the current typed client and skips unrelated siblings. Library defaults registered
+        /// via <see cref="MX.Api.Client.Extensions.ApiClientExtensions.AddDefaultCachePolicies{TClient}"/> continue to
+        /// apply per typed client as designed.
         /// </para>
         /// </remarks>
         /// <param name="configure">The cache policy configuration callback.</param>
@@ -64,72 +74,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public new RepositoryApiOptionsBuilder WithCaching(Action<CacheBuilder> configure)
         {
             ArgumentNullException.ThrowIfNull(configure);
-
-            // Run the consumer's delegate against a fresh, unscoped shadow builder so any
-            // expression targeting any sub-API validates only against its own TApi/DeclaringType
-            // relationship and never against a mismatched _configuredClientType.
-            var shadow = new RepositoryApiOptionsBuilder();
-            _ = ((ApiClientOptionsBuilder<RepositoryApiClientOptions, RepositoryApiOptionsBuilder>)shadow)
-                .WithCaching(configure);
-
-            var shadowOptions = shadow.Options;
-
-            if (shadowOptions.UseLibraryCacheDefaults)
-            {
-                _ = base.WithCaching(static c => c.UseLibraryDefaults());
-            }
-
-            if (shadowOptions.CachePolicyOperations.Count == 0)
-            {
-                return this;
-            }
-
-            var currentTypedClient = ReadConfiguredClientType(this);
-
-            foreach (var kvp in shadowOptions.CachePolicyOperations)
-            {
-                var declaringType = kvp.Key.DeclaringType;
-                if (declaringType is null)
-                {
-                    continue;
-                }
-
-                if (currentTypedClient is not null && !declaringType.IsAssignableFrom(currentTypedClient))
-                {
-                    // Expression targets a different sub-API contract than the typed client
-                    // currently being configured. Skip - it will be applied when the matching
-                    // typed client's builder pass runs.
-                    continue;
-                }
-
-                ApplyCachePolicyOperation(Options, kvp.Key, kvp.Value);
-            }
-
+            CapturedCacheConfigure = configure;
             return this;
         }
-
-        private static readonly FieldInfo ConfiguredClientTypeField = typeof(ApiClientOptionsBuilder<RepositoryApiClientOptions, RepositoryApiOptionsBuilder>)
-            .GetField("_configuredClientType", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException(
-                "MX.Api.Client contract change: expected private field '_configuredClientType' on ApiClientOptionsBuilder<,> was not found. "
-                + "Repository client cache scoping cannot be applied safely without it.");
-
-        private static readonly MethodInfo SetCachePolicyOperationMethod = typeof(ApiClientOptionsBase)
-            .GetMethod(
-                "SetCachePolicyOperation",
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(MethodInfo), typeof(CachePolicyOperation) },
-                modifiers: null)
-            ?? throw new InvalidOperationException(
-                "MX.Api.Client contract change: expected internal method 'ApiClientOptionsBase.SetCachePolicyOperation(MethodInfo, CachePolicyOperation)' was not found. "
-                + "Repository client cache scoping cannot be applied safely without it.");
-
-        private static Type? ReadConfiguredClientType(RepositoryApiOptionsBuilder builder)
-            => (Type?)ConfiguredClientTypeField.GetValue(builder);
-
-        private static void ApplyCachePolicyOperation(ApiClientOptionsBase options, MethodInfo method, CachePolicyOperation operation)
-            => SetCachePolicyOperationMethod.Invoke(options, new object[] { method, operation });
     }
 }
-

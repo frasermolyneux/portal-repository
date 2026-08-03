@@ -194,6 +194,30 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             }
         }
 
+        /// <summary>
+        /// Guard for the shared cache configuration's <c>ValidateAllOperationsMatched()</c> gate:
+        /// a consumer cache expression targeting an interface that is NOT one of the registered
+        /// Repository sub-APIs must surface as an <see cref="InvalidOperationException"/> at
+        /// registration time, not silently swallowed. This catches consumer typos (wrong interface,
+        /// stale contract reference) instead of leaving them as invisible dead policies.
+        /// </summary>
+        [Fact]
+        public void AddRepositoryApiClient_ConsumerOverrideTargetingUnregisteredInterface_ThrowsValidationError()
+        {
+            var services = new ServiceCollection();
+
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                services.AddRepositoryApiClient(o => o
+                    .WithBaseUrl(BaseUrl)
+                    .WithApiKeyAuthentication(SubscriptionKey)
+                    .WithCachePartition(CachePartition)
+                    .WithCaching(c => c
+                        .NotCached<INotARegisteredRepositoryApi, Task<ApiResult>>(
+                            x => x.Ping(default)))));
+
+            Assert.NotNull(ex);
+        }
+
         public static TheoryData<Type> AllSubApiInterfaces()
         {
             var data = new TheoryData<Type>();
@@ -248,5 +272,15 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             services.AddRepositoryApiClient(configureOptions);
             return services.BuildServiceProvider();
         }
+    }
+
+    /// <summary>
+    /// Fake interface never registered by <see cref="ServiceCollectionExtensions.AddRepositoryApiClient"/>.
+    /// Used to prove that <c>SharedCacheConfiguration.ValidateAllOperationsMatched()</c> surfaces an error
+    /// when a consumer cache expression can never bind to any registered typed sub-API.
+    /// </summary>
+    public interface INotARegisteredRepositoryApi
+    {
+        Task<ApiResult> Ping(CancellationToken cancellationToken);
     }
 }
