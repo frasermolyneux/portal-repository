@@ -33,6 +33,16 @@ Versioned ASP.NET Core APIs power player, server, map, and telemetry flows for t
 | [`XtremeIdiots.Portal.Repository.Api.Client.V2`](https://www.nuget.org/packages/XtremeIdiots.Portal.Repository.Api.Client.V2)           | [![NuGet](https://img.shields.io/nuget/v/XtremeIdiots.Portal.Repository.Api.Client.V2.svg)](https://www.nuget.org/packages/XtremeIdiots.Portal.Repository.Api.Client.V2/)           | Typed client for Repository API V2                              |
 | [`XtremeIdiots.Portal.Repository.Api.Client.Testing`](https://www.nuget.org/packages/XtremeIdiots.Portal.Repository.Api.Client.Testing) | [![NuGet](https://img.shields.io/nuget/v/XtremeIdiots.Portal.Repository.Api.Client.Testing.svg)](https://www.nuget.org/packages/XtremeIdiots.Portal.Repository.Api.Client.Testing/) | In-memory fakes and test helpers for consumer integration tests |
 
+## Route to Live
+Deployment can be driven by pull request labels on top of the standard PR Verify pipeline (build/test run automatically for all non-draft PRs; a Terraform plan against Development runs on `opened`/`synchronize`/`reopened`/`ready_for_review` when `deploy-dev` is not applied).
+
+
+
+* **`deploy-dev`** — runs the Terraform plan+apply, SQL database deploy, and V1/V2 App Service deploys against the Development environment, then verifies the deployed build via the `/v1.0/info` and `/v2.0/info` endpoints. Dependabot PRs are intentionally excluded from the apply/deploy jobs.
+* **`run-prd-plan`** — runs a Terraform plan against the Production environment for review (no apply).
+
+Merges to `main` that touch `src/**` trigger the Release - Version and Tag workflow (Nerdbank.GitVersioning), which in turn publishes the API client NuGet packages via Release - Publish NuGet. Production infrastructure and app deployment run from the Deploy Prd workflow.
+
 ## Contributing
 Please read the [contributing](CONTRIBUTING.md) guidance; this is a learning and development project.
 
