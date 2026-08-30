@@ -34,7 +34,8 @@ Versioned ASP.NET Core APIs power player, server, map, and telemetry flows for t
 | [`XtremeIdiots.Portal.Repository.Api.Client.Testing`](https://www.nuget.org/packages/XtremeIdiots.Portal.Repository.Api.Client.Testing) | [![NuGet](https://img.shields.io/nuget/v/XtremeIdiots.Portal.Repository.Api.Client.Testing.svg)](https://www.nuget.org/packages/XtremeIdiots.Portal.Repository.Api.Client.Testing/) | In-memory fakes and test helpers for consumer integration tests |
 
 ## Route to Live
-Deployment can be driven by pull request labels on top of the standard PR Verify pipeline (build/test run automatically for all non-draft PRs; a Terraform plan against Development runs on open/sync/reopen/ready_for_review when `deploy-dev` is not applied):
+Deployment can be driven by pull request labels on top of the standard PR Verify pipeline (build/test run automatically for all non-draft PRs; a Terraform plan against Development runs on `opened`/`synchronize`/`reopened`/`ready_for_review` when `deploy-dev` is not applied):
+
 
 
 * **`deploy-dev`** — runs the Terraform plan+apply, SQL database deploy, and V1/V2 App Service deploys against the Development environment, then verifies the deployed build via the `/v1.0/info` and `/v2.0/info` endpoints. Dependabot PRs are intentionally excluded from the apply/deploy jobs.
