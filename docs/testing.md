@@ -284,10 +284,10 @@ public class AdminActionsTests : IClassFixture<CustomWebApplicationFactory>
 
 ```bash
 # Build the solution
-dotnet build src/XtremeIdiots.Portal.Repository.sln
+dotnet build src/XtremeIdiots.Portal.Repository.slnx
 
 # Run all tests
-dotnet test src/XtremeIdiots.Portal.Repository.sln
+dotnet test src/XtremeIdiots.Portal.Repository.slnx
 
 # Run specific test projects
 dotnet test src/XtremeIdiots.Portal.Repository.Api.Tests.V1

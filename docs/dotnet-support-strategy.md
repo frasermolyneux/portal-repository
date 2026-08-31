@@ -12,8 +12,8 @@ Library projects target both `net9.0` and `net10.0`:
 ```
 
 This includes:
-- Library projects (Abstractions, Client libraries, DataLib)
-- Test projects (all integration test projects)
+- Library projects (Abstractions, client libraries, DataLib, settings contracts)
+- Unit, client, and package test projects
 
 ### Single-Targeted API Hosts
 API host applications target `net9.0` for deployment:
@@ -26,6 +26,7 @@ API host applications target `net9.0` for deployment:
 
 This includes:
 - API host projects (Api.V1, Api.V2)
+- Current and legacy API integration test projects, which exercise the .NET 9 hosts
 
 API hosts use single-targeting because they are deployable applications that require a specific runtime for publishing.
 
@@ -46,11 +47,16 @@ ignore:
     update-types: ["version-update:semver-major"]
 ```
 
-## CI/CD
-All workflows build and test against both versions:
+## Solution and CI/CD
+
+The repository uses the XML solution format at `src/XtremeIdiots.Portal.Repository.slnx`. All projects use the SDK-style project format.
+
+CI installs the supported .NET 9 runtime and .NET 10 SDK:
 
 ```yaml
 dotnet-version: |
   9.0.x
-  10.0.x-preview
+  10.0.x
 ```
+
+The SDK version is pinned in `global.json`. The .NET 10 SDK restores and builds the solution, tests both target frameworks of multi-targeted test projects, packs libraries with both `net9.0` and `net10.0` assets, and publishes the intentionally .NET 9 API hosts. Pull request verification also runs focused current V1 and V2 integration tests to exercise application startup, dependency injection, serialization, and persistence paths.
