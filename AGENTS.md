@@ -1,148 +1,47 @@
 # AGENTS.md — portal-repository
 
-Portal Repository API + EF Core data layer + SQL Database project for the XtremeIdiots Portal. Two API hosts (V1 and V2) deployed behind Azure API Management, three published NuGet packages (`Api.Client.V1`, `Api.Client.V2`, `Api.Client.Testing`), and the Terraform that provisions APIM definitions, App Services, SQL DB, Key Vault, Storage, and App Insights.
+Portal Repository owns the versioned repository APIs, SQL database project, generated EF Core data layer, typed clients, consumer-testing package, settings contracts, and Azure infrastructure.
 
-Stack: .NET 9 (API hosts) + .NET 9 + .NET 10 multi-target (libraries, clients, tests). EF Core 9 reverse-engineered from the DACPAC via EF Core Power Tools. Versioning: Nerdbank.GitVersioning.
+## Stack and layout
 
-This file is the brief for the **GitHub Copilot coding agent** (and any other agent that follows the [agents.md](https://agents.md) convention) when it runs in a cloud runner without the local VS Code multi-root workspace context.
+- `src/XtremeIdiots.Portal.Repository.sln` — .NET solution.
+- `src/XtremeIdiots.Portal.Repository.Api.V1` and `.Api.V2` — separate ASP.NET Core API hosts targeting .NET 9.
+- `src/XtremeIdiots.Portal.Repository.Abstractions.V1` and `.V2` — published API contracts.
+- `src/XtremeIdiots.Portal.Repository.Api.Client.V1`, `.V2`, and `.Api.Client.Testing` — published consumer packages.
+- `src/XtremeIdiots.Portal.Repository.Database` — SQL database project and deployment scripts.
+- `src/XtremeIdiots.Portal.Repository.DataLib` — EF Core 9 model generated from the database DACPAC.
+- `src/*Tests*` — unit, client, package, current V1/V2 integration, and explicitly legacy integration suites.
+- `terraform` — App Services, SQL database, APIM product/versioning/policy, storage, monitoring, and remote-state consumption.
 
-> If you are a human reading this in VS Code, prefer `.github/copilot-instructions.md` for project orientation. `AGENTS.md` is the agent execution brief.
+API hosts target `net9.0`; libraries, clients, and most tests target `net9.0;net10.0`. The exact SDK is pinned in `global.json`.
 
----
-
-## Required reading (read these BEFORE doing any work)
-
-The `copilot-setup-steps.yml` workflow checks out `frasermolyneux/.github-copilot` at `./.github-copilot/` in the runner, so the paths below resolve.
-
-1. `.github/copilot-instructions.md` — repo-specific orientation, build commands, conventions
-2. `.github-copilot/.github/instructions/personal.working-preferences.instructions.md`
-3. `.github-copilot/.github/copilot-instructions.md` — org-wide catalog
-4. Stack-specific files — see **Stack guardrails** below
-5. `docs/api-versioning.md`, `docs/api-design-v2.md`, `docs/efcore-data-lib.md`, `docs/testing.md` — repo-specific architecture
-
----
-
-## Org conventions via MCP (when available)
-
-If a `frasermolyneux-copilot` MCP server is configured in your client (`~/.copilot/mcp-config.json`, VS Code user `mcp.json`, or an equivalent stdio MCP wire-up), **prefer its catalog tools** over your own assumptions when answering questions about org standards, branching, workflows, Terraform, .NET projects, Azure patterns, or shared library / platform consumption contracts. The catalog source-of-truth lives in `frasermolyneux/.github-copilot` — see `mcp-server/README.md` there for the tool contract.
-
-This is **complementary** to the file-load model: if `./.github-copilot/` is checked out in the runner (per `copilot-setup-steps.yml`), continue to read those files directly. If both are available, prefer MCP for freshness. If no MCP server is configured in your client, treat this section as a no-op and fall back to the file paths above.
-
----
-
-## Stack guardrails
-
-### Tenant facts (always-on)
-- `tenant.subscriptions`, `tenant.regions`, `tenant.identity`, `tenant.dns`, `tenant.network-topology`
-
-### Enforceable standards
-- `standards.oidc-and-secrets` — **no client secrets**
-- `standards.dotnet-project` — project file / Directory.Build.props conventions
-- `standards.azure-naming`, `standards.azure-tagging`, `standards.terraform-style`
-- `standards.branching-and-prs`
-
-### Patterns
-- `patterns.api-client` — three-package layout (Abstractions / Client / Client.Testing)
-- `patterns.versioned-apis` — namespaced controllers, APIM segment versioning, runtime OpenAPI
-- `patterns.repository` — repository pattern for data access
-- `patterns.nbgv-versioning` — NBGV / `version.json`
-- `patterns.terraform-remote-state`
-- `dotnet-nuget-library.instructions.md`, `dotnet-api-client-libraries.instructions.md`
-- `datalib-regeneration.instructions.md` — **mandatory** EF Core Power Tools regeneration after any schema change (per-repo file at `.github/instructions/datalib-regeneration.instructions.md`, not under `.github-copilot/`)
-
-### Platform settings contracts
-- `XtremeIdiots.Portal.Settings.Contracts.V1` is the canonical owner for typed platform settings contracts/validators.
-- Keep repository transport dynamic (`Namespace` + JSON string) while enforcing known-namespace schema validation through the contracts package.
-- Treat `XtremeIdiots.Portal.ChatCommands.Abstractions.V1` as compatibility-only.
-- Do not remove compatibility shims unless shim-removal gate criteria are met and evidenced.
-- Follow `docs/settings-contracts-compatibility-shim.md` for migration and troubleshooting guidance.
-
-### Platform consumption contracts
-- `platform.workloads`, `platform.monitoring`, `platform.connectivity`
-
-### Shared
-- `shared.api-client-abstractions` — `MX.Api.Abstractions` base types
-- `shared.observability-appinsights` — telemetry filtering, audit logger
-- `shared.portal-core` — shared App Service Plans, App Insights, SQL Server consumed from `portal-core`
-
----
-
-## Build, test, format
+## Useful commands
 
 ```pwsh
-dotnet restore src/XtremeIdiots.Portal.Repository.sln
-dotnet build src/XtremeIdiots.Portal.Repository.sln
-dotnet test src/XtremeIdiots.Portal.Repository.sln --filter "FullyQualifiedName!~IntegrationTests"
-dotnet format src/XtremeIdiots.Portal.Repository.sln --verify-no-changes
-
+dotnet build src\XtremeIdiots.Portal.Repository.sln
+dotnet test src\XtremeIdiots.Portal.Repository.sln --filter "FullyQualifiedName!~IntegrationTests"
+dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1
+dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2
+dotnet format src\XtremeIdiots.Portal.Repository.sln --verify-no-changes
 terraform -chdir=terraform fmt -check -recursive
-terraform -chdir=terraform init -backend-config=backends/dev.backend.hcl
-terraform -chdir=terraform validate
-terraform -chdir=terraform plan -var-file=tfvars/dev.tfvars
 ```
 
----
+Run Terraform init/validate/plan only when infrastructure changes require it, using the matching `terraform\backends\<env>.backend.hcl` and `terraform\tfvars\<env>.tfvars`.
 
-## Do NOT
+## Repository boundaries
 
-- ❌ Do not `git commit`, `git push`, force-push, rebase, or branch-mutate. Work on the assigned branch only.
-- ❌ Do not introduce client secrets / connection strings. OIDC + managed identity only.
-- ❌ Do not bypass `dotnet format --verify-no-changes`, `dotnet test`, `terraform fmt -check`, or `terraform validate`.
-- ❌ Do not change DTOs / route shapes in `Abstractions.V1` or `Abstractions.V2` without bumping the matching API client NuGet version and updating consumers — these are published contracts.
-- ❌ Do not edit `DataLib` by hand — regenerate via EF Core Power Tools after the Database project changes (see `datalib-regeneration.instructions.md`).
-- ❌ Do not manage APIM API definitions in Terraform — they are imported by deploy workflows from the live App Service OpenAPI spec.
-- ❌ Do not change `version.json`, `Directory.Build.props`, or `.github/workflows/` unless that is the explicit task.
-- ❌ Do not add a `/api/` prefix to controller routes — routes are `v{version:apiVersion}/[controller]`. APIM owns the segment.
-- ❌ Do not break the `ApiResponse` / `CollectionResult` envelope shape from `MX.Api.Abstractions`.
+- Preserve V1 and V2 route, DTO, response-envelope, OpenAPI, and client compatibility. Contract changes must be reflected in the matching abstractions, API host, typed client, tests, and testing helpers.
+- Treat the three client packages and `XtremeIdiots.Portal.Settings.Contracts.V1` as public consumer contracts.
+- Keep current V1/V2 integration tests distinct from `Api.IntegrationTests.Legacy`; do not use the legacy suite as the pattern for new coverage.
+- Database schema changes and DataLib regeneration are one change. Follow `.github/instructions/datalib-regeneration.instructions.md`; do not casually edit generated entity or context files.
+- APIM API definitions and backends are imported from the deployed runtime OpenAPI documents by deployment workflows. Terraform owns the surrounding APIM version set, product, policy, and diagnostics.
+- Repository settings persistence remains namespace plus JSON; typed validation belongs to `XtremeIdiots.Portal.Settings.Contracts.V1`. Preserve documented compatibility shims until their migration gate is satisfied.
+- Preserve the existing AzureRM/AzureAD provider constraints, azurerm backend, environment tfvars/backend pairing, and remote-state contracts.
 
-- ❌ Do not pull context from sibling workspace folders. Only what is inside this repo and `./.github-copilot/` is in scope.
-- ❌ Do not assume tools/SDKs are installed beyond what `.github/workflows/copilot-setup-steps.yml` provisions. If you need more, add the step and explain why.
+## Authoritative details
 
----
-
-## Opening the PR
-
-You MUST use `.github/PULL_REQUEST_TEMPLATE.md` as your PR body — do **not** write a freeform body. The org template is inherited from `frasermolyneux/.github` and GitHub pre-populates it when you open the PR. Concretely:
-
-1. Fill `## Summary` (one line) and `Closes #<issue>`.
-2. Tick the relevant `## Type of change` box.
-3. Paste the **actual command output** from your Build, Tests, and Format check runs into `## Validation evidence`. Show the real summary line, not "tests passed".
-4. Fill `## Risk and rollout` — blast radius, auto-deploy?, manual steps post-merge, rollback plan.
-5. Tick **every** box in `## Agent attestation`.
-6. Delete `## Consumer impact` only if no published contract (Abstractions / Client NuGet / Service Bus DTO / Terraform output) changed.
-
-Complete the `## Agent attestation` section before requesting review; reviewers use it as a readiness checklist.
-
----
-
-## Pre-PR checks (run before you open the PR)
-
-- [ ] `dotnet build` succeeds (clean)
-- [ ] `dotnet test ... --filter "FullyQualifiedName!~IntegrationTests"` passes
-- [ ] `dotnet format ... --verify-no-changes` passes
-- [ ] `terraform fmt -check -recursive` passes
-- [ ] `terraform validate` + `terraform plan -var-file=tfvars/dev.tfvars` succeed and diff is intentional
-- [ ] If Abstractions / Client DTOs changed, the matching V1/V2 package and consumer repos noted in PR body
-- [ ] If schema changed, DataLib was regenerated via EF Core Power Tools
-- [ ] No new secrets / GUIDs / connection strings
-- [ ] PR body cites each acceptance criterion
-- [ ] Risk/rollout section filled in
-
-- [ ] `code-review` sub-agent run; High/Medium findings resolved or justified in the PR body
-
----
-
-## Escalation
-
-If you hit any of the conditions below, **open the PR as draft** and **apply the `needs-decision` label** instead of pushing forward to ready-for-review. Post a comment on the originating issue summarising what's blocking you and what decision is needed.
-
-Stop and escalate when:
-
-- A change requires a breaking V1 / V2 API contract change (also apply the `breaking-contract` label).
-- The Database project requires a destructive schema migration (data loss risk).
-- A `code-review` finding is **High** and cannot be resolved in-scope.
-- APIM import would require manual product / policy coordination beyond the workflow.
-
-
-
-
+- `docs/api-versioning.md`
+- `docs/api-design-v2.md`
+- `docs/efcore-data-lib.md`
+- `docs/testing.md`
+- `docs/settings-contracts-compatibility-shim.md`
