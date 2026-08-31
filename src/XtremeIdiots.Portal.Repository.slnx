@@ -1,5 +1,7 @@
 <Solution>
   <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
     <Platform Name="Any CPU" />
     <Platform Name="x64" />
     <Platform Name="x86" />
@@ -20,7 +22,7 @@
   <Project Path="XtremeIdiots.Portal.Repository.Api.V1/XtremeIdiots.Portal.Repository.Api.V1.csproj" />
   <Project Path="XtremeIdiots.Portal.Repository.Api.V2/XtremeIdiots.Portal.Repository.Api.V2.csproj" />
   <Project Path="XtremeIdiots.Portal.Repository.Database/XtremeIdiots.Portal.Repository.Database.sqlproj">
-    <Platform Project="AnyCPU" />
+    <Platform Project="Any CPU" />
   </Project>
   <Project Path="XtremeIdiots.Portal.Repository.DataLib/XtremeIdiots.Portal.Repository.DataLib.csproj" />
   <Project Path="XtremeIdiots.Portal.Settings.Contracts.V1.Tests/XtremeIdiots.Portal.Settings.Contracts.V1.Tests.csproj" />

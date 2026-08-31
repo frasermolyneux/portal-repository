@@ -54,8 +54,8 @@ jobs:
       - name: Run focused API integration tests
         shell: bash
         run: |
-          dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --configuration Release --no-build --filter 'FullyQualifiedName~InfoAndHealthTests|FullyQualifiedName~PlayersTests'
-          dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2 --configuration Release --no-build
+          dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --configuration Release --filter 'FullyQualifiedName~InfoAndHealthTests|FullyQualifiedName~PlayersTests'
+          dotnet test src/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2 --configuration Release
 
     outputs:
       build_version: ${{ steps.v1-ci.outputs.build_version }}

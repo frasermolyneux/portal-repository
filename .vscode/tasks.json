@@ -106,14 +106,26 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "dotnet: watch",
+            "label": "dotnet: watch v1",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx"
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.Api.V1/XtremeIdiots.Portal.Repository.Api.V1.csproj"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "dotnet: watch v2",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "watch",
+                "run",
+                "--project",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.Api.V2/XtremeIdiots.Portal.Repository.Api.V2.csproj"
             ],
             "problemMatcher": "$msCompile"
         }
