@@ -729,10 +729,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (gameType.HasValue && gameType.Value != GameType.Unknown)
             {
                 var gameTypeString = gameType.Value.ToString();
-                var gameServerIdStrings = await context.GameServers
+                var gameServerIdStrings = context.GameServers
                     .Where(gs => gs.GameType == (int)gameType.Value)
-                    .Select(gs => gs.GameServerId.ToString())
-                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+                    .Select(gs => gs.GameServerId.ToString());
 
                 query = query.Where(c => c.ClaimValue == gameTypeString || gameServerIdStrings.Contains(c.ClaimValue));
             }

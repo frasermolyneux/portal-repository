@@ -29,7 +29,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         /// <param name="order">Optional ordering criteria for results.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing a paginated collection of user profiles.</returns>
-        Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, GameType? gameType, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default);
+        Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, GameType? gameType, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
+            => GetUserProfiles(filterString, filter, skipEntries, takeEntries, order, cancellationToken);
 
         Task<ApiResult> CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default);
         Task<ApiResult> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default);

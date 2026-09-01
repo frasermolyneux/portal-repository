@@ -74,12 +74,12 @@ public class FakeUserProfileApi : IUserProfileApi
 
         if (!string.IsNullOrWhiteSpace(filterString))
         {
-            var textFilter = filterString.Trim().ToLowerInvariant();
-            query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLowerInvariant().Contains(textFilter)) ||
-                                       (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLowerInvariant().Contains(textFilter)) ||
-                                       (up.DemoAuthKey != null && up.DemoAuthKey.ToLowerInvariant().Contains(textFilter)) ||
-                                       (up.DisplayName != null && up.DisplayName.ToLowerInvariant().Contains(textFilter)) ||
-                                       (up.Email != null && up.Email.ToLowerInvariant().Contains(textFilter)));
+            var textFilter = filterString.Trim().ToLower();
+            query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLower().Contains(textFilter)) ||
+                                       (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLower().Contains(textFilter)) ||
+                                       (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(textFilter)) ||
+                                       (up.DisplayName != null && up.DisplayName.ToLower().Contains(textFilter)) ||
+                                       (up.Email != null && up.Email.ToLower().Contains(textFilter)));
         }
 
         // GameType.Unknown is treated the same as no game filter being supplied.
