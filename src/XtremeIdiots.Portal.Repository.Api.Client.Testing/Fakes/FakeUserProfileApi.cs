@@ -64,10 +64,83 @@ public class FakeUserProfileApi : IUserProfileApi
     }
 
     public Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
+        => GetUserProfiles(filterString, filter, null, skipEntries, takeEntries, order, cancellationToken);
+
+    public Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, GameType? gameType, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
     {
-        var items = _userProfiles.Values.Skip(skipEntries).Take(takeEntries).ToList();
+        IEnumerable<UserProfileDto> query = _userProfiles.Values;
+
+        var totalCount = query.Count();
+
+        if (!string.IsNullOrWhiteSpace(filterString))
+        {
+            var textFilter = filterString.Trim().ToLower();
+            query = query.Where(up => (up.IdentityOid != null && up.IdentityOid.ToLower().Contains(textFilter)) ||
+                                       (up.XtremeIdiotsForumId != null && up.XtremeIdiotsForumId.ToLower().Contains(textFilter)) ||
+                                       (up.DemoAuthKey != null && up.DemoAuthKey.ToLower().Contains(textFilter)) ||
+                                       (up.DisplayName != null && up.DisplayName.ToLower().Contains(textFilter)) ||
+                                       (up.Email != null && up.Email.ToLower().Contains(textFilter)));
+        }
+
+        // GameType.Unknown is treated the same as no game filter being supplied.
+        var gameTypeFilter = gameType.HasValue && gameType.Value != GameType.Unknown ? gameType : null;
+
+        if (filter.HasValue)
+        {
+            query = filter.Value switch
+            {
+                UserProfileFilter.Webmasters => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster)),
+                UserProfileFilter.SeniorAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin)),
+                UserProfileFilter.HeadAdmins => ApplyGameScopedRoleFilter(query, UserProfileClaimType.HeadAdmin, gameTypeFilter),
+                UserProfileFilter.GameAdmins => ApplyGameScopedRoleFilter(query, UserProfileClaimType.GameAdmin, gameTypeFilter),
+                UserProfileFilter.Moderators => ApplyGameScopedRoleFilter(query, UserProfileClaimType.Moderator, gameTypeFilter),
+                UserProfileFilter.AnyAdmin => ApplyAnyAdminFilter(query, gameTypeFilter),
+                UserProfileFilter.HasAdditionalPermissions => query.Where(up => up.UserProfileClaims.Any(c => !c.SystemGenerated)),
+                _ => query
+            };
+        }
+
+        var filtered = query.ToList();
+        var filteredCount = filtered.Count;
+
+        var ordered = order switch
+        {
+            UserProfilesOrder.DisplayNameDesc => filtered.OrderByDescending(up => up.DisplayName),
+            _ => filtered.OrderBy(up => up.DisplayName)
+        };
+
+        var items = ordered.Skip(skipEntries).Take(takeEntries).ToList();
         var collection = new CollectionModel<UserProfileDto> { Items = items };
-        return Task.FromResult(new ApiResult<CollectionModel<UserProfileDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<UserProfileDto>>(collection)));
+
+        return Task.FromResult(new ApiResult<CollectionModel<UserProfileDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<UserProfileDto>>(collection)
+        {
+            Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
+        }));
+    }
+
+    private static IEnumerable<UserProfileDto> ApplyGameScopedRoleFilter(IEnumerable<UserProfileDto> query, string claimType, GameType? gameType)
+    {
+        if (gameType.HasValue)
+        {
+            var gameTypeString = gameType.Value.ToString();
+            return query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == claimType && c.ClaimValue == gameTypeString));
+        }
+
+        return query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == claimType));
+    }
+
+    private static IEnumerable<UserProfileDto> ApplyAnyAdminFilter(IEnumerable<UserProfileDto> query, GameType? gameType)
+    {
+        if (gameType.HasValue)
+        {
+            var gameTypeString = gameType.Value.ToString();
+            return query.Where(up => up.UserProfileClaims.Any(c =>
+                c.ClaimType == UserProfileClaimType.Webmaster ||
+                c.ClaimType == UserProfileClaimType.SeniorAdmin ||
+                ((c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator) && c.ClaimValue == gameTypeString)));
+        }
+
+        return query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster || c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator));
     }
 
     public Task<ApiResult> CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
