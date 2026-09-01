@@ -54,6 +54,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         }
 
         public async Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
+            => await GetUserProfiles(filterString, filter, null, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+
+        public async Task<ApiResult<CollectionModel<UserProfileDto>>> GetUserProfiles(string? filterString, UserProfileFilter? filter, GameType? gameType, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/user-profiles", Method.Get).ConfigureAwait(false);
 
@@ -65,6 +68,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             if (filter.HasValue)
             {
                 request.AddQueryParameter("filter", filter.ToString());
+            }
+
+            if (gameType.HasValue)
+            {
+                request.AddQueryParameter("gameType", gameType.Value.ToString());
             }
 
             request.AddQueryParameter("skipEntries", skipEntries.ToString());

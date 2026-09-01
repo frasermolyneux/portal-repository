@@ -188,13 +188,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="skipEntries">Number of entries to skip for pagination (default: 0).</param>
         /// <param name="takeEntries">Number of entries to take for pagination (default: 50).</param>
         /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="gameType">
+        /// Optional game type used to constrain game-scoped role filters to the claim matching that specific game.
+        /// </param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A paginated collection of user profiles.</returns>
         [HttpGet("user-profiles")]
         [ProducesResponseType<CollectionModel<UserProfileDto>>(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetUserProfiles([FromQuery] string? filterString, [FromQuery] UserProfileFilter? filter = null, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, [FromQuery] UserProfilesOrder? order = null, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> GetUserProfiles([FromQuery] string? filterString, [FromQuery] UserProfileFilter? filter = null, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 50, [FromQuery] UserProfilesOrder? order = null, [FromQuery] GameType? gameType = null, CancellationToken cancellationToken = default)
         {
-            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, filter, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+            var response = await ((IUserProfileApi)this).GetUserProfiles(filterString, filter, gameType, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -208,6 +211,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing a paginated collection of user profiles.</returns>
         async Task<ApiResult<CollectionModel<UserProfileDto>>> IUserProfileApi.GetUserProfiles(string? filterString, UserProfileFilter? filter, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken)
+            => await ((IUserProfileApi)this).GetUserProfiles(filterString, filter, null, skipEntries, takeEntries, order, cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// Retrieves a paginated list of user profiles with optional filtering, game scoping and sorting.
+        /// </summary>
+        /// <param name="filterString">Optional filter string to search for user profiles.</param>
+        /// <param name="filter">Optional role-based filter to constrain results by claim type.</param>
+        /// <param name="gameType">Optional game type used to constrain game-scoped role filters to the claim matching that specific game.</param>
+        /// <param name="skipEntries">Number of entries to skip for pagination.</param>
+        /// <param name="takeEntries">Number of entries to take for pagination.</param>
+        /// <param name="order">Optional ordering criteria for results.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
+        /// <returns>An API result containing a paginated collection of user profiles.</returns>
+        async Task<ApiResult<CollectionModel<UserProfileDto>>> IUserProfileApi.GetUserProfiles(string? filterString, UserProfileFilter? filter, GameType? gameType, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken)
         {
             var baseQuery = context.UserProfiles
                 .Include(up => up.UserProfileClaims)
@@ -218,7 +235,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply filtering
-            var filteredQuery = ApplyFilters(baseQuery, filterString, filter);
+            var filteredQuery = ApplyFilters(baseQuery, filterString, filter, gameType);
             var filteredCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
             // Apply ordering and pagination
@@ -235,7 +252,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }.ToApiResult();
         }
 
-        private static IQueryable<UserProfile> ApplyFilters(IQueryable<UserProfile> query, string? filterString, UserProfileFilter? filter)
+        private static IQueryable<UserProfile> ApplyFilters(IQueryable<UserProfile> query, string? filterString, UserProfileFilter? filter, GameType? gameType)
         {
             if (!string.IsNullOrWhiteSpace(filterString))
             {
@@ -247,22 +264,58 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                                          (up.Email != null && up.Email.ToLower().Contains(textFilter)));
             }
 
+            // GameType.Unknown is treated the same as no game filter being supplied.
+            var gameTypeFilter = gameType.HasValue && gameType.Value != GameType.Unknown ? gameType : null;
+
             if (filter.HasValue)
             {
                 query = filter.Value switch
                 {
                     UserProfileFilter.Webmasters => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster)),
                     UserProfileFilter.SeniorAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.SeniorAdmin)),
-                    UserProfileFilter.HeadAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.HeadAdmin)),
-                    UserProfileFilter.GameAdmins => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.GameAdmin)),
-                    UserProfileFilter.Moderators => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Moderator)),
-                    UserProfileFilter.AnyAdmin => query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster || c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator)),
+                    UserProfileFilter.HeadAdmins => ApplyGameScopedRoleFilter(query, UserProfileClaimType.HeadAdmin, gameTypeFilter),
+                    UserProfileFilter.GameAdmins => ApplyGameScopedRoleFilter(query, UserProfileClaimType.GameAdmin, gameTypeFilter),
+                    UserProfileFilter.Moderators => ApplyGameScopedRoleFilter(query, UserProfileClaimType.Moderator, gameTypeFilter),
+                    UserProfileFilter.AnyAdmin => ApplyAnyAdminFilter(query, gameTypeFilter),
                     UserProfileFilter.HasAdditionalPermissions => query.Where(up => up.UserProfileClaims.Any(c => !c.SystemGenerated)),
                     _ => query
                 };
             }
 
             return query;
+        }
+
+        /// <summary>
+        /// Filters user profiles that hold the given game-scoped role claim type. When a game type is supplied,
+        /// the role type and game value must be present on the same claim.
+        /// </summary>
+        private static IQueryable<UserProfile> ApplyGameScopedRoleFilter(IQueryable<UserProfile> query, string claimType, GameType? gameType)
+        {
+            if (gameType.HasValue)
+            {
+                var gameTypeString = gameType.Value.ToString();
+                return query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == claimType && c.ClaimValue == gameTypeString));
+            }
+
+            return query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == claimType));
+        }
+
+        /// <summary>
+        /// Filters user profiles that hold any administrative claim. Global claims (Webmaster, SeniorAdmin) always
+        /// match; game-scoped claims (HeadAdmin, GameAdmin, Moderator) must match the requested game when supplied.
+        /// </summary>
+        private static IQueryable<UserProfile> ApplyAnyAdminFilter(IQueryable<UserProfile> query, GameType? gameType)
+        {
+            if (gameType.HasValue)
+            {
+                var gameTypeString = gameType.Value.ToString();
+                return query.Where(up => up.UserProfileClaims.Any(c =>
+                    c.ClaimType == UserProfileClaimType.Webmaster ||
+                    c.ClaimType == UserProfileClaimType.SeniorAdmin ||
+                    ((c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator) && c.ClaimValue == gameTypeString)));
+            }
+
+            return query.Where(up => up.UserProfileClaims.Any(c => c.ClaimType == UserProfileClaimType.Webmaster || c.ClaimType == UserProfileClaimType.SeniorAdmin || c.ClaimType == UserProfileClaimType.HeadAdmin || c.ClaimType == UserProfileClaimType.GameAdmin || c.ClaimType == UserProfileClaimType.Moderator));
         }
 
         private static IQueryable<UserProfile> ApplyOrderingAndPagination(IQueryable<UserProfile> query, int skipEntries, int takeEntries, UserProfilesOrder? order)
@@ -675,7 +728,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (gameType.HasValue && gameType.Value != GameType.Unknown)
             {
-                query = query.Where(c => c.ClaimValue == gameType.Value.ToString());
+                var gameTypeString = gameType.Value.ToString();
+                var gameServerIdStrings = await context.GameServers
+                    .Where(gs => gs.GameType == (int)gameType.Value)
+                    .Select(gs => gs.GameServerId.ToString())
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+                query = query.Where(c => c.ClaimValue == gameTypeString || gameServerIdStrings.Contains(c.ClaimValue));
             }
 
             var results = await query.Select(c => new PermissionReportEntryDto
