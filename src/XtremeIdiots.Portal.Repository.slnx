@@ -1,0 +1,30 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="XtremeIdiots.Portal.Repository.Abstractions.V1/XtremeIdiots.Portal.Repository.Abstractions.V1.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Abstractions.V2/XtremeIdiots.Portal.Repository.Abstractions.V2.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests/XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Client.Testing/XtremeIdiots.Portal.Repository.Api.Client.Testing.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Client.Tests.V1/XtremeIdiots.Portal.Repository.Api.Client.Tests.V1.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Client.Tests.V2/XtremeIdiots.Portal.Repository.Api.Client.Tests.V2.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Client.V1/XtremeIdiots.Portal.Repository.Api.Client.V1.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Client.V2/XtremeIdiots.Portal.Repository.Api.Client.V2.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy/XtremeIdiots.Portal.Repository.Api.IntegrationTests.Legacy.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2/XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Tests.V1/XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.Tests.V2/XtremeIdiots.Portal.Repository.Api.Tests.V2.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.V1/XtremeIdiots.Portal.Repository.Api.V1.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Api.V2/XtremeIdiots.Portal.Repository.Api.V2.csproj" />
+  <Project Path="XtremeIdiots.Portal.Repository.Database/XtremeIdiots.Portal.Repository.Database.sqlproj">
+    <Platform Project="Any CPU" />
+  </Project>
+  <Project Path="XtremeIdiots.Portal.Repository.DataLib/XtremeIdiots.Portal.Repository.DataLib.csproj" />
+  <Project Path="XtremeIdiots.Portal.Settings.Contracts.V1.Tests/XtremeIdiots.Portal.Settings.Contracts.V1.Tests.csproj" />
+  <Project Path="XtremeIdiots.Portal.Settings.Contracts.V1/XtremeIdiots.Portal.Settings.Contracts.V1.csproj" />
+</Solution>

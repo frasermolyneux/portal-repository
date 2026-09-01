@@ -24,8 +24,8 @@ Push-Location src\XtremeIdiots.Portal.Repository.DataLib
 efcpt ..\XtremeIdiots.Portal.Repository.Database\bin\Debug\XtremeIdiots.Portal.Repository.Database.dacpac mssql -i .\efcpt-config.json
 Pop-Location
 
-dotnet build src\XtremeIdiots.Portal.Repository.sln
-dotnet test src\XtremeIdiots.Portal.Repository.sln --filter "FullyQualifiedName!~IntegrationTests"
+dotnet build src\XtremeIdiots.Portal.Repository.slnx
+dotnet test src\XtremeIdiots.Portal.Repository.slnx --filter "FullyQualifiedName!~IntegrationTests"
 ```
 
 Review regenerated changes for unexpected entity deletion, property/nullability changes, relationship changes, and edits to hand-written partials.

@@ -4,7 +4,7 @@ Portal Repository owns the versioned repository APIs, SQL database project, gene
 
 ## Stack and layout
 
-- `src/XtremeIdiots.Portal.Repository.sln` — .NET solution.
+- `src/XtremeIdiots.Portal.Repository.slnx` — .NET solution.
 - `src/XtremeIdiots.Portal.Repository.Api.V1` and `.Api.V2` — separate ASP.NET Core API hosts targeting .NET 9.
 - `src/XtremeIdiots.Portal.Repository.Abstractions.V1` and `.V2` — published API contracts.
 - `src/XtremeIdiots.Portal.Repository.Api.Client.V1`, `.V2`, and `.Api.Client.Testing` — published consumer packages.
@@ -18,11 +18,11 @@ API hosts target `net9.0`; libraries, clients, and most tests target `net9.0;net
 ## Useful commands
 
 ```pwsh
-dotnet build src\XtremeIdiots.Portal.Repository.sln
-dotnet test src\XtremeIdiots.Portal.Repository.sln --filter "FullyQualifiedName!~IntegrationTests"
+dotnet build src\XtremeIdiots.Portal.Repository.slnx
+dotnet test src\XtremeIdiots.Portal.Repository.slnx --filter "FullyQualifiedName!~IntegrationTests"
 dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1
 dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2
-dotnet format src\XtremeIdiots.Portal.Repository.sln --verify-no-changes
+dotnet format src\XtremeIdiots.Portal.Repository.slnx --verify-no-changes
 terraform -chdir=terraform fmt -check -recursive
 ```
 

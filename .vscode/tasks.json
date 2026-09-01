@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "clean",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -19,7 +19,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -36,7 +36,7 @@
             "type": "process",
             "args": [
                 "test",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "--filter",
                 "FullyQualifiedName!~IntegrationTests",
                 "/property:GenerateFullPaths=true",
@@ -54,7 +54,7 @@
             "type": "process",
             "args": [
                 "test",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "--filter",
                 "FullyQualifiedName~IntegrationTests",
                 "/property:GenerateFullPaths=true",
@@ -71,7 +71,7 @@
             "type": "process",
             "args": [
                 "format",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "--verify-no-changes"
             ],
             "problemMatcher": "$msCompile"
@@ -84,7 +84,7 @@
                 "clean",
                 "--configuration",
                 "Release",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -98,7 +98,7 @@
                 "publish",
                 "--configuration",
                 "Release",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.slnx",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -106,14 +106,26 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "dotnet: watch",
+            "label": "dotnet: watch v1",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.sln"
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.Api.V1/XtremeIdiots.Portal.Repository.Api.V1.csproj"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "dotnet: watch v2",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "watch",
+                "run",
+                "--project",
+                "${workspaceFolder}/src/XtremeIdiots.Portal.Repository.Api.V2/XtremeIdiots.Portal.Repository.Api.V2.csproj"
             ],
             "problemMatcher": "$msCompile"
         }
