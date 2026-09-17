@@ -23,9 +23,9 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
     <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.0.3" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
-    <PackageReference Include="MX.Api.Abstractions" Version="2.3.80" />
-    <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.80" />
-    <PackageReference Include="MX.Observability.ApplicationInsights.AspNetCore" Version="1.1.31" />
+    <PackageReference Include="MX.Api.Abstractions" Version="2.3.81" />
+    <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.81" />
+    <PackageReference Include="MX.Observability.ApplicationInsights.AspNetCore" Version="1.1.33" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.17.4" />
     <PackageReference Include="MX.CodDemoReader" Version="1.0.48" />

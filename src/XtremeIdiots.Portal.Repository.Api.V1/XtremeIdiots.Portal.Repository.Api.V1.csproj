@@ -26,8 +26,8 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
-    <PackageReference Include="MX.Api.Abstractions" Version="2.3.80" />
-    <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.80" />
+    <PackageReference Include="MX.Api.Abstractions" Version="2.3.81" />
+    <PackageReference Include="MX.Api.Web.Extensions" Version="2.3.81" />
     <PackageReference Include="MX.Caching" Version="0.1.10" />
     <PackageReference Include="MX.Caching.Abstractions" Version="0.1.10" />
     <PackageReference Include="MX.Caching.TableStorage" Version="0.1.10" />
