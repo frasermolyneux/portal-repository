@@ -22,12 +22,17 @@ public sealed class KeyVaultGameServerSecretStoreTests
                 It.Is<string?>(version => version == null),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Response.FromValue(
-                new KeyVaultSecret(secretName, "unchanged"),
+                CreateSecret(secretName, "existing-version", "unchanged"),
                 Mock.Of<Response>()));
         var subject = new KeyVaultGameServerSecretStore(client.Object);
 
-        await subject.SetSecretAsync(gameServerId, "ftp-password", "unchanged", CancellationToken.None);
+        var version = await subject.SetSecretAsync(
+            gameServerId,
+            "ftp-password",
+            "unchanged",
+            CancellationToken.None);
 
+        Assert.Equal("existing-version", version);
         client.Verify(
             instance => instance.SetSecretAsync(
                 It.IsAny<string>(),
@@ -48,19 +53,40 @@ public sealed class KeyVaultGameServerSecretStoreTests
                 It.Is<string?>(version => version == null),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Response.FromValue(
-                new KeyVaultSecret(secretName, "old-value"),
+                CreateSecret(secretName, "old-version", "old-value"),
                 Mock.Of<Response>()));
         client
             .Setup(instance => instance.SetSecretAsync(secretName, "new-value", It.IsAny<CancellationToken>()))
             .ReturnsAsync(Response.FromValue(
-                new KeyVaultSecret(secretName, "new-value"),
+                CreateSecret(secretName, "new-version", "new-value"),
                 Mock.Of<Response>()));
         var subject = new KeyVaultGameServerSecretStore(client.Object);
 
-        await subject.SetSecretAsync(gameServerId, "sftp-password", "new-value", CancellationToken.None);
+        var version = await subject.SetSecretAsync(
+            gameServerId,
+            "sftp-password",
+            "new-value",
+            CancellationToken.None);
 
+        Assert.Equal("new-version", version);
         client.Verify(
             instance => instance.SetSecretAsync(secretName, "new-value", It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    private static KeyVaultSecret CreateSecret(string name, string version, string value)
+    {
+        var vaultUri = new Uri("https://unit-test.vault.azure.net/");
+        var properties = SecretModelFactory.SecretProperties(
+            new Uri(vaultUri, $"secrets/{name}/{version}"),
+            vaultUri,
+            name,
+            version,
+            false,
+            new Uri(vaultUri, "keys/unit-test"),
+            null,
+            null,
+            "Recoverable");
+        return SecretModelFactory.KeyVaultSecret(properties, value);
     }
 }

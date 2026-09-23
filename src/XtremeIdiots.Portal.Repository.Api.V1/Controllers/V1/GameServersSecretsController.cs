@@ -68,7 +68,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     /// <returns>An API result containing the secret value if found; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult<string>> IGameServersSecretsApi.GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(secretId))
+        if (!GameServerSecretId.IsValid(secretId))
         {
             return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
         }
@@ -85,7 +85,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
         try
         {
             var secretValue = await secretStore
-                .GetSecretAsync(gameServerId, secretId, cancellationToken)
+                .GetSecretAsync(gameServerId, secretId, null, cancellationToken)
                 .ConfigureAwait(false);
             return new ApiResponse<string>(secretValue).ToApiResult();
         }
@@ -128,7 +128,7 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     /// <returns>An API result containing the secret value that was set.</returns>
     async Task<ApiResult<string>> IGameServersSecretsApi.SetGameServerSecret(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(secretId))
+        if (!GameServerSecretId.IsValid(secretId))
         {
             return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
         }

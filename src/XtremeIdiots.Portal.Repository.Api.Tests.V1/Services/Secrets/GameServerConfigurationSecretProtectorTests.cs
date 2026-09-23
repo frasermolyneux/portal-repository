@@ -33,9 +33,9 @@ public sealed class GameServerConfigurationSecretProtectorTests
         Assert.Equal("fallback-password", store.Get(gameServerId, "sftp-password"));
         Assert.Equal("private-key-content", store.Get(gameServerId, "sftp-private-key"));
         Assert.Equal("key-passphrase", store.Get(gameServerId, "sftp-private-key-passphrase"));
-        Assert.Equal("@Portal.KeyVault(SecretId=sftp-password)", document["password"]?.Value<string>());
-        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key)", document["privateKey"]?.Value<string>());
-        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key-passphrase)", document["privateKeyPassphrase"]?.Value<string>());
+        Assert.Equal("@Portal.KeyVault(SecretId=sftp-password;Version=test-version)", document["password"]?.Value<string>());
+        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key;Version=test-version)", document["privateKey"]?.Value<string>());
+        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key-passphrase;Version=test-version)", document["privateKeyPassphrase"]?.Value<string>());
     }
 
     [Fact]
@@ -48,8 +48,8 @@ public sealed class GameServerConfigurationSecretProtectorTests
         var subject = new GameServerConfigurationSecretProtector(store);
         const string configuration = /*lang=json,strict*/ """
             {
-                "privateKey": "@Portal.KeyVault(SecretId=sftp-private-key)",
-                "privateKeyPassphrase": "@Portal.KeyVault(SecretId=sftp-private-key-passphrase)"
+                "privateKey": "@Portal.KeyVault(SecretId=sftp-private-key;Version=private-key-version)",
+                "privateKeyPassphrase": "@Portal.KeyVault(SecretId=sftp-private-key-passphrase;Version=passphrase-version)"
             }
             """;
 
@@ -62,6 +62,8 @@ public sealed class GameServerConfigurationSecretProtectorTests
 
         Assert.Equal("private-key-content", document["privateKey"]?.Value<string>());
         Assert.Equal("key-passphrase", document["privateKeyPassphrase"]?.Value<string>());
+        Assert.Equal("private-key-version", store.GetRequestedVersion("sftp-private-key"));
+        Assert.Equal("passphrase-version", store.GetRequestedVersion("sftp-private-key-passphrase"));
     }
 
     [Fact]
@@ -84,7 +86,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
     {
         var store = new InMemoryGameServerSecretStore();
         var subject = new GameServerConfigurationSecretProtector(store);
-        const string configuration = /*lang=json,strict*/ """{"password":"@Portal.KeyVault(SecretId=ftp-password)"}""";
+        const string configuration = /*lang=json,strict*/ """{"password":"@Portal.KeyVault(SecretId=ftp-password;Version=test-version)"}""";
 
         var result = await subject.ExternalizeSecretsAsync(
             Guid.NewGuid(),
@@ -97,7 +99,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
     }
 
     [Theory]
-    [InlineData("@Portal.KeyVault(SecretId=other-secret)")]
+    [InlineData("@Portal.KeyVault(SecretId=other-secret;Version=test-version)")]
     [InlineData("@Portal.KeyVault(BadReference)")]
     public async Task ExternalizeSecretsAsync_InvalidReference_Throws(string reference)
     {
@@ -122,7 +124,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
         const string configuration = /*lang=json,strict*/ """
             {
                 "password": "password",
-                "privateKey": "@Portal.KeyVault(SecretId=unexpected-secret)"
+                "privateKey": "@Portal.KeyVault(SecretId=unexpected-secret;Version=test-version)"
             }
             """;
 
@@ -159,22 +161,36 @@ public sealed class GameServerConfigurationSecretProtectorTests
     private sealed class InMemoryGameServerSecretStore : IGameServerSecretStore
     {
         private readonly Dictionary<(Guid GameServerId, string SecretId), string> secrets = [];
+        private readonly Dictionary<string, string?> requestedVersions = [];
 
         public int SetCallCount { get; private set; }
 
-        public Task<string> GetSecretAsync(Guid gameServerId, string secretId, CancellationToken cancellationToken) =>
-            Task.FromResult(secrets[(gameServerId, secretId)]);
+        public Task<string> GetSecretAsync(
+            Guid gameServerId,
+            string secretId,
+            string? secretVersion,
+            CancellationToken cancellationToken)
+        {
+            requestedVersions[secretId] = secretVersion;
+            return Task.FromResult(secrets[(gameServerId, secretId)]);
+        }
 
-        public Task SetSecretAsync(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
+        public Task<string> SetSecretAsync(
+            Guid gameServerId,
+            string secretId,
+            string secretValue,
+            CancellationToken cancellationToken)
         {
             SetCallCount++;
             secrets[(gameServerId, secretId)] = secretValue;
-            return Task.CompletedTask;
+            return Task.FromResult("test-version");
         }
 
         public void Seed(Guid gameServerId, string secretId, string value) =>
             secrets[(gameServerId, secretId)] = value;
 
         public string Get(Guid gameServerId, string secretId) => secrets[(gameServerId, secretId)];
+
+        public string? GetRequestedVersion(string secretId) => requestedVersions[secretId];
     }
 }

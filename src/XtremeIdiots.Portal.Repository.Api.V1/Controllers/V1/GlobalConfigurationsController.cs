@@ -18,6 +18,7 @@ using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.FileTransport;
 using ServerListContractConstants = XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ServerList.ServerListSettingsConstants;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -119,6 +120,12 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
         }
 
         ns = NamespaceSchemaValidationRegistry.NormalizeNamespace(ns);
+
+        if (string.Equals(ns, FtpSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ns, SftpSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
+        {
+            return new ApiResult(HttpStatusCode.BadRequest);
+        }
 
         if (!NamespaceSchemaValidationRegistry.IsKnownNamespace(ns))
         {

@@ -9,6 +9,7 @@ internal sealed class GameServerConfigurationSecretProtector(
     IGameServerSecretStore secretStore) : IGameServerConfigurationSecretProtector
 {
     private const string ReferencePrefix = "@Portal.KeyVault(SecretId=";
+    private const string VersionSeparator = ";Version=";
     private const string ReferenceSuffix = ")";
 
     private static readonly IReadOnlyDictionary<string, SecretField[]> SecretFields =
@@ -49,20 +50,20 @@ internal sealed class GameServerConfigurationSecretProtector(
             }
 
             var value = property.Value.Value<string>();
-            if (!TryParseReference(value, out var referencedSecretId))
+            if (!TryParseReference(value, out var reference))
             {
                 RejectMalformedReference(value);
                 continue;
             }
 
-            if (!string.Equals(referencedSecretId, field.SecretId, StringComparison.Ordinal))
+            if (!string.Equals(reference.SecretId, field.SecretId, StringComparison.Ordinal))
             {
                 throw new InvalidGameServerCredentialReferenceException(
                     $"The '{field.JsonPropertyName}' field references an unexpected secret ID.");
             }
 
             property.Value = await secretStore
-                .GetSecretAsync(gameServerId, field.SecretId, cancellationToken)
+                .GetSecretAsync(gameServerId, field.SecretId, reference.Version, cancellationToken)
                 .ConfigureAwait(false);
             changed = true;
         }
@@ -98,9 +99,9 @@ internal sealed class GameServerConfigurationSecretProtector(
                 continue;
             }
 
-            if (TryParseReference(value, out var referencedSecretId))
+            if (TryParseReference(value, out var reference))
             {
-                if (!string.Equals(referencedSecretId, field.SecretId, StringComparison.Ordinal))
+                if (!string.Equals(reference.SecretId, field.SecretId, StringComparison.Ordinal))
                 {
                     throw new InvalidGameServerCredentialReferenceException(
                         $"The '{field.JsonPropertyName}' field references an unexpected secret ID.");
@@ -116,20 +117,17 @@ internal sealed class GameServerConfigurationSecretProtector(
 
         foreach (var pendingSecret in pendingSecrets)
         {
-            await secretStore
+            var version = await secretStore
                 .SetSecretAsync(gameServerId, pendingSecret.SecretId, pendingSecret.Value, cancellationToken)
                 .ConfigureAwait(false);
-        }
-
-        foreach (var pendingSecret in pendingSecrets)
-        {
-            pendingSecret.Property.Value = CreateReference(pendingSecret.SecretId);
+            pendingSecret.Property.Value = CreateReference(pendingSecret.SecretId, version);
         }
 
         return pendingSecrets.Count > 0 ? document.ToString(Formatting.None) : configuration;
     }
 
-    private static string CreateReference(string secretId) => $"{ReferencePrefix}{secretId}{ReferenceSuffix}";
+    private static string CreateReference(string secretId, string version) =>
+        $"{ReferencePrefix}{secretId}{VersionSeparator}{version}{ReferenceSuffix}";
 
     private static JProperty? GetSecretProperty(JObject document, SecretField field)
     {
@@ -151,9 +149,9 @@ internal sealed class GameServerConfigurationSecretProtector(
         return matchingProperties.SingleOrDefault();
     }
 
-    private static bool TryParseReference(string? value, out string secretId)
+    private static bool TryParseReference(string? value, out SecretReference reference)
     {
-        secretId = string.Empty;
+        reference = new SecretReference(string.Empty, string.Empty);
         if (value is null
             || !value.StartsWith(ReferencePrefix, StringComparison.Ordinal)
             || !value.EndsWith(ReferenceSuffix, StringComparison.Ordinal))
@@ -161,8 +159,17 @@ internal sealed class GameServerConfigurationSecretProtector(
             return false;
         }
 
-        secretId = value[ReferencePrefix.Length..^ReferenceSuffix.Length];
-        return secretId.Length > 0;
+        var referenceValue = value[ReferencePrefix.Length..^ReferenceSuffix.Length];
+        var separatorIndex = referenceValue.IndexOf(VersionSeparator, StringComparison.Ordinal);
+        if (separatorIndex <= 0 || separatorIndex + VersionSeparator.Length >= referenceValue.Length)
+        {
+            return false;
+        }
+
+        reference = new SecretReference(
+            referenceValue[..separatorIndex],
+            referenceValue[(separatorIndex + VersionSeparator.Length)..]);
+        return true;
     }
 
     private static void RejectMalformedReference(string? value)
@@ -176,4 +183,6 @@ internal sealed class GameServerConfigurationSecretProtector(
     private sealed record SecretField(string JsonPropertyName, string SecretId);
 
     private sealed record PendingSecret(JProperty Property, string SecretId, string Value);
+
+    private sealed record SecretReference(string SecretId, string Version);
 }

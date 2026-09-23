@@ -57,6 +57,18 @@ public class GameServersSecretsControllerTests
     }
 
     [Fact]
+    public async Task GetGameServerSecret_WithInvalidSecretId_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersSecretsApi)controller;
+
+        var result = await api.GetGameServerSecret(Guid.NewGuid(), "invalid_secret");
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
     public async Task GetGameServerSecret_WithNonExistentGameServer_ReturnsNotFound()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -88,6 +100,18 @@ public class GameServersSecretsControllerTests
         var api = (IGameServersSecretsApi)controller;
 
         var result = await api.SetGameServerSecret(Guid.NewGuid(), "   ", "secret-value");
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetGameServerSecret_WithInvalidSecretId_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersSecretsApi)controller;
+
+        var result = await api.SetGameServerSecret(Guid.NewGuid(), "invalid_secret", "secret-value");
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
     }
@@ -159,13 +183,21 @@ public class GameServersSecretsControllerTests
     {
         private readonly Dictionary<(Guid GameServerId, string SecretId), string> secrets = [];
 
-        public Task<string> GetSecretAsync(Guid gameServerId, string secretId, CancellationToken cancellationToken) =>
+        public Task<string> GetSecretAsync(
+            Guid gameServerId,
+            string secretId,
+            string? secretVersion,
+            CancellationToken cancellationToken) =>
             Task.FromResult(secrets[(gameServerId, secretId)]);
 
-        public Task SetSecretAsync(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
+        public Task<string> SetSecretAsync(
+            Guid gameServerId,
+            string secretId,
+            string secretValue,
+            CancellationToken cancellationToken)
         {
             secrets[(gameServerId, secretId)] = secretValue;
-            return Task.CompletedTask;
+            return Task.FromResult("test-version");
         }
 
         public void Seed(Guid gameServerId, string secretId, string value) =>

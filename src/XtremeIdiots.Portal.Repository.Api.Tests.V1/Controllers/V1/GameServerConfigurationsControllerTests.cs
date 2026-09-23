@@ -34,17 +34,21 @@ public class GameServerConfigurationsControllerTests
     {
         private readonly Dictionary<(Guid GameServerId, string SecretId), string> secrets = [];
 
-        public Task<string> GetSecretAsync(Guid gameServerId, string secretId, CancellationToken cancellationToken) =>
+        public Task<string> GetSecretAsync(
+            Guid gameServerId,
+            string secretId,
+            string? secretVersion,
+            CancellationToken cancellationToken) =>
             Task.FromResult(secrets[(gameServerId, secretId)]);
 
-        public Task SetSecretAsync(
+        public Task<string> SetSecretAsync(
             Guid gameServerId,
             string secretId,
             string secretValue,
             CancellationToken cancellationToken)
         {
             secrets[(gameServerId, secretId)] = secretValue;
-            return Task.CompletedTask;
+            return Task.FromResult("test-version");
         }
 
         public string Get(Guid gameServerId, string secretId) => secrets[(gameServerId, secretId)];
@@ -264,7 +268,7 @@ public class GameServerConfigurationsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, upsertResult.StatusCode);
         Assert.DoesNotContain(plaintextPassword, persistedConfiguration, StringComparison.Ordinal);
-        Assert.Contains("@Portal.KeyVault(SecretId=ftp-password)", persistedConfiguration, StringComparison.Ordinal);
+        Assert.Contains("@Portal.KeyVault(SecretId=ftp-password;Version=test-version)", persistedConfiguration, StringComparison.Ordinal);
         Assert.Equal(plaintextPassword, secretStore.Get(gameServer.GameServerId, "ftp-password"));
         Assert.Contains(plaintextPassword, readResult.Result!.Data!.Configuration, StringComparison.Ordinal);
         Assert.DoesNotContain("@Portal.KeyVault", readResult.Result.Data.Configuration, StringComparison.Ordinal);
@@ -287,7 +291,7 @@ public class GameServerConfigurationsControllerTests
                     "schemaVersion": 1,
                     "hostname": "ftp.example.com",
                     "username": "portal",
-                    "password": "@Portal.KeyVault(SecretId=unexpected-secret)"
+                    "password": "@Portal.KeyVault(SecretId=unexpected-secret;Version=test-version)"
                 }
                 """
         };
