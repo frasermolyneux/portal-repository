@@ -33,9 +33,9 @@ public sealed class GameServerConfigurationSecretProtectorTests
         Assert.Equal("fallback-password", store.Get(gameServerId, "sftp-password"));
         Assert.Equal("private-key-content", store.Get(gameServerId, "sftp-private-key"));
         Assert.Equal("key-passphrase", store.Get(gameServerId, "sftp-private-key-passphrase"));
-        Assert.Equal("@Portal.KeyVault(SecretId=sftp-password;Version=test-version)", document["password"]?.Value<string>());
-        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key;Version=test-version)", document["privateKey"]?.Value<string>());
-        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key-passphrase;Version=test-version)", document["privateKeyPassphrase"]?.Value<string>());
+        Assert.Equal("@Portal.KeyVault(SecretId=sftp-password;Version=testversion)", document["password"]?.Value<string>());
+        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key;Version=testversion)", document["privateKey"]?.Value<string>());
+        Assert.Equal("@Portal.KeyVault(SecretId=sftp-private-key-passphrase;Version=testversion)", document["privateKeyPassphrase"]?.Value<string>());
     }
 
     [Fact]
@@ -48,8 +48,8 @@ public sealed class GameServerConfigurationSecretProtectorTests
         var subject = new GameServerConfigurationSecretProtector(store);
         const string configuration = /*lang=json,strict*/ """
             {
-                "privateKey": "@Portal.KeyVault(SecretId=sftp-private-key;Version=private-key-version)",
-                "privateKeyPassphrase": "@Portal.KeyVault(SecretId=sftp-private-key-passphrase;Version=passphrase-version)"
+                "privateKey": "@Portal.KeyVault(SecretId=sftp-private-key;Version=privatekeyversion)",
+                "privateKeyPassphrase": "@Portal.KeyVault(SecretId=sftp-private-key-passphrase;Version=passphraseversion)"
             }
             """;
 
@@ -62,8 +62,8 @@ public sealed class GameServerConfigurationSecretProtectorTests
 
         Assert.Equal("private-key-content", document["privateKey"]?.Value<string>());
         Assert.Equal("key-passphrase", document["privateKeyPassphrase"]?.Value<string>());
-        Assert.Equal("private-key-version", store.GetRequestedVersion("sftp-private-key"));
-        Assert.Equal("passphrase-version", store.GetRequestedVersion("sftp-private-key-passphrase"));
+        Assert.Equal("privatekeyversion", store.GetRequestedVersion("sftp-private-key"));
+        Assert.Equal("passphraseversion", store.GetRequestedVersion("sftp-private-key-passphrase"));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
     {
         var store = new InMemoryGameServerSecretStore();
         var subject = new GameServerConfigurationSecretProtector(store);
-        const string configuration = /*lang=json,strict*/ """{"password":"@Portal.KeyVault(SecretId=ftp-password;Version=test-version)"}""";
+        const string configuration = /*lang=json,strict*/ """{"password":"@Portal.KeyVault(SecretId=ftp-password;Version=testversion)"}""";
 
         var result = await subject.ExternalizeSecretsAsync(
             Guid.NewGuid(),
@@ -99,8 +99,11 @@ public sealed class GameServerConfigurationSecretProtectorTests
     }
 
     [Theory]
-    [InlineData("@Portal.KeyVault(SecretId=other-secret;Version=test-version)")]
+    [InlineData("@Portal.KeyVault(SecretId=other-secret;Version=testversion)")]
     [InlineData("@Portal.KeyVault(BadReference)")]
+    [InlineData("@Portal.KeyVault(SecretId=ftp-password;Version=abc;Version=def)")]
+    [InlineData("@Portal.KeyVault(SecretId=ftp-password;Version=abc def)")]
+    [InlineData("@Portal.KeyVault(SecretId=ftp-password;Version=abc))")]
     public async Task ExternalizeSecretsAsync_InvalidReference_Throws(string reference)
     {
         var store = new InMemoryGameServerSecretStore();
@@ -124,7 +127,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
         const string configuration = /*lang=json,strict*/ """
             {
                 "password": "password",
-                "privateKey": "@Portal.KeyVault(SecretId=unexpected-secret;Version=test-version)"
+                "privateKey": "@Portal.KeyVault(SecretId=unexpected-secret;Version=testversion)"
             }
             """;
 
@@ -183,7 +186,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
         {
             SetCallCount++;
             secrets[(gameServerId, secretId)] = secretValue;
-            return Task.FromResult("test-version");
+            return Task.FromResult("testversion");
         }
 
         public void Seed(Guid gameServerId, string secretId, string value) =>

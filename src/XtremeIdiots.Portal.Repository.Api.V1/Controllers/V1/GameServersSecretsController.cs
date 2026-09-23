@@ -70,7 +70,11 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     {
         if (!GameServerSecretId.IsValid(secretId))
         {
-            return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+            return new ApiResult<string>(
+                HttpStatusCode.BadRequest,
+                new ApiResponse<string>(
+                    null,
+                    new ApiError(ApiErrorCodes.InvalidSecretId, ApiErrorMessages.InvalidSecretIdMessage)));
         }
 
         var gameServer = await context.GameServers
@@ -130,7 +134,11 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     {
         if (!GameServerSecretId.IsValid(secretId))
         {
-            return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+            return new ApiResult<string>(
+                HttpStatusCode.BadRequest,
+                new ApiResponse<string>(
+                    null,
+                    new ApiError(ApiErrorCodes.InvalidSecretId, ApiErrorMessages.InvalidSecretIdMessage)));
         }
 
         var gameServer = await context.GameServers

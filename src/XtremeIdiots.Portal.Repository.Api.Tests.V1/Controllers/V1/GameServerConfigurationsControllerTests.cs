@@ -48,7 +48,7 @@ public class GameServerConfigurationsControllerTests
             CancellationToken cancellationToken)
         {
             secrets[(gameServerId, secretId)] = secretValue;
-            return Task.FromResult("test-version");
+            return Task.FromResult("testversion");
         }
 
         public string Get(Guid gameServerId, string secretId) => secrets[(gameServerId, secretId)];
@@ -268,7 +268,7 @@ public class GameServerConfigurationsControllerTests
 
         Assert.Equal(HttpStatusCode.OK, upsertResult.StatusCode);
         Assert.DoesNotContain(plaintextPassword, persistedConfiguration, StringComparison.Ordinal);
-        Assert.Contains("@Portal.KeyVault(SecretId=ftp-password;Version=test-version)", persistedConfiguration, StringComparison.Ordinal);
+        Assert.Contains("@Portal.KeyVault(SecretId=ftp-password;Version=testversion)", persistedConfiguration, StringComparison.Ordinal);
         Assert.Equal(plaintextPassword, secretStore.Get(gameServer.GameServerId, "ftp-password"));
         Assert.Contains(plaintextPassword, readResult.Result!.Data!.Configuration, StringComparison.Ordinal);
         Assert.DoesNotContain("@Portal.KeyVault", readResult.Result.Data.Configuration, StringComparison.Ordinal);
@@ -291,7 +291,7 @@ public class GameServerConfigurationsControllerTests
                     "schemaVersion": 1,
                     "hostname": "ftp.example.com",
                     "username": "portal",
-                    "password": "@Portal.KeyVault(SecretId=unexpected-secret;Version=test-version)"
+                    "password": "@Portal.KeyVault(SecretId=unexpected-secret;Version=testversion)"
                 }
                 """
         };

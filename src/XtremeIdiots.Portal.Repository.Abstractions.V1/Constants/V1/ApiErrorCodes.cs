@@ -11,6 +11,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string RequestBodyNull = "REQUEST_BODY_NULL";
         public const string RequestBodyNullOrEmpty = "REQUEST_BODY_NULL_OR_EMPTY";
         public const string RequestEntityMismatch = "REQUEST_ENTITY_MISMATCH";
+        public const string InvalidSecretId = "INVALID_SECRET_ID";
 
         // Entity Errors
         public const string EntityNotFound = "ENTITY_NOT_FOUND";

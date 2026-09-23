@@ -169,7 +169,7 @@ internal sealed class GameServerConfigurationSecretProtector(
         reference = new SecretReference(
             referenceValue[..separatorIndex],
             referenceValue[(separatorIndex + VersionSeparator.Length)..]);
-        return true;
+        return reference.Version.All(char.IsAsciiLetterOrDigit);
     }
 
     private static void RejectMalformedReference(string? value)

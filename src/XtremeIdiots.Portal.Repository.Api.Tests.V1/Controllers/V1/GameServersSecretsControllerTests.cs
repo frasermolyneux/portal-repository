@@ -66,6 +66,20 @@ public class GameServersSecretsControllerTests
         var result = await api.GetGameServerSecret(Guid.NewGuid(), "invalid_secret");
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal(ApiErrorCodes.InvalidSecretId, result.Result?.Errors?.FirstOrDefault()?.Code);
+    }
+
+    [Fact]
+    public async Task GetGameServerSecret_WithTooLongSecretId_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersSecretsApi)controller;
+
+        var result = await api.GetGameServerSecret(Guid.NewGuid(), new string('a', 91));
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal(ApiErrorCodes.InvalidSecretId, result.Result?.Errors?.FirstOrDefault()?.Code);
     }
 
     [Fact]
@@ -114,6 +128,20 @@ public class GameServersSecretsControllerTests
         var result = await api.SetGameServerSecret(Guid.NewGuid(), "invalid_secret", "secret-value");
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal(ApiErrorCodes.InvalidSecretId, result.Result?.Errors?.FirstOrDefault()?.Code);
+    }
+
+    [Fact]
+    public async Task SetGameServerSecret_WithTooLongSecretId_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGameServersSecretsApi)controller;
+
+        var result = await api.SetGameServerSecret(Guid.NewGuid(), new string('a', 91), "secret-value");
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal(ApiErrorCodes.InvalidSecretId, result.Result?.Errors?.FirstOrDefault()?.Code);
     }
 
     [Fact]
@@ -197,7 +225,7 @@ public class GameServersSecretsControllerTests
             CancellationToken cancellationToken)
         {
             secrets[(gameServerId, secretId)] = secretValue;
-            return Task.FromResult("test-version");
+            return Task.FromResult("testversion");
         }
 
         public void Seed(Guid gameServerId, string secretId, string value) =>

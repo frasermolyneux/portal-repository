@@ -11,6 +11,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string RequestBodyNullMessage = "Request body was null";
         public const string RequestBodyNullOrEmptyMessage = "Request body was null or did not contain any entries";
         public const string RequestEntityMismatchMessage = "Request entity identifiers did not match";
+        public const string InvalidSecretIdMessage = "Secret ID was missing or invalid";
 
         // Entity Not Found Messages
         public const string EntityNotFound = "Entity not found";
