@@ -282,7 +282,7 @@ public class GameServerConfigurationsControllerTests
         var api = (IGameServerConfigurationsApi)controller;
         var dto = new UpsertConfigurationDto
         {
-            Configuration = """
+            Configuration = /*lang=json,strict*/ """
                 {
                     "schemaVersion": 1,
                     "hostname": "ftp.example.com",

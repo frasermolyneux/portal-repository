@@ -14,7 +14,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
         var gameServerId = Guid.NewGuid();
         var store = new InMemoryGameServerSecretStore();
         var subject = new GameServerConfigurationSecretProtector(store);
-        const string configuration = """
+        const string configuration = /*lang=json,strict*/ """
             {
                 "authenticationType": "PrivateKey",
                 "password": "fallback-password",
@@ -46,7 +46,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
         store.Seed(gameServerId, "sftp-private-key", "private-key-content");
         store.Seed(gameServerId, "sftp-private-key-passphrase", "key-passphrase");
         var subject = new GameServerConfigurationSecretProtector(store);
-        const string configuration = """
+        const string configuration = /*lang=json,strict*/ """
             {
                 "privateKey": "@Portal.KeyVault(SecretId=sftp-private-key)",
                 "privateKeyPassphrase": "@Portal.KeyVault(SecretId=sftp-private-key-passphrase)"
@@ -68,7 +68,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
     public async Task ResolveSecretsAsync_LegacyPlaintext_ReturnsOriginalConfiguration()
     {
         var subject = new GameServerConfigurationSecretProtector(new InMemoryGameServerSecretStore());
-        const string configuration = """{"password":"legacy-password"}""";
+        const string configuration = /*lang=json,strict*/ """{"password":"legacy-password"}""";
 
         var result = await subject.ResolveSecretsAsync(
             Guid.NewGuid(),
@@ -84,7 +84,7 @@ public sealed class GameServerConfigurationSecretProtectorTests
     {
         var store = new InMemoryGameServerSecretStore();
         var subject = new GameServerConfigurationSecretProtector(store);
-        const string configuration = """{"password":"@Portal.KeyVault(SecretId=ftp-password)"}""";
+        const string configuration = /*lang=json,strict*/ """{"password":"@Portal.KeyVault(SecretId=ftp-password)"}""";
 
         var result = await subject.ExternalizeSecretsAsync(
             Guid.NewGuid(),
