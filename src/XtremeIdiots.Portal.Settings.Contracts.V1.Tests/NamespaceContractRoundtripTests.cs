@@ -114,6 +114,29 @@ public sealed class NamespaceContractRoundtripTests
     }
 
     [Fact]
+    public void Sftp_LegacyDocumentWithoutAuthenticationType_DefaultsToPassword()
+    {
+        var input = """
+            {
+                "schemaVersion": 1,
+                "hostname": "sftp.example.com",
+                "port": 22,
+                "username": "user",
+                "password": "secret",
+                "mapsRootPath": "/maps"
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<SftpSettingsDocument>(input, JsonOptions);
+        Assert.NotNull(document);
+
+        var validation = new SftpSettingsValidator().Validate(document);
+
+        Assert.True(validation.IsValid);
+        Assert.Equal(SftpAuthenticationType.Password, document.AuthenticationType);
+    }
+
+    [Fact]
     public void Sftp_PrivateKeyAuthenticationWithoutPrivateKey_FailsValidation()
     {
         var document = new SftpSettingsDocument

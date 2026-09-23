@@ -101,7 +101,8 @@ public sealed class GameServerConfigurationSecretProtectorTests
     [InlineData("@Portal.KeyVault(BadReference)")]
     public async Task ExternalizeSecretsAsync_InvalidReference_Throws(string reference)
     {
-        var subject = new GameServerConfigurationSecretProtector(new InMemoryGameServerSecretStore());
+        var store = new InMemoryGameServerSecretStore();
+        var subject = new GameServerConfigurationSecretProtector(store);
         var configuration = $$"""{"password":"{{reference}}"}""";
 
         await Assert.ThrowsAsync<InvalidGameServerCredentialReferenceException>(() =>
@@ -110,6 +111,49 @@ public sealed class GameServerConfigurationSecretProtectorTests
                 "ftp",
                 configuration,
                 CancellationToken.None));
+        Assert.Equal(0, store.SetCallCount);
+    }
+
+    [Fact]
+    public async Task ExternalizeSecretsAsync_InvalidLaterField_DoesNotWriteEarlierSecret()
+    {
+        var store = new InMemoryGameServerSecretStore();
+        var subject = new GameServerConfigurationSecretProtector(store);
+        const string configuration = /*lang=json,strict*/ """
+            {
+                "password": "password",
+                "privateKey": "@Portal.KeyVault(SecretId=unexpected-secret)"
+            }
+            """;
+
+        await Assert.ThrowsAsync<InvalidGameServerCredentialReferenceException>(() =>
+            subject.ExternalizeSecretsAsync(
+                Guid.NewGuid(),
+                "sftp",
+                configuration,
+                CancellationToken.None));
+        Assert.Equal(0, store.SetCallCount);
+    }
+
+    [Fact]
+    public async Task ExternalizeSecretsAsync_CaseVariantDuplicateCredential_Throws()
+    {
+        var store = new InMemoryGameServerSecretStore();
+        var subject = new GameServerConfigurationSecretProtector(store);
+        const string configuration = /*lang=json,strict*/ """
+            {
+                "password": "first-password",
+                "Password": "second-password"
+            }
+            """;
+
+        await Assert.ThrowsAsync<InvalidGameServerCredentialReferenceException>(() =>
+            subject.ExternalizeSecretsAsync(
+                Guid.NewGuid(),
+                "ftp",
+                configuration,
+                CancellationToken.None));
+        Assert.Equal(0, store.SetCallCount);
     }
 
     private sealed class InMemoryGameServerSecretStore : IGameServerSecretStore

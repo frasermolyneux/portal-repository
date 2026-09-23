@@ -42,7 +42,7 @@ internal sealed class GameServerConfigurationSecretProtector(
 
         foreach (var field in fields)
         {
-            var property = document.Property(field.JsonPropertyName, StringComparison.OrdinalIgnoreCase);
+            var property = GetSecretProperty(document, field);
             if (property?.Value.Type != JTokenType.String)
             {
                 continue;
@@ -82,11 +82,11 @@ internal sealed class GameServerConfigurationSecretProtector(
         }
 
         var document = JObject.Parse(configuration);
-        var changed = false;
+        var pendingSecrets = new List<PendingSecret>();
 
         foreach (var field in fields)
         {
-            var property = document.Property(field.JsonPropertyName, StringComparison.OrdinalIgnoreCase);
+            var property = GetSecretProperty(document, field);
             if (property?.Value.Type != JTokenType.String)
             {
                 continue;
@@ -111,17 +111,45 @@ internal sealed class GameServerConfigurationSecretProtector(
 
             RejectMalformedReference(value);
 
-            await secretStore
-                .SetSecretAsync(gameServerId, field.SecretId, value, cancellationToken)
-                .ConfigureAwait(false);
-            property.Value = CreateReference(field.SecretId);
-            changed = true;
+            pendingSecrets.Add(new PendingSecret(property, field.SecretId, value));
         }
 
-        return changed ? document.ToString(Formatting.None) : configuration;
+        foreach (var pendingSecret in pendingSecrets)
+        {
+            await secretStore
+                .SetSecretAsync(gameServerId, pendingSecret.SecretId, pendingSecret.Value, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (var pendingSecret in pendingSecrets)
+        {
+            pendingSecret.Property.Value = CreateReference(pendingSecret.SecretId);
+        }
+
+        return pendingSecrets.Count > 0 ? document.ToString(Formatting.None) : configuration;
     }
 
     private static string CreateReference(string secretId) => $"{ReferencePrefix}{secretId}{ReferenceSuffix}";
+
+    private static JProperty? GetSecretProperty(JObject document, SecretField field)
+    {
+        var matchingProperties = document
+            .Properties()
+            .Where(property => string.Equals(
+                property.Name,
+                field.JsonPropertyName,
+                StringComparison.OrdinalIgnoreCase))
+            .Take(2)
+            .ToArray();
+
+        if (matchingProperties.Length > 1)
+        {
+            throw new InvalidGameServerCredentialReferenceException(
+                $"The '{field.JsonPropertyName}' credential field appears more than once.");
+        }
+
+        return matchingProperties.SingleOrDefault();
+    }
 
     private static bool TryParseReference(string? value, out string secretId)
     {
@@ -146,4 +174,6 @@ internal sealed class GameServerConfigurationSecretProtector(
     }
 
     private sealed record SecretField(string JsonPropertyName, string SecretId);
+
+    private sealed record PendingSecret(JProperty Property, string SecretId, string Value);
 }
