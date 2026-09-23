@@ -7,16 +7,47 @@ using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Secrets;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class GameServerConfigurationsControllerTests
 {
-    private GameServerConfigurationsController CreateController(PortalDbContext context)
+    private GameServerConfigurationsController CreateController(
+        PortalDbContext context,
+        InMemoryGameServerSecretStore? secretStore = null)
     {
-        var readService = new ConfigurationReadService(context);
-        return new GameServerConfigurationsController(context, readService, new NoOpRepositoryCacheInvalidator());
+        secretStore ??= new InMemoryGameServerSecretStore();
+        var secretProtector = new GameServerConfigurationSecretProtector(secretStore);
+        var readService = new SecretResolvingConfigurationReadService(
+            new ConfigurationReadService(context),
+            secretProtector);
+        return new GameServerConfigurationsController(
+            context,
+            readService,
+            new NoOpRepositoryCacheInvalidator(),
+            secretProtector);
+    }
+
+    private sealed class InMemoryGameServerSecretStore : IGameServerSecretStore
+    {
+        private readonly Dictionary<(Guid GameServerId, string SecretId), string> secrets = [];
+
+        public Task<string> GetSecretAsync(Guid gameServerId, string secretId, CancellationToken cancellationToken) =>
+            Task.FromResult(secrets[(gameServerId, secretId)]);
+
+        public Task SetSecretAsync(
+            Guid gameServerId,
+            string secretId,
+            string secretValue,
+            CancellationToken cancellationToken)
+        {
+            secrets[(gameServerId, secretId)] = secretValue;
+            return Task.CompletedTask;
+        }
+
+        public string Get(Guid gameServerId, string secretId) => secrets[(gameServerId, secretId)];
     }
 
     private GameServer CreateTestGameServer(Guid? gameServerId = null)
@@ -200,6 +231,71 @@ public class GameServerConfigurationsControllerTests
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var entity = context.GameServerConfigurations.Single();
         Assert.Equal(/*lang=json,strict*/ "{\"updated\":true}", entity.Configuration);
+    }
+
+    [Fact]
+    public async Task UpsertAndReadFtpConfiguration_StoresReferenceAndReturnsResolvedPassword()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServer = CreateTestGameServer();
+        context.GameServers.Add(gameServer);
+        await context.SaveChangesAsync();
+
+        var secretStore = new InMemoryGameServerSecretStore();
+        var controller = CreateController(context, secretStore);
+        var api = (IGameServerConfigurationsApi)controller;
+        const string plaintextPassword = "file-transfer-secret";
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = $$"""
+                {
+                    "schemaVersion": 1,
+                    "hostname": "ftp.example.com",
+                    "port": 21,
+                    "username": "portal",
+                    "password": "{{plaintextPassword}}"
+                }
+                """
+        };
+
+        var upsertResult = await api.UpsertConfiguration(gameServer.GameServerId, "ftp", dto);
+        var persistedConfiguration = context.GameServerConfigurations.Single().Configuration;
+        var readResult = await api.GetConfiguration(gameServer.GameServerId, "ftp");
+
+        Assert.Equal(HttpStatusCode.OK, upsertResult.StatusCode);
+        Assert.DoesNotContain(plaintextPassword, persistedConfiguration, StringComparison.Ordinal);
+        Assert.Contains("@Portal.KeyVault(SecretId=ftp-password)", persistedConfiguration, StringComparison.Ordinal);
+        Assert.Equal(plaintextPassword, secretStore.Get(gameServer.GameServerId, "ftp-password"));
+        Assert.Contains(plaintextPassword, readResult.Result!.Data!.Configuration, StringComparison.Ordinal);
+        Assert.DoesNotContain("@Portal.KeyVault", readResult.Result.Data.Configuration, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpsertConfiguration_WithInvalidCredentialReference_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServer = CreateTestGameServer();
+        context.GameServers.Add(gameServer);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+        var api = (IGameServerConfigurationsApi)controller;
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = """
+                {
+                    "schemaVersion": 1,
+                    "hostname": "ftp.example.com",
+                    "username": "portal",
+                    "password": "@Portal.KeyVault(SecretId=unexpected-secret)"
+                }
+                """
+        };
+
+        var result = await api.UpsertConfiguration(gameServer.GameServerId, "ftp", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServerConfigurations);
     }
 
     [Fact]

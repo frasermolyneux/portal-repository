@@ -10,6 +10,13 @@ public static class SftpSettingsConstants
     public const int SchemaVersion = SchemaVersionSupport.CurrentSchemaVersion;
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum SftpAuthenticationType
+{
+    Password,
+    PrivateKey
+}
+
 public sealed class SftpSettingsDocument
 {
     public int SchemaVersion { get; set; } = SftpSettingsConstants.SchemaVersion;
@@ -20,7 +27,13 @@ public sealed class SftpSettingsDocument
 
     public string? Username { get; set; }
 
+    public SftpAuthenticationType AuthenticationType { get; set; } = SftpAuthenticationType.Password;
+
     public string? Password { get; set; }
+
+    public string? PrivateKey { get; set; }
+
+    public string? PrivateKeyPassphrase { get; set; }
 
     public string? MapsRootPath { get; set; }
 
@@ -49,6 +62,17 @@ public sealed class SftpSettingsValidator
         if (document.Port.HasValue && (document.Port.Value <= 0 || document.Port.Value > 65535))
         {
             result.Errors.Add("Port must be between 1 and 65535 when provided.");
+        }
+
+        if (!Enum.IsDefined(document.AuthenticationType))
+        {
+            result.Errors.Add($"Unsupported SFTP authentication type '{document.AuthenticationType}'.");
+        }
+
+        if (document.AuthenticationType == SftpAuthenticationType.PrivateKey
+            && string.IsNullOrWhiteSpace(document.PrivateKey))
+        {
+            result.Errors.Add("PrivateKey is required when authenticationType is PrivateKey.");
         }
 
         return result;

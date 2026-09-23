@@ -30,6 +30,17 @@ Each namespace contract includes a schema version and validator that supports fo
 - Unknown JSON properties are tolerated via extension data to preserve dynamic transport compatibility.
 - Validators are fail-safe and return diagnostics without mutating source payloads.
 
+## SFTP Authentication
+
+The `sftp` namespace supports password and private-key authentication through
+`SftpSettingsDocument.AuthenticationType`:
+
+- `Password` uses the `Password` field and remains the default for existing documents.
+- `PrivateKey` requires `PrivateKey` and accepts an optional `PrivateKeyPassphrase`.
+
+Credential persistence is owned by the Repository API. Consumers continue to receive the
+effective settings document and do not resolve backing-store references themselves.
+
 ## Compatibility Shim Transition (Chat Package Path)
 
 The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1`) remains a compatibility shim during migration. Transition guidance:

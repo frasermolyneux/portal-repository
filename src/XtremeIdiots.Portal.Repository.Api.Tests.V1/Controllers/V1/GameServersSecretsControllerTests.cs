@@ -1,10 +1,9 @@
 using System.Net;
-using Microsoft.Extensions.Configuration;
-using Moq;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Secrets;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -12,21 +11,22 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class GameServersSecretsControllerTests
 {
-    private GameServersSecretsController CreateController(PortalDbContext context, IConfiguration? configuration = null)
+    private GameServersSecretsController CreateController(
+        PortalDbContext context,
+        InMemoryGameServerSecretStore? secretStore = null)
     {
-        configuration ??= new Mock<IConfiguration>().Object;
-        return new GameServersSecretsController(context, configuration);
+        return new GameServersSecretsController(context, secretStore ?? new InMemoryGameServerSecretStore());
     }
 
     [Fact]
     public void Constructor_WithNullContext_ThrowsArgumentNullException()
     {
-        var mockConfig = new Mock<IConfiguration>();
-        Assert.Throws<ArgumentNullException>(() => new GameServersSecretsController(null!, mockConfig.Object));
+        Assert.Throws<ArgumentNullException>(() =>
+            new GameServersSecretsController(null!, new InMemoryGameServerSecretStore()));
     }
 
     [Fact]
-    public void Constructor_WithNullConfiguration_ThrowsArgumentNullException()
+    public void Constructor_WithNullSecretStore_ThrowsArgumentNullException()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         Assert.Throws<ArgumentNullException>(() => new GameServersSecretsController(context, null!));
@@ -104,8 +104,8 @@ public class GameServersSecretsControllerTests
         Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
     }
 
-    [Fact(Skip = "Requires Azure Key Vault")]
-    public async Task GetGameServerSecret_WithExistingGameServer_RequiresKeyVault()
+    [Fact]
+    public async Task GetGameServerSecret_WithExistingGameServer_ReturnsStoredSecret()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var gameServerId = Guid.NewGuid();
@@ -119,18 +119,19 @@ public class GameServersSecretsControllerTests
         });
         await context.SaveChangesAsync();
 
-        var mockConfig = new Mock<IConfiguration>();
-        mockConfig.Setup(c => c["gameservers-keyvault-endpoint"]).Returns("https://fake-vault.vault.azure.net/");
-        var controller = CreateController(context, mockConfig.Object);
+        var secretStore = new InMemoryGameServerSecretStore();
+        secretStore.Seed(gameServerId, "file-transport-password", "secret-value");
+        var controller = CreateController(context, secretStore);
         var api = (IGameServersSecretsApi)controller;
 
-        var result = await api.GetGameServerSecret(gameServerId, "rcon-password");
+        var result = await api.GetGameServerSecret(gameServerId, "file-transport-password");
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("secret-value", result.Result!.Data);
     }
 
-    [Fact(Skip = "Requires Azure Key Vault")]
-    public async Task SetGameServerSecret_WithExistingGameServer_RequiresKeyVault()
+    [Fact]
+    public async Task SetGameServerSecret_WithExistingGameServer_StoresSecret()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var gameServerId = Guid.NewGuid();
@@ -144,13 +145,32 @@ public class GameServersSecretsControllerTests
         });
         await context.SaveChangesAsync();
 
-        var mockConfig = new Mock<IConfiguration>();
-        mockConfig.Setup(c => c["gameservers-keyvault-endpoint"]).Returns("https://fake-vault.vault.azure.net/");
-        var controller = CreateController(context, mockConfig.Object);
+        var secretStore = new InMemoryGameServerSecretStore();
+        var controller = CreateController(context, secretStore);
         var api = (IGameServersSecretsApi)controller;
 
-        var result = await api.SetGameServerSecret(gameServerId, "rcon-password", "secret-value");
+        var result = await api.SetGameServerSecret(gameServerId, "file-transport-password", "secret-value");
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("secret-value", secretStore.Get(gameServerId, "file-transport-password"));
+    }
+
+    private sealed class InMemoryGameServerSecretStore : IGameServerSecretStore
+    {
+        private readonly Dictionary<(Guid GameServerId, string SecretId), string> secrets = [];
+
+        public Task<string> GetSecretAsync(Guid gameServerId, string secretId, CancellationToken cancellationToken) =>
+            Task.FromResult(secrets[(gameServerId, secretId)]);
+
+        public Task SetSecretAsync(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
+        {
+            secrets[(gameServerId, secretId)] = secretValue;
+            return Task.CompletedTask;
+        }
+
+        public void Seed(Guid gameServerId, string secretId, string value) =>
+            secrets[(gameServerId, secretId)] = value;
+
+        public string Get(Guid gameServerId, string secretId) => secrets[(gameServerId, secretId)];
     }
 }
