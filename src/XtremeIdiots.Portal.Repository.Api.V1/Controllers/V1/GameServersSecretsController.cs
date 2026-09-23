@@ -1,8 +1,6 @@
 using System.Net;
 using Asp.Versioning;
 using Azure;
-using Azure.Identity;
-using Azure.Security.KeyVault.Secrets;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +12,7 @@ using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Secrets;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -27,20 +26,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class GameServersSecretsController : ControllerBase, IGameServersSecretsApi
 {
     private readonly PortalDbContext context;
-    private readonly IConfiguration configuration;
+    private readonly IGameServerSecretStore secretStore;
 
     /// <summary>
     /// Initializes a new instance of the GameServersSecretsController.
     /// </summary>
     /// <param name="context">The database context for accessing game server data.</param>
-    /// <param name="configuration">The configuration provider for accessing application settings.</param>
-    /// <exception cref="ArgumentNullException">Thrown when context or configuration is null.</exception>
-    public GameServersSecretsController(PortalDbContext context, IConfiguration configuration)
+    /// <param name="secretStore">The backing store for game-server secrets.</param>
+    /// <exception cref="ArgumentNullException">Thrown when context or secretStore is null.</exception>
+    public GameServersSecretsController(PortalDbContext context, IGameServerSecretStore secretStore)
     {
         ArgumentNullException.ThrowIfNull(context);
         this.context = context;
-        ArgumentNullException.ThrowIfNull(configuration);
-        this.configuration = configuration;
+        ArgumentNullException.ThrowIfNull(secretStore);
+        this.secretStore = secretStore;
     }
 
     /// <summary>
@@ -69,9 +68,13 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     /// <returns>An API result containing the secret value if found; otherwise, a 404 Not Found response.</returns>
     async Task<ApiResult<string>> IGameServersSecretsApi.GetGameServerSecret(Guid gameServerId, string secretId, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(secretId))
+        if (!GameServerSecretId.IsValid(secretId))
         {
-            return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+            return new ApiResult<string>(
+                HttpStatusCode.BadRequest,
+                new ApiResponse<string>(
+                    null,
+                    new ApiError(ApiErrorCodes.InvalidSecretId, ApiErrorMessages.InvalidSecretIdMessage)));
         }
 
         var gameServer = await context.GameServers
@@ -83,13 +86,12 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             return new ApiResult<string>(HttpStatusCode.NotFound);
         }
 
-        var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
-        var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
-
         try
         {
-            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken).ConfigureAwait(false);
-            return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
+            var secretValue = await secretStore
+                .GetSecretAsync(gameServerId, secretId, null, cancellationToken)
+                .ConfigureAwait(false);
+            return new ApiResponse<string>(secretValue).ToApiResult();
         }
         catch (RequestFailedException ex)
         {
@@ -130,9 +132,13 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
     /// <returns>An API result containing the secret value that was set.</returns>
     async Task<ApiResult<string>> IGameServersSecretsApi.SetGameServerSecret(Guid gameServerId, string secretId, string secretValue, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(secretId))
+        if (!GameServerSecretId.IsValid(secretId))
         {
-            return new ApiResult<string>(HttpStatusCode.BadRequest, new ApiResponse<string>(null, new ApiError(ApiErrorCodes.RequestBodyNullOrEmpty, ApiErrorMessages.RequestBodyNullOrEmptyMessage)));
+            return new ApiResult<string>(
+                HttpStatusCode.BadRequest,
+                new ApiResponse<string>(
+                    null,
+                    new ApiError(ApiErrorCodes.InvalidSecretId, ApiErrorMessages.InvalidSecretIdMessage)));
         }
 
         var gameServer = await context.GameServers
@@ -144,29 +150,9 @@ public class GameServersSecretsController : ControllerBase, IGameServersSecretsA
             return new ApiResult<string>(HttpStatusCode.NotFound);
         }
 
-        var keyVaultEndpoint = configuration["gameservers-keyvault-endpoint"] ?? throw new ArgumentNullException("gameservers-keyvault-endpoint");
-        var secretClient = new SecretClient(new Uri(keyVaultEndpoint), new DefaultAzureCredential());
-
-        try
-        {
-            var keyVaultResponse = await secretClient.GetSecretAsync($"{gameServerId}-{secretId}", cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            if (keyVaultResponse.Value.Value != secretValue)
-            {
-                keyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken).ConfigureAwait(false);
-            }
-
-            return new ApiResponse<string>(keyVaultResponse.Value.Value).ToApiResult();
-        }
-        catch (RequestFailedException ex)
-        {
-            if (ex.Status != 404)
-            {
-                throw;
-            }
-        }
-
-        var newSecretKeyVaultResponse = await secretClient.SetSecretAsync($"{gameServerId}-{secretId}", secretValue, cancellationToken).ConfigureAwait(false);
-        return new ApiResponse<string>(newSecretKeyVaultResponse.Value.Value).ToApiResult();
+        await secretStore
+            .SetSecretAsync(gameServerId, secretId, secretValue, cancellationToken)
+            .ConfigureAwait(false);
+        return new ApiResponse<string>(secretValue).ToApiResult();
     }
 }

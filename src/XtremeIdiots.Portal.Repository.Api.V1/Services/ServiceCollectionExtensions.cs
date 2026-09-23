@@ -1,8 +1,13 @@
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Secrets;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Services
 {
@@ -22,6 +27,23 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
             ArgumentNullException.ThrowIfNull(services);
 
             services.TryAddSingleton<RepositoryCacheMetrics>();
+            services.TryAddSingleton<IGameServerSecretStore>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+                var endpoint = configuration["GameServerCredentials:KeyVaultEndpoint"];
+                if (string.IsNullOrWhiteSpace(endpoint))
+                {
+                    return new UnavailableGameServerSecretStore();
+                }
+
+                var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+                {
+                    ManagedIdentityClientId = configuration["AzureAppConfiguration:ManagedIdentityClientId"]
+                });
+
+                return new KeyVaultGameServerSecretStore(new SecretClient(new Uri(endpoint), credential));
+            });
+            services.TryAddSingleton<IGameServerConfigurationSecretProtector, GameServerConfigurationSecretProtector>();
 
             if (enableCaching)
             {
@@ -30,6 +52,12 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
                 services.AddScoped<DashboardService>();
                 services.AddScoped<ConfigurationReadService>();
                 services.AddScoped<MapReadService>();
+                services.AddScoped(sp =>
+                    new CachingConfigurationReadService(
+                        sp.GetRequiredService<ConfigurationReadService>(),
+                        sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
+                        sp.GetRequiredService<RepositoryCacheMetrics>(),
+                        sp.GetRequiredService<ILogger<CachingConfigurationReadService>>()));
 
                 // Public seams resolve to the caching decorator, which delegates into the
                 // concrete implementations above on miss.
@@ -48,11 +76,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
                         sp.GetRequiredService<ILogger<CachingDashboardService>>()));
 
                 services.AddScoped<IConfigurationReadService>(sp =>
-                    new CachingConfigurationReadService(
-                        sp.GetRequiredService<ConfigurationReadService>(),
-                        sp.GetRequiredService<MX.Caching.Abstractions.IMxCache>(),
-                        sp.GetRequiredService<RepositoryCacheMetrics>(),
-                        sp.GetRequiredService<ILogger<CachingConfigurationReadService>>()));
+                    new SecretResolvingConfigurationReadService(
+                        sp.GetRequiredService<CachingConfigurationReadService>(),
+                        sp.GetRequiredService<IGameServerConfigurationSecretProtector>()));
 
                 services.AddScoped<IMapReadService>(sp =>
                     new CachingMapReadService(
@@ -71,7 +97,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
             {
                 services.AddScoped<IGameServerReadService, GameServerReadService>();
                 services.AddScoped<IDashboardService, DashboardService>();
-                services.AddScoped<IConfigurationReadService, ConfigurationReadService>();
+                services.AddScoped<ConfigurationReadService>();
+                services.AddScoped<IConfigurationReadService>(sp =>
+                    new SecretResolvingConfigurationReadService(
+                        sp.GetRequiredService<ConfigurationReadService>(),
+                        sp.GetRequiredService<IGameServerConfigurationSecretProtector>()));
                 services.AddScoped<IMapReadService, MapReadService>();
                 services.AddScoped<IRepositoryCacheInvalidator, NoOpRepositoryCacheInvalidator>();
             }

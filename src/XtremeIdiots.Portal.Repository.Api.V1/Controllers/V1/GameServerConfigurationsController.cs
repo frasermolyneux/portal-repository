@@ -17,6 +17,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Configurations;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
+using XtremeIdiots.Portal.Repository.Api.V1.Services.Secrets;
 using XtremeIdiots.Portal.Repository.Api.V1.Validation;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -30,18 +31,22 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
     private readonly PortalDbContext context;
     private readonly IConfigurationReadService configurationReadService;
     private readonly IRepositoryCacheInvalidator cacheInvalidator;
+    private readonly IGameServerConfigurationSecretProtector secretProtector;
 
     public GameServerConfigurationsController(
         PortalDbContext context,
         IConfigurationReadService configurationReadService,
-        IRepositoryCacheInvalidator cacheInvalidator)
+        IRepositoryCacheInvalidator cacheInvalidator,
+        IGameServerConfigurationSecretProtector secretProtector)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(configurationReadService);
         ArgumentNullException.ThrowIfNull(cacheInvalidator);
+        ArgumentNullException.ThrowIfNull(secretProtector);
         this.context = context;
         this.configurationReadService = configurationReadService;
         this.cacheInvalidator = cacheInvalidator;
+        this.secretProtector = secretProtector;
     }
 
     [HttpGet("game-servers/{gameServerId:guid}/configurations")]
@@ -129,12 +134,24 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
             return new ApiResult(HttpStatusCode.BadRequest);
         }
 
+        string persistedConfiguration;
+        try
+        {
+            persistedConfiguration = await secretProtector
+                .ExternalizeSecretsAsync(gameServerId, ns, dto.Configuration, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidGameServerCredentialReferenceException)
+        {
+            return new ApiResult(HttpStatusCode.BadRequest);
+        }
+
         var existing = await context.GameServerConfigurations
             .FirstOrDefaultAsync(c => c.GameServerId == gameServerId && c.Namespace == ns, cancellationToken).ConfigureAwait(false);
 
         if (existing != null)
         {
-            existing.Configuration = dto.Configuration;
+            existing.Configuration = persistedConfiguration;
             existing.LastModifiedUtc = DateTime.UtcNow;
         }
         else
@@ -143,7 +160,7 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
             {
                 GameServerId = gameServerId,
                 Namespace = ns,
-                Configuration = dto.Configuration,
+                Configuration = persistedConfiguration,
                 LastModifiedUtc = DateTime.UtcNow
             });
         }

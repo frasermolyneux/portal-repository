@@ -111,6 +111,25 @@ public class GlobalConfigurationsControllerTests
         Assert.Equal(dto.Configuration, roundTrip.Result!.Data!.Configuration);
     }
 
+    [Theory]
+    [InlineData("ftp")]
+    [InlineData("sftp")]
+    public async Task UpsertConfiguration_GameServerFileTransportNamespace_ReturnsBadRequest(string configurationNamespace)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        var api = (IGlobalConfigurationsApi)controller;
+        var dto = new UpsertConfigurationDto
+        {
+            Configuration = /*lang=json,strict*/ "{}"
+        };
+
+        var result = await api.UpsertConfiguration(configurationNamespace, dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GlobalConfigurations);
+    }
+
     [Fact]
     public async Task UpsertConfiguration_UpdatesExisting()
     {

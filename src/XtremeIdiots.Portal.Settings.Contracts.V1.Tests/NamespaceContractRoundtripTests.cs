@@ -91,7 +91,9 @@ public sealed class NamespaceContractRoundtripTests
                 "hostname": "sftp.example.com",
                 "port": 22,
                 "username": "user",
-                "password": "secret",
+                "authenticationType": "PrivateKey",
+                "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----",
+                "privateKeyPassphrase": "secret",
                 "mapsRootPath": "/maps",
                 "hostKeyFingerprint": "SHA256:abc"
             }
@@ -107,6 +109,45 @@ public sealed class NamespaceContractRoundtripTests
         var roundtripped = JsonSerializer.Deserialize<SftpSettingsDocument>(output, JsonOptions);
         Assert.NotNull(roundtripped);
         Assert.Equal("SHA256:abc", roundtripped.HostKeyFingerprint);
+        Assert.Equal(SftpAuthenticationType.PrivateKey, roundtripped.AuthenticationType);
+        Assert.Equal("-----BEGIN OPENSSH PRIVATE KEY-----", roundtripped.PrivateKey);
+    }
+
+    [Fact]
+    public void Sftp_LegacyDocumentWithoutAuthenticationType_DefaultsToPassword()
+    {
+        var input = """
+            {
+                "schemaVersion": 1,
+                "hostname": "sftp.example.com",
+                "port": 22,
+                "username": "user",
+                "password": "secret",
+                "mapsRootPath": "/maps"
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<SftpSettingsDocument>(input, JsonOptions);
+        Assert.NotNull(document);
+
+        var validation = new SftpSettingsValidator().Validate(document);
+
+        Assert.True(validation.IsValid);
+        Assert.Equal(SftpAuthenticationType.Password, document.AuthenticationType);
+    }
+
+    [Fact]
+    public void Sftp_PrivateKeyAuthenticationWithoutPrivateKey_FailsValidation()
+    {
+        var document = new SftpSettingsDocument
+        {
+            AuthenticationType = SftpAuthenticationType.PrivateKey
+        };
+
+        var validation = new SftpSettingsValidator().Validate(document);
+
+        Assert.False(validation.IsValid);
+        Assert.Contains(validation.Errors, error => error.Contains("PrivateKey is required", StringComparison.Ordinal));
     }
 
     [Fact]
