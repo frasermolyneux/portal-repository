@@ -110,7 +110,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to retrieve game tracker banner for {IpAddress}:{QueryPort}/{ImageName}", ipAddress, queryPort, imageName);
+                logger.LogError(ex, "Failed to retrieve game tracker banner");
                 return new ApiResult<GameTrackerBannerDto>(HttpStatusCode.InternalServerError);
             }
         }
@@ -179,8 +179,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to update banner image for {IpAddress}:{QueryPort}/{ImageName}",
-                    ipAddress, queryPort, imageName);
+                logger.LogError(ex, "Failed to update banner image");
 
                 var fallbackUrl = gametrackerFallback ? gameTrackerImageUrl : blobClient.Uri.ToString();
                 var result = new GameTrackerBannerDto
@@ -193,4 +192,3 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
-
