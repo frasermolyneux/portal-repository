@@ -123,6 +123,7 @@ public class GameTrackerBannerControllerTests
         var result = await updateTask;
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(":/request-ip-marker:request-port-marker/request-image-marker", result.Result?.Data?.BannerUrl);
 
         var logInvocation = Assert.Single(mockLogger.Invocations, invocation => invocation.Method.Name == nameof(ILogger.Log));
         var loggedMessage = logInvocation.Arguments[2]?.ToString();
