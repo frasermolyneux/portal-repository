@@ -65,6 +65,31 @@ public class GameTrackerBannerControllerTests
         Assert.Equal(HttpStatusCode.InternalServerError, result.StatusCode);
     }
 
+    [Fact]
+    public async Task GetGameTrackerBanner_WhenRetrievalFails_DoesNotLogRequestValues()
+    {
+        var mockConfig = new Mock<IConfiguration>();
+        mockConfig.Setup(c => c["appdata_storage_blob_endpoint"]).Returns("invalid-uri");
+        var mockLogger = new Mock<ILogger<GameTrackerBannerController>>();
+        var controller = CreateController(mockLogger.Object, mockConfig.Object);
+        var api = (IGameTrackerBannerApi)controller;
+        const string ipAddress = "request-ip-marker";
+        const string queryPort = "request-port-marker";
+        const string imageName = "request-image-marker";
+
+        var result = await api.GetGameTrackerBanner(ipAddress, queryPort, imageName);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, result.StatusCode);
+
+        var logInvocation = Assert.Single(mockLogger.Invocations, invocation => invocation.Method.Name == nameof(ILogger.Log));
+        var loggedMessage = logInvocation.Arguments[2]?.ToString();
+        Assert.NotNull(loggedMessage);
+        Assert.DoesNotContain(ipAddress, loggedMessage);
+        Assert.DoesNotContain(queryPort, loggedMessage);
+        Assert.DoesNotContain(imageName, loggedMessage);
+        Assert.IsAssignableFrom<Exception>(logInvocation.Arguments[3]);
+    }
+
     [Fact(Skip = "Requires Azure Blob Storage")]
     public async Task GetGameTrackerBanner_WithValidConfig_ReturnsBanner()
     {
