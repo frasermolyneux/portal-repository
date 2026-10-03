@@ -212,7 +212,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
             }
 
-            var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            var tempFileName = Path.GetRandomFileName();
+            var filePath = Path.Combine(Path.GetTempPath(), tempFileName);
             try
             {
                 using (var stream = System.IO.File.Create(filePath))
@@ -226,7 +227,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             finally
             {
-                System.IO.File.Delete(filePath);
+                System.IO.File.Delete(Path.Combine(Path.GetTempPath(), tempFileName));
             }
         }
 
