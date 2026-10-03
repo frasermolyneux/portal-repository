@@ -44,6 +44,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // File Upload Error Messages
         public const string NoFilesProvidedMessage = "Request did not contain any files";
         public const string InvalidFileTypeMessage = "Invalid file type extension";
+        public const string InvalidDemoFileMessage = "The uploaded file could not be parsed as a valid demo";
 
         // Server Error Messages
         public const string InternalServerErrorMessage = "An internal server error occurred";
