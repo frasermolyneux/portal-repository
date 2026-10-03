@@ -1,9 +1,6 @@
 using System.Net;
 using Asp.Versioning;
 
-using Azure.Identity;
-using Azure.Storage.Blobs;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,13 +10,13 @@ using MX.Api.Web.Extensions;
 
 using Newtonsoft.Json;
 
-using MX.CodDemoReader.Models;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -31,16 +28,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     {
         private readonly PortalDbContext context;
 
-        private readonly IConfiguration configuration;
+        private readonly IDemoFileProcessor demoFileProcessor;
 
         public DemosController(
             PortalDbContext context,
-            IConfiguration configuration)
+            IDemoFileProcessor demoFileProcessor)
         {
             ArgumentNullException.ThrowIfNull(context);
             this.context = context;
-            ArgumentNullException.ThrowIfNull(configuration);
-            this.configuration = configuration;
+            ArgumentNullException.ThrowIfNull(demoFileProcessor);
+            this.demoFileProcessor = demoFileProcessor;
         }
 
         /// <summary>
@@ -199,6 +196,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
         public async Task<IActionResult> SetDemoFile(Guid demoId, CancellationToken cancellationToken = default)
         {
             if (Request.Form.Files.Count == 0)
@@ -214,15 +212,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
             }
 
-            var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            using (var stream = System.IO.File.Create(filePath))
+            var tempFile = new FileInfo(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
+            try
             {
-                await file.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+                using (var stream = tempFile.Create())
+                {
+                    await file.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+                }
+
+                var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, tempFile.FullName, cancellationToken).ConfigureAwait(false);
+
+                return response.ToHttpResult();
             }
-
-            var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath, cancellationToken).ConfigureAwait(false);
-
-            return response.ToHttpResult();
+            finally
+            {
+                tempFile.Delete();
+            }
         }
 
         /// <summary>
@@ -243,24 +248,32 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
-            var blobServiceClient = new BlobServiceClient(new Uri(configuration["appdata_storage_blob_endpoint"]!), new DefaultAzureCredential());
-            var containerClient = blobServiceClient.GetBlobContainerClient("demos");
-
-            var blobKey = $"{Guid.NewGuid()}.{demo.GameType.ToGameType().DemoExtension()}";
-            var blobClient = containerClient.GetBlobClient(blobKey);
-            await blobClient.UploadAsync(filePath, cancellationToken).ConfigureAwait(false);
-
-            var localDemo = new LocalDemo(filePath, demo.GameType.ToCodDemoReaderGameVersion());
+            DemoFileProcessingResult processedDemo;
+            try
+            {
+                processedDemo = await demoFileProcessor.ProcessAsync(
+                    filePath,
+                    demo.GameType.ToGameType(),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidDataException)
+            {
+                return new ApiResult(
+                    HttpStatusCode.UnprocessableEntity,
+                    new ApiResponse(new ApiError(
+                        ApiErrorCodes.InvalidDemoFile,
+                        ApiErrorMessages.InvalidDemoFileMessage)));
+            }
 
             demo.Title = Path.GetFileNameWithoutExtension(fileName);
-            demo.FileName = blobKey;
-            demo.Created = localDemo.Created;
-            demo.Map = localDemo.Map;
-            demo.Mod = localDemo.Mod;
-            demo.GameMode = localDemo.GameMode;
-            demo.ServerName = localDemo.ServerName;
-            demo.FileSize = localDemo.FileSize;
-            demo.FileUri = blobClient.Uri.ToString();
+            demo.FileName = processedDemo.BlobKey;
+            demo.Created = processedDemo.Created;
+            demo.Map = processedDemo.Map;
+            demo.Mod = processedDemo.Mod;
+            demo.GameMode = processedDemo.GameMode;
+            demo.ServerName = processedDemo.ServerName;
+            demo.FileSize = processedDemo.FileSize;
+            demo.FileUri = processedDemo.BlobUri.ToString();
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
@@ -348,4 +361,3 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
-
