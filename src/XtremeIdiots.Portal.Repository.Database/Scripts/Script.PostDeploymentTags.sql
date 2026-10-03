@@ -8,58 +8,62 @@ Post-Deployment Script Template
 
 PRINT 'Inserting system-defined tags'
 
+DECLARE @SeniorAdminTagName NVARCHAR(60) = 'senior-admin';
+DECLARE @HeadAdminTagName NVARCHAR(60) = 'head-admin';
+DECLARE @GameAdminTagName NVARCHAR(60) = 'game-admin';
+
 -- Senior Admin Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE LOWER([Name]) = 'senior-admin')
+WHERE LOWER([Name]) = @SeniorAdminTagName)
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('senior-admin', 'Senior Administrator role', 0, '<span class="badge bg-danger">Senior Admin</span>')
+        (@SeniorAdminTagName, 'Senior Administrator role', 0, '<span class="badge bg-danger">Senior Admin</span>')
 
     PRINT 'Inserted senior-admin tag'
 END
 
 UPDATE [dbo].[Tags]
 SET [UserDefined] = 0
-WHERE LOWER([Name]) = 'senior-admin'
+WHERE LOWER([Name]) = @SeniorAdminTagName
     AND [UserDefined] <> 0
 
 -- Head Admin Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE LOWER([Name]) = 'head-admin')
+WHERE LOWER([Name]) = @HeadAdminTagName)
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('head-admin', 'Head Administrator role', 0, '<span class="badge bg-danger">Head Admin</span>')
+        (@HeadAdminTagName, 'Head Administrator role', 0, '<span class="badge bg-danger">Head Admin</span>')
 
     PRINT 'Inserted head-admin tag'
 END
 
 UPDATE [dbo].[Tags]
 SET [UserDefined] = 0
-WHERE LOWER([Name]) = 'head-admin'
+WHERE LOWER([Name]) = @HeadAdminTagName
     AND [UserDefined] <> 0
 
 -- Game Admin Tag
 IF NOT EXISTS (SELECT *
 FROM [dbo].[Tags]
-WHERE LOWER([Name]) = 'game-admin')
+WHERE LOWER([Name]) = @GameAdminTagName)
 BEGIN
     INSERT INTO [dbo].[Tags]
         ([Name], [Description], [UserDefined], [TagHtml])
     VALUES
-        ('game-admin', 'Game Administrator role', 0, '<span class="badge bg-warning">Game Admin</span>')
+        (@GameAdminTagName, 'Game Administrator role', 0, '<span class="badge bg-warning">Game Admin</span>')
 
     PRINT 'Inserted game-admin tag'
 END
 
 UPDATE [dbo].[Tags]
 SET [UserDefined] = 0
-WHERE LOWER([Name]) = 'game-admin'
+WHERE LOWER([Name]) = @GameAdminTagName
     AND [UserDefined] <> 0
 
 -- Moderator Tag
@@ -138,9 +142,9 @@ INSERT INTO @RequiredConnectedPlayerTags
     ([Name])
 VALUES
     ('verified-player'),
-    ('senior-admin'),
-    ('head-admin'),
-    ('game-admin'),
+    (@SeniorAdminTagName),
+    (@HeadAdminTagName),
+    (@GameAdminTagName),
     ('moderator'),
     ('clan-member');
 
