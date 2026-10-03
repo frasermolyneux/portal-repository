@@ -183,6 +183,7 @@ public class DemosControllerTests
         var result = await api.SetDemoFile(demoId, "uploaded.dm_6", "demo.tmp");
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, result.StatusCode);
+        Assert.Equal(ApiErrorCodes.InvalidDemoFile, result.Result?.Errors?.FirstOrDefault()?.Code);
         var demo = Assert.Single(context.Demos);
         Assert.Null(demo.Title);
         Assert.Null(demo.FileName);

@@ -196,6 +196,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
         public async Task<IActionResult> SetDemoFile(Guid demoId, CancellationToken cancellationToken = default)
         {
             if (Request.Form.Files.Count == 0)
