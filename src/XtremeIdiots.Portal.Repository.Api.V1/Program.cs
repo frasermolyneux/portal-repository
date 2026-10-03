@@ -181,6 +181,10 @@ builder.Services.AddSingleton<IHybridCacheSerializerFactory, NewtonsoftHybridCac
 
 // Repository read-service seams + optional cache-aside decorators.
 builder.Services.AddRepositoryReadServices(enableCaching: mxCachingConfigured);
+if (builder.Environment.IsProduction())
+{
+    builder.Services.AddHostedService<DemoMetadataBackfillHostedService>();
+}
 
 var app = builder.Build();
 

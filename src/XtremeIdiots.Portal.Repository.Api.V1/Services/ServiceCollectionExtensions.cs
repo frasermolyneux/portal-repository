@@ -27,7 +27,10 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
             ArgumentNullException.ThrowIfNull(services);
 
             services.TryAddSingleton<RepositoryCacheMetrics>();
+            services.TryAddSingleton<IDemoMetadataReader, DemoMetadataReader>();
+            services.TryAddSingleton<IDemoFileStore, AzureDemoFileStore>();
             services.TryAddScoped<IDemoFileProcessor, DemoFileProcessor>();
+            services.TryAddScoped<DemoMetadataBackfillService>();
             services.TryAddSingleton<IGameServerSecretStore>(sp =>
             {
                 var configuration = sp.GetRequiredService<IConfiguration>();
