@@ -6,23 +6,31 @@ using Xunit;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 
+/// <summary>
+/// Tests the post-deployment tag script against an isolated SQL Server instance.
+/// </summary>
 public class PostDeploymentTagsTests
 {
+    private static readonly string[] ExpectedNames = ["game-admin", "head-admin", "Senior-Admin"];
+    private static readonly bool[] ExpectedUserDefinedValues = [false, false, false];
+
+    /// <summary>
+    /// Verifies tag preservation, insertion, normalization, and idempotence.
+    /// </summary>
     [Fact]
     public async Task PostDeploymentTagsScript_PreservesExistingValuesAndIsIdempotent()
     {
         var password = $"Sql-{Convert.ToHexString(RandomNumberGenerator.GetBytes(16))}a1!";
-        var containerName = $"portal-tag-test-{Guid.NewGuid():N}";
         string? containerId = null;
         try
         {
             containerId = await DockerAsync(
-                "run", "--detach", "--name", containerName,
+                "run", "--detach", "--name", $"portal-tag-test-{Guid.NewGuid():N}",
                 "--publish", "127.0.0.1::1433",
                 "--env", "ACCEPT_EULA=Y",
                 "--env", $"MSSQL_SA_PASSWORD={password}",
                 "mcr.microsoft.com/mssql/server:2022-latest");
-            var port = int.Parse((await DockerAsync("port", containerId, "1433/tcp")).Split(':').Last());
+            var port = int.Parse((await DockerAsync("port", containerId, "1433/tcp")).Split(':').Last(), System.Globalization.CultureInfo.InvariantCulture);
             var masterConnectionString = new SqlConnectionStringBuilder
             {
                 DataSource = $"127.0.0.1,{port}",
@@ -52,7 +60,7 @@ public class PostDeploymentTagsTests
             {
                 await connection.OpenAsync();
                 await using var command = new SqlCommand($"CREATE DATABASE [{databaseName}]", connection);
-                await command.ExecuteNonQueryAsync();
+                _ = await command.ExecuteNonQueryAsync();
             }
             var connectionString = new SqlConnectionStringBuilder(masterConnectionString)
             {
@@ -75,17 +83,17 @@ public class PostDeploymentTagsTests
                 VALUES (@TagId, N'Senior-Admin', N'Existing senior administrator role', 1, N'<span class="badge bg-info">Existing Senior Admin</span>');
                 """, testConnection))
             {
-                setup.Parameters.AddWithValue("@TagId", existingTagId);
-                await setup.ExecuteNonQueryAsync();
+                _ = setup.Parameters.AddWithValue("@TagId", existingTagId);
+                _ = await setup.ExecuteNonQueryAsync();
             }
             var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Script.PostDeploymentTags.sql"));
             var runScript = new SqlCommand(script, testConnection) { CommandTimeout = 60 };
-            await runScript.ExecuteNonQueryAsync();
+            _ = await runScript.ExecuteNonQueryAsync();
             var firstRun = await ReadAdminTagsAsync(testConnection);
-            await runScript.ExecuteNonQueryAsync();
+            _ = await runScript.ExecuteNonQueryAsync();
             var secondRun = await ReadAdminTagsAsync(testConnection);
-            Assert.Equal(new[] { "game-admin", "head-admin", "Senior-Admin" }, firstRun.Select(tag => tag.Name), StringComparer.Ordinal);
-            Assert.Equal(new[] { false, false, false }, firstRun.Select(tag => tag.UserDefined));
+            Assert.Equal(ExpectedNames, firstRun.Select(tag => tag.Name), StringComparer.Ordinal);
+            Assert.Equal(ExpectedUserDefinedValues, firstRun.Select(tag => tag.UserDefined));
             Assert.Equal("Game Administrator role", firstRun[0].Description);
             Assert.Equal("<span class=\"badge bg-warning\">Game Admin</span>", firstRun[0].TagHtml);
             Assert.Equal("Head Administrator role", firstRun[1].Description);
@@ -97,7 +105,10 @@ public class PostDeploymentTagsTests
         }
         finally
         {
-            await DockerAsync("rm", "--force", containerName);
+            if (containerId is not null)
+            {
+                _ = await DockerAsync("rm", "--force", containerId);
+            }
         }
     }
 
@@ -135,7 +146,7 @@ public class PostDeploymentTagsTests
             process.StartInfo.ArgumentList.Add(argument);
         }
 
-        process.Start();
+        _ = process.Start();
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
@@ -151,12 +162,9 @@ public class PostDeploymentTagsTests
         }
         var result = await output;
         var errorText = await error;
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"docker {arguments[0]} failed: {errorText}");
-        }
-
-        return result.Trim();
+        return process.ExitCode == 0
+            ? result.Trim()
+            : throw new InvalidOperationException($"docker {arguments[0]} failed: {errorText}");
     }
 
     private sealed record AdminTag(Guid TagId, string Name, string Description, bool UserDefined, string TagHtml);
