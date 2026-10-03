@@ -212,22 +212,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
             }
 
-            var tempFileName = Path.GetRandomFileName();
-            var filePath = Path.Combine(Path.GetTempPath(), tempFileName);
+            var tempFile = new FileInfo(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
             try
             {
-                using (var stream = System.IO.File.Create(filePath))
+                using (var stream = tempFile.Create())
                 {
                     await file.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
                 }
 
-                var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, filePath, cancellationToken).ConfigureAwait(false);
+                var response = await ((IDemosApi)this).SetDemoFile(demoId, file.FileName, tempFile.FullName, cancellationToken).ConfigureAwait(false);
 
                 return response.ToHttpResult();
             }
             finally
             {
-                System.IO.File.Delete(Path.Combine(Path.GetTempPath(), tempFileName));
+                tempFile.Delete();
             }
         }
 
