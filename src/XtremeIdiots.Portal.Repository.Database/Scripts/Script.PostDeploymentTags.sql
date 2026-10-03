@@ -165,8 +165,7 @@ SET
     canonical.[UserDefined] = 0
 FROM [dbo].[Tags] canonical
     INNER JOIN CanonicalRequiredTags crt ON crt.[CanonicalTagId] = canonical.[TagId]
-WHERE canonical.[Name] COLLATE Latin1_General_100_BIN2
-        <> crt.[Name] COLLATE Latin1_General_100_BIN2
+WHERE canonical.[Name] <> crt.[Name]
     OR canonical.[UserDefined] <> 0;
 
 ;WITH

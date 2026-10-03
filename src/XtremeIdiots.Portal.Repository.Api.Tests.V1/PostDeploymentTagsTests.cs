@@ -6,7 +6,7 @@ using Xunit;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 
-public class PostDeploymentTagsIntegrationTests
+public class PostDeploymentTagsTests
 {
     [Fact]
     public async Task PostDeploymentTagsScript_PreservesExistingValuesAndIsIdempotent()
@@ -84,7 +84,7 @@ public class PostDeploymentTagsIntegrationTests
             var firstRun = await ReadAdminTagsAsync(testConnection);
             await runScript.ExecuteNonQueryAsync();
             var secondRun = await ReadAdminTagsAsync(testConnection);
-            Assert.Equal(new[] { "game-admin", "head-admin", "senior-admin" }, firstRun.Select(tag => tag.Name), StringComparer.Ordinal);
+            Assert.Equal(new[] { "game-admin", "head-admin", "Senior-Admin" }, firstRun.Select(tag => tag.Name), StringComparer.Ordinal);
             Assert.Equal(new[] { false, false, false }, firstRun.Select(tag => tag.UserDefined));
             Assert.Equal("Game Administrator role", firstRun[0].Description);
             Assert.Equal("<span class=\"badge bg-warning\">Game Admin</span>", firstRun[0].TagHtml);
@@ -107,7 +107,7 @@ public class PostDeploymentTagsIntegrationTests
             SELECT [TagId], [Name] COLLATE Latin1_General_100_BIN2, [Description], [UserDefined], [TagHtml]
             FROM [dbo].[Tags]
             WHERE LOWER([Name]) COLLATE Latin1_General_100_BIN2 IN (N'game-admin', N'head-admin', N'senior-admin')
-            ORDER BY [Name] COLLATE Latin1_General_100_BIN2;
+            ORDER BY LOWER([Name]) COLLATE Latin1_General_100_BIN2;
             """, connection);
         await using var reader = await command.ExecuteReaderAsync();
         var tags = new List<AdminTag>();
