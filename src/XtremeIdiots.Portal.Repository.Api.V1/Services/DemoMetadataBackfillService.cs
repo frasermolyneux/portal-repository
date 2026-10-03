@@ -44,7 +44,6 @@ public sealed class DemoMetadataBackfillService(
 
                 var metadata = metadataReader.Read(tempFile.FullName, demo.GameType.ToGameType());
 
-                demo.Created = metadata.Created;
                 demo.Map = metadata.Map;
                 demo.Mod = metadata.Mod;
                 demo.GameMode = metadata.GameMode;
@@ -62,7 +61,8 @@ public sealed class DemoMetadataBackfillService(
                 ex is RequestFailedException
                 or InvalidDataException
                 or IOException
-                or UnauthorizedAccessException)
+                or UnauthorizedAccessException
+                or DbUpdateException)
             {
                 context.Entry(demo).State = EntityState.Unchanged;
                 failedCount++;
