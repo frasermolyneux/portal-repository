@@ -27,6 +27,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         // File Upload Errors
         public const string NoFilesProvided = "NO_FILES_PROVIDED";
         public const string InvalidFileType = "INVALID_FILE_TYPE";
+        public const string InvalidDemoFile = "INVALID_DEMO_FILE";
 
         // Date/Time Validation Errors
         public const string InvalidCutoffDate = "INVALID_CUTOFF_DATE";
