@@ -29,4 +29,8 @@
         <ProjectReference Include="..\XtremeIdiots.Portal.Repository.Api.V1\XtremeIdiots.Portal.Repository.Api.V1.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="..\XtremeIdiots.Portal.Repository.Database\Scripts\Script.PostDeploymentTags.sql" Link="Script.PostDeploymentTags.sql" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>
