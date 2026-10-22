@@ -17,6 +17,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
         [JsonProperty]
         public string Url { get; set; }
 
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string? RedirectVersion { get; set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => [];
     }
