@@ -74,7 +74,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 
         /// <summary>
         /// Applies the values from an EditMapDto to an existing Map entity,
-        /// preserving null-handling behavior (only updates non-null values).
+        /// retaining existing files for empty legacy edits unless replacement is explicit.
         /// </summary>
         /// <param name="dto">The EditMapDto containing the updates.</param>
         /// <param name="entity">The existing Map entity to update.</param>
@@ -83,10 +83,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
 
-            // EditMapDto only has MapFiles, so only update that
-            if (dto.MapFiles?.Count > 0)
+            if (dto.ReplaceMapFiles || dto.MapFiles?.Count > 0)
             {
-                entity.MapFiles = JsonConvert.SerializeObject(dto.MapFiles);
+                entity.MapFiles = JsonConvert.SerializeObject(dto.MapFiles ?? []);
             }
         }
 

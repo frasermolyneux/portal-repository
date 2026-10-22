@@ -177,6 +177,34 @@ public class MapsControllerTests
         Assert.Null(file.RedirectVersion);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UpdateMaps_EmptyFilesOnlyClearWhenReplacementIsExplicit(bool replaceMapFiles)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IMapsApi)CreateController(context);
+        var file = new MapFileDto("mp_test.ff", "https://redirect.test/mp_test.ff");
+        await api.CreateMap(new CreateMapDto(GameType.CallOfDuty4, "mp_test") { MapFiles = [file] });
+        var mapId = context.Maps.Single().MapId;
+
+        var updated = await api.UpdateMaps([
+            new EditMapDto(mapId) { ReplaceMapFiles = replaceMapFiles }
+        ]);
+        var result = await api.GetMap(mapId);
+
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        if (replaceMapFiles)
+        {
+            Assert.Empty(result.Result.Data.MapFiles);
+        }
+        else
+        {
+            Assert.Equal(file, Assert.Single(result.Result.Data.MapFiles));
+        }
+    }
+
     [Fact]
     public async Task UpdateMap_PreservesReplacementVersionWithoutChangingFileCountOrUrl()
     {
