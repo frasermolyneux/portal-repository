@@ -16,6 +16,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps
         [JsonProperty]
         public List<MapFileDto> MapFiles { get; set; } = [];
 
+        /// <summary>
+        /// Replaces the complete file list, including an explicitly empty list.
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool ReplaceMapFiles { get; set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {
