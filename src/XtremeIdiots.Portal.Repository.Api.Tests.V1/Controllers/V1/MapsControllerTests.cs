@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Newtonsoft.Json;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -161,7 +162,10 @@ public class MapsControllerTests
             MapId = mapId,
             GameType = (int)GameType.CallOfDuty4,
             MapName = "mp_legacy",
-            MapFiles = """[{"FileName":"mp_legacy.ff","Url":"https://redirect.test/legacy.ff"}]"""
+            MapFiles = JsonConvert.SerializeObject(new[]
+            {
+                new { FileName = "mp_legacy.ff", Url = "https://redirect.test/legacy.ff" }
+            })
         });
         await context.SaveChangesAsync();
 
