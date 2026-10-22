@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Newtonsoft.Json;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -127,6 +128,74 @@ public class MapsControllerTests
         var result = await api.DeleteMap(Guid.NewGuid());
 
         Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateMap_PreservesRedirectFileVersion()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IMapsApi)CreateController(context);
+        var file = new MapFileDto("mp_test.ff", "https://redirect.test/redirect/cod4/usermaps/mp_test/mp_test.ff")
+        {
+            RedirectVersion = "opaque-version-1"
+        };
+
+        var created = await api.CreateMap(new CreateMapDto(GameType.CallOfDuty4, "mp_test")
+        {
+            MapFiles = [file]
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var result = await api.GetMap(context.Maps.Single().MapId);
+
+        Assert.NotNull(result.Result?.Data);
+        Assert.Equal(file, Assert.Single(result.Result.Data.MapFiles));
+    }
+
+    [Fact]
+    public async Task GetMap_ReadsLegacyFileMetadataWithoutRedirectVersion()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var mapId = Guid.NewGuid();
+        context.Maps.Add(new Map
+        {
+            MapId = mapId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapName = "mp_legacy",
+            MapFiles = JsonConvert.SerializeObject(new[]
+            {
+                new { FileName = "mp_legacy.ff", Url = "https://redirect.test/legacy.ff" }
+            })
+        });
+        await context.SaveChangesAsync();
+
+        var result = await ((IMapsApi)CreateController(context)).GetMap(mapId);
+
+        Assert.NotNull(result.Result?.Data);
+        var file = Assert.Single(result.Result.Data.MapFiles);
+        Assert.Equal("mp_legacy.ff", file.FileName);
+        Assert.Null(file.RedirectVersion);
+    }
+
+    [Fact]
+    public async Task UpdateMap_PreservesReplacementVersionWithoutChangingFileCountOrUrl()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IMapsApi)CreateController(context);
+        var file = new MapFileDto("mp_test.ff", "https://redirect.test/redirect/cod4/usermaps/mp_test/mp_test.ff")
+        {
+            RedirectVersion = "opaque-version-1"
+        };
+        await api.CreateMap(new CreateMapDto(GameType.CallOfDuty4, "mp_test") { MapFiles = [file] });
+        var mapId = context.Maps.Single().MapId;
+        var replacement = file with { RedirectVersion = "opaque-version-2" };
+
+        var updated = await api.UpdateMap(new EditMapDto(mapId) { MapFiles = [replacement] });
+        var result = await api.GetMap(mapId);
+
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.NotNull(result.Result?.Data);
+        Assert.Equal(replacement, Assert.Single(result.Result.Data.MapFiles));
     }
 
     [Fact]
