@@ -5,8 +5,11 @@ using Newtonsoft.Json;
 using MX.Api.Abstractions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Dashboard;
 using XtremeIdiots.Portal.Repository.DataLib;
+
+using DashboardHomeDto = XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Dashboard.DashboardHomeDto;
 
 namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1;
 
@@ -28,6 +31,41 @@ public class DashboardTests : IClassFixture<CustomWebApplicationFactory>, IAsync
     {
         _client.Dispose();
         return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task GetAnalyticsDashboardHome_ReturnsWindowAndBucket_ForValidQuery()
+    {
+        var fromUtc = DateTime.UtcNow.AddDays(-1);
+        var toUtc = DateTime.UtcNow;
+        var response = await _client.GetAsync(
+            $"/v1.0/analytics/dashboard/home?fromUtc={Uri.EscapeDataString(fromUtc.ToString("O"))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O"))}&bucket={AnalyticsBucket.OneDay}&top=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonConvert.DeserializeObject<ApiResponse<DashboardHomeDto>>(content);
+
+        var data = Assert.IsType<DashboardHomeDto>(result?.Data);
+        Assert.Equal(fromUtc, data.Window.FromUtc);
+        Assert.Equal(toUtc, data.Window.ToUtc);
+        Assert.Equal(AnalyticsBucket.OneDay, data.Bucket);
+    }
+
+    [Theory]
+    [InlineData("2026-10-21T00:00:00Z", "2026-10-20T00:00:00Z", "OneDay", "10")]
+    [InlineData("2026-10-20T00:00:00Z", "2026-10-21T00:00:00Z", "invalid", "10")]
+    [InlineData("2026-10-20T00:00:00Z", "2026-10-21T00:00:00Z", "OneDay", "0")]
+    public async Task GetAnalyticsDashboardHome_ReturnsBadRequest_ForInvalidQuery(
+        string fromUtc,
+        string toUtc,
+        string bucket,
+        string top)
+    {
+        var response = await _client.GetAsync(
+            $"/v1.0/analytics/dashboard/home?fromUtc={Uri.EscapeDataString(fromUtc)}&toUtc={Uri.EscapeDataString(toUtc)}&bucket={bucket}&top={top}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
