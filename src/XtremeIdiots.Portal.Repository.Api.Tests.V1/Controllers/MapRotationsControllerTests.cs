@@ -414,6 +414,60 @@ public class MapRotationsControllerTests
         Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(request)).StatusCode);
     }
 
+    [Fact]
+    public async Task LostCommitAcknowledgement_RotationDeletionReplaySucceeds_IndependentRequestReturnsNotFound()
+    {
+        using var db = CreateReplayContext();
+        var rotation = new MapRotation
+        {
+            MapRotationId = Guid.NewGuid(),
+            GameType = (int)GameType.CallOfDuty4,
+            Title = "Synthetic empty rotation",
+            GameMode = "dm",
+            Version = 1
+        };
+        db.MapRotations.Add(rotation);
+        await db.SaveChangesAsync();
+        ((ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>()).ReplayNext = true;
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.OK, (await api.DeleteMapRotation(rotation.MapRotationId)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await api.DeleteMapRotation(rotation.MapRotationId)).StatusCode);
+        Assert.Empty(db.MapRotations);
+    }
+
+    [Theory]
+    [InlineData(DeploymentState.Removed, ActivationState.Active)]
+    [InlineData(DeploymentState.Removed, ActivationState.Failed)]
+    [InlineData(DeploymentState.Removing, ActivationState.Active)]
+    [InlineData(DeploymentState.Removing, ActivationState.Failed)]
+    public async Task HistoricalRemovalState_AllowsConfirmedDeactivationWithoutResettingRetention(DeploymentState deployment, ActivationState activation)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        assignment.DeploymentState = (int)deployment;
+        assignment.ActivationState = (int)activation;
+        assignment.UnassignedAt = DateTime.UtcNow.AddDays(-10);
+        var unassignedAt = assignment.UnassignedAt;
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var created = await api.CreateAssignmentOperation(new(assignment.MapRotationServerAssignmentId, AssignmentOperationType.Deactivate));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            ActivationState = ActivationState.Deactivating
+        })).StatusCode);
+        await api.UpdateAssignmentOperation(created.Result!.Data!.MapRotationAssignmentOperationId, AssignmentOperationStatus.Succeeded, null);
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            ActivationState = ActivationState.Inactive
+        })).StatusCode);
+        Assert.Equal((int)deployment, assignment.DeploymentState);
+        Assert.Equal(unassignedAt, assignment.UnassignedAt);
+        Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
+    }
+
     private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString())
         .ReplaceService<IExecutionStrategyFactory, ReplayExecutionStrategyFactory>().Options);

@@ -314,6 +314,9 @@ Unassignment/purge also verifies its invocation's committed result, so an intern
 retry cannot turn successful removal into a retention error or not-found response.
 Synthetic execution-strategy tests exercise lost-acknowledgement replays without
 requiring SQL Server.
+Historical removing/removed rows with active or uncertain configuration may still
+record a deactivation operation and its confirmation without resetting their
+unassignment timestamp. Removed rows cannot be reactivated or redeployed.
 
 ```bash
 # Build the solution
