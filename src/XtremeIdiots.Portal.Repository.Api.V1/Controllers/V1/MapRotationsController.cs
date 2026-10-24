@@ -977,6 +977,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     || (!string.IsNullOrEmpty(createDto.DurableFunctionInstanceId)
                         && op.MapRotationServerAssignmentId == createDto.MapRotationServerAssignmentId
                         && op.OperationType == (int)createDto.OperationType
+                        && op.Status == (int)AssignmentOperationStatus.InProgress
                         && op.DurableFunctionInstanceId == createDto.DurableFunctionInstanceId), cancellationToken).ConfigureAwait(false);
             if (committed != null)
             {

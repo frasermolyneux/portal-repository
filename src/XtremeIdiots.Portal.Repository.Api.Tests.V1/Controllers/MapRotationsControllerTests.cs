@@ -284,7 +284,7 @@ public class MapRotationsControllerTests
     }
 
     [Fact]
-    public async Task ReplayedDurableOperationCreate_ReturnsOriginalOperationWithoutDuplicate()
+    public async Task ReplayedDurableOperationCreate_ReusesInProgress_ButAllowsTerminalInstanceRetry()
     {
         using var db = DbContextHelper.CreateInMemoryContext();
         var assignment = Seed(db);
@@ -296,11 +296,43 @@ public class MapRotationsControllerTests
 
         Assert.Equal(HttpStatusCode.Created, (await api.CreateAssignmentOperation(request)).StatusCode);
         var original = Assert.Single(db.MapRotationAssignmentOperations);
-        await api.UpdateAssignmentOperation(original.MapRotationAssignmentOperationId, AssignmentOperationStatus.Cancelled, "operator");
         Assert.Equal(HttpStatusCode.Created, (await api.CreateAssignmentOperation(request)).StatusCode);
         Assert.Same(original, Assert.Single(db.MapRotationAssignmentOperations));
+        await api.UpdateAssignmentOperation(original.MapRotationAssignmentOperationId, AssignmentOperationStatus.Cancelled, "operator");
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateAssignmentOperation(request)).StatusCode);
+        Assert.Equal(2, db.MapRotationAssignmentOperations.Count());
+        Assert.Single(db.MapRotationAssignmentOperations.Where(op => op.Status == (int)AssignmentOperationStatus.InProgress));
         Assert.Equal((int)AssignmentOperationStatus.Cancelled, original.Status);
         Assert.Equal("operator", original.Error);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DurableOperationIdentity_DistinguishesOperationTypeAndAssignment(bool useLinkedAssignment)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        var linked = Clone(assignment, "medium");
+        db.MapRotationServerAssignments.Add(linked);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var first = new CreateMapRotationAssignmentOperationDto(assignment.MapRotationServerAssignmentId, AssignmentOperationType.Sync)
+        {
+            DurableFunctionInstanceId = "synthetic-apply"
+        };
+        var second = new CreateMapRotationAssignmentOperationDto(
+            useLinkedAssignment ? linked.MapRotationServerAssignmentId : assignment.MapRotationServerAssignmentId,
+            useLinkedAssignment ? AssignmentOperationType.Sync : AssignmentOperationType.Activate)
+        {
+            DurableFunctionInstanceId = first.DurableFunctionInstanceId
+        };
+
+        await api.CreateAssignmentOperation(first);
+        await api.CreateAssignmentOperation(second);
+        await api.CreateAssignmentOperation(first);
+        await api.CreateAssignmentOperation(second);
+        Assert.Equal(2, db.MapRotationAssignmentOperations.Count());
     }
 
     private static MapRotationServerAssignment Seed(PortalDbContext db)

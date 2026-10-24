@@ -307,7 +307,8 @@ simulate SQL locking or external side effects.
 Assignment and operation creation keep stable IDs across transaction retries and
 check for committed records before replaying. Repeated operation creation for the
 same assignment, operation type, and non-empty Durable instance ID returns the
-original operation, including its terminal status.
+existing in-progress operation. A subsequent request after that operation ends
+may start a new attempt without changing the prior operation's terminal history.
 
 ```bash
 # Build the solution
