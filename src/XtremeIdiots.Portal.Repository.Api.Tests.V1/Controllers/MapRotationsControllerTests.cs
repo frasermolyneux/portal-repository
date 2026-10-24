@@ -601,6 +601,35 @@ public class MapRotationsControllerTests
         Assert.Equal((int)ActivationState.Active, db.MapRotationServerAssignments.Single(a => a.MapRotationServerAssignmentId == newer.MapRotationServerAssignmentId).ActivationState);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LostCommitAcknowledgement_RotationEditDoesNotOverwriteNewerContentOrIncrementTwice(bool interveningEdit)
+    {
+        using var db = CreateReplayContext();
+        var assignment = Seed(db);
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var replay = (ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>();
+        if (interveningEdit)
+        {
+            replay.AfterCommitAsync = async () =>
+            {
+                Assert.Equal(HttpStatusCode.OK, (await api.UpdateMapRotation(new(assignment.MapRotationId)
+                {
+                    GameMode = "sd"
+                })).StatusCode);
+            };
+        }
+        replay.ReplayNext = true;
+
+        var result = await api.UpdateMapRotation(new(assignment.MapRotationId) { GameMode = "tdm" });
+
+        Assert.Equal(interveningEdit ? HttpStatusCode.BadRequest : HttpStatusCode.OK, result.StatusCode);
+        var rotation = db.MapRotations.Single();
+        Assert.Equal(interveningEdit ? "sd" : "tdm", rotation.GameMode);
+        Assert.Equal(interveningEdit ? 4 : 3, rotation.Version);
+    }
+
     private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString())
         .ReplaceService<IExecutionStrategyFactory, ReplayExecutionStrategyFactory>().Options);

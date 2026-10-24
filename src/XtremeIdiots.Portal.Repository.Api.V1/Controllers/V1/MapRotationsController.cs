@@ -304,9 +304,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the map rotation was updated if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken)
-            => await ExecuteMutationAsync(() => UpdateMapRotation(updateMapRotationDto, cancellationToken), cancellationToken).ConfigureAwait(false);
+        {
+            var attempt = new UpdateAttempt();
+            return await ExecuteMutationAsync(() => UpdateMapRotation(updateMapRotationDto, attempt, cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
 
-        private async Task<ApiResult> UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken)
+        private async Task<ApiResult> UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, UpdateAttempt attempt, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotations
                 .Include(mr => mr.MapRotationMaps)
@@ -316,6 +319,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 return new ApiResult(HttpStatusCode.NotFound);
             }
+
+            var replayResult = VerifyUpdateReplay(entity.UpdatedAt, attempt);
+            if (replayResult != null)
+            {
+                return replayResult;
+            }
+            attempt.OriginalUpdatedAt ??= entity.UpdatedAt;
 
             var contentChanged = updateMapRotationDto.GameMode is not null
                 && updateMapRotationDto.GameMode != entity.GameMode;
@@ -364,6 +374,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            attempt.SavedUpdatedAt = entity.UpdatedAt;
+            attempt.Applied = true;
             return new ApiResponse().ToApiResult();
         }
 
@@ -703,7 +715,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
-            var replayResult = VerifyAssignmentReplay(entity, attempt);
+            var replayResult = VerifyUpdateReplay(entity.UpdatedAt, attempt);
             if (replayResult != null)
             {
                 return replayResult;
@@ -1164,27 +1176,31 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static ApiResult InvalidAssignment(string code, string message)
             => new(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(code, message)));
 
-        private static ApiResult? VerifyAssignmentReplay(MapRotationServerAssignment entity, AssignmentMutationAttempt attempt)
+        private static ApiResult? VerifyUpdateReplay(DateTime updatedAt, UpdateAttempt attempt)
         {
-            if (!attempt.Applied || entity.UpdatedAt == attempt.OriginalUpdatedAt)
+            if (!attempt.Applied || updatedAt == attempt.OriginalUpdatedAt)
             {
                 return null;
             }
 
-            return entity.UpdatedAt == attempt.SavedUpdatedAt
+            return updatedAt == attempt.SavedUpdatedAt
                 ? new ApiResponse().ToApiResult()
-                : InvalidAssignment("ASSIGNMENT_CHANGED", "The assignment changed during confirmation. Refresh its state before retrying.");
+                : InvalidAssignment("RESOURCE_CHANGED", "The resource changed during confirmation. Refresh its state before retrying.");
         }
 
-        private sealed class AssignmentMutationAttempt
+        private class UpdateAttempt
+        {
+            public DateTime? OriginalUpdatedAt { get; set; }
+            public DateTime? SavedUpdatedAt { get; set; }
+            public bool Applied { get; set; }
+        }
+
+        private sealed class AssignmentMutationAttempt : UpdateAttempt
         {
             public DateTime RemovedAt { get; } = DateTime.UtcNow;
             public bool Unassigned { get; set; }
             public bool Purged { get; set; }
             public bool TargetChanged { get; set; }
-            public DateTime? OriginalUpdatedAt { get; set; }
-            public DateTime? SavedUpdatedAt { get; set; }
-            public bool Applied { get; set; }
         }
 
         private static bool CanRemove(MapRotationServerAssignment assignment)
