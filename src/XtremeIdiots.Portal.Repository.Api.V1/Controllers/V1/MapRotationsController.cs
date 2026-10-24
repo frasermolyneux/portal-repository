@@ -1295,8 +1295,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 MapRotationsOrder.GameModeDesc => query.OrderByDescending(mr => mr.GameMode),
                 MapRotationsOrder.MapCountAsc => query.OrderBy(mr => mr.MapRotationMaps.Count),
                 MapRotationsOrder.MapCountDesc => query.OrderByDescending(mr => mr.MapRotationMaps.Count),
-                MapRotationsOrder.ServerCountAsc => query.OrderBy(mr => mr.MapRotationServerAssignments.Count),
-                MapRotationsOrder.ServerCountDesc => query.OrderByDescending(mr => mr.MapRotationServerAssignments.Count),
+                MapRotationsOrder.ServerCountAsc => query.OrderBy(mr => mr.MapRotationServerAssignments
+                    .Where(a => a.DeploymentState != (int)DeploymentState.Removed)
+                    .Select(a => a.GameServerId).Distinct().Count()).ThenBy(mr => mr.Title).ThenBy(mr => mr.MapRotationId),
+                MapRotationsOrder.ServerCountDesc => query.OrderByDescending(mr => mr.MapRotationServerAssignments
+                    .Where(a => a.DeploymentState != (int)DeploymentState.Removed)
+                    .Select(a => a.GameServerId).Distinct().Count()).ThenBy(mr => mr.Title).ThenBy(mr => mr.MapRotationId),
                 MapRotationsOrder.CreatedAtAsc => query.OrderBy(mr => mr.CreatedAt),
                 MapRotationsOrder.CreatedAtDesc => query.OrderByDescending(mr => mr.CreatedAt),
                 MapRotationsOrder.UpdatedAtAsc => query.OrderBy(mr => mr.UpdatedAt),
