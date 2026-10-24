@@ -1096,9 +1096,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var deployment = update.DeploymentState ?? (DeploymentState)entity.DeploymentState;
             var activation = update.ActivationState ?? (ActivationState)entity.ActivationState;
             if (update.DeploymentState.HasValue && (deployment is DeploymentState.Removing or DeploymentState.Removed)
-                && (activation != ActivationState.Inactive || !CanRemove(entity)))
+                && (activation != ActivationState.Inactive || !CanConfirmRemoval(entity)))
             {
-                return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate the assignment and finish outstanding operations before unassigning.");
+                return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate the assignment and finish other outstanding operations before confirming unassignment.");
             }
 
             if (entity.DeploymentState == (int)DeploymentState.Removed
@@ -1157,6 +1157,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             => assignment.ActivationState == (int)ActivationState.Inactive
                 && assignment.DeploymentState != (int)DeploymentState.Syncing
                 && !assignment.MapRotationAssignmentOperations.Any(op => op.Status == (int)AssignmentOperationStatus.InProgress);
+
+        private static bool CanConfirmRemoval(MapRotationServerAssignment assignment)
+        {
+            if (assignment.ActivationState != (int)ActivationState.Inactive
+                || assignment.DeploymentState == (int)DeploymentState.Syncing)
+            {
+                return false;
+            }
+
+            var inProgress = assignment.MapRotationAssignmentOperations
+                .Where(op => op.Status == (int)AssignmentOperationStatus.InProgress).ToList();
+            // The unassignment workflow confirms metadata before completing its own Remove operation.
+            return inProgress.Count == 0 || (inProgress.Count == 1 && inProgress[0].OperationType == (int)AssignmentOperationType.Remove);
+        }
 
         private static DateTime RetainUntil(MapRotationServerAssignment assignment)
         {

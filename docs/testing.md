@@ -317,6 +317,9 @@ requiring SQL Server.
 Historical removing/removed rows with active or uncertain configuration may still
 record a deactivation operation and its confirmation without resetting their
 unassignment timestamp. Removed rows cannot be reactivated or redeployed.
+The sync unassignment status PATCH may confirm removal while its sole in-progress
+Remove operation is awaiting completion; other in-progress operation types still
+block removal. Ordinary DELETE and config-target edits have no such exception.
 
 ```bash
 # Build the solution

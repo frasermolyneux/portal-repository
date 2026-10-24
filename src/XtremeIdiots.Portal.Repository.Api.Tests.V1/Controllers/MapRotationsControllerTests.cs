@@ -468,6 +468,73 @@ public class MapRotationsControllerTests
         Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
     }
 
+    [Fact]
+    public async Task UnassignWorkflow_ConfirmsRemovedBeforeCompletingItsOwnRemoveOperation()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var operation = await api.CreateAssignmentOperation(new(assignment.MapRotationServerAssignmentId, AssignmentOperationType.Remove)
+        {
+            DurableFunctionInstanceId = "synthetic-unassign-v2"
+        });
+        Assert.Equal(HttpStatusCode.Created, operation.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.DeleteServerAssignment(assignment.MapRotationServerAssignmentId)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            DeploymentState = DeploymentState.Removed,
+            UnassignedAt = DateTime.UtcNow
+        })).StatusCode);
+        Assert.Equal((int)DeploymentState.Removed, assignment.DeploymentState);
+        Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
+        Assert.Equal(2, assignment.DeployedVersion);
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateAssignmentOperation(operation.Result!.Data!.MapRotationAssignmentOperationId,
+            AssignmentOperationStatus.Succeeded, null)).StatusCode);
+        Assert.Equal((int)AssignmentOperationStatus.Succeeded, db.MapRotationAssignmentOperations.Single().Status);
+    }
+
+    [Theory]
+    [InlineData(AssignmentOperationType.Sync)]
+    [InlineData(AssignmentOperationType.Activate)]
+    [InlineData(AssignmentOperationType.Deactivate)]
+    [InlineData(AssignmentOperationType.Verify)]
+    public async Task UnassignConfirmation_RejectsOtherInProgressOperations(AssignmentOperationType type)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        var operation = Operation(assignment, AssignmentOperationStatus.InProgress);
+        operation.OperationType = (int)type;
+        db.MapRotationAssignmentOperations.Add(operation);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            DeploymentState = DeploymentState.Removed
+        })).StatusCode);
+        Assert.Equal((int)DeploymentState.Synced, assignment.DeploymentState);
+    }
+
+    [Fact]
+    public async Task RepairWorkflow_CanStartSyncingWhileExistingConfigurationRemainsActive()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        assignment.ActivationState = (int)ActivationState.Active;
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        await api.CreateAssignmentOperation(new(assignment.MapRotationServerAssignmentId, AssignmentOperationType.Sync));
+
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            DeploymentState = DeploymentState.Syncing
+        })).StatusCode);
+        Assert.Equal((int)DeploymentState.Syncing, assignment.DeploymentState);
+        Assert.Equal((int)ActivationState.Active, assignment.ActivationState);
+        Assert.Equal(2, assignment.ActivatedVersion);
+    }
+
     private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString())
         .ReplaceService<IExecutionStrategyFactory, ReplayExecutionStrategyFactory>().Options);
