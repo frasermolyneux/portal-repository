@@ -282,6 +282,48 @@ public class AdminActionsTests : IClassFixture<CustomWebApplicationFactory>
 
 ## Running Tests
 
+### Map-rotation consistency
+
+`MapRotationsControllerTests` covers versioning, activation evidence, config-target
+handover, safe unassignment, history retention, error clearing, and terminal
+operation idempotency using synthetic in-memory data. The matching V1 HTTP tests
+exercise the public routes without cloud or game-server dependencies.
+
+Rotation versions advance once when ordered map IDs or game mode change, but not
+for metadata-only edits. The map-ID content hash remains compatible. Activation
+requires the current version to be synced; active confirmation additionally needs
+the current activated version. Editing a config target requires an inactive,
+non-busy assignment with no running operation on its server, and clears activation
+confirmation without discarding map-file deployment evidence. Failed/uncertain
+activation is not treated as inactive.
+
+Ordinary assignment DELETE is metadata-only and never requests map-file deletion.
+It requires inactive configuration and no in-progress operation. Removed assignments
+and their operation history are retained for 90 days from unassignment or the latest
+operation completion, whichever is later. Rotation deletion cannot bypass retention.
+SQL mutations use retry-aware serializable transactions to serialize target
+handover and deletion with other repository mutations; in-memory tests do not
+simulate SQL locking or external side effects.
+Assignment and operation creation keep stable IDs across transaction retries and
+check for committed records before replaying. Repeated operation creation for the
+same assignment, operation type, and non-empty Durable instance ID returns the
+existing in-progress operation. A subsequent request after that operation ends
+may start a new attempt without changing the prior operation's terminal history.
+Exact operation IDs take precedence over Durable-key matches during a retry.
+Rotation and assignment PATCH retries verify their saved update timestamp before replaying:
+an unchanged committed result is returned directly, while an intervening mutation
+is rejected instead of replaying stale activation or target evidence.
+Unassignment/purge also verifies its invocation's committed result, so an internal
+retry cannot turn successful removal into a retention error or not-found response.
+Synthetic execution-strategy tests exercise lost-acknowledgement replays without
+requiring SQL Server.
+Historical removing/removed rows with active or uncertain configuration may still
+record a deactivation operation and its confirmation without resetting their
+unassignment timestamp. Removed rows cannot be reactivated or redeployed.
+The sync unassignment status PATCH may confirm removal while its sole in-progress
+Remove operation is awaiting completion; other in-progress operation types still
+block removal. Ordinary DELETE and config-target edits have no such exception.
+
 ```bash
 # Build the solution
 dotnet build src/XtremeIdiots.Portal.Repository.slnx
