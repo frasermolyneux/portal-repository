@@ -16,6 +16,69 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 public class MapRotationsControllerTests
 {
     [Theory]
+    [InlineData(MapRotationsOrder.ServerCountDesc)]
+    [InlineData(MapRotationsOrder.ServerCountAsc)]
+    public async Task ServerCountOrder_CountsDistinctAssignedServersBeforePagination(MapRotationsOrder order)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        static MapRotationServerAssignment Slot(MapRotationServerAssignment source, string target)
+        {
+            return new()
+            {
+                MapRotationServerAssignmentId = Guid.NewGuid(),
+                MapRotation = source.MapRotation,
+                GameServerId = source.GameServerId,
+                GameServer = source.GameServer,
+                ConfigFilePath = source.ConfigFilePath,
+                ConfigVariableName = target,
+                DeploymentState = source.DeploymentState,
+                ActivationState = source.ActivationState
+            };
+        }
+
+        var one = Seed(db);
+        one.MapRotation.Title = "One server";
+        db.MapRotationServerAssignments.Add(Slot(one, "picker"));
+        db.MapRotationServerAssignments.Add(Slot(one, "medium"));
+        for (var i = 0; i < 3; i++)
+        {
+            var retired = Slot(one, $"retired_{i}");
+            retired.DeploymentState = (int)DeploymentState.Removed;
+            db.MapRotationServerAssignments.Add(retired);
+        }
+
+        var two = Seed(db);
+        two.MapRotation.Title = "Two servers";
+        var secondServer = Slot(two, "second");
+        secondServer.GameServerId = one.GameServerId;
+        secondServer.GameServer = one.GameServer;
+        db.MapRotationServerAssignments.Add(secondServer);
+        var removed = Seed(db);
+        removed.MapRotation.Title = "Retired";
+        removed.DeploymentState = (int)DeploymentState.Removed;
+        var empty = new MapRotation
+        {
+            MapRotationId = Guid.NewGuid(),
+            Title = "Empty",
+            GameMode = "dm",
+            GameType = one.MapRotation.GameType
+        };
+        db.MapRotations.Add(empty);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var first = await api.GetMapRotations(null, null, null, 0, 2, order);
+        var second = await api.GetMapRotations(null, null, null, 2, 2, order);
+
+        Guid[] expected = order == MapRotationsOrder.ServerCountDesc
+            ? [two.MapRotationId, one.MapRotationId, empty.MapRotationId, removed.MapRotationId]
+            : [empty.MapRotationId, removed.MapRotationId, one.MapRotationId, two.MapRotationId];
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(expected, first.Result!.Data!.Items!.Concat(second.Result!.Data!.Items!).Select(r => r.MapRotationId));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GameModeEdit_IncrementsOnce_AndMetadataOnlyEditPreservesVersion(bool changeMaps)
