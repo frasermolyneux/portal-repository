@@ -304,6 +304,10 @@ operation completion, whichever is later. Rotation deletion cannot bypass retent
 SQL mutations use retry-aware serializable transactions to serialize target
 handover and deletion with other repository mutations; in-memory tests do not
 simulate SQL locking or external side effects.
+Assignment and operation creation keep stable IDs across transaction retries and
+check for committed records before replaying. Repeated operation creation for the
+same assignment, operation type, and non-empty Durable instance ID returns the
+original operation, including its terminal status.
 
 ```bash
 # Build the solution

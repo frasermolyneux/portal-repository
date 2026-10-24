@@ -283,6 +283,26 @@ public class MapRotationsControllerTests
         Assert.Equal(2, assignment.ActivatedVersion);
     }
 
+    [Fact]
+    public async Task ReplayedDurableOperationCreate_ReturnsOriginalOperationWithoutDuplicate()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var request = new CreateMapRotationAssignmentOperationDto(assignment.MapRotationServerAssignmentId, AssignmentOperationType.Sync)
+        {
+            DurableFunctionInstanceId = "synthetic-retry"
+        };
+
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateAssignmentOperation(request)).StatusCode);
+        var original = Assert.Single(db.MapRotationAssignmentOperations);
+        await api.UpdateAssignmentOperation(original.MapRotationAssignmentOperationId, AssignmentOperationStatus.Cancelled, "operator");
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateAssignmentOperation(request)).StatusCode);
+        Assert.Same(original, Assert.Single(db.MapRotationAssignmentOperations));
+        Assert.Equal((int)AssignmentOperationStatus.Cancelled, original.Status);
+        Assert.Equal("operator", original.Error);
+    }
+
     private static MapRotationServerAssignment Seed(PortalDbContext db)
     {
         var rotation = new MapRotation

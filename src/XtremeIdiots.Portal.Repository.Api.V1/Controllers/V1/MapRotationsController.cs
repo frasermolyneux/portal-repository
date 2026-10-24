@@ -572,10 +572,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing the created server assignment.</returns>
         async Task<ApiResult<MapRotationServerAssignmentDto>> IMapRotationsApi.CreateServerAssignment(CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken)
-            => await ExecuteMutationAsync(() => CreateAssignment(createDto, cancellationToken), cancellationToken).ConfigureAwait(false);
-
-        private async Task<ApiResult<MapRotationServerAssignmentDto>> CreateAssignment(CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken)
         {
+            var assignmentId = Guid.NewGuid();
+            return await ExecuteMutationAsync(() => CreateAssignment(createDto, assignmentId, cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task<ApiResult<MapRotationServerAssignmentDto>> CreateAssignment(CreateMapRotationServerAssignmentDto createDto, Guid assignmentId, CancellationToken cancellationToken)
+        {
+            var committed = await context.MapRotationServerAssignments.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == assignmentId, cancellationToken).ConfigureAwait(false);
+            if (committed != null)
+            {
+                return new ApiResponse<MapRotationServerAssignmentDto>(committed.ToDto()).ToApiResult(HttpStatusCode.Created);
+            }
+
             var mapRotation = await context.MapRotations
                 .AsNoTracking()
                 .FirstOrDefaultAsync(mr => mr.MapRotationId == createDto.MapRotationId, cancellationToken).ConfigureAwait(false);
@@ -620,6 +630,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var entity = createDto.ToEntity();
+            entity.MapRotationServerAssignmentId = assignmentId;
             context.MapRotationServerAssignments.Add(entity);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
@@ -953,10 +964,25 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing the created assignment operation.</returns>
         async Task<ApiResult<MapRotationAssignmentOperationDto>> IMapRotationsApi.CreateAssignmentOperation(CreateMapRotationAssignmentOperationDto createDto, CancellationToken cancellationToken)
-            => await ExecuteMutationAsync(() => CreateOperation(createDto, cancellationToken), cancellationToken).ConfigureAwait(false);
-
-        private async Task<ApiResult<MapRotationAssignmentOperationDto>> CreateOperation(CreateMapRotationAssignmentOperationDto createDto, CancellationToken cancellationToken)
         {
+            var operationId = Guid.NewGuid();
+            return await ExecuteMutationAsync(() => CreateOperation(createDto, operationId, cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task<ApiResult<MapRotationAssignmentOperationDto>> CreateOperation(CreateMapRotationAssignmentOperationDto createDto, Guid operationId, CancellationToken cancellationToken)
+        {
+            // The commit may have succeeded even if its acknowledgement was lost.
+            var committed = await context.MapRotationAssignmentOperations.AsNoTracking()
+                .FirstOrDefaultAsync(op => op.MapRotationAssignmentOperationId == operationId
+                    || (!string.IsNullOrEmpty(createDto.DurableFunctionInstanceId)
+                        && op.MapRotationServerAssignmentId == createDto.MapRotationServerAssignmentId
+                        && op.OperationType == (int)createDto.OperationType
+                        && op.DurableFunctionInstanceId == createDto.DurableFunctionInstanceId), cancellationToken).ConfigureAwait(false);
+            if (committed != null)
+            {
+                return new ApiResponse<MapRotationAssignmentOperationDto>(committed.ToDto()).ToApiResult(HttpStatusCode.Created);
+            }
+
             var assignment = await context.MapRotationServerAssignments
                 .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == createDto.MapRotationServerAssignmentId, cancellationToken).ConfigureAwait(false);
 
@@ -974,6 +1000,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var entity = createDto.ToEntity();
+            entity.MapRotationAssignmentOperationId = operationId;
             context.MapRotationAssignmentOperations.Add(entity);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
