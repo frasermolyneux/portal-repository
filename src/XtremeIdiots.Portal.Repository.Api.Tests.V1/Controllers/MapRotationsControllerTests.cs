@@ -243,6 +243,46 @@ public class MapRotationsControllerTests
         Assert.Equal((int)DeploymentState.Syncing, assignment.DeploymentState);
     }
 
+    [Fact]
+    public async Task FailedFileRepair_PreservesIndependentActiveConfigEvidence()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        assignment.ActivationState = (int)ActivationState.Active;
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            DeploymentState = DeploymentState.Failed,
+            LastError = "Synthetic missing file",
+            LastErrorAt = DateTime.UtcNow
+        })).StatusCode);
+        Assert.Equal((int)ActivationState.Active, assignment.ActivationState);
+        Assert.Equal(2, assignment.ActivatedVersion);
+        Assert.Equal((int)DeploymentState.Failed, assignment.DeploymentState);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.DeleteServerAssignment(assignment.MapRotationServerAssignmentId)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfigTargetEdit_RejectsOtherRunningServerOperation()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        var other = Clone(assignment, "medium");
+        db.MapRotationServerAssignments.Add(other);
+        db.MapRotationAssignmentOperations.Add(Operation(other, AssignmentOperationStatus.InProgress));
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            ConfigFilePath = "other.cfg"
+        })).StatusCode);
+        Assert.Equal("server.cfg", assignment.ConfigFilePath);
+        Assert.Equal(2, assignment.ActivatedVersion);
+    }
+
     private static MapRotationServerAssignment Seed(PortalDbContext db)
     {
         var rotation = new MapRotation
@@ -285,7 +325,14 @@ public class MapRotationsControllerTests
     private static MapRotationServerAssignment Clone(MapRotationServerAssignment source, string target) => new()
     {
         MapRotationServerAssignmentId = Guid.NewGuid(),
-        MapRotationId = Guid.NewGuid(),
+        MapRotation = new MapRotation
+        {
+            MapRotationId = Guid.NewGuid(),
+            GameType = source.MapRotation.GameType,
+            Title = "Synthetic alternate",
+            GameMode = "dm",
+            Version = 2
+        },
         GameServerId = source.GameServerId,
         ConfigFilePath = source.ConfigFilePath,
         ConfigVariableName = target,

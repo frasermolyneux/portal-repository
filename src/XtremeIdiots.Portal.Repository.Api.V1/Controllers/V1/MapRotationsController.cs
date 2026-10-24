@@ -692,7 +692,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var effectiveConfigVariableName = updateDto.ConfigVariableName ?? entity.ConfigVariableName;
             var targetChanged = effectiveConfigFilePath != entity.ConfigFilePath
                 || effectiveConfigVariableName != entity.ConfigVariableName;
-            if (targetChanged && (!CanRemove(entity) || updateDto.ActivationState is not (null or ActivationState.Inactive)))
+            if (targetChanged && (!CanRemove(entity) || updateDto.ActivationState is not (null or ActivationState.Inactive)
+                || await context.MapRotationAssignmentOperations.AnyAsync(op =>
+                    op.MapRotationServerAssignment.GameServerId == entity.GameServerId
+                    && op.Status == (int)AssignmentOperationStatus.InProgress, cancellationToken).ConfigureAwait(false)))
             {
                 return InvalidAssignment("CONFIG_TARGET_IN_USE", "Deactivate the assignment and finish outstanding operations before editing its config target.");
             }
