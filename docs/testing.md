@@ -282,6 +282,28 @@ public class AdminActionsTests : IClassFixture<CustomWebApplicationFactory>
 
 ## Running Tests
 
+### Map-rotation consistency
+
+`MapRotationsControllerTests` covers versioning, activation evidence, config-target
+handover, safe unassignment, history retention, error clearing, and terminal
+operation idempotency using synthetic in-memory data. The matching V1 HTTP tests
+exercise the public routes without cloud or game-server dependencies.
+
+Rotation versions advance once when ordered map IDs or game mode change, but not
+for metadata-only edits. The map-ID content hash remains compatible. Activation
+requires the current version to be synced; active confirmation additionally needs
+the current activated version. Editing a config target requires an inactive,
+non-busy assignment and clears activation confirmation without discarding map-file
+deployment evidence. Failed/uncertain activation is not treated as inactive.
+
+Ordinary assignment DELETE is metadata-only and never requests map-file deletion.
+It requires inactive configuration and no in-progress operation. Removed assignments
+and their operation history are retained for 90 days from unassignment or the latest
+operation completion, whichever is later. Rotation deletion cannot bypass retention.
+SQL mutations use retry-aware serializable transactions to serialize target
+handover and deletion with other repository mutations; in-memory tests do not
+simulate SQL locking or external side effects.
+
 ```bash
 # Build the solution
 dotnet build src/XtremeIdiots.Portal.Repository.slnx

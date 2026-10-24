@@ -1,3 +1,4 @@
+using System.Data;
 using System.Net;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -303,6 +304,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the map rotation was updated if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken)
+            => await ExecuteMutationAsync(() => UpdateMapRotation(updateMapRotationDto, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult> UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotations
                 .Include(mr => mr.MapRotationMaps)
@@ -313,6 +317,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var contentChanged = updateMapRotationDto.GameMode is not null
+                && updateMapRotationDto.GameMode != entity.GameMode;
             updateMapRotationDto.ApplyTo(entity);
 
             if (updateMapRotationDto.MapIds != null)
@@ -348,8 +354,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     }).ToList();
 
                     entity.ContentHash = newHash;
-                    entity.Version++;
+                    contentChanged = true;
                 }
+            }
+
+            if (contentChanged)
+            {
+                entity.Version++;
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -378,6 +389,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the map rotation was deleted if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.DeleteMapRotation(Guid mapRotationId, CancellationToken cancellationToken)
+            => await ExecuteMutationAsync(() => DeleteRotation(mapRotationId, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult> DeleteRotation(Guid mapRotationId, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotations
                 .Include(mr => mr.MapRotationMaps)
@@ -390,11 +404,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
-            // Block delete if any assignments are actively deployed (allow Removed and Failed)
-            if (entity.MapRotationServerAssignments.Any(a => a.DeploymentState != (int)DeploymentState.Removed && a.DeploymentState != (int)DeploymentState.Failed))
+            if (entity.MapRotationServerAssignments.Any(a =>
+                a.DeploymentState != (int)DeploymentState.Removed || !CanRemove(a)
+                || RetainUntil(a) > DateTime.UtcNow))
             {
                 return new ApiResult(HttpStatusCode.BadRequest,
-                    new ApiResponse(new ApiError("HAS_ACTIVE_ASSIGNMENTS", "Cannot delete a map rotation that has active server assignments. Unassign all servers first.")));
+                    new ApiResponse(new ApiError("HAS_ACTIVE_ASSIGNMENTS", "Unassign all servers and wait for the 90-day history retention period before deleting the rotation.")));
             }
 
             // Remove children explicitly to avoid FK violations
@@ -557,6 +572,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing the created server assignment.</returns>
         async Task<ApiResult<MapRotationServerAssignmentDto>> IMapRotationsApi.CreateServerAssignment(CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken)
+            => await ExecuteMutationAsync(() => CreateAssignment(createDto, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult<MapRotationServerAssignmentDto>> CreateAssignment(CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken)
         {
             var mapRotation = await context.MapRotations
                 .AsNoTracking()
@@ -649,8 +667,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the server assignment was updated if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.UpdateServerAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken)
+            => await ExecuteMutationAsync(() => UpdateAssignment(updateDto, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult> UpdateAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotationServerAssignments
+                .Include(a => a.MapRotation)
+                .Include(a => a.MapRotationAssignmentOperations)
                 .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == updateDto.MapRotationServerAssignmentId, cancellationToken).ConfigureAwait(false);
 
             if (entity == null)
@@ -667,8 +690,52 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var effectiveConfigFilePath = updateDto.ConfigFilePath ?? entity.ConfigFilePath;
             var effectiveConfigVariableName = updateDto.ConfigVariableName ?? entity.ConfigVariableName;
+            var targetChanged = effectiveConfigFilePath != entity.ConfigFilePath
+                || effectiveConfigVariableName != entity.ConfigVariableName;
+            if (targetChanged && (!CanRemove(entity) || updateDto.ActivationState is not (null or ActivationState.Inactive)))
+            {
+                return InvalidAssignment("CONFIG_TARGET_IN_USE", "Deactivate the assignment and finish outstanding operations before editing its config target.");
+            }
 
             var effectiveDeploymentState = updateDto.DeploymentState ?? (DeploymentState)entity.DeploymentState;
+            var effectiveActivationState = updateDto.ActivationState ?? (ActivationState)entity.ActivationState;
+            var deployedVersion = updateDto.DeployedVersion ?? entity.DeployedVersion;
+            var activatedVersion = updateDto.ActivatedVersion ?? entity.ActivatedVersion;
+            if ((updateDto.DeploymentState.HasValue && !Enum.IsDefined(updateDto.DeploymentState.Value))
+                || (updateDto.ActivationState.HasValue && !Enum.IsDefined(updateDto.ActivationState.Value)))
+            {
+                return InvalidAssignment("INVALID_ASSIGNMENT_STATE", "Unknown assignment state.");
+            }
+
+            if ((updateDto.DeploymentState == DeploymentState.Synced && deployedVersion != entity.MapRotation.Version)
+                || (updateDto.DeployedVersion.HasValue && (updateDto.DeployedVersion <= 0 || updateDto.DeployedVersion > entity.MapRotation.Version))
+                || (updateDto.ActivatedVersion.HasValue && (updateDto.ActivatedVersion <= 0 || updateDto.ActivatedVersion > entity.MapRotation.Version)))
+            {
+                return InvalidAssignment("ASSIGNMENT_NOT_CURRENT", "Deployment evidence must identify a valid rotation version; synced confirmation must identify the current version.");
+            }
+
+            if (updateDto.ActivationState is ActivationState.Active or ActivationState.Activating)
+            {
+                if (effectiveDeploymentState != DeploymentState.Synced || deployedVersion != entity.MapRotation.Version
+                    || (updateDto.ActivationState == ActivationState.Active && activatedVersion != entity.MapRotation.Version))
+                {
+                    return InvalidAssignment("ASSIGNMENT_NOT_CURRENT", "Activation requires the current rotation version to be synced; active confirmation requires its activated version.");
+                }
+            }
+
+            if (effectiveDeploymentState is DeploymentState.Removing or DeploymentState.Removed
+                && (effectiveActivationState != ActivationState.Inactive || !CanRemove(entity)))
+            {
+                return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate the assignment and finish outstanding operations before unassigning.");
+            }
+
+            if (entity.DeploymentState == (int)DeploymentState.Removed
+                && (effectiveDeploymentState != DeploymentState.Removed || targetChanged
+                    || updateDto.DeployedVersion.HasValue || updateDto.ActivatedVersion.HasValue
+                    || updateDto.UnassignedAt.HasValue))
+            {
+                return InvalidAssignment("ASSIGNMENT_REMOVED", "Removed assignments are retained history; create a new assignment instead.");
+            }
             if (effectiveDeploymentState != DeploymentState.Removed
                 && effectiveDeploymentState != DeploymentState.Removing
                 && effectiveDeploymentState != DeploymentState.Failed)
@@ -710,17 +777,28 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 foreach (var activeAssignment in activeAssignmentsForSameTarget)
                 {
                     activeAssignment.ActivationState = (int)ActivationState.Inactive;
+                    activeAssignment.ActivatedVersion = null;
                     activeAssignment.UpdatedAt = now;
                 }
             }
 
+            var wasRemoved = entity.DeploymentState == (int)DeploymentState.Removed;
             updateDto.ApplyTo(entity);
+            if (targetChanged)
+            {
+                entity.ActivatedVersion = null;
+            }
+
+            if (effectiveDeploymentState == DeploymentState.Removed && !wasRemoved)
+            {
+                entity.UnassignedAt = DateTime.UtcNow;
+            }
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
         }
 
         /// <summary>
-        /// Deletes a server assignment by setting its deployment state to Removing.
+        /// Unassigns an inactive server assignment without deleting map files, or purges retained history after 90 days.
         /// </summary>
         /// <param name="assignmentId">The unique identifier of the server assignment to delete.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
@@ -735,12 +813,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         /// <summary>
-        /// Deletes a server assignment by setting its deployment state to Removing.
+        /// Unassigns an inactive server assignment without deleting map files, or purges retained history after 90 days.
         /// </summary>
         /// <param name="assignmentId">The unique identifier of the server assignment to delete.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the server assignment was marked for removal if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.DeleteServerAssignment(Guid assignmentId, CancellationToken cancellationToken)
+            => await ExecuteMutationAsync(() => DeleteAssignment(assignmentId, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult> DeleteAssignment(Guid assignmentId, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotationServerAssignments
                 .Include(a => a.MapRotationAssignmentOperations)
@@ -751,14 +832,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            if (!CanRemove(entity))
+            {
+                return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate the assignment and finish outstanding operations before unassigning.");
+            }
+
             if (entity.DeploymentState == (int)DeploymentState.Removed)
             {
-                var retentionAnchor = entity.UnassignedAt ?? entity.UpdatedAt;
-                var purgeAt = retentionAnchor.AddHours(48);
+                var purgeAt = RetainUntil(entity);
 
                 if (DateTime.UtcNow < purgeAt)
                 {
-                    var retentionMessage = $"Removed assignments are retained for 48 hours and cannot be deleted before {purgeAt:O}.";
+                    var retentionMessage = $"Removed assignments are retained for 90 days and cannot be deleted before {purgeAt:O}.";
 
                     return new ApiResult(HttpStatusCode.BadRequest,
                         new ApiResponse(new ApiError("ASSIGNMENT_RETENTION_ACTIVE", retentionMessage)));
@@ -774,7 +859,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResponse().ToApiResult();
             }
 
-            entity.DeploymentState = (int)DeploymentState.Removing;
+            // Unassignment is metadata-only: shared map files are never scheduled for deletion.
+            entity.DeploymentState = (int)DeploymentState.Removed;
+            entity.UnassignedAt = DateTime.UtcNow;
             entity.UpdatedAt = DateTime.UtcNow;
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse().ToApiResult();
@@ -863,14 +950,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing the created assignment operation.</returns>
         async Task<ApiResult<MapRotationAssignmentOperationDto>> IMapRotationsApi.CreateAssignmentOperation(CreateMapRotationAssignmentOperationDto createDto, CancellationToken cancellationToken)
-        {
-            var assignmentExists = await context.MapRotationServerAssignments
-                .AnyAsync(a => a.MapRotationServerAssignmentId == createDto.MapRotationServerAssignmentId, cancellationToken).ConfigureAwait(false);
+            => await ExecuteMutationAsync(() => CreateOperation(createDto, cancellationToken), cancellationToken).ConfigureAwait(false);
 
-            if (!assignmentExists)
+        private async Task<ApiResult<MapRotationAssignmentOperationDto>> CreateOperation(CreateMapRotationAssignmentOperationDto createDto, CancellationToken cancellationToken)
+        {
+            var assignment = await context.MapRotationServerAssignments
+                .FirstOrDefaultAsync(a => a.MapRotationServerAssignmentId == createDto.MapRotationServerAssignmentId, cancellationToken).ConfigureAwait(false);
+
+            if (assignment == null)
             {
                 return new ApiResult<MapRotationAssignmentOperationDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationAssignmentOperationDto>(new ApiError("ASSIGNMENT_NOT_FOUND", "The specified server assignment does not exist.")));
+            }
+
+            if (!Enum.IsDefined(createDto.OperationType) || assignment.DeploymentState == (int)DeploymentState.Removed
+                || (createDto.OperationType == AssignmentOperationType.Remove && assignment.ActivationState != (int)ActivationState.Inactive))
+            {
+                return new ApiResult<MapRotationAssignmentOperationDto>(HttpStatusCode.BadRequest,
+                    new ApiResponse<MapRotationAssignmentOperationDto>(new ApiError("ASSIGNMENT_IN_USE", "The operation is not valid for this assignment.")));
             }
 
             var entity = createDto.ToEntity();
@@ -911,6 +1008,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the assignment operation was updated if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.UpdateAssignmentOperation(Guid operationId, AssignmentOperationStatus status, string? error, CancellationToken cancellationToken)
+            => await ExecuteMutationAsync(() => UpdateOperation(operationId, status, error, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult> UpdateOperation(Guid operationId, AssignmentOperationStatus status, string? error, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotationAssignmentOperations
                 .FirstOrDefaultAsync(op => op.MapRotationAssignmentOperationId == operationId, cancellationToken).ConfigureAwait(false);
@@ -918,6 +1018,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (entity == null)
             {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (!Enum.IsDefined(status))
+            {
+                return InvalidAssignment("INVALID_OPERATION_STATUS", "Unknown operation status.");
+            }
+
+            if (entity.Status != (int)AssignmentOperationStatus.InProgress)
+            {
+                return entity.Status == (int)status
+                    ? new ApiResponse().ToApiResult()
+                    : InvalidAssignment("OPERATION_COMPLETED", "A terminal operation cannot change status.");
             }
 
             entity.Status = (int)status;
@@ -933,6 +1045,39 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         // ───────────────────────── Private Helpers ─────────────────────────
+
+        private static ApiResult InvalidAssignment(string code, string message)
+            => new(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(code, message)));
+
+        private static bool CanRemove(MapRotationServerAssignment assignment)
+            => assignment.ActivationState == (int)ActivationState.Inactive
+                && assignment.DeploymentState != (int)DeploymentState.Syncing
+                && !assignment.MapRotationAssignmentOperations.Any(op => op.Status == (int)AssignmentOperationStatus.InProgress);
+
+        private static DateTime RetainUntil(MapRotationServerAssignment assignment)
+        {
+            var anchor = assignment.UnassignedAt ?? assignment.UpdatedAt;
+            var latestCompletion = assignment.MapRotationAssignmentOperations
+                .Select(op => op.CompletedAt ?? op.StartedAt).DefaultIfEmpty(anchor).Max();
+            return (latestCompletion > anchor ? latestCompletion : anchor).AddDays(90);
+        }
+
+        private async Task<T> ExecuteMutationAsync<T>(Func<Task<T>> mutation, CancellationToken cancellationToken)
+        {
+            if (!context.Database.IsRelational())
+            {
+                return await mutation().ConfigureAwait(false);
+            }
+
+            return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                context.ChangeTracker.Clear();
+                await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+                var result = await mutation().ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return result;
+            }).ConfigureAwait(false);
+        }
 
         private static IQueryable<MapRotation> ApplyFilters(IQueryable<MapRotation> query, GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, Guid? createdByUserId, MapRotationsFilter? filter)
         {
