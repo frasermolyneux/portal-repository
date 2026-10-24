@@ -703,6 +703,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var replayResult = VerifyAssignmentReplay(entity, attempt);
+            if (replayResult != null)
+            {
+                return replayResult;
+            }
+            attempt.OriginalUpdatedAt ??= entity.UpdatedAt;
+
             if (attempt.Unassigned && entity.DeploymentState == (int)DeploymentState.Removed
                 && entity.UnassignedAt == attempt.RemovedAt)
             {
@@ -754,6 +761,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             attempt.Unassigned = effectiveDeploymentState == DeploymentState.Removed && !wasRemoved;
+            attempt.SavedUpdatedAt = entity.UpdatedAt;
+            attempt.Applied = true;
             return new ApiResponse().ToApiResult();
         }
 
@@ -1155,12 +1164,27 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static ApiResult InvalidAssignment(string code, string message)
             => new(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(code, message)));
 
+        private static ApiResult? VerifyAssignmentReplay(MapRotationServerAssignment entity, AssignmentMutationAttempt attempt)
+        {
+            if (!attempt.Applied || entity.UpdatedAt == attempt.OriginalUpdatedAt)
+            {
+                return null;
+            }
+
+            return entity.UpdatedAt == attempt.SavedUpdatedAt
+                ? new ApiResponse().ToApiResult()
+                : InvalidAssignment("ASSIGNMENT_CHANGED", "The assignment changed during confirmation. Refresh its state before retrying.");
+        }
+
         private sealed class AssignmentMutationAttempt
         {
             public DateTime RemovedAt { get; } = DateTime.UtcNow;
             public bool Unassigned { get; set; }
             public bool Purged { get; set; }
             public bool TargetChanged { get; set; }
+            public DateTime? OriginalUpdatedAt { get; set; }
+            public DateTime? SavedUpdatedAt { get; set; }
+            public bool Applied { get; set; }
         }
 
         private static bool CanRemove(MapRotationServerAssignment assignment)

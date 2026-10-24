@@ -568,6 +568,39 @@ public class MapRotationsControllerTests
         })).StatusCode);
     }
 
+    [Fact]
+    public async Task LostCommitAcknowledgement_ActivationReplayCannotOverwriteNewerTargetHandover()
+    {
+        using var db = CreateReplayContext();
+        var first = Seed(db);
+        var newer = Clone(first, "small");
+        db.MapRotationServerAssignments.Add(newer);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var replay = (ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>();
+        replay.AfterCommitAsync = async () =>
+        {
+            Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(newer.MapRotationServerAssignmentId)
+            {
+                ActivationState = ActivationState.Active,
+                DeployedVersion = 2,
+                ActivatedVersion = 2
+            })).StatusCode);
+        };
+        replay.ReplayNext = true;
+
+        var result = await api.UpdateServerAssignment(new(first.MapRotationServerAssignmentId)
+        {
+            ActivationState = ActivationState.Active,
+            DeployedVersion = 2,
+            ActivatedVersion = 2
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal((int)ActivationState.Inactive, db.MapRotationServerAssignments.Single(a => a.MapRotationServerAssignmentId == first.MapRotationServerAssignmentId).ActivationState);
+        Assert.Equal((int)ActivationState.Active, db.MapRotationServerAssignments.Single(a => a.MapRotationServerAssignmentId == newer.MapRotationServerAssignmentId).ActivationState);
+    }
+
     private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString())
         .ReplaceService<IExecutionStrategyFactory, ReplayExecutionStrategyFactory>().Options);
@@ -576,6 +609,7 @@ public class MapRotationsControllerTests
     {
         public bool ReplayNext { get; set; }
         public Action? AfterCommit { get; set; }
+        public Func<Task>? AfterCommitAsync { get; set; }
         public IExecutionStrategy Create() => new ReplayExecutionStrategy(this, dependencies.CurrentContext.Context);
     }
 
@@ -601,6 +635,10 @@ public class MapRotationsControllerTests
             }
 
             factory.AfterCommit?.Invoke();
+            if (factory.AfterCommitAsync != null)
+            {
+                await factory.AfterCommitAsync();
+            }
             db.ChangeTracker.Clear();
             return await operation(db, state, cancellationToken);
         }

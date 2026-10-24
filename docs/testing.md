@@ -310,6 +310,9 @@ same assignment, operation type, and non-empty Durable instance ID returns the
 existing in-progress operation. A subsequent request after that operation ends
 may start a new attempt without changing the prior operation's terminal history.
 Exact operation IDs take precedence over Durable-key matches during a retry.
+Assignment PATCH retries verify their saved update timestamp before replaying:
+an unchanged committed result is returned directly, while an intervening mutation
+is rejected instead of replaying stale activation or target evidence.
 Unassignment/purge also verifies its invocation's committed result, so an internal
 retry cannot turn successful removal into a retention error or not-found response.
 Synthetic execution-strategy tests exercise lost-acknowledgement replays without
