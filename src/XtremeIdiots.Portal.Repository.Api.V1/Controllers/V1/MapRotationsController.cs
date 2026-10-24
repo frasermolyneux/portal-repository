@@ -712,97 +712,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var effectiveConfigVariableName = updateDto.ConfigVariableName ?? entity.ConfigVariableName;
             var targetChanged = effectiveConfigFilePath != entity.ConfigFilePath
                 || effectiveConfigVariableName != entity.ConfigVariableName;
-            if (targetChanged && (!CanRemove(entity) || updateDto.ActivationState is not (null or ActivationState.Inactive)
-                || await context.MapRotationAssignmentOperations.AnyAsync(op =>
-                    op.MapRotationServerAssignment.GameServerId == entity.GameServerId
-                    && op.Status == (int)AssignmentOperationStatus.InProgress, cancellationToken).ConfigureAwait(false)))
-            {
-                return InvalidAssignment("CONFIG_TARGET_IN_USE", "Deactivate the assignment and finish outstanding operations before editing its config target.");
-            }
-
             var effectiveDeploymentState = updateDto.DeploymentState ?? (DeploymentState)entity.DeploymentState;
-            var effectiveActivationState = updateDto.ActivationState ?? (ActivationState)entity.ActivationState;
-            var deployedVersion = updateDto.DeployedVersion ?? entity.DeployedVersion;
-            var activatedVersion = updateDto.ActivatedVersion ?? entity.ActivatedVersion;
-            if ((updateDto.DeploymentState.HasValue && !Enum.IsDefined(updateDto.DeploymentState.Value))
-                || (updateDto.ActivationState.HasValue && !Enum.IsDefined(updateDto.ActivationState.Value)))
+            var validationError = await ValidateConfigTarget(entity, updateDto, targetChanged, cancellationToken).ConfigureAwait(false)
+                ?? ValidateStateValues(updateDto)
+                ?? ValidateDeploymentEvidence(entity, updateDto)
+                ?? ValidateRemoval(entity, updateDto, targetChanged);
+            if (validationError != null)
             {
-                return InvalidAssignment("INVALID_ASSIGNMENT_STATE", "Unknown assignment state.");
+                return validationError;
             }
 
-            if ((updateDto.DeploymentState == DeploymentState.Synced && deployedVersion != entity.MapRotation.Version)
-                || (updateDto.DeployedVersion.HasValue && (updateDto.DeployedVersion <= 0 || updateDto.DeployedVersion > entity.MapRotation.Version))
-                || (updateDto.ActivatedVersion.HasValue && (updateDto.ActivatedVersion <= 0 || updateDto.ActivatedVersion > entity.MapRotation.Version)))
+            if (await HasDuplicateConfigTarget(entity, effectiveConfigFilePath, effectiveConfigVariableName, effectiveDeploymentState, cancellationToken).ConfigureAwait(false))
             {
-                return InvalidAssignment("ASSIGNMENT_NOT_CURRENT", "Deployment evidence must identify a valid rotation version; synced confirmation must identify the current version.");
-            }
-
-            if (updateDto.ActivationState is ActivationState.Active or ActivationState.Activating)
-            {
-                if (effectiveDeploymentState != DeploymentState.Synced || deployedVersion != entity.MapRotation.Version
-                    || (updateDto.ActivationState == ActivationState.Active && activatedVersion != entity.MapRotation.Version))
-                {
-                    return InvalidAssignment("ASSIGNMENT_NOT_CURRENT", "Activation requires the current rotation version to be synced; active confirmation requires its activated version.");
-                }
-            }
-
-            if (effectiveDeploymentState is DeploymentState.Removing or DeploymentState.Removed
-                && (effectiveActivationState != ActivationState.Inactive || !CanRemove(entity)))
-            {
-                return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate the assignment and finish outstanding operations before unassigning.");
-            }
-
-            if (entity.DeploymentState == (int)DeploymentState.Removed
-                && (effectiveDeploymentState != DeploymentState.Removed || targetChanged
-                    || updateDto.DeployedVersion.HasValue || updateDto.ActivatedVersion.HasValue
-                    || updateDto.UnassignedAt.HasValue))
-            {
-                return InvalidAssignment("ASSIGNMENT_REMOVED", "Removed assignments are retained history; create a new assignment instead.");
-            }
-            if (effectiveDeploymentState != DeploymentState.Removed
-                && effectiveDeploymentState != DeploymentState.Removing
-                && effectiveDeploymentState != DeploymentState.Failed)
-            {
-                var duplicateExists = await context.MapRotationServerAssignments
-                    .AnyAsync(a =>
-                        a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId &&
-                        a.MapRotationId == entity.MapRotationId &&
-                        a.GameServerId == entity.GameServerId &&
-                        a.ConfigFilePath == effectiveConfigFilePath &&
-                        a.ConfigVariableName == effectiveConfigVariableName &&
-                        a.DeploymentState != (int)DeploymentState.Removed &&
-                        a.DeploymentState != (int)DeploymentState.Removing &&
-                        a.DeploymentState != (int)DeploymentState.Failed,
-                        cancellationToken).ConfigureAwait(false);
-
-                if (duplicateExists)
-                {
-                    return new ApiResult(HttpStatusCode.BadRequest,
-                        new ApiResponse(new ApiError("DUPLICATE_CONFIG_TARGET", "An assignment already exists for this rotation and server with the same config file path and variable name.")));
-                }
+                return InvalidAssignment("DUPLICATE_CONFIG_TARGET", "An assignment already exists for this rotation and server with the same config file path and variable name.");
             }
 
             if (updateDto.ActivationState == ActivationState.Active)
             {
-                var now = DateTime.UtcNow;
-
-                var activeAssignmentsForSameTarget = await context.MapRotationServerAssignments
-                    .Where(a =>
-                        a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId &&
-                        a.GameServerId == entity.GameServerId &&
-                        a.ConfigFilePath == effectiveConfigFilePath &&
-                        a.ConfigVariableName == effectiveConfigVariableName &&
-                        a.ActivationState == (int)ActivationState.Active &&
-                        a.DeploymentState != (int)DeploymentState.Removed)
-                    .ToListAsync(cancellationToken)
-                    .ConfigureAwait(false);
-
-                foreach (var activeAssignment in activeAssignmentsForSameTarget)
-                {
-                    activeAssignment.ActivationState = (int)ActivationState.Inactive;
-                    activeAssignment.ActivatedVersion = null;
-                    activeAssignment.UpdatedAt = now;
-                }
+                await ConfirmConfigTargetHandover(entity, effectiveConfigFilePath, effectiveConfigVariableName, cancellationToken).ConfigureAwait(false);
             }
 
             var wasRemoved = entity.DeploymentState == (int)DeploymentState.Removed;
@@ -1099,6 +1026,112 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         // ───────────────────────── Private Helpers ─────────────────────────
+
+        private async Task<ApiResult?> ValidateConfigTarget(MapRotationServerAssignment entity, UpdateMapRotationServerAssignmentDto update, bool targetChanged, CancellationToken cancellationToken)
+        {
+            if (!targetChanged)
+            {
+                return null;
+            }
+
+            if (!CanRemove(entity) || update.ActivationState is not (null or ActivationState.Inactive)
+                || await context.MapRotationAssignmentOperations.AnyAsync(op =>
+                    op.MapRotationServerAssignment.GameServerId == entity.GameServerId
+                    && op.Status == (int)AssignmentOperationStatus.InProgress, cancellationToken).ConfigureAwait(false))
+            {
+                return InvalidAssignment("CONFIG_TARGET_IN_USE", "Deactivate the assignment and finish outstanding operations before editing its config target.");
+            }
+
+            return null;
+        }
+
+        private static ApiResult? ValidateStateValues(UpdateMapRotationServerAssignmentDto update)
+        {
+            if ((update.DeploymentState.HasValue && !Enum.IsDefined(update.DeploymentState.Value))
+                || (update.ActivationState.HasValue && !Enum.IsDefined(update.ActivationState.Value)))
+            {
+                return InvalidAssignment("INVALID_ASSIGNMENT_STATE", "Unknown assignment state.");
+            }
+
+            return null;
+        }
+
+        private static ApiResult? ValidateDeploymentEvidence(MapRotationServerAssignment entity, UpdateMapRotationServerAssignmentDto update)
+        {
+            var version = entity.MapRotation.Version;
+            var deployedVersion = update.DeployedVersion ?? entity.DeployedVersion;
+            var activatedVersion = update.ActivatedVersion ?? entity.ActivatedVersion;
+            var deployment = update.DeploymentState ?? (DeploymentState)entity.DeploymentState;
+            if ((update.DeploymentState == DeploymentState.Synced && deployedVersion != version)
+                || !IsValidVersion(update.DeployedVersion, version) || !IsValidVersion(update.ActivatedVersion, version))
+            {
+                return InvalidAssignment("ASSIGNMENT_NOT_CURRENT", "Deployment evidence must identify a valid rotation version; synced confirmation must identify the current version.");
+            }
+
+            if (update.ActivationState is ActivationState.Active or ActivationState.Activating
+                && (deployment != DeploymentState.Synced || deployedVersion != version
+                    || (update.ActivationState == ActivationState.Active && activatedVersion != version)))
+            {
+                return InvalidAssignment("ASSIGNMENT_NOT_CURRENT", "Activation requires the current rotation version to be synced; active confirmation requires its activated version.");
+            }
+
+            return null;
+        }
+
+        private static bool IsValidVersion(int? version, int currentVersion)
+            => !version.HasValue || (version > 0 && version <= currentVersion);
+
+        private static ApiResult? ValidateRemoval(MapRotationServerAssignment entity, UpdateMapRotationServerAssignmentDto update, bool targetChanged)
+        {
+            var deployment = update.DeploymentState ?? (DeploymentState)entity.DeploymentState;
+            var activation = update.ActivationState ?? (ActivationState)entity.ActivationState;
+            if (deployment is DeploymentState.Removing or DeploymentState.Removed
+                && (activation != ActivationState.Inactive || !CanRemove(entity)))
+            {
+                return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate the assignment and finish outstanding operations before unassigning.");
+            }
+
+            if (entity.DeploymentState == (int)DeploymentState.Removed
+                && (deployment != DeploymentState.Removed || targetChanged
+                    || update.DeployedVersion.HasValue || update.ActivatedVersion.HasValue || update.UnassignedAt.HasValue))
+            {
+                return InvalidAssignment("ASSIGNMENT_REMOVED", "Removed assignments are retained history; create a new assignment instead.");
+            }
+
+            return null;
+        }
+
+        private async Task<bool> HasDuplicateConfigTarget(MapRotationServerAssignment entity, string? path, string? variable, DeploymentState deployment, CancellationToken cancellationToken)
+        {
+            if (deployment is DeploymentState.Removed or DeploymentState.Removing or DeploymentState.Failed)
+            {
+                return false;
+            }
+
+            return await context.MapRotationServerAssignments.AnyAsync(a =>
+                a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId
+                && a.MapRotationId == entity.MapRotationId && a.GameServerId == entity.GameServerId
+                && a.ConfigFilePath == path && a.ConfigVariableName == variable
+                && a.DeploymentState != (int)DeploymentState.Removed
+                && a.DeploymentState != (int)DeploymentState.Removing
+                && a.DeploymentState != (int)DeploymentState.Failed, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task ConfirmConfigTargetHandover(MapRotationServerAssignment entity, string? path, string? variable, CancellationToken cancellationToken)
+        {
+            var activeAssignments = await context.MapRotationServerAssignments.Where(a =>
+                a.MapRotationServerAssignmentId != entity.MapRotationServerAssignmentId
+                && a.GameServerId == entity.GameServerId && a.ConfigFilePath == path && a.ConfigVariableName == variable
+                && a.ActivationState == (int)ActivationState.Active && a.DeploymentState != (int)DeploymentState.Removed)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            var now = DateTime.UtcNow;
+            foreach (var active in activeAssignments)
+            {
+                active.ActivationState = (int)ActivationState.Inactive;
+                active.ActivatedVersion = null;
+                active.UpdatedAt = now;
+            }
+        }
 
         private static ApiResult InvalidAssignment(string code, string message)
             => new(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(code, message)));
