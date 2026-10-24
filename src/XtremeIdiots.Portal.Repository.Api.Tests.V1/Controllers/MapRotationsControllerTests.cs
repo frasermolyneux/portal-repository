@@ -1,4 +1,7 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -333,6 +336,99 @@ public class MapRotationsControllerTests
         await api.CreateAssignmentOperation(first);
         await api.CreateAssignmentOperation(second);
         Assert.Equal(2, db.MapRotationAssignmentOperations.Count());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LostCommitAcknowledgement_DeletionReplayReturnsSuccess_SeparateRequestKeepsChecks(bool purge)
+    {
+        using var db = CreateReplayContext();
+        var assignment = Seed(db);
+        if (purge)
+        {
+            assignment.DeploymentState = (int)DeploymentState.Removed;
+            assignment.UnassignedAt = DateTime.UtcNow.AddDays(-91);
+            await db.SaveChangesAsync();
+        }
+        var replay = (ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>();
+        replay.ReplayNext = true;
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.OK, (await api.DeleteServerAssignment(assignment.MapRotationServerAssignmentId)).StatusCode);
+        Assert.Equal(purge ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest,
+            (await api.DeleteServerAssignment(assignment.MapRotationServerAssignmentId)).StatusCode);
+        Assert.Equal(purge ? 0 : 1, db.MapRotationServerAssignments.Count());
+    }
+
+    [Fact]
+    public async Task LostCommitAcknowledgement_OperationReplayPrioritizesOriginalIdOverNewDurableAttempt()
+    {
+        using var db = CreateReplayContext();
+        var assignment = Seed(db);
+        var replay = (ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>();
+        var originalId = Guid.Empty;
+        replay.AfterCommit = () =>
+        {
+            var original = db.MapRotationAssignmentOperations.Single();
+            originalId = original.MapRotationAssignmentOperationId;
+            original.Status = (int)AssignmentOperationStatus.Cancelled;
+            original.CompletedAt = DateTime.UtcNow;
+            var newer = Operation(assignment, AssignmentOperationStatus.InProgress);
+            newer.DurableFunctionInstanceId = original.DurableFunctionInstanceId;
+            db.MapRotationAssignmentOperations.Add(newer);
+            db.SaveChanges();
+        };
+        replay.ReplayNext = true;
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var response = await api.CreateAssignmentOperation(new(assignment.MapRotationServerAssignmentId, AssignmentOperationType.Sync)
+        {
+            DurableFunctionInstanceId = "synthetic-lost-ack"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(originalId, response.Result!.Data!.MapRotationAssignmentOperationId);
+        Assert.Equal(AssignmentOperationStatus.Cancelled, response.Result.Data.Status);
+        Assert.Equal(2, db.MapRotationAssignmentOperations.Count());
+    }
+
+    private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .ReplaceService<IExecutionStrategyFactory, ReplayExecutionStrategyFactory>().Options);
+
+    public sealed class ReplayExecutionStrategyFactory(ExecutionStrategyDependencies dependencies) : IExecutionStrategyFactory
+    {
+        public bool ReplayNext { get; set; }
+        public Action? AfterCommit { get; set; }
+        public IExecutionStrategy Create() => new ReplayExecutionStrategy(this, dependencies.CurrentContext.Context);
+    }
+
+    private sealed class ReplayExecutionStrategy(ReplayExecutionStrategyFactory factory, DbContext db) : IExecutionStrategy
+    {
+        public bool RetriesOnFailure => true;
+
+        public TResult Execute<TState, TResult>(TState state, Func<DbContext, TState, TResult> operation,
+            Func<DbContext, TState, ExecutionResult<TResult>>? verifySucceeded)
+            => operation(db, state);
+
+        public async Task<TResult> ExecuteAsync<TState, TResult>(TState state,
+            Func<DbContext, TState, CancellationToken, Task<TResult>> operation,
+            Func<DbContext, TState, CancellationToken, Task<ExecutionResult<TResult>>>? verifySucceeded,
+            CancellationToken cancellationToken = default)
+        {
+            var replay = factory.ReplayNext;
+            factory.ReplayNext = false;
+            var result = await operation(db, state, cancellationToken);
+            if (!replay)
+            {
+                return result;
+            }
+
+            factory.AfterCommit?.Invoke();
+            db.ChangeTracker.Clear();
+            return await operation(db, state, cancellationToken);
+        }
     }
 
     private static MapRotationServerAssignment Seed(PortalDbContext db)

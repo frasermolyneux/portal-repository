@@ -309,6 +309,11 @@ check for committed records before replaying. Repeated operation creation for th
 same assignment, operation type, and non-empty Durable instance ID returns the
 existing in-progress operation. A subsequent request after that operation ends
 may start a new attempt without changing the prior operation's terminal history.
+Exact operation IDs take precedence over Durable-key matches during a retry.
+Unassignment/purge also verifies its invocation's committed result, so an internal
+retry cannot turn successful removal into a retention error or not-found response.
+Synthetic execution-strategy tests exercise lost-acknowledgement replays without
+requiring SQL Server.
 
 ```bash
 # Build the solution
