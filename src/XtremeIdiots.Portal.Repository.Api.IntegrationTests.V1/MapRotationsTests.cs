@@ -615,7 +615,9 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
 
         var dto = new UpdateMapRotationServerAssignmentDto(assignmentIdB)
         {
-            ActivationState = ActivationState.Active
+            ActivationState = ActivationState.Active,
+            DeployedVersion = 1,
+            ActivatedVersion = 1
         };
 
         var json = JsonConvert.SerializeObject(dto);
@@ -639,7 +641,7 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
     }
 
     [Fact]
-    public async Task UpdateServerAssignment_WhenTargetChangesAndSetActive_DeactivatesOtherActiveAssignmentsOnEffectiveTarget()
+    public async Task UpdateServerAssignment_WhenTargetChangesAndSetActive_RejectsUnconfirmedTarget()
     {
         var rotationIdA = Guid.NewGuid();
         var rotationIdB = Guid.NewGuid();
@@ -725,17 +727,17 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
 
         var response = await _client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
         var assignmentA = await db.MapRotationServerAssignments.FirstAsync(a => a.MapRotationServerAssignmentId == assignmentIdA);
         var assignmentB = await db.MapRotationServerAssignments.FirstAsync(a => a.MapRotationServerAssignmentId == assignmentIdB);
 
-        Assert.Equal((int)ActivationState.Inactive, assignmentA.ActivationState);
-        Assert.Equal((int)ActivationState.Active, assignmentB.ActivationState);
-        Assert.Equal("server.cfg", assignmentB.ConfigFilePath);
-        Assert.Equal("sv_maprotation", assignmentB.ConfigVariableName);
+        Assert.Equal((int)ActivationState.Active, assignmentA.ActivationState);
+        Assert.Equal((int)ActivationState.Inactive, assignmentB.ActivationState);
+        Assert.Equal("server-alt.cfg", assignmentB.ConfigFilePath);
+        Assert.Equal("sv_maprotation_alt", assignmentB.ConfigVariableName);
     }
 
     [Fact]
@@ -799,8 +801,11 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("ASSIGNMENT_REMOVED", body);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+        var assignment = await db.MapRotationServerAssignments.FindAsync(assignmentId);
+        Assert.Equal((int)DeploymentState.Removed, assignment!.DeploymentState);
+        Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
     }
 
     [Fact]
@@ -850,8 +855,9 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
         var response = await _client.DeleteAsync($"/v1.0/map-rotations/assignments/{assignmentId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("ASSIGNMENT_RETENTION_ACTIVE", body);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+        Assert.NotNull(await db.MapRotationServerAssignments.FindAsync(assignmentId));
     }
 
     [Fact]
@@ -901,8 +907,9 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
         var response = await _client.DeleteAsync($"/v1.0/map-rotations/assignments/{assignmentId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("ASSIGNMENT_RETENTION_ACTIVE", body);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+        Assert.NotNull(await db.MapRotationServerAssignments.FindAsync(assignmentId));
     }
 
     [Fact]
@@ -942,7 +949,7 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
                 GameServerId = serverId,
                 DeploymentState = (int)DeploymentState.Removed,
                 ActivationState = (int)ActivationState.Inactive,
-                UnassignedAt = DateTime.UtcNow.AddHours(-49),
+                UnassignedAt = DateTime.UtcNow.AddDays(-91),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             });
@@ -953,8 +960,8 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
                 MapRotationServerAssignmentId = assignmentId,
                 OperationType = (int)AssignmentOperationType.Remove,
                 Status = (int)AssignmentOperationStatus.Succeeded,
-                StartedAt = DateTime.UtcNow.AddHours(-50),
-                CompletedAt = DateTime.UtcNow.AddHours(-49)
+                StartedAt = DateTime.UtcNow.AddDays(-92),
+                CompletedAt = DateTime.UtcNow.AddDays(-91)
             });
 
             ctx.SaveChanges();
@@ -1013,8 +1020,8 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
                 DeploymentState = (int)DeploymentState.Removed,
                 ActivationState = (int)ActivationState.Inactive,
                 UnassignedAt = null,
-                CreatedAt = DateTime.UtcNow.AddHours(-50),
-                UpdatedAt = DateTime.UtcNow.AddHours(-49)
+                CreatedAt = DateTime.UtcNow.AddDays(-92),
+                UpdatedAt = DateTime.UtcNow.AddDays(-91)
             });
 
             ctx.SaveChanges();

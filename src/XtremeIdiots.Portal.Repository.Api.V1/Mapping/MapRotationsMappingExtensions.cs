@@ -211,9 +211,13 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             if (dto.LastError is not null)
             {
                 entity.LastError = dto.LastError;
+                if (dto.LastError.Length == 0)
+                {
+                    entity.LastErrorAt = null;
+                }
             }
 
-            if (dto.LastErrorAt.HasValue)
+            if (dto.LastErrorAt.HasValue && dto.LastError != "")
             {
                 entity.LastErrorAt = dto.LastErrorAt.Value;
             }
