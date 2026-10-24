@@ -678,9 +678,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the server assignment was updated if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.UpdateServerAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken)
-            => await ExecuteMutationAsync(() => UpdateAssignment(updateDto, cancellationToken), cancellationToken).ConfigureAwait(false);
+        {
+            var attempt = new AssignmentRemovalAttempt();
+            return await ExecuteMutationAsync(() => UpdateAssignment(updateDto, attempt, cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
 
-        private async Task<ApiResult> UpdateAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken)
+        private async Task<ApiResult> UpdateAssignment(UpdateMapRotationServerAssignmentDto updateDto, AssignmentRemovalAttempt attempt, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotationServerAssignments
                 .Include(a => a.MapRotation)
@@ -690,6 +693,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (entity == null)
             {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (attempt.Unassigned && entity.DeploymentState == (int)DeploymentState.Removed
+                && entity.UnassignedAt == attempt.RemovedAt)
+            {
+                return new ApiResponse().ToApiResult();
             }
 
             if (updateDto.ActivationState == ActivationState.Active
@@ -805,9 +814,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (effectiveDeploymentState == DeploymentState.Removed && !wasRemoved)
             {
-                entity.UnassignedAt = DateTime.UtcNow;
+                entity.UnassignedAt = attempt.RemovedAt;
             }
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            attempt.Unassigned = effectiveDeploymentState == DeploymentState.Removed && !wasRemoved;
             return new ApiResponse().ToApiResult();
         }
 
@@ -834,11 +844,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the server assignment was marked for removal if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapRotationsApi.DeleteServerAssignment(Guid assignmentId, CancellationToken cancellationToken)
         {
-            var attempt = new AssignmentDeletionAttempt();
+            var attempt = new AssignmentRemovalAttempt();
             return await ExecuteMutationAsync(() => DeleteAssignment(assignmentId, attempt, cancellationToken), cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<ApiResult> DeleteAssignment(Guid assignmentId, AssignmentDeletionAttempt attempt, CancellationToken cancellationToken)
+        private async Task<ApiResult> DeleteAssignment(Guid assignmentId, AssignmentRemovalAttempt attempt, CancellationToken cancellationToken)
         {
             var entity = await context.MapRotationServerAssignments
                 .Include(a => a.MapRotationAssignmentOperations)
@@ -1093,7 +1103,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static ApiResult InvalidAssignment(string code, string message)
             => new(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(code, message)));
 
-        private sealed class AssignmentDeletionAttempt
+        private sealed class AssignmentRemovalAttempt
         {
             public DateTime RemovedAt { get; } = DateTime.UtcNow;
             public bool Unassigned { get; set; }

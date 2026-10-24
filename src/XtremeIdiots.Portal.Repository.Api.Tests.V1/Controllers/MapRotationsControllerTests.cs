@@ -393,6 +393,27 @@ public class MapRotationsControllerTests
         Assert.Equal(2, db.MapRotationAssignmentOperations.Count());
     }
 
+    [Fact]
+    public async Task LostCommitAcknowledgement_RemovedPatchReplaySucceeds_ButSeparateHistoryEditIsRejected()
+    {
+        using var db = CreateReplayContext();
+        var assignment = Seed(db);
+        var replay = (ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>();
+        replay.ReplayNext = true;
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var request = new UpdateMapRotationServerAssignmentDto(assignment.MapRotationServerAssignmentId)
+        {
+            DeploymentState = DeploymentState.Removed,
+            UnassignedAt = DateTime.UtcNow.AddDays(-100)
+        };
+
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(request)).StatusCode);
+        var removed = db.MapRotationServerAssignments.Single();
+        Assert.Equal((int)DeploymentState.Removed, removed.DeploymentState);
+        Assert.True(removed.UnassignedAt > DateTime.UtcNow.AddMinutes(-1));
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(request)).StatusCode);
+    }
+
     private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString())
         .ReplaceService<IExecutionStrategyFactory, ReplayExecutionStrategyFactory>().Options);
