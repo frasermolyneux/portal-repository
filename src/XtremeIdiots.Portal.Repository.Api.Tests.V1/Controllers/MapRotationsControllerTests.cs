@@ -361,11 +361,20 @@ public class MapRotationsControllerTests
         Assert.Equal(purge ? 0 : 1, db.MapRotationServerAssignments.Count());
     }
 
-    [Fact]
-    public async Task LostCommitAcknowledgement_OperationReplayPrioritizesOriginalIdOverNewDurableAttempt()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LostCommitAcknowledgement_OperationReplayPrioritizesOriginalIdOverNewDurableAttempt(bool reuseExisting)
     {
         using var db = CreateReplayContext();
         var assignment = Seed(db);
+        if (reuseExisting)
+        {
+            var existing = Operation(assignment, AssignmentOperationStatus.InProgress);
+            existing.DurableFunctionInstanceId = "synthetic-lost-ack";
+            db.MapRotationAssignmentOperations.Add(existing);
+            await db.SaveChangesAsync();
+        }
         var replay = (ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>();
         var originalId = Guid.Empty;
         replay.AfterCommit = () =>
@@ -456,12 +465,14 @@ public class MapRotationsControllerTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
         {
-            ActivationState = ActivationState.Deactivating
+            ActivationState = ActivationState.Deactivating,
+            DeploymentState = deployment
         })).StatusCode);
         await api.UpdateAssignmentOperation(created.Result!.Data!.MapRotationAssignmentOperationId, AssignmentOperationStatus.Succeeded, null);
         Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
         {
-            ActivationState = ActivationState.Inactive
+            ActivationState = ActivationState.Inactive,
+            DeploymentState = deployment
         })).StatusCode);
         Assert.Equal((int)deployment, assignment.DeploymentState);
         Assert.Equal(unassignedAt, assignment.UnassignedAt);
@@ -533,6 +544,28 @@ public class MapRotationsControllerTests
         Assert.Equal((int)DeploymentState.Syncing, assignment.DeploymentState);
         Assert.Equal((int)ActivationState.Active, assignment.ActivationState);
         Assert.Equal(2, assignment.ActivatedVersion);
+    }
+
+    [Fact]
+    public async Task LostCommitAcknowledgement_ConfigTargetEditNeverRestoresSuppliedOldActivationEvidence()
+    {
+        using var db = CreateReplayContext();
+        var assignment = Seed(db);
+        ((ReplayExecutionStrategyFactory)db.GetService<IExecutionStrategyFactory>()).ReplayNext = true;
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            ConfigVariableName = "large",
+            ActivatedVersion = 2
+        })).StatusCode);
+        var edited = db.MapRotationServerAssignments.Single();
+        Assert.Equal("large", edited.ConfigVariableName);
+        Assert.Null(edited.ActivatedVersion);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
+        {
+            ActivationState = ActivationState.Active
+        })).StatusCode);
     }
 
     private static PortalDbContext CreateReplayContext() => new(new DbContextOptionsBuilder<PortalDbContext>()
