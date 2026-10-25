@@ -53,6 +53,58 @@ public sealed class VpnProtectionSettingsTests
     }
 
     [Fact]
+    public void Merge_LegacyObservation_DefaultsToForumPublication()
+    {
+        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>("""
+            {"enabled":true,"rules":[{"id":"vpn","signal":"ProxyCheckIsVpn",
+            "operator":"Equal","expectedValue":"true","action":"Observation"}]}
+            """, JsonOptions);
+
+        var effective = new VpnProtectionSettingsMerger().Merge(document, null);
+
+        Assert.False(effective.ValidationFailed);
+        Assert.True(Assert.Single(effective.Rules).PostObservationToForums);
+    }
+
+    [Theory]
+    [InlineData(true, null, true)]
+    [InlineData(false, null, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, true)]
+    public void Merge_ObservationPublication_InheritsAndOverrides(bool globalValue, bool? serverOverride, bool expected)
+    {
+        var rule = CreateRule("vpn", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Observation);
+        rule.PostObservationToForums = globalValue;
+        var global = new VpnProtectionSettingsDocument { Enabled = true, Rules = [rule] };
+        var server = new VpnProtectionSettingsDocument
+        {
+            RuleOverrides = [new VpnProtectionRuleOverride { Id = "vpn", PostObservationToForums = serverOverride }]
+        };
+
+        var json = JsonSerializer.Serialize(server, JsonOptions);
+        var roundtripped = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(json, JsonOptions);
+        var effective = new VpnProtectionSettingsMerger().Merge(global, roundtripped);
+
+        Assert.False(effective.ValidationFailed);
+        Assert.Equal(expected, Assert.Single(effective.Rules).PostObservationToForums);
+        Assert.Equal(serverOverride, Assert.Single(roundtripped!.RuleOverrides).PostObservationToForums);
+    }
+
+    [Fact]
+    public void Merge_LocalObservation_PreservesDisabledForumPublication()
+    {
+        var rule = CreateRule("vpn", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Observation);
+        rule.PostObservationToForums = false;
+        var json = JsonSerializer.Serialize(new VpnProtectionSettingsDocument { Enabled = true, Rules = [rule] }, JsonOptions);
+        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(json, JsonOptions);
+
+        var effective = new VpnProtectionSettingsMerger().Merge(null, document);
+
+        Assert.False(effective.ValidationFailed);
+        Assert.False(Assert.Single(effective.Rules).PostObservationToForums);
+    }
+
+    [Fact]
     public void Validate_InvalidConditionAndUnsafeReason_ReturnsErrors()
     {
         var document = new VpnProtectionSettingsDocument
