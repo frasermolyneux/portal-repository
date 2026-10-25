@@ -660,11 +660,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("INVALID_AACP_TARGET",
                             "Choose a normal rotation configuration and an AACP configuration file.")));
                 }
-                var groupExists = await context.MapRotationServerAssignments.AnyAsync(a =>
+                var existingVariables = await context.MapRotationServerAssignments.Where(a =>
                     a.MapRotationId == createDto.MapRotationId && a.GameServerId == createDto.GameServerId
-                    && (a.ConfigVariableName == "sv_maprotation" || a.ConfigVariableName == "scr_aacp_maps_1")
-                    && a.DeploymentState != (int)DeploymentState.Removed, cancellationToken).ConfigureAwait(false);
-                if (groupExists)
+                    && a.DeploymentState != (int)DeploymentState.Removed)
+                    .Select(a => a.ConfigVariableName).ToListAsync(cancellationToken).ConfigureAwait(false);
+                if (existingVariables.Any(IsStandardConfiguration))
                 {
                     return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
                         new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("CONFIGURATION_GROUP_EXISTS",
@@ -792,7 +792,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return InvalidAssignment("DUPLICATE_CONFIG_TARGET", "An assignment already exists for this rotation and server with the same config file path and variable name.");
             }
 
-            var groupError = await UpdateAacpConfiguration(entity, updateDto, effectiveConfigVariableName,
+            var groupError = await UpdateAacpConfiguration(entity, updateDto, effectiveConfigVariableName, effectiveConfigFilePath,
                 attempt.RemovedAt, cancellationToken).ConfigureAwait(false);
             if (groupError != null)
             {
@@ -823,7 +823,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         private async Task<ApiResult?> UpdateAacpConfiguration(MapRotationServerAssignment owner,
-            UpdateMapRotationServerAssignmentDto update, string? effectiveVariable, DateTime removedAt,
+            UpdateMapRotationServerAssignmentDto update, string? effectiveVariable, string? effectivePath, DateTime removedAt,
             CancellationToken cancellationToken)
         {
             if (!update.AacpEnabled.HasValue)
@@ -839,14 +839,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 return InvalidAssignment("INVALID_AACP_TARGET", "Edit AACP configuration through the normal rotation assignment, separately from operational state.");
             }
-            var members = await context.MapRotationServerAssignments
-                .Include(a => a.MapRotationAssignmentOperations)
-                .Where(a => a.MapRotationId == owner.MapRotationId && a.GameServerId == owner.GameServerId
-                    && (a.ConfigVariableName == "sv_maprotation" || a.ConfigVariableName == "scr_aacp_maps_1")
-                    && a.DeploymentState != (int)DeploymentState.Removed)
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (members.Count(a => a.ConfigVariableName == "sv_maprotation") != 1
-                || members.Count(a => a.ConfigVariableName == "scr_aacp_maps_1") > 1)
+            if (update.AacpEnabled == true && string.IsNullOrWhiteSpace(effectivePath))
+            {
+                return InvalidAssignment("INVALID_AACP_TARGET", "Choose the normal rotation configuration file before enabling AACP.");
+            }
+            var members = await LoadConfigurationGroup(owner, cancellationToken).ConfigureAwait(false);
+            if (members.Count(a => string.Equals(a.ConfigVariableName, "sv_maprotation", StringComparison.OrdinalIgnoreCase)) != 1
+                || IsAmbiguousConfigurationGroup(members))
             {
                 return InvalidAssignment("AMBIGUOUS_CONFIGURATION_GROUP", "Resolve duplicate normal or AACP targets before editing this assignment.");
             }
@@ -856,7 +855,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 return InvalidAssignment("ASSIGNMENT_IN_USE", "Wait for this server assignment's current operation to finish before editing AACP.");
             }
-            var picker = members.SingleOrDefault(a => a.ConfigVariableName == "scr_aacp_maps_1");
+            var picker = members.SingleOrDefault(a => string.Equals(a.ConfigVariableName, "scr_aacp_maps_1", StringComparison.OrdinalIgnoreCase));
+            var pickerChanged = update.AacpEnabled == true
+                ? picker == null || picker.ConfigFilePath != update.AacpConfigFilePath
+                : picker != null;
+            if (pickerChanged && await HasRunningServerOperation(owner.GameServerId, cancellationToken).ConfigureAwait(false))
+            {
+                return InvalidAssignment("ASSIGNMENT_IN_USE", "Finish outstanding operations on this game server before editing AACP.");
+            }
             return ConfigureAacpTarget(owner, picker, update, removedAt);
         }
 
@@ -983,14 +989,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             // Unassignment is metadata-only: shared map files are never scheduled for deletion.
-            var group = entity.ConfigVariableName is "sv_maprotation" or "scr_aacp_maps_1"
-                ? await context.MapRotationServerAssignments
-                    .Include(a => a.MapRotationAssignmentOperations)
-                    .Where(a => a.MapRotationId == entity.MapRotationId && a.GameServerId == entity.GameServerId
-                        && (a.ConfigVariableName == "sv_maprotation" || a.ConfigVariableName == "scr_aacp_maps_1")
-                        && a.DeploymentState != (int)DeploymentState.Removed)
-                    .ToListAsync(cancellationToken).ConfigureAwait(false)
+            var group = IsStandardConfiguration(entity.ConfigVariableName)
+                ? await LoadConfigurationGroup(entity, cancellationToken).ConfigureAwait(false)
                 : [entity];
+            if (IsAmbiguousConfigurationGroup(group))
+            {
+                return InvalidAssignment("AMBIGUOUS_CONFIGURATION_GROUP", "Resolve duplicate normal or AACP targets before unassigning this server.");
+            }
             if (group.Any(member => !CanRemove(member)))
             {
                 return InvalidAssignment("ASSIGNMENT_IN_USE", "Deactivate both configurations and finish outstanding operations before unassigning this server.");
@@ -1214,6 +1219,28 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         // ───────────────────────── Private Helpers ─────────────────────────
 
+        private static bool IsStandardConfiguration(string? variable) =>
+            string.Equals(variable, "sv_maprotation", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(variable, "scr_aacp_maps_1", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsAmbiguousConfigurationGroup(List<MapRotationServerAssignment> members) =>
+            members.GroupBy(a => a.ConfigVariableName, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1);
+
+        private async Task<List<MapRotationServerAssignment>> LoadConfigurationGroup(MapRotationServerAssignment owner, CancellationToken cancellationToken)
+        {
+            var assignments = await context.MapRotationServerAssignments
+                .Include(a => a.MapRotationAssignmentOperations)
+                .Where(a => a.MapRotationId == owner.MapRotationId && a.GameServerId == owner.GameServerId
+                    && a.DeploymentState != (int)DeploymentState.Removed)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            return assignments.Where(a => IsStandardConfiguration(a.ConfigVariableName)).ToList();
+        }
+
+        private Task<bool> HasRunningServerOperation(Guid serverId, CancellationToken cancellationToken) =>
+            context.MapRotationAssignmentOperations.AnyAsync(op =>
+                op.MapRotationServerAssignment.GameServerId == serverId
+                && op.Status == (int)AssignmentOperationStatus.InProgress, cancellationToken);
+
         private async Task<ApiResult?> ValidateConfigTarget(MapRotationServerAssignment entity, UpdateMapRotationServerAssignmentDto update, bool targetChanged, CancellationToken cancellationToken)
         {
             if (!targetChanged)
@@ -1222,9 +1249,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             if (!CanRemove(entity) || update.ActivationState is not (null or ActivationState.Inactive)
-                || await context.MapRotationAssignmentOperations.AnyAsync(op =>
-                    op.MapRotationServerAssignment.GameServerId == entity.GameServerId
-                    && op.Status == (int)AssignmentOperationStatus.InProgress, cancellationToken).ConfigureAwait(false))
+                || await HasRunningServerOperation(entity.GameServerId, cancellationToken).ConfigureAwait(false))
             {
                 return InvalidAssignment("CONFIG_TARGET_IN_USE", "Deactivate the assignment and finish outstanding operations before editing its config target.");
             }

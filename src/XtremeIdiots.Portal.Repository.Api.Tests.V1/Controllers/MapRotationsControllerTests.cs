@@ -15,21 +15,62 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 
 public class MapRotationsControllerTests
 {
-    [Theory]
-    [InlineData(ActivationState.Active, HttpStatusCode.BadRequest)]
-    [InlineData(ActivationState.Inactive, HttpStatusCode.OK)]
-    public async Task UnassignCombinedAssignment_IsAtomicAndPreservesOperations(ActivationState pickerState, HttpStatusCode expected)
+    [Fact]
+    public async Task UnassignAmbiguousNormalTargets_DoesNotRemoveIndependentConfigurations()
     {
         using var db = DbContextHelper.CreateInMemoryContext();
         var owner = Seed(db);
         owner.ConfigVariableName = "sv_maprotation";
+        var duplicate = Clone(owner, "SV_MAPROTATION");
+        duplicate.MapRotation = owner.MapRotation;
+        duplicate.MapRotationId = owner.MapRotationId;
+        duplicate.ConfigFilePath = "other.cfg";
+        db.MapRotationServerAssignments.Add(duplicate);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.DeleteServerAssignment(owner.MapRotationServerAssignmentId)).StatusCode);
+        Assert.All(await db.MapRotationServerAssignments.ToListAsync(), target =>
+            Assert.Equal((int)DeploymentState.Synced, target.DeploymentState));
+    }
+
+    [Fact]
+    public async Task EnablingAacpRequiresANormalConfigurationPathWithoutChangingEitherTarget()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var owner = Seed(db);
+        owner.ConfigVariableName = "sv_maprotation";
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var result = await api.UpdateServerAssignment(new(owner.MapRotationServerAssignmentId)
+        {
+            ConfigFilePath = "",
+            AacpEnabled = true,
+            AacpConfigFilePath = "picker.cfg"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal("server.cfg", owner.ConfigFilePath);
+        Assert.Equal(1, await db.MapRotationServerAssignments.CountAsync());
+    }
+
+    [Theory]
+    [InlineData(ActivationState.Active, HttpStatusCode.BadRequest, false)]
+    [InlineData(ActivationState.Inactive, HttpStatusCode.OK, false)]
+    [InlineData(ActivationState.Inactive, HttpStatusCode.OK, true)]
+    public async Task UnassignCombinedAssignment_IsAtomicAndPreservesOperations(ActivationState pickerState, HttpStatusCode expected, bool uppercase)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var owner = Seed(db);
+        owner.ConfigVariableName = uppercase ? "SV_MAPROTATION" : "sv_maprotation";
         var picker = new MapRotationServerAssignment
         {
             MapRotationServerAssignmentId = Guid.NewGuid(),
             MapRotationId = owner.MapRotationId,
             GameServerId = owner.GameServerId,
             ConfigFilePath = "picker.cfg",
-            ConfigVariableName = "scr_aacp_maps_1",
+            ConfigVariableName = uppercase ? "SCR_AACP_MAPS_1" : "scr_aacp_maps_1",
             DeploymentState = (int)DeploymentState.Synced,
             ActivationState = (int)pickerState
         };
@@ -79,12 +120,14 @@ public class MapRotationsControllerTests
         }
     }
 
-    [Fact]
-    public async Task CombinedAssignment_EnablesAndDisablesOnlyInactivePickerWithoutDiscardingHistory()
+    [Theory]
+    [InlineData("sv_maprotation")]
+    [InlineData("SV_MAPROTATION")]
+    public async Task CombinedAssignment_EnablesAndDisablesOnlyInactivePickerWithoutDiscardingHistory(string normalVariable)
     {
         using var db = DbContextHelper.CreateInMemoryContext();
         var owner = Seed(db);
-        owner.ConfigVariableName = "sv_maprotation";
+        owner.ConfigVariableName = normalVariable;
         await db.SaveChangesAsync();
         var api = (IMapRotationsApi)new MapRotationsController(db);
 
@@ -465,12 +508,29 @@ public class MapRotationsControllerTests
         Assert.Equal(HttpStatusCode.BadRequest, (await api.DeleteServerAssignment(assignment.MapRotationServerAssignmentId)).StatusCode);
     }
 
-    [Fact]
-    public async Task ConfigTargetEdit_RejectsOtherRunningServerOperation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConfigTargetEdit_RejectsOtherRunningServerOperation(bool aacp)
     {
         using var db = DbContextHelper.CreateInMemoryContext();
         var assignment = Seed(db);
         var other = Clone(assignment, "medium");
+        var picker = new MapRotationServerAssignment
+        {
+            MapRotationServerAssignmentId = Guid.NewGuid(),
+            MapRotationId = assignment.MapRotationId,
+            GameServerId = assignment.GameServerId,
+            ConfigFilePath = "picker.cfg",
+            ConfigVariableName = "scr_aacp_maps_1",
+            DeploymentState = (int)DeploymentState.Synced,
+            ActivationState = (int)ActivationState.Inactive
+        };
+        if (aacp)
+        {
+            assignment.ConfigVariableName = "sv_maprotation";
+            db.MapRotationServerAssignments.Add(picker);
+        }
         db.MapRotationServerAssignments.Add(other);
         db.MapRotationAssignmentOperations.Add(Operation(other, AssignmentOperationStatus.InProgress));
         await db.SaveChangesAsync();
@@ -478,10 +538,13 @@ public class MapRotationsControllerTests
 
         Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(new(assignment.MapRotationServerAssignmentId)
         {
-            ConfigFilePath = "other.cfg"
+            ConfigFilePath = aacp ? null : "other.cfg",
+            AacpEnabled = aacp ? true : null,
+            AacpConfigFilePath = aacp ? "other-picker.cfg" : null
         })).StatusCode);
         Assert.Equal("server.cfg", assignment.ConfigFilePath);
         Assert.Equal(2, assignment.ActivatedVersion);
+        Assert.Equal("picker.cfg", picker.ConfigFilePath);
     }
 
     [Fact]
