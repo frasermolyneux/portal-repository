@@ -54,12 +54,35 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
 
     async Task<ApiResult<DashboardHomeDto>> IDashboardAnalyticsApi.GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, CancellationToken cancellationToken)
     {
-        if (!AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
-            || !AnalyticsQueryValidator.TryValidateTop(top, out _))
+        if (!IsValidHomeQuery(fromUtc, toUtc, bucket, top))
         {
             return new ApiResult<DashboardHomeDto>(HttpStatusCode.BadRequest);
         }
 
+        var summary = await GetHomeSummaryAsync(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
+        var trendPoints = await GetHomeTrendPointsAsync(fromUtc, toUtc, bucket, cancellationToken).ConfigureAwait(false);
+        var composition = await GetHomeCompositionAsync(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+
+        var dto = new DashboardHomeDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            Summary = summary,
+            Bucket = bucket,
+            TrendPoints = trendPoints,
+            Composition = composition
+        };
+
+        return new ApiResponse<DashboardHomeDto>(dto).ToApiResult();
+    }
+
+    private static bool IsValidHomeQuery(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top)
+    {
+        return AnalyticsQueryValidator.TryValidateBucketWindow(fromUtc, toUtc, bucket, out _)
+            && AnalyticsQueryValidator.TryValidateTop(top, out _);
+    }
+
+    private async Task<DashboardSummaryDto> GetHomeSummaryAsync(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
         var activeGamesCount = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.GameServer != null && !s.GameServer.Deleted)
@@ -85,6 +108,22 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             .AsNoTracking()
             .CountAsync(r => r.Timestamp >= fromUtc && r.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
+        return new DashboardSummaryDto
+        {
+            Window = CreateWindow(fromUtc, toUtc),
+            ActiveGamesCount = activeGamesCount,
+            ActiveServersCount = activeServersCount,
+            UniquePlayersCount = uniquePlayersCount,
+            ReportsCount = reportsCount
+        };
+    }
+
+    private async Task<List<AnalyticsTimeseriesPointDto>> GetHomeTrendPointsAsync(
+        DateTime fromUtc,
+        DateTime toUtc,
+        AnalyticsBucket bucket,
+        CancellationToken cancellationToken)
+    {
         var recentPlayers = await context.RecentPlayers
             .AsNoTracking()
             .Where(rp => rp.Timestamp >= fromUtc && rp.Timestamp < toUtc)
@@ -104,6 +143,15 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             })
             .ToList();
 
+        return trendPoints;
+    }
+
+    private async Task<DashboardCompositionDto> GetHomeCompositionAsync(
+        DateTime fromUtc,
+        DateTime toUtc,
+        int top,
+        CancellationToken cancellationToken)
+    {
         var topGamesRaw = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.GameServer != null && !s.GameServer.Deleted)
@@ -161,23 +209,7 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             }).ToList()
         };
 
-        var dto = new DashboardHomeDto
-        {
-            Window = CreateWindow(fromUtc, toUtc),
-            Summary = new DashboardSummaryDto
-            {
-                Window = CreateWindow(fromUtc, toUtc),
-                ActiveGamesCount = activeGamesCount,
-                ActiveServersCount = activeServersCount,
-                UniquePlayersCount = uniquePlayersCount,
-                ReportsCount = reportsCount
-            },
-            Bucket = bucket,
-            TrendPoints = trendPoints,
-            Composition = composition
-        };
-
-        return new ApiResponse<DashboardHomeDto>(dto).ToApiResult();
+        return composition;
     }
 
     [HttpGet("server/{gameServerId:guid}")]
