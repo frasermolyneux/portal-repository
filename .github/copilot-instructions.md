@@ -8,3 +8,7 @@
 - The SQL project is authoritative for schema. DataLib entities and `PortalDbContext.cs` are generated from its DACPAC; follow the scoped regeneration instruction for schema or generated-model work.
 - Settings are persisted as namespace plus JSON, with known namespaces validated through `XtremeIdiots.Portal.Settings.Contracts.V1`; preserve the documented compatibility shim.
 - Terraform uses an azurerm backend, dev/prd backend and tfvars pairs, AzureRM/AzureAD providers, and remote state from platform and portal foundation stacks. Preserve those interfaces and the API/App Service/SQL/APIM ownership split.
+
+## Terraform toolchain
+
+Commit each root's `.terraform-version` and `.terraform.lock.hcl`. Select the exact root CLI pin before invoking Terraform; normal initialization uses `-lockfile=readonly`. Regenerate provider selections only in a reviewed dependency-update PR; never commit state, plans, or `.terraform/`.
