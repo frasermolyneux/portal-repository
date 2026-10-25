@@ -33,6 +33,9 @@ public class DashboardTests : IClassFixture<CustomWebApplicationFactory>, IAsync
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Verifies that analytics responses preserve the requested time window and bucket.
+    /// </summary>
     [Fact]
     public async Task GetAnalyticsDashboardHome_ReturnsWindowAndBucket_ForValidQuery()
     {
@@ -52,6 +55,13 @@ public class DashboardTests : IClassFixture<CustomWebApplicationFactory>, IAsync
         Assert.Equal(AnalyticsBucket.OneDay, data.Bucket);
     }
 
+    /// <summary>
+    /// Verifies rejection of invalid analytics query parameters.
+    /// </summary>
+    /// <param name="fromUtc">The requested start of the analytics window.</param>
+    /// <param name="toUtc">The requested end of the analytics window.</param>
+    /// <param name="bucket">The requested aggregation bucket.</param>
+    /// <param name="top">The requested maximum number of results.</param>
     [Theory]
     [InlineData("2026-10-21T00:00:00Z", "2026-10-20T00:00:00Z", "OneDay", "10")]
     [InlineData("2026-10-20T00:00:00Z", "2026-10-21T00:00:00Z", "invalid", "10")]
