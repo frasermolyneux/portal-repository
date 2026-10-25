@@ -47,13 +47,18 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 
         /// <summary>
         /// Applies the values from an UpsertBanFileMonitorStatusDto to an existing
-        /// BanFileMonitor entity. Only non-null properties on the DTO are applied so a
-        /// partial cycle (check-only, no push) does not blank out unrelated fields.
+        /// BanFileMonitor entity. A timestamp, result and path identify a complete
+        /// check snapshot; nullable observations in that snapshot replace old values.
+        /// Push and import fields remain partial updates.
         /// </summary>
         public static void ApplyStatus(this UpsertBanFileMonitorStatusDto dto, BanFileMonitor entity)
         {
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(entity);
+
+            var completeCheck = dto.LastCheckUtc.HasValue
+                && dto.LastCheckResult is not null
+                && dto.RemoteFilePath is not null;
 
             if (dto.LastCheckUtc.HasValue)
             {
@@ -65,7 +70,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.LastCheckResult = dto.LastCheckResult;
             }
 
-            if (dto.LastCheckErrorMessage is not null)
+            if (completeCheck || dto.LastCheckErrorMessage is not null
+                || (dto.LastCheckUtc.HasValue && string.Equals(dto.LastCheckResult, "Success", StringComparison.OrdinalIgnoreCase)))
             {
                 entity.LastCheckErrorMessage = dto.LastCheckErrorMessage;
             }
@@ -75,14 +81,14 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.RemoteFilePath = dto.RemoteFilePath;
             }
 
-            if (dto.ResolvedForMod is not null)
+            if (completeCheck || dto.ResolvedForMod is not null)
             {
                 entity.ResolvedForMod = dto.ResolvedForMod;
             }
 
-            if (dto.RemoteFileSize.HasValue)
+            if (completeCheck || dto.RemoteFileSize.HasValue)
             {
-                entity.RemoteFileSize = dto.RemoteFileSize.Value;
+                entity.RemoteFileSize = dto.RemoteFileSize;
             }
 
             if (dto.LastImportUtc.HasValue)
@@ -130,26 +136,25 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.ConsecutiveFailureCount = dto.ConsecutiveFailureCount.Value;
             }
 
-            if (dto.RemoteTotalLineCount.HasValue)
+            if (completeCheck || dto.RemoteTotalLineCount.HasValue)
             {
-                entity.RemoteTotalLineCount = dto.RemoteTotalLineCount.Value;
+                entity.RemoteTotalLineCount = dto.RemoteTotalLineCount;
             }
 
-            if (dto.RemoteUntaggedCount.HasValue)
+            if (completeCheck || dto.RemoteUntaggedCount.HasValue)
             {
-                entity.RemoteUntaggedCount = dto.RemoteUntaggedCount.Value;
+                entity.RemoteUntaggedCount = dto.RemoteUntaggedCount;
             }
 
-            if (dto.RemoteBanSyncCount.HasValue)
+            if (completeCheck || dto.RemoteBanSyncCount.HasValue)
             {
-                entity.RemoteBanSyncCount = dto.RemoteBanSyncCount.Value;
+                entity.RemoteBanSyncCount = dto.RemoteBanSyncCount;
             }
 
-            if (dto.RemoteExternalCount.HasValue)
+            if (completeCheck || dto.RemoteExternalCount.HasValue)
             {
-                entity.RemoteExternalCount = dto.RemoteExternalCount.Value;
+                entity.RemoteExternalCount = dto.RemoteExternalCount;
             }
         }
     }
 }
-
