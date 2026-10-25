@@ -67,6 +67,7 @@ public sealed class VpnProtectionSettingsMerger
                 Operator = ruleOverride.Operator ?? rule.Operator,
                 ExpectedValue = ruleOverride.ExpectedValue ?? rule.ExpectedValue,
                 Action = ruleOverride.Action ?? rule.Action,
+                PostObservationToForums = ruleOverride.PostObservationToForums ?? rule.PostObservationToForums,
                 ReasonTemplate = ruleOverride.ReasonTemplate ?? rule.ReasonTemplate,
                 ExtensionData = rule.ExtensionData
             };
@@ -92,6 +93,7 @@ public sealed class VpnProtectionSettingsMerger
         Operator = rule.Operator,
         ExpectedValue = rule.ExpectedValue,
         Action = rule.Action,
+        PostObservationToForums = rule.PostObservationToForums,
         ReasonTemplate = rule.ReasonTemplate,
         ExtensionData = rule.ExtensionData
     };
@@ -104,6 +106,7 @@ public sealed class VpnProtectionSettingsMerger
         Operator = rule.Operator,
         ExpectedValue = rule.ExpectedValue.Trim(),
         Action = rule.Action,
+        PostObservationToForums = rule.PostObservationToForums,
         ReasonTemplate = string.IsNullOrWhiteSpace(rule.ReasonTemplate)
             ? VpnProtectionSettingsConstants.DefaultReasonTemplate
             : rule.ReasonTemplate.Trim(),

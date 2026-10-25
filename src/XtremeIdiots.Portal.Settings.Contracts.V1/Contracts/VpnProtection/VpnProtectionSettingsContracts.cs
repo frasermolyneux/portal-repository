@@ -107,6 +107,8 @@ public sealed class VpnProtectionRule
 
     public VpnProtectionAction Action { get; set; }
 
+    public bool PostObservationToForums { get; set; } = true;
+
     public string? ReasonTemplate { get; set; }
 
     [JsonExtensionData]
@@ -126,6 +128,8 @@ public sealed class VpnProtectionRuleOverride
     public string? ExpectedValue { get; set; }
 
     public VpnProtectionAction? Action { get; set; }
+
+    public bool? PostObservationToForums { get; set; }
 
     public string? ReasonTemplate { get; set; }
 
@@ -163,6 +167,8 @@ public sealed record EffectiveVpnProtectionRule
     public required string ExpectedValue { get; init; }
 
     public required VpnProtectionAction Action { get; init; }
+
+    public bool PostObservationToForums { get; init; } = true;
 
     public required string ReasonTemplate { get; init; }
 
