@@ -164,6 +164,16 @@ public class FakeMapRotationsApi : IMapRotationsApi
     {
         var dto = new MapRotationServerAssignmentDto(Guid.NewGuid(), createDto.MapRotationId, createDto.GameServerId, DeploymentState.Pending, ActivationState.Inactive, null, null, createDto.ConfigFilePath, createDto.ConfigVariableName, null, null, DateTime.UtcNow, DateTime.UtcNow, null);
         _serverAssignments[dto.MapRotationServerAssignmentId] = dto;
+        if (createDto.AacpConfigFilePath != null)
+        {
+            var picker = dto with
+            {
+                MapRotationServerAssignmentId = Guid.NewGuid(),
+                ConfigFilePath = createDto.AacpConfigFilePath,
+                ConfigVariableName = "scr_aacp_maps_1"
+            };
+            _serverAssignments[picker.MapRotationServerAssignmentId] = picker;
+        }
         return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.Created, new ApiResponse<MapRotationServerAssignmentDto>(dto)));
     }
 

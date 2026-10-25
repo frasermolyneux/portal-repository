@@ -33,6 +33,12 @@ public record UpdateMapRotationServerAssignmentDto : IDto
     public string? ConfigVariableName { get; set; }
 
     [JsonProperty]
+    public bool? AacpEnabled { get; set; }
+
+    [JsonProperty]
+    public string? AacpConfigFilePath { get; set; }
+
+    [JsonProperty]
     public int? PlayerCountMin { get; set; }
 
     [JsonProperty]
