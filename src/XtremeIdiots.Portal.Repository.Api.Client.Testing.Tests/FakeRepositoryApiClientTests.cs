@@ -12,6 +12,45 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 public class FakeRepositoryApiClientTests
 {
     [Fact]
+    public async Task BanFileMonitorSnapshotsClearCurrentObservationsButImportAcknowledgmentsPreserveThem()
+    {
+        var client = new FakeRepositoryApiClient();
+        var serverId = Guid.NewGuid();
+        await client.BanFileMonitors.V1.UpsertBanFileMonitorStatus(
+            new Abstractions.Models.V1.BanFileMonitors.UpsertBanFileMonitorStatusDto(serverId)
+            {
+                LastCheckUtc = DateTime.UtcNow,
+                LastCheckResult = "FileTransportError",
+                LastCheckErrorMessage = "Previous fault",
+                RemoteFilePath = "/old/ban.txt",
+                ResolvedForMod = "old",
+                RemoteFileSize = 42,
+                RemoteBanSyncCount = 2
+            });
+        var recovered = await client.BanFileMonitors.V1.UpsertBanFileMonitorStatus(
+            new Abstractions.Models.V1.BanFileMonitors.UpsertBanFileMonitorStatusDto(serverId)
+            {
+                LastCheckUtc = DateTime.UtcNow,
+                LastCheckResult = "Success",
+                RemoteFilePath = "/banlist_v2.dat"
+            });
+        Assert.Null(recovered.Result!.Data!.LastCheckErrorMessage);
+        Assert.Null(recovered.Result.Data.ResolvedForMod);
+        Assert.Null(recovered.Result.Data.RemoteFileSize);
+        Assert.Null(recovered.Result.Data.RemoteBanSyncCount);
+
+        var acknowledged = await client.BanFileMonitors.V1.UpsertBanFileMonitorStatus(
+            new Abstractions.Models.V1.BanFileMonitors.UpsertBanFileMonitorStatusDto(serverId)
+            {
+                LastImportUtc = DateTime.UtcNow,
+                LastImportBanCount = 1
+            });
+        Assert.Equal(recovered.Result.Data.LastCheckUtc, acknowledged.Result!.Data!.LastCheckUtc);
+        Assert.Equal("Success", acknowledged.Result.Data.LastCheckResult);
+        Assert.Equal("/banlist_v2.dat", acknowledged.Result.Data.RemoteFilePath);
+    }
+
+    [Fact]
     public void AllVersionedApiProperties_ReturnNonNull()
     {
         var client = new FakeRepositoryApiClient();

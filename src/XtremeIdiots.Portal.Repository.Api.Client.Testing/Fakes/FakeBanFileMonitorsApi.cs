@@ -57,14 +57,19 @@ public class FakeBanFileMonitorsApi : IBanFileMonitorsApi
         var created = existing is null;
         existing ??= new BanFileMonitorDto { BanFileMonitorId = Guid.NewGuid(), GameServerId = upsertDto.GameServerId };
 
+        var completeCheck = upsertDto.LastCheckUtc.HasValue
+            && upsertDto.LastCheckResult is not null
+            && upsertDto.RemoteFilePath is not null;
+        var clearError = completeCheck || (upsertDto.LastCheckUtc.HasValue
+            && string.Equals(upsertDto.LastCheckResult, "Success", StringComparison.OrdinalIgnoreCase));
         var updated = existing with
         {
             LastCheckUtc = upsertDto.LastCheckUtc ?? existing.LastCheckUtc,
             LastCheckResult = upsertDto.LastCheckResult ?? existing.LastCheckResult,
-            LastCheckErrorMessage = upsertDto.LastCheckErrorMessage ?? existing.LastCheckErrorMessage,
+            LastCheckErrorMessage = clearError ? upsertDto.LastCheckErrorMessage : upsertDto.LastCheckErrorMessage ?? existing.LastCheckErrorMessage,
             RemoteFilePath = upsertDto.RemoteFilePath ?? existing.RemoteFilePath,
-            ResolvedForMod = upsertDto.ResolvedForMod ?? existing.ResolvedForMod,
-            RemoteFileSize = upsertDto.RemoteFileSize ?? existing.RemoteFileSize,
+            ResolvedForMod = completeCheck ? upsertDto.ResolvedForMod : upsertDto.ResolvedForMod ?? existing.ResolvedForMod,
+            RemoteFileSize = completeCheck ? upsertDto.RemoteFileSize : upsertDto.RemoteFileSize ?? existing.RemoteFileSize,
             LastImportUtc = upsertDto.LastImportUtc ?? existing.LastImportUtc,
             LastImportBanCount = upsertDto.LastImportBanCount ?? existing.LastImportBanCount,
             LastImportSampleNames = upsertDto.LastImportSampleNames ?? existing.LastImportSampleNames,
@@ -74,10 +79,10 @@ public class FakeBanFileMonitorsApi : IBanFileMonitorsApi
             LastCentralBlobETag = upsertDto.LastCentralBlobETag ?? existing.LastCentralBlobETag,
             LastCentralBlobUtc = upsertDto.LastCentralBlobUtc ?? existing.LastCentralBlobUtc,
             ConsecutiveFailureCount = upsertDto.ConsecutiveFailureCount ?? existing.ConsecutiveFailureCount,
-            RemoteTotalLineCount = upsertDto.RemoteTotalLineCount ?? existing.RemoteTotalLineCount,
-            RemoteUntaggedCount = upsertDto.RemoteUntaggedCount ?? existing.RemoteUntaggedCount,
-            RemoteBanSyncCount = upsertDto.RemoteBanSyncCount ?? existing.RemoteBanSyncCount,
-            RemoteExternalCount = upsertDto.RemoteExternalCount ?? existing.RemoteExternalCount
+            RemoteTotalLineCount = completeCheck ? upsertDto.RemoteTotalLineCount : upsertDto.RemoteTotalLineCount ?? existing.RemoteTotalLineCount,
+            RemoteUntaggedCount = completeCheck ? upsertDto.RemoteUntaggedCount : upsertDto.RemoteUntaggedCount ?? existing.RemoteUntaggedCount,
+            RemoteBanSyncCount = completeCheck ? upsertDto.RemoteBanSyncCount : upsertDto.RemoteBanSyncCount ?? existing.RemoteBanSyncCount,
+            RemoteExternalCount = completeCheck ? upsertDto.RemoteExternalCount : upsertDto.RemoteExternalCount ?? existing.RemoteExternalCount
         };
 
         _monitors[updated.BanFileMonitorId] = updated;
