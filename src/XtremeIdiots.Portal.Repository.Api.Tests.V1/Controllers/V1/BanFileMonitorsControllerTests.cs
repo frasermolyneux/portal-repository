@@ -186,6 +186,80 @@ public class BanFileMonitorsControllerTests
     }
 
     [Fact]
+    public async Task UpsertBanFileMonitorStatus_RecoveryClearsErrorAndObsoleteMod()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateGameServer(context);
+        var monitor = new BanFileMonitor
+        {
+            BanFileMonitorId = Guid.NewGuid(),
+            GameServerId = gs.GameServerId,
+            LastCheckErrorMessage = "Connection reset",
+            ResolvedForMod = "old-mod",
+            ConsecutiveFailureCount = 3
+        };
+        context.BanFileMonitors.Add(monitor);
+        await context.SaveChangesAsync();
+
+        await ((IBanFileMonitorsApi)CreateController(context)).UpsertBanFileMonitorStatus(
+            new UpsertBanFileMonitorStatusDto(gs.GameServerId)
+            {
+                LastCheckUtc = DateTime.UtcNow,
+                LastCheckResult = "Success",
+                RemoteFilePath = "/banlist_v2.dat",
+                RemoteFileSize = 42,
+                ConsecutiveFailureCount = 0
+            });
+
+        Assert.Null(monitor.LastCheckErrorMessage);
+        Assert.Null(monitor.ResolvedForMod);
+        Assert.Equal(0, monitor.ConsecutiveFailureCount);
+    }
+
+    [Fact]
+    public async Task UpsertBanFileMonitorStatus_FailedSnapshotClearsUnobservedCountsButImportPreservesCheck()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateGameServer(context);
+        var monitor = new BanFileMonitor
+        {
+            BanFileMonitorId = Guid.NewGuid(),
+            GameServerId = gs.GameServerId,
+            RemoteFileSize = 42,
+            RemoteTotalLineCount = 4,
+            RemoteBanSyncCount = 2,
+            RemoteUntaggedCount = 1,
+            RemoteExternalCount = 1
+        };
+        context.BanFileMonitors.Add(monitor);
+        await context.SaveChangesAsync();
+        var api = (IBanFileMonitorsApi)CreateController(context);
+        var checkedAt = DateTime.UtcNow;
+        await api.UpsertBanFileMonitorStatus(new UpsertBanFileMonitorStatusDto(gs.GameServerId)
+        {
+            LastCheckUtc = checkedAt,
+            LastCheckResult = "FileNotFound",
+            LastCheckErrorMessage = "File missing",
+            RemoteFilePath = "/Mods/test/ban.txt"
+        });
+        await api.UpsertBanFileMonitorStatus(new UpsertBanFileMonitorStatusDto(gs.GameServerId)
+        {
+            LastImportUtc = DateTime.UtcNow,
+            LastImportBanCount = 1
+        });
+
+        Assert.Null(monitor.RemoteFileSize);
+        Assert.Null(monitor.RemoteTotalLineCount);
+        Assert.Null(monitor.RemoteBanSyncCount);
+        Assert.Null(monitor.RemoteUntaggedCount);
+        Assert.Null(monitor.RemoteExternalCount);
+        Assert.Equal(checkedAt, monitor.LastCheckUtc);
+        Assert.Equal("FileNotFound", monitor.LastCheckResult);
+        Assert.Equal("File missing", monitor.LastCheckErrorMessage);
+        Assert.Equal("/Mods/test/ban.txt", monitor.RemoteFilePath);
+    }
+
+    [Fact]
     public async Task UpsertBanFileMonitorStatus_WithUnknownGameServer_ReturnsNotFound()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

@@ -7,9 +7,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.BanFileMonitors
     /// <summary>
     /// Bulk-friendly status update sent by the server agent after each check cycle.
     /// Keyed by <see cref="GameServerId"/>: the server upserts (creates the row when
-    /// no monitor exists for the game server, updates otherwise). Only properties with
-    /// non-null values are applied so a partial cycle (e.g. check-only, no push) does
-    /// not blank out unrelated fields.
+    /// no monitor exists for the game server, updates otherwise). A timestamp, result
+    /// and remote path identify a complete check snapshot: nullable mod, size, error
+    /// and count observations replace previous values. Successful checks clear previous
+    /// errors. Other fields are partial updates; omitted push/import fields are preserved.
     /// </summary>
     public record UpsertBanFileMonitorStatusDto : IDto
     {
