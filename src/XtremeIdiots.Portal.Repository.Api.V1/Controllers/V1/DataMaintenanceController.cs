@@ -17,6 +17,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -406,7 +407,10 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// </summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>An API result indicating the operation completed successfully.</returns>
-    async Task<ApiResult> IDataMaintenanceApi.ReconcileConnectedPlayerTags(CancellationToken cancellationToken)
+    Task<ApiResult> IDataMaintenanceApi.ReconcileConnectedPlayerTags(CancellationToken cancellationToken)
+        => UserProfileLifecycle.ExecuteAsync(context, () => ReconcileConnectedPlayerTagsCore(cancellationToken), cancellationToken);
+
+    private async Task<ApiResult> ReconcileConnectedPlayerTagsCore(CancellationToken cancellationToken)
     {
         var requiredTagNames = new[]
         {
@@ -465,7 +469,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
         var activeOwnerships = await context.ConnectedPlayerProfiles
             .AsNoTracking()
-            .Where(cp => cp.IsActive)
+            .Where(cp => cp.IsActive && cp.UserProfile.ArchivedAtUtc == null)
             .Join(
                 context.Players.AsNoTracking(),
                 cp => cp.PlayerId,
@@ -502,7 +506,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var roleClaims = await context.UserProfileClaims
             .AsNoTracking()
             .Where(claim =>
-                linkedUserProfileIds.Contains(claim.UserProfileId)
+                claim.UserProfile.ArchivedAtUtc == null
+                && linkedUserProfileIds.Contains(claim.UserProfileId)
                 && claim.SystemGenerated
                 && roleClaimTypes.Contains(claim.ClaimType))
             .Select(claim => new

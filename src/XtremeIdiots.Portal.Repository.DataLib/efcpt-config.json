@@ -90,6 +90,7 @@
       "name": "[dbo].[UserProfileClaims]"
     },
     {
+      "excludedColumns": [],
       "name": "[dbo].[UserProfiles]"
     },
     {
@@ -133,6 +134,9 @@
     },
     {
       "name": "[dbo].[ConnectedPlayerActivationCodes]"
+    },
+    {
+      "name": "[dbo].[UserProfileLifecycleOperations]"
     }
   ]
 }

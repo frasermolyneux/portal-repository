@@ -30,6 +30,9 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 PhotoUrl = entity.PhotoUrl,
                 ProfileUrl = entity.ProfileUrl,
                 TimeZone = entity.TimeZone,
+                ArchivedAtUtc = entity.ArchivedAtUtc.HasValue ? DateTime.SpecifyKind(entity.ArchivedAtUtc.Value, DateTimeKind.Utc) : null,
+                ArchivedByUserProfileId = entity.ArchivedByUserProfileId,
+                ArchiveReason = entity.ArchiveReason,
                 UserProfileClaims = entity.UserProfileClaims?.Select(c => c.ToDto(false)).ToList() ?? []
             };
         }

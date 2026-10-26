@@ -9,6 +9,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 /// <summary>
 /// Tests the post-deployment tag script against an isolated SQL Server instance.
 /// </summary>
+[Collection("SqlServer")]
 public class PostDeploymentTagsTests
 {
     private static readonly string[] ExpectedNames = ["game-admin", "head-admin", "Senior-Admin"];
