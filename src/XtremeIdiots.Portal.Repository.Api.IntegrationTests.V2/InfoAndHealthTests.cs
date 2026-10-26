@@ -1,6 +1,7 @@
 using System.Net;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2;
 
@@ -36,6 +37,18 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
 
         var info = JsonConvert.DeserializeObject<dynamic>(content);
         Assert.NotNull(info);
+    }
+
+    [Fact]
+    public async Task GetOpenApi_ReturnsImportableSpec()
+    {
+        using var response = await _client.GetAsync("/openapi/v2.0.json");
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, content);
+
+        var document = JObject.Parse(content);
+        Assert.NotNull(document["openapi"]);
+        Assert.NotEmpty((JObject)document["paths"]!);
     }
 
     [Fact]

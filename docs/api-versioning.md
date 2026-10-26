@@ -167,3 +167,10 @@ bounded retry bookkeeping, not historical audit retention. Unlink audit events
 are emitted only after the transaction commits or its commit is verified.
 Deploy/publish this backend and its client contracts before updating portal-web
 and portal-sync consumers. Feature deployment does not archive any live rows.
+
+Runtime OpenAPI generation uses System.Text.Json metadata even though V1 MVC uses
+Newtonsoft.Json. The required archive reason includes `JsonInclude` so schema
+generation can access its private setter without weakening validation or making
+the DTO publicly mutable. HTTP integration tests request both host specifications
+(`/openapi/v1.0.json` and `/openapi/v2.0.json`) and verify the V1 archive reason
+remains required, writable in JSON, and bounded to 500 characters.
