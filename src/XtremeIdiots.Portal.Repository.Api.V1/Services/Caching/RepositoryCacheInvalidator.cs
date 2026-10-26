@@ -34,7 +34,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
             this.logger = logger;
         }
 
-        public async Task InvalidateGameServerAsync(Guid gameServerId, CancellationToken cancellationToken)
+        public async Task InvalidateGameServerAsync(Guid gameServerId, CancellationToken cancellationToken = default)
         {
             var tag = RepositoryCacheKeys.GameServerTag(gameServerId);
             try
@@ -130,7 +130,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
             }
         }
 
-        public async Task InvalidateMapAsync(Guid mapId, CancellationToken cancellationToken)
+        public async Task InvalidateMapAsync(Guid mapId, CancellationToken cancellationToken = default)
         {
             var tag = RepositoryCacheKeys.MapTag(mapId);
             try

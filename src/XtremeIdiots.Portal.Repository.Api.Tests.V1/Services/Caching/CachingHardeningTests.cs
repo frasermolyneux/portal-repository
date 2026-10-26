@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Moq;
+
 using MX.Api.Abstractions;
 using MX.Caching.Abstractions;
 using MX.Caching.Testing;
@@ -359,6 +361,25 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
         }
 
         [Fact]
+        public async Task RepositoryCacheInvalidator_OmittedTokens_PassesNoneToCache()
+        {
+            var cache = new Mock<IMxCache>(MockBehavior.Strict);
+            var id = Guid.NewGuid();
+            var serverTag = RepositoryCacheKeys.GameServerTag(id);
+            var mapTag = RepositoryCacheKeys.MapTag(id);
+            cache.Setup(c => c.RemoveByTagAsync(serverTag, CancellationToken.None)).Returns(Task.CompletedTask);
+            cache.Setup(c => c.RemoveByTagAsync(mapTag, CancellationToken.None)).Returns(Task.CompletedTask);
+            var invalidator = new RepositoryCacheInvalidator(cache.Object, CreateMetrics(), NullLogger<RepositoryCacheInvalidator>.Instance);
+
+            await invalidator.InvalidateGameServerAsync(id);
+            await invalidator.InvalidateMapAsync(id);
+
+            cache.Verify(c => c.RemoveByTagAsync(serverTag, CancellationToken.None), Times.Once);
+            cache.Verify(c => c.RemoveByTagAsync(mapTag, CancellationToken.None), Times.Once);
+            cache.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task RepositoryCacheInvalidator_InvalidationFailure_DoesNotThrow()
         {
             // Invalidation failures must NOT propagate to the caller (DB write already succeeded).
@@ -366,11 +387,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var id = Guid.NewGuid();
 
             // None of these should throw despite cache being unavailable.
-            await invalidator.InvalidateGameServerAsync(id, CancellationToken.None);
+            await invalidator.InvalidateGameServerAsync(id);
             await invalidator.InvalidateDashboardAsync(CancellationToken.None);
             await invalidator.InvalidateServerSettingsAsync(id, "ftp", CancellationToken.None);
             await invalidator.InvalidateGlobalNamespaceAsync("agent", CancellationToken.None);
-            await invalidator.InvalidateMapAsync(id, CancellationToken.None);
+            await invalidator.InvalidateMapAsync(id);
             await invalidator.InvalidateTagPlayerCountsAsync(CancellationToken.None);
         }
 
