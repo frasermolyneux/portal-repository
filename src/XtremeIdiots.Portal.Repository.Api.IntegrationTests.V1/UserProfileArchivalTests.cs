@@ -26,6 +26,10 @@ public class UserProfileArchivalTests(CustomWebApplicationFactory factory) : ICl
         var dto = new ArchiveUserProfileDto(targetId, actorId, "Consistent upstream 404");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/v1/user-profile/{actorId}/archive", dto)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/v1/user-profile/{actorId}/archive", new ArchiveUserProfileDto(actorId, actorId, "Self"))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/v1/user-profile/{targetId}/archive",
+            new { userProfileId = targetId, archivedByUserProfileId = actorId })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/v1/user-profile/{targetId}/archive",
+            new { userProfileId = targetId, archivedByUserProfileId = actorId, reason = (string?)null })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/v1/user-profile/{targetId}/archive", new ArchiveUserProfileDto(targetId, actorId, "  "))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/v1/user-profile/{targetId}/archive", new ArchiveUserProfileDto(targetId, actorId, new string('x', 501)))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/v1/user-profile/{targetId}/archive", dto)).StatusCode);

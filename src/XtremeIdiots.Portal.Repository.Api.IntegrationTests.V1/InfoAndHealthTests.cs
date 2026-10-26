@@ -1,6 +1,7 @@
 using System.Net;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1;
 
@@ -36,6 +37,24 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
 
         var info = JsonConvert.DeserializeObject<dynamic>(content);
         Assert.NotNull(info);
+    }
+
+    [Fact]
+    public async Task GetOpenApi_ReturnsSpecWithValidatedArchiveRequest()
+    {
+        using var response = await _client.GetAsync("/openapi/v1.0.json");
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, content);
+
+        var document = JObject.Parse(content);
+        var archive = document["paths"]!["/user-profile/{userProfileId}/archive"]!["post"];
+        Assert.NotNull(archive);
+        Assert.NotNull(document["paths"]!["/user-profile/{userProfileId}/including-archived"]!["get"]);
+        var reference = archive["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.Value<string>()!;
+        var schema = document["components"]!["schemas"]![reference.Split('/').Last()]!;
+        Assert.Contains("reason", schema["required"]!.Values<string>());
+        Assert.Equal(500, schema["properties"]!["reason"]!["maxLength"]!.Value<int>());
+        Assert.NotEqual(true, schema["properties"]!["reason"]!["readOnly"]?.Value<bool>());
     }
 
     [Fact]

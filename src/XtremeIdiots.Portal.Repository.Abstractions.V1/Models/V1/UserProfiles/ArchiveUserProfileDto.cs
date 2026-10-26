@@ -19,6 +19,8 @@ public record ArchiveUserProfileDto : IDto
     public Guid ArchivedByUserProfileId { get; private set; }
 
     [JsonProperty]
+    // Runtime OpenAPI uses System.Text.Json, not MVC's Newtonsoft serializer.
+    [System.Text.Json.Serialization.JsonInclude]
     [Required]
     [StringLength(500)]
     public string Reason { get; private set; }
