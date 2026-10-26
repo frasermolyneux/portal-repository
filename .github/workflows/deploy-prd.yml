@@ -186,7 +186,7 @@ jobs:
           sql-database-name: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_database_name }}
           project-folder: "src/XtremeIdiots.Portal.Repository.Database"
           project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
-          allow-data-loss: ${{ github.event.inputs.allow-data-loss && 'true' || 'false' }}
+          allow-data-loss: ${{ inputs.allow-data-loss == true && 'true' || 'false' }}
           backup-storage-account-name: ${{ needs.terraform-plan-and-apply-dev.outputs.backup_storage_account_name }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -416,7 +416,7 @@ jobs:
           sql-database-name: ${{ needs.terraform-plan-and-apply-prd.outputs.sql_database_name }}
           project-folder: "src/XtremeIdiots.Portal.Repository.Database"
           project-file: "XtremeIdiots.Portal.Repository.Database.sqlproj"
-          allow-data-loss: ${{ github.event.inputs.allow-data-loss && 'true' || 'false' }}
+          allow-data-loss: ${{ inputs.allow-data-loss == true && 'true' || 'false' }}
           backup-storage-account-name: ${{ needs.terraform-plan-and-apply-prd.outputs.backup_storage_account_name }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
