@@ -360,6 +360,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             Assert.Equal(1, inner.ByIdCalls);
         }
 
+        /// <summary>
+        /// Verifies omitted cancellation tokens are forwarded to the cache as <see cref="CancellationToken.None"/>.
+        /// </summary>
         [Fact]
         public async Task RepositoryCacheInvalidator_OmittedTokens_PassesNoneToCache()
         {
@@ -367,8 +370,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var id = Guid.NewGuid();
             var serverTag = RepositoryCacheKeys.GameServerTag(id);
             var mapTag = RepositoryCacheKeys.MapTag(id);
-            cache.Setup(c => c.RemoveByTagAsync(serverTag, CancellationToken.None)).Returns(Task.CompletedTask);
-            cache.Setup(c => c.RemoveByTagAsync(mapTag, CancellationToken.None)).Returns(Task.CompletedTask);
+            _ = cache.Setup(c => c.RemoveByTagAsync(serverTag, CancellationToken.None)).Returns(Task.CompletedTask);
+            _ = cache.Setup(c => c.RemoveByTagAsync(mapTag, CancellationToken.None)).Returns(Task.CompletedTask);
             var invalidator = new RepositoryCacheInvalidator(cache.Object, CreateMetrics(), NullLogger<RepositoryCacheInvalidator>.Instance);
 
             await invalidator.InvalidateGameServerAsync(id);
