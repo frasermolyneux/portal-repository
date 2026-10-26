@@ -15,6 +15,81 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 
 public class MapRotationsControllerTests
 {
+    [Theory]
+    [InlineData(MapRotationStatus.Draft, MapRotationStatus.Published, false)]
+    [InlineData(MapRotationStatus.Testing, MapRotationStatus.Published, false)]
+    [InlineData(MapRotationStatus.Draft, MapRotationStatus.Published, true)]
+    [InlineData(MapRotationStatus.Testing, MapRotationStatus.Published, true)]
+    [InlineData(MapRotationStatus.Published, MapRotationStatus.Published, false)]
+    [InlineData(MapRotationStatus.Archived, MapRotationStatus.Archived, false)]
+    public async Task CreatingAssignment_PublishesOnlyDraftAndTestingWithoutApplyingConfiguration(
+        MapRotationStatus status, MapRotationStatus expected, bool combined)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var seeded = Seed(db);
+        var rotation = seeded.MapRotation;
+        rotation.Status = (int)status;
+        rotation.ContentHash = "unchanged-content";
+        rotation.UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var updatedAt = rotation.UpdatedAt;
+        db.MapRotationServerAssignments.Remove(seeded);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var result = await api.CreateServerAssignment(new(seeded.MapRotationId, seeded.GameServerId)
+        {
+            ConfigFilePath = "normal.cfg",
+            ConfigVariableName = "sv_maprotation",
+            AacpConfigFilePath = combined ? "picker.cfg" : null
+        });
+
+        Assert.Equal(HttpStatusCode.Created, result.StatusCode);
+        var saved = await db.MapRotations.AsNoTracking().SingleAsync(r => r.MapRotationId == seeded.MapRotationId);
+        Assert.Equal((int)expected, saved.Status);
+        Assert.Equal(2, saved.Version);
+        Assert.Equal("unchanged-content", saved.ContentHash);
+        Assert.Equal(status != expected, saved.UpdatedAt > updatedAt);
+        var assignments = await db.MapRotationServerAssignments.ToListAsync();
+        Assert.Equal(combined ? 2 : 1, assignments.Count);
+        Assert.All(assignments, target =>
+        {
+            Assert.Equal((int)DeploymentState.Pending, target.DeploymentState);
+            Assert.Equal((int)ActivationState.Inactive, target.ActivationState);
+            Assert.Null(target.DeployedVersion);
+            Assert.Null(target.ActivatedVersion);
+        });
+        Assert.Empty(await db.MapRotationAssignmentOperations.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(MapRotationStatus.Draft, true, MapRotationStatus.Published)]
+    [InlineData(MapRotationStatus.Testing, true, MapRotationStatus.Published)]
+    [InlineData(MapRotationStatus.Published, true, MapRotationStatus.Published)]
+    [InlineData(MapRotationStatus.Archived, true, MapRotationStatus.Archived)]
+    [InlineData(MapRotationStatus.Draft, false, MapRotationStatus.Draft)]
+    public async Task SavingAssignmentSettings_PublishesButOperationalUpdatesDoNot(
+        MapRotationStatus status, bool settings, MapRotationStatus expected)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        assignment.MapRotation.Status = (int)status;
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var request = new UpdateMapRotationServerAssignmentDto(assignment.MapRotationServerAssignmentId)
+        {
+            ConfigFilePath = settings ? assignment.ConfigFilePath : null,
+            LastError = settings ? null : ""
+        };
+
+        Assert.Equal(HttpStatusCode.OK, (await api.UpdateServerAssignment(request)).StatusCode);
+        Assert.Equal((int)expected, (await db.MapRotations.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(2, assignment.MapRotation.Version);
+        Assert.Equal((int)DeploymentState.Synced, assignment.DeploymentState);
+        Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
+        Assert.Equal(2, assignment.DeployedVersion);
+        Assert.Equal(2, assignment.ActivatedVersion);
+    }
+
     [Fact]
     public async Task UnassignAmbiguousNormalTargets_DoesNotRemoveIndependentConfigurations()
     {
@@ -109,6 +184,8 @@ public class MapRotationsControllerTests
         });
 
         Assert.Equal(status, result.StatusCode);
+        Assert.Equal((int)(status == HttpStatusCode.Created ? MapRotationStatus.Published : MapRotationStatus.Draft),
+            (await db.MapRotations.AsNoTracking().SingleAsync()).Status);
         var assignments = await db.MapRotationServerAssignments.ToListAsync();
         Assert.Equal(count, assignments.Count);
         if (count == 2)
@@ -191,6 +268,7 @@ public class MapRotationsControllerTests
         Assert.Equal((int)ActivationState.Active, picker.ActivationState);
         Assert.Equal((int)DeploymentState.Synced, picker.DeploymentState);
         Assert.Null(picker.UnassignedAt);
+        Assert.Equal((int)MapRotationStatus.Draft, (await db.MapRotations.AsNoTracking().SingleAsync()).Status);
     }
 
     [Theory]
