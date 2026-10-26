@@ -118,3 +118,45 @@ The same flow applies to v2 (routed to V2 App Service).
 6. **Runtime spec generation** — No build-time generation or source-controlled spec files. The deployed apps serve their own specs, and the workflow imports them directly from the live URLs.
 
 7. **Version verification before import** — The workflow polls the `/v1.0/info` and `/v2.0/info` endpoints to confirm the correct build is running before importing specs, preventing stale spec imports during App Service restarts.
+
+## V1 user-profile archival
+
+The V1 service-account API supports soft archival without deleting profiles,
+claims, or historical foreign-key references:
+
+- `POST /v1/user-profile/{userProfileId}/archive` accepts
+  `ArchiveUserProfileDto(Guid userProfileId, Guid archivedByUserProfileId, string reason)`.
+  The reason must be nonblank and at most 500 characters. The actor must exist
+  and be active. Self-archival returns 409; invalid input/actor or an ID mismatch
+  returns 400; a missing target returns 404.
+- A newly persisted archive returns **200**. An already-archived target returns
+  **204** without changing the original metadata. Consumers should emit their
+  human audit event only for 200.
+- `GET /v1/user-profile/{userProfileId}/including-archived` explicitly retrieves
+  active or archived profiles, including historical claims, for administrative
+  confirmation/retry. It retains service-account authorization.
+- `UserProfileDto` adds nullable `DateTime ArchivedAtUtc`,
+  `Guid ArchivedByUserProfileId`, and `string ArchiveReason`. The UTC timestamp
+  is the archive flag; no separate boolean or restore operation exists.
+
+Normal profile lookups (ID, identity, forum ID, demo key), lists, counts, role
+filters and permission reports exclude archived rows. Profile/claim mutations
+return 404 for archived targets. Identity and forum identifiers remain reserved
+across archived rows: creation or reassignment colliding with them returns 409.
+There is no global EF query filter, so historical attribution remains available.
+
+Archival clears the demo key, invalidates active activation codes, closes active
+connected-player links while retaining their original linking attribution, and
+removes their system-managed connected/role tag projections. Roster generation,
+link creation, activation-code consumption, notification creation and preference
+updates cannot activate/use archived profiles.
+
+Profile/claim writes, archival, connected-player writes and connected-tag
+reconciliation share a SQL Server transaction-owned application lock
+(`Portal.UserProfileLifecycle`). This serializes these relatively infrequent
+writes across API hosts, preventing stale claim replacement, relinking or tag
+projection from racing archival. Read-only and unrelated historical operations
+are not globally serialized. Database metadata records the archive audit;
+the portal owns human authorization, upstream verification and human audit events.
+Deploy/publish this backend and its client contracts before updating portal-web
+and portal-sync consumers. Feature deployment does not archive any live rows.

@@ -90,6 +90,7 @@
       "name": "[dbo].[UserProfileClaims]"
     },
     {
+      "excludedColumns": [],
       "name": "[dbo].[UserProfiles]"
     },
     {

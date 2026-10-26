@@ -19,6 +19,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Cod4xPower;
 
@@ -74,6 +75,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             CancellationToken cancellationToken)
         {
             var userProfileExists = await context.UserProfiles
+                .Where(u => u.ArchivedAtUtc == null)
                 .AsNoTracking()
                 .AnyAsync(u => u.UserProfileId == dto.UserProfileId, cancellationToken)
                 .ConfigureAwait(false);
@@ -91,6 +93,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 context.ChangeTracker.Clear();
 
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                await UserProfileLifecycle.LockAsync(context, cancellationToken).ConfigureAwait(false);
+                if (!await context.UserProfiles.AnyAsync(u => u.UserProfileId == dto.UserProfileId && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false))
+                {
+                    return new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.BadRequest,
+                        new ApiResponse<ConnectedPlayerActivationCodeDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
+                }
 
                 var existingActiveCodes = await context.ConnectedPlayerActivationCodes
                     .Where(code => code.UserProfileId == dto.UserProfileId && code.IsActive)
@@ -178,6 +186,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             CancellationToken cancellationToken)
         {
             var userProfileExists = await context.UserProfiles
+                .Where(u => u.ArchivedAtUtc == null)
                 .AsNoTracking()
                 .AnyAsync(u => u.UserProfileId == userProfileId, cancellationToken)
                 .ConfigureAwait(false);
@@ -270,6 +279,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 context.ChangeTracker.Clear();
 
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                await UserProfileLifecycle.LockAsync(context, cancellationToken).ConfigureAwait(false);
 
                 var activationCode = await context.ConnectedPlayerActivationCodes
                     .OrderByDescending(code => code.ActivatedAtUtc)
@@ -284,7 +294,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeInvalid, ApiErrorMessages.ConnectedPlayerActivationCodeInvalidMessage)));
                 }
 
-                if (!activationCode.IsActive)
+                if (!activationCode.IsActive || !await context.UserProfiles.AnyAsync(u => u.UserProfileId == activationCode.UserProfileId && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false))
                 {
                     await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 
@@ -449,6 +459,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var userProfileExists = await context.UserProfiles
+                .Where(u => u.ArchivedAtUtc == null)
                 .AsNoTracking()
                 .AnyAsync(u => u.UserProfileId == dto.UserProfileId, cancellationToken)
                 .ConfigureAwait(false);
@@ -462,6 +473,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (dto.LinkedByUserProfileId.HasValue)
             {
                 var linkedByUserProfileExists = await context.UserProfiles
+                    .Where(u => u.ArchivedAtUtc == null)
                     .AsNoTracking()
                     .AnyAsync(u => u.UserProfileId == dto.LinkedByUserProfileId.Value, cancellationToken)
                     .ConfigureAwait(false);
@@ -495,6 +507,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 try
                 {
                     await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                    await UserProfileLifecycle.LockAsync(context, cancellationToken).ConfigureAwait(false);
+                    if (!await context.UserProfiles.AnyAsync(u => u.UserProfileId == dto.UserProfileId && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false) ||
+                        (dto.LinkedByUserProfileId.HasValue && !await context.UserProfiles.AnyAsync(u => u.UserProfileId == dto.LinkedByUserProfileId.Value && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false)))
+                    {
+                        return new ApiResult(HttpStatusCode.BadRequest,
+                            new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
+                    }
                     await context.ConnectedPlayerProfiles.AddAsync(entity, cancellationToken).ConfigureAwait(false);
                     await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                     await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
@@ -554,7 +573,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var query = context.ConnectedPlayerProfiles
                 .AsNoTracking()
                 .Include(cp => cp.Player)
-                .Where(cp => cp.UserProfileId == userProfileId && cp.IsActive)
+                .Where(cp => cp.UserProfileId == userProfileId && cp.IsActive && cp.UserProfile.ArchivedAtUtc == null)
                 .OrderByDescending(cp => cp.LinkedAtUtc);
 
             var filteredCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -779,7 +798,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var activeConnectedPlayers = await context.ConnectedPlayerProfiles
                 .AsNoTracking()
                 .Include(profile => profile.Player)
-                .Where(profile => profile.IsActive && profile.Player.GameType == (int)gameServer.GameType)
+                .Where(profile => profile.IsActive && profile.UserProfile.ArchivedAtUtc == null && profile.Player.GameType == (int)gameServer.GameType)
                 .Select(profile => new ActiveConnectedPlayerProjection(
                     profile.PlayerId,
                     profile.Player.Guid ?? string.Empty,
@@ -894,7 +913,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return response.ToHttpResult();
         }
 
-        async Task<ApiResult> IConnectedPlayersApi.ForceUnlinkConnectedPlayer(
+        Task<ApiResult> IConnectedPlayersApi.ForceUnlinkConnectedPlayer(
+            Guid connectedPlayerProfileId,
+            ForceUnlinkConnectedPlayerDto dto,
+            CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => ForceUnlinkConnectedPlayerCore(connectedPlayerProfileId, dto, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> ForceUnlinkConnectedPlayerCore(
             Guid connectedPlayerProfileId,
             ForceUnlinkConnectedPlayerDto dto,
             CancellationToken cancellationToken)
@@ -902,6 +927,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             if (dto.UnlinkedByUserProfileId.HasValue)
             {
                 var unlinkedByUserProfileExists = await context.UserProfiles
+                    .Where(u => u.ArchivedAtUtc == null)
                     .AsNoTracking()
                     .AnyAsync(u => u.UserProfileId == dto.UnlinkedByUserProfileId.Value, cancellationToken)
                     .ConfigureAwait(false);
@@ -928,20 +954,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResponse().ToApiResult();
             }
 
-            var executionStrategy = context.Database.CreateExecutionStrategy();
-            await executionStrategy.ExecuteAsync(async () =>
-            {
-                await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            link.IsActive = false;
+            link.UnlinkedAtUtc = DateTime.UtcNow;
+            link.UnlinkedByUserProfileId = dto.UnlinkedByUserProfileId;
 
-                link.IsActive = false;
-                link.UnlinkedAtUtc = DateTime.UtcNow;
-                link.UnlinkedByUserProfileId = dto.UnlinkedByUserProfileId;
-
-                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                await ReconcileConnectedPlayerTagForPlayer(link.PlayerId, cancellationToken).ConfigureAwait(false);
-                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await ReconcileConnectedPlayerTagForPlayer(link.PlayerId, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             var unlinkActorId = dto.UnlinkedByUserProfileId?.ToString() ?? "ServiceAccount";
             auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerForceUnlinked", AuditAction.Delete)

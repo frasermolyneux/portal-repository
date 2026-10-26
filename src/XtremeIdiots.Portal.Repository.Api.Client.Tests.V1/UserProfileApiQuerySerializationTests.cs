@@ -8,12 +8,34 @@ using MX.Api.Client.Auth;
 using RestSharp;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 
 public class UserProfileApiQuerySerializationTests
 {
+    [Fact]
+    public async Task ArchiveAndHistoryRead_UseExpectedRoutesBodyAndCancellation()
+    {
+        var rest = new CapturingRestClientService();
+        var api = new UserProfileApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance, new FakeTokenProvider(), rest, CreateOptions());
+        var dto = new ArchiveUserProfileDto(Guid.NewGuid(), Guid.NewGuid(), "Upstream 404");
+        using var cancellation = new CancellationTokenSource();
+        var result = await api.ArchiveUserProfile(dto, cancellation.Token);
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal($"v1/user-profile/{dto.UserProfileId}/archive", rest.LastResource);
+        Assert.Equal(Method.Post, rest.LastRequest!.Method);
+        Assert.Same(dto, rest.LastRequest.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
+        Assert.Equal(cancellation.Token, rest.LastCancellationToken);
+        await api.GetUserProfileIncludingArchived(dto.UserProfileId, cancellation.Token);
+        Assert.Equal($"v1/user-profile/{dto.UserProfileId}/including-archived", rest.LastResource);
+        Assert.Equal(Method.Get, rest.LastRequest.Method);
+        Assert.Equal(cancellation.Token, rest.LastCancellationToken);
+        rest.ResponseStatus = HttpStatusCode.NoContent;
+        Assert.Equal(HttpStatusCode.NoContent, (await api.ArchiveUserProfile(dto)).StatusCode);
+    }
+
     [Fact]
     public async Task GetUserProfiles_WithGameType_EmitsGameTypeQueryParameter()
     {
@@ -79,17 +101,22 @@ public class UserProfileApiQuerySerializationTests
         public string LastResource { get; private set; } = string.Empty;
 
         public Dictionary<string, string> Query { get; private set; } = [];
+        public RestRequest? LastRequest { get; private set; }
+        public CancellationToken LastCancellationToken { get; private set; }
+        public HttpStatusCode ResponseStatus { get; set; } = HttpStatusCode.OK;
 
         public Task<RestResponse> ExecuteAsync(string baseUrl, RestRequest request, CancellationToken cancellationToken = default)
         {
             LastResource = request.Resource;
+            LastRequest = request;
+            LastCancellationToken = cancellationToken;
             Query = request.Parameters
                 .Where(p => p.Type == ParameterType.QueryString)
                 .ToDictionary(p => p.Name ?? string.Empty, p => p.Value?.ToString() ?? string.Empty);
 
             return Task.FromResult(new RestResponse
             {
-                StatusCode = HttpStatusCode.OK,
+                StatusCode = ResponseStatus,
                 Content = "{}"
             });
         }

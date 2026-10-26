@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Notifications;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -103,8 +104,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="editNotificationPreferenceDtos">The list of notification preference updates to apply.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the preferences were updated if successful; otherwise, a 400 Bad Request response.</returns>
-        async Task<ApiResult> INotificationPreferencesApi.UpdateNotificationPreferences(Guid userProfileId, List<EditNotificationPreferenceDto> editNotificationPreferenceDtos, CancellationToken cancellationToken)
+        Task<ApiResult> INotificationPreferencesApi.UpdateNotificationPreferences(Guid userProfileId, List<EditNotificationPreferenceDto> editNotificationPreferenceDtos, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => UpdateNotificationPreferencesCore(userProfileId, editNotificationPreferenceDtos, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> UpdateNotificationPreferencesCore(Guid userProfileId, List<EditNotificationPreferenceDto> editNotificationPreferenceDtos, CancellationToken cancellationToken)
         {
+            if (await context.UserProfiles.AnyAsync(up => up.UserProfileId == userProfileId && up.ArchivedAtUtc != null, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult(HttpStatusCode.NotFound);
+            }
+
             var existingPreferences = await context.NotificationPreferences
                 .Where(np => np.UserProfileId == userProfileId)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);

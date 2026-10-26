@@ -465,6 +465,8 @@ public partial class PortalDbContext : DbContext
         modelBuilder.Entity<UserProfile>(entity =>
         {
             entity.Property(e => e.UserProfileId).HasDefaultValueSql("newsequentialid()");
+
+            entity.HasOne(d => d.ArchivedByUserProfile).WithMany(p => p.InverseArchivedByUserProfile).HasConstraintName("FK_UserProfiles_ArchivedByUserProfileId");
         });
 
         modelBuilder.Entity<UserProfileClaim>(entity =>

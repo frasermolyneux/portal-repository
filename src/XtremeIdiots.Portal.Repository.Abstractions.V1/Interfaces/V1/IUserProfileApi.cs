@@ -7,6 +7,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IUserProfileApi
     {
+        Task<ApiResult> ArchiveUserProfile(ArchiveUserProfileDto archiveUserProfileDto, CancellationToken cancellationToken = default);
+        Task<ApiResult<UserProfileDto>> GetUserProfileIncludingArchived(Guid userProfileId, CancellationToken cancellationToken = default);
         Task<ApiResult<UserProfileDto>> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default);
         Task<ApiResult<UserProfileDto>> GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken = default);
         Task<ApiResult<UserProfileDto>> GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken = default);

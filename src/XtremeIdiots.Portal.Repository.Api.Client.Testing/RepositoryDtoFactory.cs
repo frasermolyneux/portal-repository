@@ -312,7 +312,10 @@ public static class RepositoryDtoFactory
         string? demoAuthKey = null,
         string? displayName = "TestUser",
         string? email = null,
-        List<UserProfileClaimDto>? claims = null)
+        List<UserProfileClaimDto>? claims = null,
+        DateTime? archivedAtUtc = null,
+        Guid? archivedByUserProfileId = null,
+        string? archiveReason = null)
     {
         return new UserProfileDto
         {
@@ -322,7 +325,10 @@ public static class RepositoryDtoFactory
             DemoAuthKey = demoAuthKey,
             DisplayName = displayName,
             Email = email,
-            UserProfileClaims = claims ?? []
+            UserProfileClaims = claims ?? [],
+            ArchivedAtUtc = archivedAtUtc,
+            ArchivedByUserProfileId = archivedByUserProfileId,
+            ArchiveReason = archiveReason
         };
     }
 
