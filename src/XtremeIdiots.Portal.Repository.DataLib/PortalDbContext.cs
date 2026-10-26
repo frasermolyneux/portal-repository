@@ -79,6 +79,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<UserProfileClaim> UserProfileClaims { get; set; }
 
+    public virtual DbSet<UserProfileLifecycleOperation> UserProfileLifecycleOperations { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AdminAction>(entity =>
@@ -476,6 +478,11 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.UserProfile).WithMany(p => p.UserProfileClaims)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.UserProfileClaims_dbo.UserProfiles_Id");
+        });
+
+        modelBuilder.Entity<UserProfileLifecycleOperation>(entity =>
+        {
+            entity.Property(e => e.OperationId).ValueGeneratedNever();
         });
 
         OnModelCreatingPartial(modelBuilder);

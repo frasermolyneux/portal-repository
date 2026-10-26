@@ -158,5 +158,12 @@ writes across API hosts, preventing stale claim replacement, relinking or tag
 projection from racing archival. Read-only and unrelated historical operations
 are not globally serialized. Database metadata records the archive audit;
 the portal owns human authorization, upstream verification and human audit events.
+Each lifecycle invocation also commits a `UserProfileLifecycleOperations` marker
+atomically with its mutations. SQL execution-strategy retries verify this marker
+after ambiguous commit failures instead of replaying already-committed work,
+preserving the original archive 200 and preventing duplicate notification inserts.
+Markers older than seven days are removed by subsequent lifecycle writes; this is
+bounded retry bookkeeping, not historical audit retention. Unlink audit events
+are emitted only after the transaction commits or its commit is verified.
 Deploy/publish this backend and its client contracts before updating portal-web
 and portal-sync consumers. Feature deployment does not archive any live rows.

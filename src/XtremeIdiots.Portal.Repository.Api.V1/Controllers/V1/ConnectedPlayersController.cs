@@ -913,13 +913,26 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return response.ToHttpResult();
         }
 
-        Task<ApiResult> IConnectedPlayersApi.ForceUnlinkConnectedPlayer(
+        async Task<ApiResult> IConnectedPlayersApi.ForceUnlinkConnectedPlayer(
             Guid connectedPlayerProfileId,
             ForceUnlinkConnectedPlayerDto dto,
             CancellationToken cancellationToken)
-            => UserProfileLifecycle.ExecuteAsync(context, () => ForceUnlinkConnectedPlayerCore(connectedPlayerProfileId, dto, cancellationToken), cancellationToken);
+        {
+            var (result, unlinkedPlayerId) = await UserProfileLifecycle.ExecuteAsync(
+                context, () => ForceUnlinkConnectedPlayerCore(connectedPlayerProfileId, dto, cancellationToken), cancellationToken).ConfigureAwait(false);
+            if (unlinkedPlayerId.HasValue)
+            {
+                var unlinkActorId = dto.UnlinkedByUserProfileId?.ToString() ?? "ServiceAccount";
+                auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerForceUnlinked", AuditAction.Delete)
+                    .WithActor(unlinkActorId, "ConnectedPlayersController")
+                    .WithTarget(unlinkedPlayerId.Value.ToString(), "Player")
+                    .WithSource("ConnectedPlayersController")
+                    .Build());
+            }
+            return result;
+        }
 
-        private async Task<ApiResult> ForceUnlinkConnectedPlayerCore(
+        private async Task<(ApiResult Result, Guid? UnlinkedPlayerId)> ForceUnlinkConnectedPlayerCore(
             Guid connectedPlayerProfileId,
             ForceUnlinkConnectedPlayerDto dto,
             CancellationToken cancellationToken)
@@ -934,8 +947,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
                 if (!unlinkedByUserProfileExists)
                 {
-                    return new ApiResult(HttpStatusCode.BadRequest,
-                        new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage)));
+                    return (new ApiResult(HttpStatusCode.BadRequest,
+                        new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage))), null);
                 }
             }
 
@@ -945,13 +958,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             if (link == null)
             {
-                return new ApiResult(HttpStatusCode.NotFound,
-                    new ApiResponse(new ApiError(ApiErrorCodes.ConnectedPlayerNotFound, ApiErrorMessages.ConnectedPlayerNotFoundMessage)));
+                return (new ApiResult(HttpStatusCode.NotFound,
+                    new ApiResponse(new ApiError(ApiErrorCodes.ConnectedPlayerNotFound, ApiErrorMessages.ConnectedPlayerNotFoundMessage))), null);
             }
 
             if (!link.IsActive)
             {
-                return new ApiResponse().ToApiResult();
+                return (new ApiResponse().ToApiResult(), null);
             }
 
             link.IsActive = false;
@@ -962,14 +975,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             await ReconcileConnectedPlayerTagForPlayer(link.PlayerId, cancellationToken).ConfigureAwait(false);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            var unlinkActorId = dto.UnlinkedByUserProfileId?.ToString() ?? "ServiceAccount";
-            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerForceUnlinked", AuditAction.Delete)
-                .WithActor(unlinkActorId, "ConnectedPlayersController")
-                .WithTarget(link.PlayerId.ToString(), "Player")
-                .WithSource("ConnectedPlayersController")
-                .Build());
-
-            return new ApiResponse().ToApiResult();
+            return (new ApiResponse().ToApiResult(), link.PlayerId);
         }
 
         private static string GenerateActivationCode()

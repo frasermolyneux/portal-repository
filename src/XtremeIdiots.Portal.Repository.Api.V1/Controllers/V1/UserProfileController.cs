@@ -506,8 +506,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private async Task<ApiResult> CreateUserProfilesCore(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken)
         {
-            if (createUserProfileDtos.Where(dto => dto.IdentityOid != null).GroupBy(dto => dto.IdentityOid, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1) ||
-                createUserProfileDtos.Where(dto => dto.XtremeIdiotsForumId != null).GroupBy(dto => dto.XtremeIdiotsForumId, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+            if (UserProfileIdentifierComparison.HasDuplicates(createUserProfileDtos.Select(dto => dto.IdentityOid)) ||
+                UserProfileIdentifierComparison.HasDuplicates(createUserProfileDtos.Select(dto => dto.XtremeIdiotsForumId)))
             {
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
             }
@@ -607,8 +607,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private async Task<ApiResult> UpdateUserProfilesCore(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken)
         {
-            if (editUserProfileDtos.Where(dto => dto.IdentityOid != null).GroupBy(dto => dto.IdentityOid, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1) ||
-                editUserProfileDtos.Where(dto => dto.XtremeIdiotsForumId != null).GroupBy(dto => dto.XtremeIdiotsForumId, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+            if (UserProfileIdentifierComparison.HasDuplicates(editUserProfileDtos.Select(dto => dto.IdentityOid)) ||
+                UserProfileIdentifierComparison.HasDuplicates(editUserProfileDtos.Select(dto => dto.XtremeIdiotsForumId)))
             {
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
             }

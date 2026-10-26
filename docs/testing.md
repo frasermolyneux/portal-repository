@@ -14,7 +14,10 @@ or archive a seeded active profile through the fake.
 `UserProfileArchivalConcurrencyTests` verifies both orderings of archival versus
 atomic claim replacement against real SQL Server. It uses an isolated LocalDB
 database on Windows or an ephemeral SQL Server 2022 Docker container elsewhere,
-and cleans up its database/container. The SQL tests share the `SqlServer` xUnit
+and cleans up its database/container. Commit-fault tests inject failures before
+commit and after a successful commit acknowledgement is lost, verifying original
+archive responses, single notification creation, post-commit unlink auditing and
+bounded retry-marker retention. The SQL tests share the `SqlServer` xUnit
 collection with the post-deployment tag test to limit concurrent containers.
 
 ```pwsh

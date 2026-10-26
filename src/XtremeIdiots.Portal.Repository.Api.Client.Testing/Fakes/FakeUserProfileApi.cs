@@ -192,16 +192,21 @@ public class FakeUserProfileApi : IUserProfileApi
     private bool IsArchived(Guid id) => _userProfiles.TryGetValue(id, out var profile) && profile.ArchivedAtUtc != null;
     private bool IsReserved(string? identity, string? forumId, Guid? except = null) =>
         _userProfiles.Values.Any(up => up.UserProfileId != except &&
-            ((identity != null && up.IdentityOid == identity) || (forumId != null && up.XtremeIdiotsForumId == forumId)));
+            (UserProfileIdentifierComparison.Equals(up.IdentityOid, identity) || UserProfileIdentifierComparison.Equals(up.XtremeIdiotsForumId, forumId)));
 
     public Task<ApiResult> CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken = default)
         => Result(IsReserved(createUserProfileDto.IdentityOid, createUserProfileDto.XtremeIdiotsForumId) ? HttpStatusCode.Conflict : HttpStatusCode.OK);
     public Task<ApiResult> CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken = default)
-        => Result(createUserProfileDtos.Any(dto => IsReserved(dto.IdentityOid, dto.XtremeIdiotsForumId)) ? HttpStatusCode.Conflict : HttpStatusCode.OK);
+        => Result(UserProfileIdentifierComparison.HasDuplicates(createUserProfileDtos.Select(dto => dto.IdentityOid)) ||
+            UserProfileIdentifierComparison.HasDuplicates(createUserProfileDtos.Select(dto => dto.XtremeIdiotsForumId)) ||
+            createUserProfileDtos.Any(dto => IsReserved(dto.IdentityOid, dto.XtremeIdiotsForumId)) ? HttpStatusCode.Conflict : HttpStatusCode.OK);
     public Task<ApiResult> UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken = default)
         => Result(IsArchived(editUserProfileDto.UserProfileId) ? HttpStatusCode.NotFound : IsReserved(editUserProfileDto.IdentityOid, editUserProfileDto.XtremeIdiotsForumId, editUserProfileDto.UserProfileId) ? HttpStatusCode.Conflict : HttpStatusCode.OK);
     public Task<ApiResult> UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken = default)
-        => Result(editUserProfileDtos.Any(dto => IsArchived(dto.UserProfileId)) ? HttpStatusCode.NotFound : editUserProfileDtos.Any(dto => IsReserved(dto.IdentityOid, dto.XtremeIdiotsForumId, dto.UserProfileId)) ? HttpStatusCode.Conflict : HttpStatusCode.OK);
+        => Result(UserProfileIdentifierComparison.HasDuplicates(editUserProfileDtos.Select(dto => dto.IdentityOid)) ||
+            UserProfileIdentifierComparison.HasDuplicates(editUserProfileDtos.Select(dto => dto.XtremeIdiotsForumId)) ? HttpStatusCode.Conflict :
+            editUserProfileDtos.Any(dto => IsArchived(dto.UserProfileId)) ? HttpStatusCode.NotFound :
+            editUserProfileDtos.Any(dto => IsReserved(dto.IdentityOid, dto.XtremeIdiotsForumId, dto.UserProfileId)) ? HttpStatusCode.Conflict : HttpStatusCode.OK);
     public Task<ApiResult> CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default)
         => Result(IsArchived(userProfileId) ? HttpStatusCode.NotFound : HttpStatusCode.OK);
     public Task<ApiResult> SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDto, CancellationToken cancellationToken = default)

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using MX.Api.Client;
 using MX.Api.Client.Auth;
+using MX.Api.Client.Configuration;
 
 using RestSharp;
 
@@ -19,7 +20,8 @@ public class UserProfileApiQuerySerializationTests
     public async Task ArchiveAndHistoryRead_UseExpectedRoutesBodyAndCancellation()
     {
         var rest = new CapturingRestClientService();
-        var api = new UserProfileApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance, new FakeTokenProvider(), rest, CreateOptions());
+        var tokenProvider = new FakeTokenProvider();
+        var api = new UserProfileApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance, tokenProvider, rest, CreateOptions());
         var dto = new ArchiveUserProfileDto(Guid.NewGuid(), Guid.NewGuid(), "Upstream 404");
         using var cancellation = new CancellationTokenSource();
         var result = await api.ArchiveUserProfile(dto, cancellation.Token);
@@ -34,6 +36,38 @@ public class UserProfileApiQuerySerializationTests
         Assert.Equal(cancellation.Token, rest.LastCancellationToken);
         rest.ResponseStatus = HttpStatusCode.NoContent;
         Assert.Equal(HttpStatusCode.NoContent, (await api.ArchiveUserProfile(dto)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ArchiveAndHistoryRead_CancelDuringTokenAcquisition(bool archive)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var tokenProvider = new FakeTokenProvider
+        {
+            OnRequest = token =>
+            {
+                cancellation.Cancel();
+                Assert.True(token.IsCancellationRequested);
+                token.ThrowIfCancellationRequested();
+            }
+        };
+        var options = CreateOptions();
+        options.AuthenticationOptions = [new AzureCredentialAuthenticationOptions { ApiAudience = "api://test" }];
+        var api = new UserProfileApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            tokenProvider, new CapturingRestClientService(), options);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            if (archive)
+            {
+                await api.ArchiveUserProfile(new(Guid.NewGuid(), Guid.NewGuid(), "Reason"), cancellation.Token);
+            }
+            else
+            {
+                await api.GetUserProfileIncludingArchived(Guid.NewGuid(), cancellation.Token);
+            }
+        });
     }
 
     [Fact]
@@ -133,8 +167,11 @@ public class UserProfileApiQuerySerializationTests
 
     private sealed class FakeTokenProvider : IApiTokenProvider
     {
+        public Action<CancellationToken>? OnRequest { get; init; }
+
         public Task<string> GetAccessTokenAsync(string audience, CancellationToken cancellationToken = default)
         {
+            OnRequest?.Invoke(cancellationToken);
             if (string.IsNullOrWhiteSpace(audience))
             {
                 throw new AuthenticationException("Invalid audience");

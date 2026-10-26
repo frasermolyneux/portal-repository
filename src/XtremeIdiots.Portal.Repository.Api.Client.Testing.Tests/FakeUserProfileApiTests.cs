@@ -9,6 +9,37 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 public class FakeUserProfileApiTests
 {
     [Fact]
+    public void Factory_PreservesSevenParameterBinarySignature()
+    {
+        var method = typeof(RepositoryDtoFactory).GetMethod(nameof(RepositoryDtoFactory.CreateUserProfile),
+            [typeof(Guid?), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(List<UserProfileClaimDto>)]);
+        Assert.NotNull(method);
+        var id = Guid.NewGuid();
+        var profile = Assert.IsType<UserProfileDto>(method.Invoke(null, [id, "identity", "forum", null, "Display", null, null]));
+        Assert.Equal(id, profile.UserProfileId);
+        Assert.Equal("Display", profile.DisplayName);
+        Assert.Null(profile.ArchivedAtUtc);
+    }
+
+    [Fact]
+    public async Task ReservedIdentifiersAndBatches_MatchSqlCaseAndTrailingSpaceEquality()
+    {
+        var archived = RepositoryDtoFactory.CreateUserProfile(identityOid: "identity", xtremeIdiotsForumId: "42", archivedAtUtc: DateTime.UtcNow);
+        var active = RepositoryDtoFactory.CreateUserProfile();
+        var fake = new FakeUserProfileApi().AddUserProfile(archived).AddUserProfile(active);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfile(new("other", "Name", "email") { IdentityOid = "IDENTITY " })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfile(new("42 ", "Name", "email"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.UpdateUserProfile(new(active.UserProfileId) { IdentityOid = "IDENTITY " })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfiles([new("50", "Name", "email"), new("50 ", "Name", "email")])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfiles(
+            [new("51", "Name", "email") { IdentityOid = "new" }, new("52", "Name", "email") { IdentityOid = "NEW " }])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.UpdateUserProfiles(
+            [new(archived.UserProfileId) { IdentityOid = "new" }, new(active.UserProfileId) { IdentityOid = "NEW " }])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.UpdateUserProfiles(
+            [new(archived.UserProfileId) { XtremeIdiotsForumId = "50" }, new(active.UserProfileId) { XtremeIdiotsForumId = "50 " }])).StatusCode);
+    }
+
+    [Fact]
     public async Task Archive_IsIdempotentExcludesDefaultsAndPreservesReservedIdentifiers()
     {
         var actor = RepositoryDtoFactory.CreateUserProfile();

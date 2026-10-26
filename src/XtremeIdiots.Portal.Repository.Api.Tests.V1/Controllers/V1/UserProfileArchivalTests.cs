@@ -18,6 +18,28 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public class UserProfileArchivalTests
 {
     [Fact]
+    public async Task ProfileBatches_RejectSqlEquivalentIdentifiersBeforeApplyingChanges()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var first = new UserProfile { IdentityOid = "first", XtremeIdiotsForumId = "one" };
+        var second = new UserProfile { IdentityOid = "second", XtremeIdiotsForumId = "two" };
+        context.AddRange(first, second);
+        await context.SaveChangesAsync();
+        IUserProfileApi api = new UserProfileController(context);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.CreateUserProfiles(
+            [new("42", "Name", "email"), new("42 ", "Name", "email")])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.CreateUserProfiles(
+            [new("43", "Name", "email") { IdentityOid = "identity" }, new("44", "Name", "email") { IdentityOid = "IDENTITY " }])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.UpdateUserProfiles(
+            [new(first.UserProfileId) { IdentityOid = "new" }, new(second.UserProfileId) { IdentityOid = "NEW " }])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.UpdateUserProfiles(
+            [new(first.UserProfileId) { XtremeIdiotsForumId = "42" }, new(second.UserProfileId) { XtremeIdiotsForumId = "42 " }])).StatusCode);
+        Assert.Equal(2, await context.UserProfiles.CountAsync());
+        Assert.Equal("first", (await api.GetUserProfile(first.UserProfileId)).Result!.Data!.IdentityOid);
+        Assert.Equal("two", (await api.GetUserProfile(second.UserProfileId)).Result!.Data!.XtremeIdiotsForumId);
+    }
+
+    [Fact]
     public async Task Archive_PreservesMetadataAndHistoryAndRevokesCapabilities()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

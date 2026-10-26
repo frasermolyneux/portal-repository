@@ -306,6 +306,16 @@ public static class RepositoryDtoFactory
     }
 
     public static UserProfileDto CreateUserProfile(
+        Guid? userProfileId,
+        string? identityOid,
+        string? xtremeIdiotsForumId,
+        string? demoAuthKey,
+        string? displayName,
+        string? email,
+        List<UserProfileClaimDto>? claims)
+        => CreateUserProfile(userProfileId, identityOid, xtremeIdiotsForumId, demoAuthKey, displayName, email, claims, null, null, null);
+
+    public static UserProfileDto CreateUserProfile(
         Guid? userProfileId = null,
         string? identityOid = null,
         string? xtremeIdiotsForumId = null,
