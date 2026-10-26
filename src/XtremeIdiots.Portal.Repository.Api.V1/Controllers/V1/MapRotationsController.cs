@@ -607,7 +607,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var mapRotation = await context.MapRotations
-                .AsNoTracking()
                 .FirstOrDefaultAsync(mr => mr.MapRotationId == createDto.MapRotationId, cancellationToken).ConfigureAwait(false);
 
             if (mapRotation == null)
@@ -689,6 +688,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     UpdatedAt = DateTime.UtcNow
                 });
             }
+            PublishAssignedRotation(mapRotation);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             var created = await context.MapRotationServerAssignments
@@ -815,11 +815,27 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 entity.UnassignedAt = attempt.RemovedAt;
             }
+            if (effectiveDeploymentState is not (DeploymentState.Removed or DeploymentState.Removing)
+                && (updateDto.ConfigFilePath != null || updateDto.ConfigVariableName != null
+                    || updateDto.AacpEnabled.HasValue || updateDto.AacpConfigFilePath != null
+                    || updateDto.PlayerCountMin.HasValue || updateDto.PlayerCountMax.HasValue))
+            {
+                PublishAssignedRotation(entity.MapRotation);
+            }
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             attempt.Unassigned = effectiveDeploymentState == DeploymentState.Removed && !wasRemoved;
             attempt.SavedUpdatedAt = entity.UpdatedAt;
             attempt.Applied = true;
             return new ApiResponse().ToApiResult();
+        }
+
+        private static void PublishAssignedRotation(MapRotation rotation)
+        {
+            if (rotation.Status is (int)MapRotationStatus.Draft or (int)MapRotationStatus.Testing)
+            {
+                rotation.Status = (int)MapRotationStatus.Published;
+                rotation.UpdatedAt = DateTime.UtcNow;
+            }
         }
 
         private async Task<ApiResult?> UpdateAacpConfiguration(MapRotationServerAssignment owner,
