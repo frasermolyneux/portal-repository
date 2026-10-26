@@ -39,6 +39,15 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles
         public string? TimeZone { get; internal set; }
 
         [JsonProperty]
+        public DateTime? ArchivedAtUtc { get; internal set; }
+
+        [JsonProperty]
+        public Guid? ArchivedByUserProfileId { get; internal set; }
+
+        [JsonProperty]
+        public string? ArchiveReason { get; internal set; }
+
+        [JsonProperty]
         public List<UserProfileClaimDto> UserProfileClaims { get; set; } = [];
 
         [JsonIgnore]

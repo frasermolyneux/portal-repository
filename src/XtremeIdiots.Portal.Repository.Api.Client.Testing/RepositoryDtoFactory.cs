@@ -306,13 +306,26 @@ public static class RepositoryDtoFactory
     }
 
     public static UserProfileDto CreateUserProfile(
+        Guid? userProfileId,
+        string? identityOid,
+        string? xtremeIdiotsForumId,
+        string? demoAuthKey,
+        string? displayName,
+        string? email,
+        List<UserProfileClaimDto>? claims)
+        => CreateUserProfile(userProfileId, identityOid, xtremeIdiotsForumId, demoAuthKey, displayName, email, claims, null, null, null);
+
+    public static UserProfileDto CreateUserProfile(
         Guid? userProfileId = null,
         string? identityOid = null,
         string? xtremeIdiotsForumId = null,
         string? demoAuthKey = null,
         string? displayName = "TestUser",
         string? email = null,
-        List<UserProfileClaimDto>? claims = null)
+        List<UserProfileClaimDto>? claims = null,
+        DateTime? archivedAtUtc = null,
+        Guid? archivedByUserProfileId = null,
+        string? archiveReason = null)
     {
         return new UserProfileDto
         {
@@ -322,7 +335,10 @@ public static class RepositoryDtoFactory
             DemoAuthKey = demoAuthKey,
             DisplayName = displayName,
             Email = email,
-            UserProfileClaims = claims ?? []
+            UserProfileClaims = claims ?? [],
+            ArchivedAtUtc = archivedAtUtc,
+            ArchivedByUserProfileId = archivedByUserProfileId,
+            ArchiveReason = archiveReason
         };
     }
 

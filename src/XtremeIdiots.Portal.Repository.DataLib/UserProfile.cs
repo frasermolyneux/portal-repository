@@ -42,8 +42,20 @@ public partial class UserProfile
     [StringLength(50)]
     public string? TimeZone { get; set; }
 
+    [Precision(3)]
+    public DateTime? ArchivedAtUtc { get; set; }
+
+    public Guid? ArchivedByUserProfileId { get; set; }
+
+    [StringLength(500)]
+    public string? ArchiveReason { get; set; }
+
     [InverseProperty("UserProfile")]
     public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
+
+    [ForeignKey("ArchivedByUserProfileId")]
+    [InverseProperty("InverseArchivedByUserProfile")]
+    public virtual UserProfile? ArchivedByUserProfile { get; set; }
 
     [InverseProperty("UserProfile")]
     public virtual ConnectedPlayerActivationCode? ConnectedPlayerActivationCode { get; set; }
@@ -59,6 +71,9 @@ public partial class UserProfile
 
     [InverseProperty("UserProfile")]
     public virtual ICollection<Demo> Demos { get; set; } = new List<Demo>();
+
+    [InverseProperty("ArchivedByUserProfile")]
+    public virtual ICollection<UserProfile> InverseArchivedByUserProfile { get; set; } = new List<UserProfile>();
 
     [InverseProperty("CreatedByUser")]
     public virtual ICollection<MapRotation> MapRotationCreatedByUsers { get; set; } = new List<MapRotation>();

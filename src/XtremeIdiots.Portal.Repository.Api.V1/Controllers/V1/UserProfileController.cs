@@ -15,6 +15,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -25,12 +26,116 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     public class UserProfileController : ControllerBase, IUserProfileApi
     {
         private readonly PortalDbContext context;
+        private static readonly string[] ConnectedPlayerTagNames =
+            ["verified-player", "senior-admin", "head-admin", "game-admin", "moderator", "clan-member"];
 
         public UserProfileController(
             PortalDbContext context)
         {
             ArgumentNullException.ThrowIfNull(context);
             this.context = context;
+        }
+
+        [HttpGet("user-profile/{userProfileId:guid}/including-archived")]
+        [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetUserProfileIncludingArchived(Guid userProfileId, CancellationToken cancellationToken = default)
+        {
+            var response = await ((IUserProfileApi)this).GetUserProfileIncludingArchived(userProfileId, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileIncludingArchived(Guid userProfileId, CancellationToken cancellationToken)
+        {
+            var profile = await context.UserProfiles.Include(up => up.UserProfileClaims).AsNoTracking()
+                .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
+            return profile == null
+                ? new ApiResult<UserProfileDto>(HttpStatusCode.NotFound)
+                : new ApiResponse<UserProfileDto>(profile.ToDto()).ToApiResult();
+        }
+
+        [HttpPost("user-profile/{userProfileId:guid}/archive")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> ArchiveUserProfile(Guid userProfileId, [FromBody] ArchiveUserProfileDto archiveUserProfileDto, CancellationToken cancellationToken = default)
+        {
+            if (userProfileId != archiveUserProfileDto.UserProfileId)
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityIdMismatch, ApiErrorMessages.UserProfileIdMismatchMessage))
+                    .ToBadRequestResult().ToHttpResult();
+            }
+
+            var response = await ((IUserProfileApi)this).ArchiveUserProfile(archiveUserProfileDto, cancellationToken).ConfigureAwait(false);
+            return response.ToHttpResult();
+        }
+
+        Task<ApiResult> IUserProfileApi.ArchiveUserProfile(ArchiveUserProfileDto dto, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => ArchiveUserProfileCore(dto, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> ArchiveUserProfileCore(ArchiveUserProfileDto dto, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Reason) || dto.Reason.Length > 500)
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "Archive reason must contain 1 to 500 nonblank characters.")).ToBadRequestResult();
+            }
+
+            if (dto.UserProfileId == dto.ArchivedByUserProfileId)
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, "A profile cannot archive itself.")).ToConflictResult();
+            }
+
+            if (!await context.UserProfiles.AnyAsync(up => up.UserProfileId == dto.ArchivedByUserProfileId && up.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityNotFound, "The archiving actor must be an active user profile.")).ToBadRequestResult();
+            }
+
+            var profile = await context.UserProfiles.FirstOrDefaultAsync(up => up.UserProfileId == dto.UserProfileId, cancellationToken).ConfigureAwait(false);
+            if (profile == null)
+            {
+                return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (profile.ArchivedAtUtc != null)
+            {
+                return new ApiResult(HttpStatusCode.NoContent);
+            }
+
+            var now = DateTime.UtcNow;
+            profile.ArchivedAtUtc = now;
+            profile.ArchivedByUserProfileId = dto.ArchivedByUserProfileId;
+            profile.ArchiveReason = dto.Reason.Trim();
+            profile.DemoAuthKey = null;
+
+            var codes = await context.ConnectedPlayerActivationCodes
+                .Where(code => code.UserProfileId == dto.UserProfileId && code.IsActive)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var code in codes)
+            {
+                code.IsActive = false;
+                code.InvalidatedAtUtc = now;
+            }
+
+            var links = await context.ConnectedPlayerProfiles
+                .Where(link => link.UserProfileId == dto.UserProfileId && link.IsActive)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var link in links)
+            {
+                link.IsActive = false;
+                link.UnlinkedAtUtc = now;
+                link.UnlinkedByUserProfileId = dto.ArchivedByUserProfileId;
+            }
+
+            var playerIds = links.Select(link => link.PlayerId).ToList();
+            var projectedTags = await context.PlayerTags
+                .Where(tag => tag.PlayerId != null && playerIds.Contains(tag.PlayerId.Value) && tag.Tag != null && ConnectedPlayerTagNames.Contains(tag.Tag.Name.ToLower()))
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            context.PlayerTags.RemoveRange(projectedTags);
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return new ApiResponse().ToApiResult();
         }
 
         /// <summary>
@@ -57,6 +162,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfile(Guid userProfileId, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
@@ -94,6 +200,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileByIdentityId(string identityId, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.IdentityOid == identityId, cancellationToken).ConfigureAwait(false);
@@ -131,6 +238,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileByXtremeIdiotsId(string xtremeIdiotsId, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.XtremeIdiotsForumId == xtremeIdiotsId, cancellationToken).ConfigureAwait(false);
@@ -168,6 +276,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<UserProfileDto>> IUserProfileApi.GetUserProfileByDemoAuthKey(string demoAuthKey, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.DemoAuthKey == demoAuthKey, cancellationToken).ConfigureAwait(false);
@@ -227,6 +336,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<CollectionModel<UserProfileDto>>> IUserProfileApi.GetUserProfiles(string? filterString, UserProfileFilter? filter, GameType? gameType, int skipEntries, int takeEntries, UserProfilesOrder? order, CancellationToken cancellationToken)
         {
             var baseQuery = context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
                 .AsQueryable();
@@ -352,9 +462,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="createUserProfileDto">The user profile data to create.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the user profile was created.</returns>
-        async Task<ApiResult> IUserProfileApi.CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.CreateUserProfile(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => CreateUserProfileCore(createUserProfileDto, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> CreateUserProfileCore(CreateUserProfileDto createUserProfileDto, CancellationToken cancellationToken)
         {
-            if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken).ConfigureAwait(false))
+            if (await HasReservedIdentity(createUserProfileDto.IdentityOid, createUserProfileDto.XtremeIdiotsForumId, null, cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
             }
@@ -388,11 +501,20 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="createUserProfileDtos">The user profile data to create.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the user profiles were created.</returns>
-        async Task<ApiResult> IUserProfileApi.CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.CreateUserProfiles(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => CreateUserProfilesCore(createUserProfileDtos, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> CreateUserProfilesCore(List<CreateUserProfileDto> createUserProfileDtos, CancellationToken cancellationToken)
         {
+            if (UserProfileIdentifierComparison.HasDuplicates(createUserProfileDtos.Select(dto => dto.IdentityOid)) ||
+                UserProfileIdentifierComparison.HasDuplicates(createUserProfileDtos.Select(dto => dto.XtremeIdiotsForumId)))
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
+            }
+
             foreach (var createUserProfileDto in createUserProfileDtos)
             {
-                if (await context.UserProfiles.AsNoTracking().AnyAsync(up => up.IdentityOid == createUserProfileDto.IdentityOid, cancellationToken).ConfigureAwait(false))
+                if (await HasReservedIdentity(createUserProfileDto.IdentityOid, createUserProfileDto.XtremeIdiotsForumId, null, cancellationToken).ConfigureAwait(false))
                 {
                     return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
                 }
@@ -433,14 +555,23 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="editUserProfileDto">The user profile data to update.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the user profile was updated if successful; otherwise, a 404 Not Found response.</returns>
-        async Task<ApiResult> IUserProfileApi.UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.UpdateUserProfile(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => UpdateUserProfileCore(editUserProfileDto, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> UpdateUserProfileCore(EditUserProfileDto editUserProfileDto, CancellationToken cancellationToken)
         {
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken).ConfigureAwait(false);
 
             if (userProfile == null)
             {
                 return new ApiResult(HttpStatusCode.NotFound);
+            }
+
+            if (await HasReservedIdentity(editUserProfileDto.IdentityOid, editUserProfileDto.XtremeIdiotsForumId, editUserProfileDto.UserProfileId, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
             }
 
             editUserProfileDto.ApplyTo(userProfile);
@@ -471,16 +602,31 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="editUserProfileDtos">The user profile data to update.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the user profiles were updated if successful; otherwise, a 404 Not Found response.</returns>
-        async Task<ApiResult> IUserProfileApi.UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.UpdateUserProfiles(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => UpdateUserProfilesCore(editUserProfileDtos, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> UpdateUserProfilesCore(List<EditUserProfileDto> editUserProfileDtos, CancellationToken cancellationToken)
         {
+            if (UserProfileIdentifierComparison.HasDuplicates(editUserProfileDtos.Select(dto => dto.IdentityOid)) ||
+                UserProfileIdentifierComparison.HasDuplicates(editUserProfileDtos.Select(dto => dto.XtremeIdiotsForumId)))
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
+            }
+
             foreach (var editUserProfileDto in editUserProfileDtos)
             {
                 var userProfile = await context.UserProfiles
+                    .Where(up => up.ArchivedAtUtc == null)
                     .FirstOrDefaultAsync(up => up.UserProfileId == editUserProfileDto.UserProfileId, cancellationToken).ConfigureAwait(false);
 
                 if (userProfile == null)
                 {
                     return new ApiResult(HttpStatusCode.NotFound);
+                }
+
+                if (await HasReservedIdentity(editUserProfileDto.IdentityOid, editUserProfileDto.XtremeIdiotsForumId, editUserProfileDto.UserProfileId, cancellationToken).ConfigureAwait(false))
+                {
+                    return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.UserProfileConflictMessage)).ToConflictResult();
                 }
 
                 editUserProfileDto.ApplyTo(userProfile);
@@ -533,7 +679,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="createUserProfileClaimDtos">The claim data to create.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the claims were created if successful; otherwise, a 404 Not Found response.</returns>
-        async Task<ApiResult> IUserProfileApi.CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.CreateUserProfileClaim(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => CreateUserProfileClaimCore(userProfileId, createUserProfileClaimDtos, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> CreateUserProfileClaimCore(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
         {
             var validationError = ValidateClaimPermissions(createUserProfileClaimDtos);
             if (validationError != null)
@@ -542,6 +691,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
@@ -613,7 +763,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="createUserProfileClaimDtos">The claim data to set.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the claims were set if successful; otherwise, a 404 Not Found response.</returns>
-        async Task<ApiResult> IUserProfileApi.SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.SetUserProfileClaims(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => SetUserProfileClaimsCore(userProfileId, createUserProfileClaimDtos, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> SetUserProfileClaimsCore(Guid userProfileId, List<CreateUserProfileClaimDto> createUserProfileClaimDtos, CancellationToken cancellationToken)
         {
             var validationError = ValidateClaimPermissions(createUserProfileClaimDtos);
             if (validationError != null)
@@ -622,6 +775,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var userProfile = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .Include(up => up.UserProfileClaims)
                 .FirstOrDefaultAsync(up => up.UserProfileId == userProfileId, cancellationToken).ConfigureAwait(false);
 
@@ -668,9 +822,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="userProfileClaimId">The unique identifier of the user profile claim to delete.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the claim was deleted if successful; otherwise, a 404 Not Found response.</returns>
-        async Task<ApiResult> IUserProfileApi.DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken)
+        Task<ApiResult> IUserProfileApi.DeleteUserProfileClaim(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => DeleteUserProfileClaimCore(userProfileId, userProfileClaimId, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> DeleteUserProfileClaimCore(Guid userProfileId, Guid userProfileClaimId, CancellationToken cancellationToken)
         {
             var userProfileClaim = await context.UserProfileClaims
+                .Where(upc => upc.UserProfile.ArchivedAtUtc == null)
                 .FirstOrDefaultAsync(upc => upc.UserProfileId == userProfileId && upc.UserProfileClaimId == userProfileClaimId, cancellationToken).ConfigureAwait(false);
 
             if (userProfileClaim == null)
@@ -719,7 +877,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var query = context.UserProfileClaims
                 .Include(c => c.UserProfile)
                 .AsNoTracking()
-                .Where(c => !c.SystemGenerated);
+                .Where(c => !c.SystemGenerated && c.UserProfile.ArchivedAtUtc == null);
 
             if (!string.IsNullOrWhiteSpace(claimType))
             {
@@ -754,6 +912,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <summary>
         /// Validates that non-system-generated claims have allowed claim types and valid claim values.
         /// </summary>
+        private Task<bool> HasReservedIdentity(string? identityOid, string? forumId, Guid? excludingId, CancellationToken cancellationToken)
+            => context.UserProfiles.AsNoTracking().AnyAsync(up =>
+                (!excludingId.HasValue || up.UserProfileId != excludingId.Value) &&
+                ((identityOid != null && up.IdentityOid == identityOid) ||
+                 (forumId != null && up.XtremeIdiotsForumId == forumId)), cancellationToken);
+
         private static ApiResult? ValidateClaimPermissions(List<CreateUserProfileClaimDto> claims)
         {
             foreach (var dto in claims)

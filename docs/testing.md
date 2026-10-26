@@ -1,5 +1,30 @@
 # Testing with the Repository API Client
 
+## Profile archival coverage
+
+`FakeUserProfileApi` supports `ArchiveUserProfile` and
+`GetUserProfileIncludingArchived`; default reads exclude archived profiles and
+archived identifiers remain reserved. Its archive operation returns 200 for the
+transition and 204 for a repeat, preserving the original metadata. Use
+`RepositoryDtoFactory.CreateUserProfile`'s optional `archivedAtUtc`,
+`archivedByUserProfileId` and `archiveReason` arguments to seed archived profiles,
+or archive a seeded active profile through the fake.
+
+`UserProfileArchivalTests` covers controller and HTTP behavior;
+`UserProfileArchivalConcurrencyTests` verifies both orderings of archival versus
+atomic claim replacement against real SQL Server. It uses an isolated LocalDB
+database on Windows or an ephemeral SQL Server 2022 Docker container elsewhere,
+and cleans up its database/container. Commit-fault tests inject failures before
+commit and after a successful commit acknowledgement is lost, verifying original
+archive responses, single notification creation, post-commit unlink auditing and
+bounded retry-marker retention. The SQL tests share the `SqlServer` xUnit
+collection with the post-deployment tag test to limit concurrent containers.
+
+```pwsh
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~UserProfileArchival"
+dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter "FullyQualifiedName~UserProfileArchival"
+```
+
 The `XtremeIdiots.Portal.Repository.Api.Client.Testing` NuGet package provides in-memory fakes and factory helpers so consumer apps can test against `IRepositoryApiClient` without Moq or any mocking framework.
 
 ## Installation

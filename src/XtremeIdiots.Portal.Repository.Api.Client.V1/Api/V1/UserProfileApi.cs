@@ -21,6 +21,21 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         {
         }
 
+        public async Task<ApiResult> ArchiveUserProfile(ArchiveUserProfileDto archiveUserProfileDto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profile/{archiveUserProfileDto.UserProfileId}/archive", Method.Post, cancellationToken).ConfigureAwait(false);
+            request.AddJsonBody(archiveUserProfileDto);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult();
+        }
+
+        public async Task<ApiResult<UserProfileDto>> GetUserProfileIncludingArchived(Guid userProfileId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}/including-archived", Method.Get, cancellationToken).ConfigureAwait(false);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult<UserProfileDto>();
+        }
+
         public async Task<ApiResult<UserProfileDto>> GetUserProfile(Guid userProfileId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/user-profile/{userProfileId}", Method.Get).ConfigureAwait(false);
@@ -176,5 +191,3 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         }
     }
 }
-
-

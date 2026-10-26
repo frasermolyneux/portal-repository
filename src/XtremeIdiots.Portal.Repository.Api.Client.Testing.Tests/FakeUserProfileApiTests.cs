@@ -1,5 +1,6 @@
 using System.Net;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
@@ -7,6 +8,69 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 [Trait("Category", "Unit")]
 public class FakeUserProfileApiTests
 {
+    [Fact]
+    public void Factory_PreservesSevenParameterBinarySignature()
+    {
+        var method = typeof(RepositoryDtoFactory).GetMethod(nameof(RepositoryDtoFactory.CreateUserProfile),
+            [typeof(Guid?), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(List<UserProfileClaimDto>)]);
+        Assert.NotNull(method);
+        var id = Guid.NewGuid();
+        var profile = Assert.IsType<UserProfileDto>(method.Invoke(null, [id, "identity", "forum", null, "Display", null, null]));
+        Assert.Equal(id, profile.UserProfileId);
+        Assert.Equal("Display", profile.DisplayName);
+        Assert.Null(profile.ArchivedAtUtc);
+    }
+
+    [Fact]
+    public async Task ReservedIdentifiersAndBatches_MatchSqlCaseAndTrailingSpaceEquality()
+    {
+        var archived = RepositoryDtoFactory.CreateUserProfile(identityOid: "identity", xtremeIdiotsForumId: "42", archivedAtUtc: DateTime.UtcNow);
+        var active = RepositoryDtoFactory.CreateUserProfile();
+        var fake = new FakeUserProfileApi().AddUserProfile(archived).AddUserProfile(active);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfile(new("other", "Name", "email") { IdentityOid = "IDENTITY " })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfile(new("42 ", "Name", "email"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.UpdateUserProfile(new(active.UserProfileId) { IdentityOid = "IDENTITY " })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfiles([new("50", "Name", "email"), new("50 ", "Name", "email")])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfiles(
+            [new("51", "Name", "email") { IdentityOid = "new" }, new("52", "Name", "email") { IdentityOid = "NEW " }])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.UpdateUserProfiles(
+            [new(archived.UserProfileId) { IdentityOid = "new" }, new(active.UserProfileId) { IdentityOid = "NEW " }])).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.UpdateUserProfiles(
+            [new(archived.UserProfileId) { XtremeIdiotsForumId = "50" }, new(active.UserProfileId) { XtremeIdiotsForumId = "50 " }])).StatusCode);
+    }
+
+    [Fact]
+    public async Task Archive_IsIdempotentExcludesDefaultsAndPreservesReservedIdentifiers()
+    {
+        var actor = RepositoryDtoFactory.CreateUserProfile();
+        var target = RepositoryDtoFactory.CreateUserProfile(identityOid: "identity", xtremeIdiotsForumId: "forum", demoAuthKey: "key",
+            claims: [RepositoryDtoFactory.CreateUserProfileClaim()]);
+        var fake = new FakeUserProfileApi().AddUserProfile(actor).AddUserProfile(target);
+        Assert.Equal(HttpStatusCode.BadRequest, (await fake.ArchiveUserProfile(new(target.UserProfileId, actor.UserProfileId, "  "))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.ArchiveUserProfile(new(actor.UserProfileId, actor.UserProfileId, "Self"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await fake.ArchiveUserProfile(new(target.UserProfileId, actor.UserProfileId, "Original"))).StatusCode);
+        var historical = (await fake.GetUserProfileIncludingArchived(target.UserProfileId)).Result!.Data!;
+        Assert.Equal(HttpStatusCode.NoContent, (await fake.ArchiveUserProfile(new(target.UserProfileId, actor.UserProfileId, "Changed"))).StatusCode);
+        Assert.Equal(historical, (await fake.GetUserProfileIncludingArchived(target.UserProfileId)).Result!.Data);
+        Assert.Single(historical.UserProfileClaims);
+        Assert.Null(historical.DemoAuthKey);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.GetUserProfile(target.UserProfileId)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.GetUserProfileByIdentityId("identity")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.GetUserProfileByXtremeIdiotsId("forum")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.GetUserProfileByDemoAuthKey("key")).StatusCode);
+        var profiles = await fake.GetUserProfiles(null, null, 0, 50, null);
+        Assert.Single(profiles.Result!.Data!.Items!);
+        Assert.Equal(1, profiles.Result.Pagination!.TotalCount);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfile(new("forum", "Name", "email"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await fake.CreateUserProfiles([new("other-forum", "Name", "email") { IdentityOid = "identity" }])).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.UpdateUserProfile(new(target.UserProfileId))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.UpdateUserProfiles([new(target.UserProfileId)])).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.CreateUserProfileClaim(target.UserProfileId, [])).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.SetUserProfileClaims(target.UserProfileId, [])).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await fake.DeleteUserProfileClaim(target.UserProfileId, Guid.NewGuid())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await fake.ArchiveUserProfile(new(actor.UserProfileId, target.UserProfileId, "Archived actor"))).StatusCode);
+    }
+
     [Fact]
     public async Task GetUserProfiles_WithModeratorsFilterAndGameType_ReturnsOnlyMatchingGameModerators()
     {

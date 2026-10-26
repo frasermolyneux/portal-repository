@@ -9,7 +9,11 @@
     [Email] NVARCHAR(128) NULL, 
     [PhotoUrl] NVARCHAR(MAX) NULL, 
     [ProfileUrl] NVARCHAR(MAX) NULL, 
-    [TimeZone] NVARCHAR(50) NULL 
+    [TimeZone] NVARCHAR(50) NULL,
+    [ArchivedAtUtc] DATETIME2(3) NULL,
+    [ArchivedByUserProfileId] UNIQUEIDENTIFIER NULL,
+    [ArchiveReason] NVARCHAR(500) NULL,
+    CONSTRAINT [FK_UserProfiles_ArchivedByUserProfileId] FOREIGN KEY ([ArchivedByUserProfileId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId])
 )
 
 GO

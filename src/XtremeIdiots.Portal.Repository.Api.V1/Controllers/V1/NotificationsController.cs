@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Notifications;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 {
@@ -163,9 +164,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="createNotificationDto">The notification data to create.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the notification was created.</returns>
-        async Task<ApiResult> INotificationsApi.CreateNotification(CreateNotificationDto createNotificationDto, CancellationToken cancellationToken)
+        Task<ApiResult> INotificationsApi.CreateNotification(CreateNotificationDto createNotificationDto, CancellationToken cancellationToken)
+            => UserProfileLifecycle.ExecuteAsync(context, () => CreateNotificationCore(createNotificationDto, cancellationToken), cancellationToken);
+
+        private async Task<ApiResult> CreateNotificationCore(CreateNotificationDto createNotificationDto, CancellationToken cancellationToken)
         {
             var userExists = await context.UserProfiles
+                .Where(up => up.ArchivedAtUtc == null)
                 .AnyAsync(up => up.UserProfileId == createNotificationDto.UserProfileId, cancellationToken).ConfigureAwait(false);
 
             if (!userExists)
