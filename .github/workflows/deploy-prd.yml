@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'terraform/**'
+      - 'src/XtremeIdiots.Portal.Repository.Database/**'
   workflow_dispatch:
     inputs:
       allow-data-loss:
