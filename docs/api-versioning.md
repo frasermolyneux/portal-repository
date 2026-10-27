@@ -35,6 +35,26 @@ Two document transformers modify each spec:
 
 Scalar provides interactive API docs at `/scalar` on both hosts.
 
+## Count-free history and resumable retention
+
+V1 `game-server-events/history` and `chat-messages/history` return
+`HistoryPageDto<T>` (`Items`, `HasMore`) without exact counts or pagination totals.
+They fetch at most 200 items plus one lookahead row, with timestamp/ID ordering.
+Use next/previous navigation, reset the offset when filters change, and pass
+`fromUtc` for polling feeds. Existing counted list endpoints remain compatible.
+Offset pages are not a snapshot during concurrent inserts or deletions.
+
+Event history and cleanup use a 30-day window. Unlocked chat retains six months;
+locked messages remain accessible and are never removed by chat retention.
+Other retention periods are unchanged.
+
+Every retention endpoint commits batches of at most 1,000 rows, with a shared
+20-batch/20-second invocation budget. HTTP 202 means committed progress with more
+work potentially remaining; HTTP 200 means no eligible rows remained when checked.
+Callers must handle failures and resume 202 responses within their own bounded
+budget. Publish/deploy the API and import its OpenAPI before upgrading consumers
+to the additive history client methods.
+
 ## Build Versioning
 
 The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for deterministic versioning:

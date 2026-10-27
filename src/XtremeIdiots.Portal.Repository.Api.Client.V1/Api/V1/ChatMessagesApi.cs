@@ -12,6 +12,8 @@ using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
+using System.Globalization;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
@@ -20,6 +22,54 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public ChatMessagesApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
 
+        }
+
+        public async Task<ApiResult<HistoryPageDto<ChatMessageDto>>> GetChatMessagesPage(
+            GameType? gameType = null, Guid? gameServerId = null, Guid? playerId = null,
+            string? filterString = null, int skipEntries = 0, int takeEntries = 20,
+            ChatMessageOrder? order = null, bool? lockedOnly = null, DateTime? fromUtc = null,
+            CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/chat-messages/history", Method.Get, cancellationToken).ConfigureAwait(false);
+            if (gameType.HasValue)
+            {
+                request.AddQueryParameter("gameType", gameType.ToString());
+            }
+
+            if (gameServerId.HasValue)
+            {
+                request.AddQueryParameter("gameServerId", gameServerId.ToString());
+            }
+
+            if (playerId.HasValue)
+            {
+                request.AddQueryParameter("playerId", playerId.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(filterString))
+            {
+                request.AddQueryParameter("filterString", filterString);
+            }
+
+            request.AddQueryParameter("skipEntries", skipEntries.ToString(CultureInfo.InvariantCulture));
+            request.AddQueryParameter("takeEntries", takeEntries.ToString(CultureInfo.InvariantCulture));
+            if (order.HasValue)
+            {
+                request.AddQueryParameter("order", order.ToString());
+            }
+
+            if (lockedOnly.HasValue)
+            {
+                request.AddQueryParameter("lockedOnly", lockedOnly.ToString());
+            }
+
+            if (fromUtc.HasValue)
+            {
+                request.AddQueryParameter("fromUtc", fromUtc.Value.ToString("O", CultureInfo.InvariantCulture));
+            }
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult<HistoryPageDto<ChatMessageDto>>();
         }
 
         public async Task<ApiResult<ChatMessageDto>> GetChatMessage(Guid chatMessageId, CancellationToken cancellationToken = default)
@@ -102,5 +152,4 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         }
     }
 }
-
 
