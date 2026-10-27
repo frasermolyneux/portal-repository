@@ -716,18 +716,18 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             if (updateDto == null)
             {
-                return new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage))
-                    .ToBadRequestResult()
-                    .ToHttpResult();
+                return BadRequest(new ApiResponse(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage)));
             }
 
             if (updateDto.MapRotationServerAssignmentId != assignmentId)
             {
-                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage))).ToHttpResult();
+                return BadRequest(new ApiResponse(new ApiError(ApiErrorCodes.RequestEntityMismatch, ApiErrorMessages.RequestEntityMismatchMessage)));
             }
 
             var response = await ((IMapRotationsApi)this).UpdateServerAssignment(updateDto, cancellationToken).ConfigureAwait(false);
-            return response.ToHttpResult();
+            return response.IsSuccess && response.Result?.Errors?.Any() != true
+                ? response.ToHttpResult()
+                : StatusCode((int)response.StatusCode, response.Result);
         }
 
         /// <summary>
