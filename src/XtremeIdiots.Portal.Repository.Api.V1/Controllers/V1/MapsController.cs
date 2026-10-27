@@ -854,7 +854,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             if (gameType.HasValue)
             {
-                query = query.Where(m => m.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+                var compatibleGameTypes = gameType.Value.GetCompatibleMapGameTypes();
+                query = query.Where(m => compatibleGameTypes.Contains(m.GameType));
             }
 
             if (mapNames?.Length > 0)
@@ -925,4 +926,3 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
-

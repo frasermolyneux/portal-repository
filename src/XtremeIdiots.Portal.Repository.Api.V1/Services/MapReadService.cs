@@ -45,10 +45,15 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
 
         public async Task<ApiResult<MapDto>> GetMapByGameTypeAndNameAsync(GameType gameType, string mapName, CancellationToken cancellationToken)
         {
+            var compatibleGameTypes = gameType.GetCompatibleMapGameTypes();
+            var requestedGameType = (int)gameType;
             var map = await context.Maps
                 .Include(m => m.MapVotes)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.GameType == gameType.ToGameTypeInt() && m.MapName == mapName, cancellationToken)
+                .Where(m => compatibleGameTypes.Contains(m.GameType) && m.MapName == mapName)
+                .OrderByDescending(m => m.GameType == requestedGameType)
+                .ThenBy(m => m.MapId)
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             if (map == null)

@@ -16,6 +16,77 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 public class MapRotationsControllerTests
 {
     [Theory]
+    [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty4x, HttpStatusCode.Created)]
+    [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty4, HttpStatusCode.Created)]
+    [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty5, HttpStatusCode.BadRequest)]
+    [InlineData(GameType.CallOfDuty5, GameType.CallOfDuty4x, HttpStatusCode.BadRequest)]
+    public async Task CreatingAssignment_AcceptsCompatibleGamesWithoutChangingServerType(
+        GameType rotationType, GameType serverType, HttpStatusCode expected)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var seeded = Seed(db);
+        seeded.MapRotation.GameType = (int)rotationType;
+        seeded.GameServer.GameType = (int)serverType;
+        db.MapRotationServerAssignments.Remove(seeded);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var result = await api.CreateServerAssignment(new(seeded.MapRotationId, seeded.GameServerId)
+        {
+            ConfigFilePath = "server.cfg",
+            ConfigVariableName = "sv_maprotation"
+        });
+
+        Assert.Equal(expected, result.StatusCode);
+        Assert.Equal((int)serverType, (await db.GameServers.AsNoTracking().SingleAsync()).GameType);
+        Assert.Equal((int)rotationType, (await db.MapRotations.AsNoTracking().SingleAsync()).GameType);
+        if (expected == HttpStatusCode.Created)
+        {
+            var assignment = await db.MapRotationServerAssignments.SingleAsync();
+            Assert.Equal((int)DeploymentState.Pending, assignment.DeploymentState);
+            Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
+            Assert.Equal((int)MapRotationStatus.Published, (await db.MapRotations.AsNoTracking().SingleAsync()).Status);
+        }
+        else
+        {
+            Assert.Equal("GAME_TYPE_MISMATCH", Assert.Single(result.Result!.Errors!).Code);
+            Assert.Empty(await db.MapRotationServerAssignments.ToListAsync());
+        }
+    }
+
+    [Theory]
+    [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty4x, HttpStatusCode.Created)]
+    [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty4, HttpStatusCode.Created)]
+    [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty5, HttpStatusCode.BadRequest)]
+    public async Task CreatingAndEditingRotation_AcceptsOnlyCompatibleMaps(
+        GameType rotationType, GameType mapType, HttpStatusCode expected)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var map = new Map { MapId = Guid.NewGuid(), GameType = (int)mapType, MapName = "mp_compatible" };
+        db.Maps.Add(map);
+        var seeded = Seed(db);
+        seeded.MapRotation.GameType = (int)rotationType;
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var created = await api.CreateMapRotation(new(rotationType, "Compatible map rotation", "war") { MapIds = [map.MapId] });
+        var updated = await api.UpdateMapRotation(new(seeded.MapRotationId) { MapIds = [map.MapId] });
+
+        Assert.Equal(expected, created.StatusCode);
+        Assert.Equal(expected == HttpStatusCode.Created ? HttpStatusCode.OK : expected, updated.StatusCode);
+        if (expected == HttpStatusCode.Created)
+        {
+            Assert.Equal(map.MapId, Assert.Single(created.Result!.Data!.MapRotationMaps!).MapId);
+            Assert.Equal(map.MapId, Assert.Single(await db.MapRotationMaps.Where(m => m.MapRotationId == seeded.MapRotationId).ToListAsync()).MapId);
+        }
+        else
+        {
+            Assert.Equal("MAP_GAME_TYPE_MISMATCH", Assert.Single(created.Result!.Errors!).Code);
+            Assert.Equal("MAP_GAME_TYPE_MISMATCH", Assert.Single(updated.Result!.Errors!).Code);
+        }
+    }
+
+    [Theory]
     [InlineData(MapRotationStatus.Draft, MapRotationStatus.Published, false)]
     [InlineData(MapRotationStatus.Testing, MapRotationStatus.Published, false)]
     [InlineData(MapRotationStatus.Draft, MapRotationStatus.Published, true)]

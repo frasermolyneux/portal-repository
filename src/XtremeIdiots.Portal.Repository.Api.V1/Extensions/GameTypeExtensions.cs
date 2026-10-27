@@ -27,6 +27,13 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Extensions
             return (int)gameType;
         }
 
+        public static int[] GetCompatibleMapGameTypes(this GameType gameType)
+        {
+            return gameType is GameType.CallOfDuty4 or GameType.CallOfDuty4x
+                ? [(int)GameType.CallOfDuty4, (int)GameType.CallOfDuty4x]
+                : [(int)gameType];
+        }
+
         public static string DemoExtension(this GameType gameType)
         {
             return gameType switch

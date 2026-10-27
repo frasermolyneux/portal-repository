@@ -14,6 +14,55 @@ namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1;
 [Trait("Category", "Integration")]
 public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
+    [Theory]
+    [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty4x)]
+    [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty4)]
+    public async Task AssignCompatibleRotation_ThroughHttpPublishesWithoutApplyingToServer(
+        GameType rotationType, GameType serverType)
+    {
+        var rotationId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.MapRotations.Add(new MapRotation
+            {
+                MapRotationId = rotationId,
+                Title = "Compatible rotation",
+                GameType = (int)rotationType,
+                GameMode = "war",
+                Version = 1
+            });
+            ctx.GameServers.Add(new GameServer
+            {
+                GameServerId = serverId,
+                Title = "Compatible server",
+                GameType = (int)serverType,
+                Hostname = "127.0.0.1",
+                QueryPort = 28960
+            });
+            ctx.SaveChanges();
+        });
+        var request = new CreateMapRotationServerAssignmentDto(rotationId, serverId)
+        {
+            ConfigFilePath = "server.cfg",
+            ConfigVariableName = "sv_maprotation"
+        };
+
+        var response = await _client.PostAsync("/v1.0/map-rotations/assignments",
+            new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var rotationResponse = await _client.GetAsync($"/v1.0/map-rotations/{rotationId}");
+        var saved = JsonConvert.DeserializeObject<MX.Api.Abstractions.ApiResponse<MapRotationDto>>(
+            await rotationResponse.Content.ReadAsStringAsync())!.Data!;
+        Assert.Equal(MapRotationStatus.Published, saved.Status);
+        var assignment = Assert.Single(saved.ServerAssignments!);
+        Assert.Equal(DeploymentState.Pending, assignment.DeploymentState);
+        Assert.Equal(ActivationState.Inactive, assignment.ActivationState);
+        Assert.Null(assignment.ActivatedVersion);
+        Assert.Equal(rotationType, saved.GameType);
+    }
+
     private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
