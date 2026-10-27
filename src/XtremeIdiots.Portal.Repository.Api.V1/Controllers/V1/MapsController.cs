@@ -16,6 +16,7 @@ using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
@@ -854,7 +855,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             if (gameType.HasValue)
             {
-                query = query.Where(m => m.GameType == gameType.Value.ToGameTypeInt()).AsQueryable();
+                var compatibleGameTypes = gameType.Value.GetCompatibleMapGameTypes().Select(gt => (int)gt).ToArray();
+                query = query.Where(m => compatibleGameTypes.Contains(m.GameType));
             }
 
             if (mapNames?.Length > 0)
@@ -925,4 +927,3 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
     }
 }
-
