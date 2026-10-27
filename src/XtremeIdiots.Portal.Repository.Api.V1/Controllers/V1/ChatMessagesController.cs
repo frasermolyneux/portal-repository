@@ -16,6 +16,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -39,6 +40,43 @@ public class ChatMessagesController : ControllerBase, IChatMessagesApi
     {
         ArgumentNullException.ThrowIfNull(context);
         this.context = context;
+    }
+
+    [HttpGet("chat-messages/history")]
+    [ProducesResponseType<HistoryPageDto<ChatMessageDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChatMessagesPage(
+        [FromQuery] GameType? gameType = null, [FromQuery] Guid? gameServerId = null,
+        [FromQuery] Guid? playerId = null, [FromQuery] string? filterString = null,
+        [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 20,
+        [FromQuery] ChatMessageOrder? order = null, [FromQuery] bool? lockedOnly = null,
+        [FromQuery] DateTime? fromUtc = null, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IChatMessagesApi)this).GetChatMessagesPage(
+            gameType, gameServerId, playerId, filterString, skipEntries, takeEntries,
+            order, lockedOnly, fromUtc, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<HistoryPageDto<ChatMessageDto>>> IChatMessagesApi.GetChatMessagesPage(
+        GameType? gameType, Guid? gameServerId, Guid? playerId, string? filterString,
+        int skipEntries, int takeEntries, ChatMessageOrder? order, bool? lockedOnly,
+        DateTime? fromUtc, CancellationToken cancellationToken)
+    {
+        var cutoff = DateTime.UtcNow.AddMonths(-HistoryRetention.ChatMessageMonths);
+        var query = ApplyFilter(context.ChatMessages.Include(x => x.GameServer).Include(x => x.Player).AsNoTracking(),
+            gameType, gameServerId, playerId, filterString, lockedOnly)
+            .Where(x => x.Locked || x.Timestamp >= cutoff);
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(x => x.Timestamp >= fromUtc.Value);
+        }
+
+        var ordered = order == ChatMessageOrder.TimestampAsc
+            ? query.OrderBy(x => x.Timestamp).ThenBy(x => x.ChatMessageId)
+            : query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.ChatMessageId);
+        var page = await ordered.ToHistoryPageAsync(skipEntries, takeEntries,
+            x => x.ToDto(), cancellationToken).ConfigureAwait(false);
+        return new ApiResponse<HistoryPageDto<ChatMessageDto>>(page).ToApiResult();
     }
 
     /// <summary>
@@ -379,4 +417,3 @@ JOIN ChatMessages c ON c.ChatMessageId = ft.[Key]")
         return orderedQuery.Skip(skipEntries).Take(takeEntries);
     }
 }
-

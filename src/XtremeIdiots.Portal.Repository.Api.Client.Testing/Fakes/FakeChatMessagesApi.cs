@@ -4,11 +4,67 @@ using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ChatMessages;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 
 public class FakeChatMessagesApi : IChatMessagesApi
 {
+    public Task<ApiResult<HistoryPageDto<ChatMessageDto>>> GetChatMessagesPage(
+        GameType? gameType = null, Guid? gameServerId = null, Guid? playerId = null,
+        string? filterString = null, int skipEntries = 0, int takeEntries = 20,
+        ChatMessageOrder? order = null, bool? lockedOnly = null, DateTime? fromUtc = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var cutoff = DateTime.UtcNow.AddMonths(-HistoryRetention.ChatMessageMonths);
+        var items = _chatMessages.Values.Where(x => x.Locked || x.Timestamp >= cutoff);
+        if (gameType.HasValue)
+        {
+            items = items.Where(x => x.GameServer?.GameType == gameType.Value);
+        }
+
+        if (gameServerId.HasValue)
+        {
+            items = items.Where(x => x.GameServerId == gameServerId.Value);
+        }
+
+        if (playerId.HasValue)
+        {
+            items = items.Where(x => x.PlayerId == playerId.Value);
+        }
+
+        if (lockedOnly == true)
+        {
+            items = items.Where(x => x.Locked);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterString))
+        {
+            var term = filterString.Trim();
+            // SQL full-text tokenization is approximated by substring matching for longer terms.
+            items = term.Length < 3
+                ? items.Where(x => x.Message.StartsWith(term, StringComparison.OrdinalIgnoreCase)
+                    || x.Username.StartsWith(term, StringComparison.OrdinalIgnoreCase))
+                : items.Where(x => x.Message.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || x.Username.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (fromUtc.HasValue)
+        {
+            items = items.Where(x => x.Timestamp >= fromUtc.Value);
+        }
+
+        var ordered = order == ChatMessageOrder.TimestampAsc
+            ? items.OrderBy(x => x.Timestamp).ThenBy(x => x.ChatMessageId)
+            : items.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.ChatMessageId);
+        var take = Math.Clamp(takeEntries, 1, 200);
+        var page = ordered.Skip(Math.Max(0, skipEntries)).Take(take + 1).ToList();
+        return Task.FromResult(new ApiResult<HistoryPageDto<ChatMessageDto>>(HttpStatusCode.OK,
+            new ApiResponse<HistoryPageDto<ChatMessageDto>>(
+                new HistoryPageDto<ChatMessageDto>(page.Take(take).ToList(), page.Count > take))));
+    }
+
     private readonly ConcurrentDictionary<Guid, ChatMessageDto> _chatMessages = new();
     private readonly ConcurrentDictionary<string, (HttpStatusCode StatusCode, ApiError Error)> _errorResponses = new(StringComparer.OrdinalIgnoreCase);
 
