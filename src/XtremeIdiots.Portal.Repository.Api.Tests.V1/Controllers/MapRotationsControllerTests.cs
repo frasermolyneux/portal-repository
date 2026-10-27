@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.AspNetCore.Mvc;
+using MX.Api.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -15,6 +17,41 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 
 public class MapRotationsControllerTests
 {
+    [Theory]
+    [InlineData(ActivationState.Active)]
+    [InlineData(ActivationState.Failed)]
+    public async Task AssignmentHttpUpdate_PreservesActionableUnsafeTargetError(ActivationState state)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var assignment = Seed(db);
+        assignment.ActivationState = (int)state;
+        await db.SaveChangesAsync();
+        var controller = new MapRotationsController(db);
+
+        var result = Assert.IsType<ObjectResult>(await controller.UpdateServerAssignment(
+            assignment.MapRotationServerAssignmentId,
+            new(assignment.MapRotationServerAssignmentId) { ConfigFilePath = "corrected.cfg" }));
+
+        Assert.Equal(400, result.StatusCode);
+        Assert.Equal("CONFIG_TARGET_IN_USE", Assert.Single(Assert.IsType<ApiResponse>(result.Value).Errors!).Code);
+        Assert.Equal((int)state, assignment.ActivationState);
+        Assert.NotEqual("corrected.cfg", assignment.ConfigFilePath);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AssignmentHttpUpdate_PreservesRequestValidationEnvelope(bool missingBody)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var controller = new MapRotationsController(db);
+
+        var result = Assert.IsType<BadRequestObjectResult>(await controller.UpdateServerAssignment(Guid.NewGuid(),
+            missingBody ? null! : new(Guid.NewGuid())));
+
+        Assert.Single(Assert.IsType<ApiResponse>(result.Value).Errors!);
+    }
+
     [Theory]
     [InlineData(GameType.CallOfDuty4)]
     [InlineData(GameType.CallOfDuty4x)]
