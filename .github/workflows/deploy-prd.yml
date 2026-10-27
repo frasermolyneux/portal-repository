@@ -27,7 +27,7 @@ jobs:
       src: ${{ steps.changes.outputs.src }}
       terraform: ${{ steps.changes.outputs.terraform }}
       database: ${{ steps.changes.outputs.database }}
-      workload: ${{ steps.changes.outputs.workload }}
+      workload: ${{ steps.workload.outputs.src }}
     steps:
       - id: changes
         uses: frasermolyneux/actions/detect-changes@detect-changes/v1.0
@@ -36,7 +36,14 @@ jobs:
             src:src/**
             terraform:terraform/**
             database:src/XtremeIdiots.Portal.Repository.Database/**
-            workload:src/**,terraform/**,src/XtremeIdiots.Portal.Repository.Database/**
+      - name: Detect deployable workload inputs
+        id: workload
+        uses: frasermolyneux/actions/detect-changes@detect-changes/v1.0
+        with:
+          perform-checkout: 'false'
+          filters: |
+            src:src/**,terraform/**,src/XtremeIdiots.Portal.Repository.Database/**
+
   terraform-state-check-dev:
     needs: [detect-changes]
     if: |
