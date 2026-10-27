@@ -16,6 +16,31 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 public class MapRotationsControllerTests
 {
     [Theory]
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty4x)]
+    public async Task ListingRotations_IncludesCompatibleGamesButNotUnrelatedGames(GameType gameType)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        db.MapRotations.AddRange(new[] { GameType.CallOfDuty4, GameType.CallOfDuty4x, GameType.CallOfDuty5 }
+            .Select(type => new MapRotation
+            {
+                MapRotationId = Guid.NewGuid(),
+                GameType = (int)type,
+                Title = type.ToString(),
+                GameMode = "war",
+                Version = 1
+            }));
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+
+        var result = await api.GetMapRotations([gameType], null, null, 0, 20, null);
+
+        Assert.Equal(new[] { GameType.CallOfDuty4, GameType.CallOfDuty4x },
+            result.Result!.Data!.Items!.Select(rotation => rotation.GameType).Order());
+        Assert.Equal(2, result.Result.Pagination!.FilteredCount);
+    }
+
+    [Theory]
     [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty4x, HttpStatusCode.Created)]
     [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty4, HttpStatusCode.Created)]
     [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty5, HttpStatusCode.BadRequest)]
