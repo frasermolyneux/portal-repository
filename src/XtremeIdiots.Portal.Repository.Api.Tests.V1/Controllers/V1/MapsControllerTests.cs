@@ -16,6 +16,50 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class MapsControllerTests
 {
+    [Theory]
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty4x)]
+    public async Task GetMaps_CompatibleGameFilterIncludesBothCod4VariantsButNotCod5(GameType gameType)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        db.Maps.AddRange(
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, MapName = "mp_cod4" },
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4x, MapName = "mp_cod4x" },
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, MapName = "mp_cod5" });
+        await db.SaveChangesAsync();
+        var api = (IMapsApi)CreateController(db);
+
+        var result = await api.GetMaps(gameType, null, null, null, 0, 20, null);
+
+        Assert.Equal(new[] { "mp_cod4", "mp_cod4x" }, result.Result!.Data!.Items!.Select(m => m.MapName).Order());
+        Assert.Equal(2, result.Result.Pagination!.FilteredCount);
+    }
+
+    [Theory]
+    [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty4x)]
+    [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty4)]
+    public async Task GetMap_ByNameFallsBackToCompatibleMapAndPrefersExactMatch(
+        GameType requestedType, GameType fallbackType)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var compatible = new Map { MapId = Guid.NewGuid(), GameType = (int)fallbackType, MapName = "mp_shared" };
+        db.Maps.Add(compatible);
+        db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, MapName = "mp_shared" });
+        await db.SaveChangesAsync();
+        var api = (IMapsApi)CreateController(db);
+
+        var fallback = await api.GetMap(requestedType, "mp_shared");
+        Assert.Equal(compatible.MapId, fallback.Result!.Data!.MapId);
+
+        var exact = new Map { MapId = Guid.NewGuid(), GameType = (int)requestedType, MapName = "mp_shared" };
+        db.Maps.Add(exact);
+        await db.SaveChangesAsync();
+
+        var preferred = await api.GetMap(requestedType, "mp_shared");
+        Assert.Equal(exact.MapId, preferred.Result!.Data!.MapId);
+        Assert.Equal(HttpStatusCode.NotFound, (await api.GetMap(GameType.CallOfDuty2, "mp_shared")).StatusCode);
+    }
+
     private MapsController CreateController(PortalDbContext context)
     {
         var logger = new Mock<ILogger<MapsController>>();

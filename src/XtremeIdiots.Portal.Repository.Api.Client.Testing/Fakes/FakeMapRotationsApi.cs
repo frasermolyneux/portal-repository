@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapRotations;
 
@@ -39,9 +40,10 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _mapRotations.Values.AsEnumerable();
-        if (gameTypes != null)
+        if (gameTypes?.Length > 0)
         {
-            items = items.Where(mr => gameTypes.Contains(mr.GameType));
+            var compatibleGameTypes = gameTypes.SelectMany(type => type.GetCompatibleMapGameTypes()).ToHashSet();
+            items = items.Where(mr => compatibleGameTypes.Contains(mr.GameType));
         }
 
         if (gameMode != null)
@@ -57,9 +59,10 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _mapRotations.Values.AsEnumerable();
-        if (gameTypes != null)
+        if (gameTypes?.Length > 0)
         {
-            items = items.Where(mr => gameTypes.Contains(mr.GameType));
+            var compatibleGameTypes = gameTypes.SelectMany(type => type.GetCompatibleMapGameTypes()).ToHashSet();
+            items = items.Where(mr => compatibleGameTypes.Contains(mr.GameType));
         }
 
         if (gameMode != null)
@@ -85,9 +88,10 @@ public class FakeMapRotationsApi : IMapRotationsApi
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, Guid? createdByUserId, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
         var items = _mapRotations.Values.AsEnumerable();
-        if (gameTypes != null)
+        if (gameTypes?.Length > 0)
         {
-            items = items.Where(mr => gameTypes.Contains(mr.GameType));
+            var compatibleGameTypes = gameTypes.SelectMany(type => type.GetCompatibleMapGameTypes()).ToHashSet();
+            items = items.Where(mr => compatibleGameTypes.Contains(mr.GameType));
         }
 
         if (gameMode != null)
