@@ -4,6 +4,16 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1
 {
     public static class GameTypeExtensions
     {
+        /// <summary>
+        /// Returns games that share compatible maps and map rotations.
+        /// </summary>
+        public static GameType[] GetCompatibleMapGameTypes(this GameType gameType)
+        {
+            return gameType is GameType.CallOfDuty4 or GameType.CallOfDuty4x
+                ? [GameType.CallOfDuty4, GameType.CallOfDuty4x]
+                : [gameType];
+        }
+
         public static GameType ToGameType(this string gameType)
         {
             return Enum.Parse<GameType>(gameType);

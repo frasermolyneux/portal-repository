@@ -6,6 +6,7 @@ using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
@@ -45,7 +46,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
 
         public async Task<ApiResult<MapDto>> GetMapByGameTypeAndNameAsync(GameType gameType, string mapName, CancellationToken cancellationToken)
         {
-            var compatibleGameTypes = gameType.GetCompatibleMapGameTypes();
+            var compatibleGameTypes = gameType.GetCompatibleMapGameTypes().Select(gt => (int)gt).ToArray();
             var requestedGameType = (int)gameType;
             var map = await context.Maps
                 .Include(m => m.MapVotes)

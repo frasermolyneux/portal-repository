@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 
@@ -44,7 +45,9 @@ public class FakeMapsApi : IMapsApi
 
     public Task<ApiResult<MapDto>> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default)
     {
-        var map = _maps.Values.FirstOrDefault(m => m.GameType == gameType && m.MapName == mapName);
+        var compatibleGameTypes = gameType.GetCompatibleMapGameTypes();
+        var map = _maps.Values.Where(m => compatibleGameTypes.Contains(m.GameType) && m.MapName == mapName)
+            .OrderByDescending(m => m.GameType == gameType).ThenBy(m => m.MapId).FirstOrDefault();
         if (map != null)
         {
             return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(map)));
@@ -58,7 +61,8 @@ public class FakeMapsApi : IMapsApi
         var items = _maps.Values.AsEnumerable();
         if (gameType.HasValue)
         {
-            items = items.Where(m => m.GameType == gameType.Value);
+            var compatibleGameTypes = gameType.Value.GetCompatibleMapGameTypes();
+            items = items.Where(m => compatibleGameTypes.Contains(m.GameType));
         }
 
         if (mapNames != null)

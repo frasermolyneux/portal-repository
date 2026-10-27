@@ -11,6 +11,48 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 [Trait("Category", "Unit")]
 public class FakeRepositoryApiClientTests
 {
+    [Theory]
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty4x)]
+    public async Task MapsAndRotations_MatchCompatibleApiLookups(GameType gameType)
+    {
+        var client = new FakeRepositoryApiClient();
+        var fallbackType = gameType == GameType.CallOfDuty4 ? GameType.CallOfDuty4x : GameType.CallOfDuty4;
+        static Abstractions.Models.V1.Maps.MapDto Map(GameType type)
+        {
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Maps.MapDto>(
+                Newtonsoft.Json.JsonConvert.SerializeObject(new { MapId = Guid.NewGuid(), GameType = type, MapName = "mp_shared" }))!;
+        }
+
+        var fallback = Map(fallbackType);
+        client.MapsApi.AddMap(fallback);
+        client.MapsApi.AddMap(Map(GameType.CallOfDuty5));
+        Assert.Equal(fallback.MapId, (await client.Maps.V1.GetMap(gameType, "mp_shared")).Result!.Data!.MapId);
+        var exact = Map(gameType);
+        client.MapsApi.AddMap(exact);
+        Assert.Equal(exact.MapId, (await client.Maps.V1.GetMap(gameType, "mp_shared")).Result!.Data!.MapId);
+        var maps = await client.Maps.V1.GetMaps(gameType, null, null, null, 0, 20, null);
+        Assert.Equal(2, maps.Result!.Data!.Items!.Count());
+        Assert.DoesNotContain(maps.Result.Data.Items!, map => map.GameType == GameType.CallOfDuty5);
+
+        foreach (var type in new[] { GameType.CallOfDuty4, GameType.CallOfDuty4x, GameType.CallOfDuty5 })
+        {
+            client.MapRotationsApi.AddMapRotation(new(Guid.NewGuid(), type, type.ToString(), null, "war",
+                1, null, DateTime.UtcNow, DateTime.UtcNow, [], []));
+        }
+        var rotations = new[]
+        {
+            await client.MapRotations.V1.GetMapRotations([gameType], null, null, 0, 20, null),
+            await client.MapRotations.V1.GetMapRotations([gameType], null, null, null, null, 0, 20, null),
+            await client.MapRotations.V1.GetMapRotations([gameType], null, null, null, null, null, 0, 20, null)
+        };
+        Assert.All(rotations, result =>
+        {
+            Assert.Equal(2, result.Result!.Data!.Items!.Count());
+            Assert.DoesNotContain(result.Result.Data.Items!, rotation => rotation.GameType == GameType.CallOfDuty5);
+        });
+    }
+
     [Fact]
     public async Task BanFileMonitorSnapshotsClearCurrentObservationsButImportAcknowledgmentsPreserveThem()
     {

@@ -8,6 +8,7 @@ using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapRotations;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
@@ -241,7 +242,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
 
                 var compatibleGameTypes = createMapRotationDto.GameType.GetCompatibleMapGameTypes();
-                if (maps.Any(m => !compatibleGameTypes.Contains(m.GameType)))
+                if (maps.Any(m => !compatibleGameTypes.Contains((GameType)m.GameType)))
                 {
                     return new ApiResult<MapRotationDto>(HttpStatusCode.BadRequest,
                         new ApiResponse<MapRotationDto>(new ApiError("MAP_GAME_TYPE_MISMATCH", "One or more maps do not match the rotation's game type.")));
@@ -346,7 +347,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
 
                 var compatibleGameTypes = ((GameType)entity.GameType).GetCompatibleMapGameTypes();
-                if (maps.Any(m => !compatibleGameTypes.Contains(m.GameType)))
+                if (maps.Any(m => !compatibleGameTypes.Contains((GameType)m.GameType)))
                 {
                     return new ApiResult(HttpStatusCode.BadRequest,
                         new ApiResponse(new ApiError("MAP_GAME_TYPE_MISMATCH", "One or more maps do not match the rotation's game type.")));
@@ -626,7 +627,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("GAME_SERVER_NOT_FOUND", "The specified game server does not exist.")));
             }
 
-            if (!((GameType)mapRotation.GameType).GetCompatibleMapGameTypes().Contains(gameServer.GameType))
+            if (!((GameType)mapRotation.GameType).GetCompatibleMapGameTypes().Contains((GameType)gameServer.GameType))
             {
                 return new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("GAME_TYPE_MISMATCH", "The map rotation game type does not match the game server game type.")));
@@ -1440,7 +1441,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             if (gameTypes?.Length > 0)
             {
-                var gameTypeInts = gameTypes.SelectMany(gt => gt.GetCompatibleMapGameTypes()).Distinct().ToArray();
+                var gameTypeInts = gameTypes.SelectMany(gt => gt.GetCompatibleMapGameTypes()).Select(gt => (int)gt).Distinct().ToArray();
                 query = query.Where(mr => gameTypeInts.Contains(mr.GameType));
             }
 
