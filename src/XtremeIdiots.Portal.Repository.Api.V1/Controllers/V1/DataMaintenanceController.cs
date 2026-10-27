@@ -121,13 +121,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes chat messages older than 12 months to maintain database performance.
+    /// Prunes unlocked chat messages older than 6 months in bounded batches.
     /// Locked chat messages are preserved and will not be deleted.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response indicating the operation completed.</returns>
     [HttpDelete("data-maintenance/prune-chat-messages")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> PruneChatMessages(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneChatMessages(cancellationToken).ConfigureAwait(false);
@@ -135,31 +136,28 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes chat messages older than 12 months to maintain database performance.
+    /// Prunes unlocked chat messages older than 6 months in bounded batches.
     /// Locked chat messages are preserved and will not be deleted.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.PruneChatMessages(CancellationToken cancellationToken)
     {
-        // Execute pruning operation in batches to avoid locking issues
-        // Only delete unlocked chat messages to preserve locked ones
-        foreach (var i in Enumerable.Range(6, 7))
-        {
-            var batchCutoff = DateTime.UtcNow.AddMonths(-i);
-            await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[ChatMessages] WHERE [Timestamp] < {batchCutoff} AND [Locked] = 0", cancellationToken).ConfigureAwait(false);
-        }
-
-        return new ApiResponse().ToApiResult();
+        var cutoff = DateTime.UtcNow.AddMonths(-HistoryRetention.ChatMessageMonths);
+        return await PruneAsync([token => context.ChatMessages
+            .Where(x => x.Timestamp < cutoff && !x.Locked)
+            .OrderBy(x => x.Timestamp).ThenBy(x => x.ChatMessageId)
+            .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Prunes game server events older than 3 months to maintain database performance.
+    /// Prunes game server events older than 30 days in bounded batches.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response indicating the operation completed.</returns>
     [HttpDelete("data-maintenance/prune-game-server-events")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> PruneGameServerEvents(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneGameServerEvents(cancellationToken).ConfigureAwait(false);
@@ -167,15 +165,17 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes game server events older than 3 months to maintain database performance.
+    /// Prunes game server events older than 30 days in bounded batches.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.PruneGameServerEvents(CancellationToken cancellationToken)
     {
-        var cutoffDate = DateTime.UtcNow.AddMonths(-3);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerEvents] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
-        return new ApiResponse().ToApiResult();
+        var cutoff = DateTime.UtcNow.AddDays(-HistoryRetention.GameServerEventDays);
+        return await PruneAsync([token => context.GameServerEvents
+            .Where(x => x.Timestamp < cutoff)
+            .OrderBy(x => x.Timestamp).ThenBy(x => x.GameServerEventId)
+            .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -185,6 +185,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>A success response indicating the operation completed.</returns>
     [HttpDelete("data-maintenance/prune-game-server-stats")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> PruneGameServerStats(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneGameServerStats(cancellationToken).ConfigureAwait(false);
@@ -198,9 +199,11 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.PruneGameServerStats(CancellationToken cancellationToken)
     {
-        var cutoffDate = DateTime.UtcNow.AddMonths(-6);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[GameServerStats] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
-        return new ApiResponse().ToApiResult();
+        var cutoff = DateTime.UtcNow.AddMonths(-6);
+        return await PruneAsync([token => context.GameServerStats
+            .Where(x => x.Timestamp < cutoff)
+            .OrderBy(x => x.Timestamp).ThenBy(x => x.GameServerStatId)
+            .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -210,6 +213,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>A success response indicating the operation completed.</returns>
     [HttpDelete("data-maintenance/prune-player-ip-addresses")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> PrunePlayerIpAddresses(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PrunePlayerIpAddresses(cancellationToken).ConfigureAwait(false);
@@ -236,47 +240,19 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var hardDeleteCutoff = DateTime.UtcNow.AddDays(-hardDeleteDays);
         var lowConfidenceCutoff = DateTime.UtcNow.AddDays(-lowConfidenceDays);
 
-        // Step 1: Remove null/blank rows first.
-        while (true)
-        {
-            var affected = await context.Database.ExecuteSqlInterpolatedAsync($@"
-                DELETE TOP ({batchSize}) FROM [dbo].[PlayerIpAddresses]
-                WHERE [Address] IS NULL OR LTRIM(RTRIM([Address])) = ''", cancellationToken).ConfigureAwait(false);
-
-            if (affected == 0)
-            {
-                break;
-            }
-        }
-
-        // Step 2: Remove old rows that are beyond hard retention.
-        while (true)
-        {
-            var affected = await context.Database.ExecuteSqlInterpolatedAsync($@"
-                DELETE TOP ({batchSize}) FROM [dbo].[PlayerIpAddresses]
-                WHERE [LastUsed] < {hardDeleteCutoff}", cancellationToken).ConfigureAwait(false);
-
-            if (affected == 0)
-            {
-                break;
-            }
-        }
-
-        // Step 3: Remove stale low-confidence rows.
-        while (true)
-        {
-            var affected = await context.Database.ExecuteSqlInterpolatedAsync($@"
-                DELETE TOP ({batchSize}) FROM [dbo].[PlayerIpAddresses]
-                WHERE [LastUsed] < {lowConfidenceCutoff}
-                  AND [ConfidenceScore] < {lowConfidenceThreshold}", cancellationToken).ConfigureAwait(false);
-
-            if (affected == 0)
-            {
-                break;
-            }
-        }
-
-        return new ApiResponse().ToApiResult();
+        batchSize = Math.Min(batchSize, BoundedPruner.BatchSize);
+        return await PruneAsync([
+            token => context.PlayerIpAddresses
+                .Where(x => x.Address == null || x.Address.Trim() == "")
+                .OrderBy(x => x.PlayerIpAddressId).Take(batchSize).ExecuteDeleteAsync(token),
+            token => context.PlayerIpAddresses.Where(x => x.LastUsed < hardDeleteCutoff)
+                .OrderBy(x => x.LastUsed).ThenBy(x => x.PlayerIpAddressId)
+                .Take(batchSize).ExecuteDeleteAsync(token),
+            token => context.PlayerIpAddresses
+                .Where(x => x.LastUsed < lowConfidenceCutoff && x.ConfidenceScore < lowConfidenceThreshold)
+                .OrderBy(x => x.LastUsed).ThenBy(x => x.PlayerIpAddressId)
+                .Take(batchSize).ExecuteDeleteAsync(token)
+        ], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -286,6 +262,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     /// <returns>A success response indicating the operation completed.</returns>
     [HttpDelete("data-maintenance/prune-recent-players")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> PruneRecentPlayers(CancellationToken cancellationToken = default)
     {
         var response = await ((IDataMaintenanceApi)this).PruneRecentPlayers(cancellationToken).ConfigureAwait(false);
@@ -301,8 +278,17 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     {
         var recentPlayersDays = int.TryParse(configuration["DataRetention:RecentPlayersDays"], out var rpd) ? rpd : 7;
         var cutoffDate = DateTime.UtcNow.AddDays(-recentPlayersDays);
-        await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [dbo].[RecentPlayers] WHERE [Timestamp] < {cutoffDate}", cancellationToken).ConfigureAwait(false);
-        return new ApiResponse().ToApiResult();
+        return await PruneAsync([token => context.RecentPlayers
+            .Where(x => x.Timestamp < cutoffDate)
+            .OrderBy(x => x.Timestamp).ThenBy(x => x.RecentPlayerId)
+            .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<ApiResult> PruneAsync(
+        IReadOnlyList<Func<CancellationToken, Task<int>>> deleteBatches, CancellationToken cancellationToken)
+    {
+        var completed = await BoundedPruner.RunAsync(deleteBatches, cancellationToken).ConfigureAwait(false);
+        return new ApiResponse().ToApiResult(completed ? HttpStatusCode.OK : HttpStatusCode.Accepted);
     }
 
     /// <summary>

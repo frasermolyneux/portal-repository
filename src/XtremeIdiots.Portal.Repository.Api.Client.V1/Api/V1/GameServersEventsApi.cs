@@ -12,6 +12,8 @@ using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
+using System.Globalization;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
@@ -19,6 +21,43 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         public GameServersEventsApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
+        }
+
+        public async Task<ApiResult<HistoryPageDto<GameServerEventDto>>> GetGameServerEventsPage(
+            GameType? gameType = null, Guid? gameServerId = null, string? eventType = null,
+            int skipEntries = 0, int takeEntries = 20, GameServerEventOrder? order = null,
+            DateTime? fromUtc = null, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/game-server-events/history", Method.Get, cancellationToken).ConfigureAwait(false);
+            if (gameType.HasValue)
+            {
+                request.AddQueryParameter("gameType", gameType.ToString());
+            }
+
+            if (gameServerId.HasValue)
+            {
+                request.AddQueryParameter("gameServerId", gameServerId.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(eventType))
+            {
+                request.AddQueryParameter("eventType", eventType);
+            }
+
+            request.AddQueryParameter("skipEntries", skipEntries.ToString(CultureInfo.InvariantCulture));
+            request.AddQueryParameter("takeEntries", takeEntries.ToString(CultureInfo.InvariantCulture));
+            if (order.HasValue)
+            {
+                request.AddQueryParameter("order", order.ToString());
+            }
+
+            if (fromUtc.HasValue)
+            {
+                request.AddQueryParameter("fromUtc", fromUtc.Value.ToString("O", CultureInfo.InvariantCulture));
+            }
+
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult<HistoryPageDto<GameServerEventDto>>();
         }
 
         public async Task<ApiResult<CollectionModel<GameServerEventDto>>> GetGameServerEvents(GameType? gameType = null, Guid? gameServerId = null, string? eventType = null, int skipEntries = 0, int takeEntries = 20, GameServerEventOrder? order = null, CancellationToken cancellationToken = default)

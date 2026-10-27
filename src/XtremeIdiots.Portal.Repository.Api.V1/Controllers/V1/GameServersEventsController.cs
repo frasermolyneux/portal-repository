@@ -14,6 +14,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -37,6 +38,39 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     {
         ArgumentNullException.ThrowIfNull(context);
         this.context = context;
+    }
+
+    [HttpGet("game-server-events/history")]
+    [ProducesResponseType<HistoryPageDto<GameServerEventDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGameServerEventsPage(
+        [FromQuery] GameType? gameType = null, [FromQuery] Guid? gameServerId = null,
+        [FromQuery] string? eventType = null, [FromQuery] int skipEntries = 0,
+        [FromQuery] int takeEntries = 20, [FromQuery] GameServerEventOrder? order = null,
+        [FromQuery] DateTime? fromUtc = null, CancellationToken cancellationToken = default)
+    {
+        var response = await ((IGameServersEventsApi)this).GetGameServerEventsPage(
+            gameType, gameServerId, eventType, skipEntries, takeEntries, order, fromUtc, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<HistoryPageDto<GameServerEventDto>>> IGameServersEventsApi.GetGameServerEventsPage(
+        GameType? gameType, Guid? gameServerId, string? eventType, int skipEntries, int takeEntries,
+        GameServerEventOrder? order, DateTime? fromUtc, CancellationToken cancellationToken)
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-HistoryRetention.GameServerEventDays);
+        if (fromUtc.HasValue && fromUtc.Value > cutoff)
+        {
+            cutoff = fromUtc.Value;
+        }
+
+        var query = ApplyFilter(context.GameServerEvents.Include(x => x.GameServer).AsNoTracking(),
+            gameType, gameServerId, eventType).Where(x => x.Timestamp >= cutoff);
+        var ordered = order == GameServerEventOrder.TimestampAsc
+            ? query.OrderBy(x => x.Timestamp).ThenBy(x => x.GameServerEventId)
+            : query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId);
+        var page = await ordered.ToHistoryPageAsync(skipEntries, takeEntries,
+            x => x.ToDto(), cancellationToken).ConfigureAwait(false);
+        return new ApiResponse<HistoryPageDto<GameServerEventDto>>(page).ToApiResult();
     }
 
     /// <summary>
@@ -207,4 +241,3 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         return orderedQuery.Skip(skipEntries).Take(takeEntries);
     }
 }
-
