@@ -36,7 +36,7 @@ public sealed class HistoryAndRetentionTests : IDisposable
         {
             context.GameServerEvents.Add(new GameServerEvent
             {
-                GameServerEventId = Guid.NewGuid(),
+                GameServerEventId = Guid.Parse($"00000000-0000-0000-0000-{i + 1:D12}"),
                 GameServerId = server.GameServerId,
                 Timestamp = timestamp,
                 EventType = "MapChange"
@@ -61,6 +61,9 @@ public sealed class HistoryAndRetentionTests : IDisposable
         Assert.False(next.Result!.Data!.HasMore);
         Assert.Single(next.Result.Data.Items);
         Assert.Equal(3, first.Result.Data.Items.Concat(next.Result.Data.Items).Select(x => x.GameServerEventId).Distinct().Count());
+        Assert.Equal(
+            Enumerable.Range(1, 3).Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}")),
+            first.Result.Data.Items.Concat(next.Result.Data.Items).Select(x => x.GameServerEventId));
         Assert.Equal(2, commands.Text.Count);
         Assert.All(commands.Text, sql => Assert.DoesNotContain("COUNT(", sql, StringComparison.OrdinalIgnoreCase));
         Assert.Null(first.Result.Pagination);

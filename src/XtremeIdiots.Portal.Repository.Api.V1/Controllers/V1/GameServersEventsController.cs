@@ -66,8 +66,8 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         var query = ApplyFilter(context.GameServerEvents.Include(x => x.GameServer).AsNoTracking(),
             gameType, gameServerId, eventType).Where(x => x.Timestamp >= cutoff);
         var ordered = order == GameServerEventOrder.TimestampAsc
-            ? query.OrderBy(x => x.Timestamp).ThenBy(x => x.GameServerEventId)
-            : query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId);
+            ? query.OrderBy(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId)
+            : query.OrderByDescending(x => x.Timestamp).ThenBy(x => x.GameServerEventId);
         var page = await ordered.ToHistoryPageAsync(skipEntries, takeEntries,
             x => x.ToDto(), cancellationToken).ConfigureAwait(false);
         return new ApiResponse<HistoryPageDto<GameServerEventDto>>(page).ToApiResult();

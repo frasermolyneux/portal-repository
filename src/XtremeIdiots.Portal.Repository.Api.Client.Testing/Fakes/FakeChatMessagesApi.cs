@@ -41,7 +41,13 @@ public class FakeChatMessagesApi : IChatMessagesApi
 
         if (!string.IsNullOrWhiteSpace(filterString))
         {
-            items = items.Where(x => x.Message.Contains(filterString, StringComparison.OrdinalIgnoreCase));
+            var term = filterString.Trim();
+            // SQL full-text tokenization is approximated by substring matching for longer terms.
+            items = term.Length < 3
+                ? items.Where(x => x.Message.StartsWith(term, StringComparison.OrdinalIgnoreCase)
+                    || x.Username.StartsWith(term, StringComparison.OrdinalIgnoreCase))
+                : items.Where(x => x.Message.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || x.Username.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
         if (fromUtc.HasValue)

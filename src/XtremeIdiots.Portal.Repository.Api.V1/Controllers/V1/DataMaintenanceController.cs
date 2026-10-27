@@ -174,7 +174,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var cutoff = DateTime.UtcNow.AddDays(-HistoryRetention.GameServerEventDays);
         return await PruneAsync([token => context.GameServerEvents
             .Where(x => x.Timestamp < cutoff)
-            .OrderBy(x => x.Timestamp).ThenBy(x => x.GameServerEventId)
+            .OrderBy(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId)
             .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
     }
 
@@ -202,7 +202,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var cutoff = DateTime.UtcNow.AddMonths(-6);
         return await PruneAsync([token => context.GameServerStats
             .Where(x => x.Timestamp < cutoff)
-            .OrderBy(x => x.Timestamp).ThenBy(x => x.GameServerStatId)
+            .OrderBy(x => x.GameServerStatId)
             .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
     }
 
@@ -280,7 +280,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var cutoffDate = DateTime.UtcNow.AddDays(-recentPlayersDays);
         return await PruneAsync([token => context.RecentPlayers
             .Where(x => x.Timestamp < cutoffDate)
-            .OrderBy(x => x.Timestamp).ThenBy(x => x.RecentPlayerId)
+            .OrderBy(x => x.RecentPlayerId)
             .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
     }
 
