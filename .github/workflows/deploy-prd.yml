@@ -27,6 +27,7 @@ jobs:
       src: ${{ steps.changes.outputs.src }}
       terraform: ${{ steps.changes.outputs.terraform }}
       database: ${{ steps.changes.outputs.database }}
+      workload: ${{ steps.changes.outputs.workload }}
     steps:
       - id: changes
         uses: frasermolyneux/actions/detect-changes@detect-changes/v1.0
@@ -35,9 +36,12 @@ jobs:
             src:src/**
             terraform:terraform/**
             database:src/XtremeIdiots.Portal.Repository.Database/**
-
+            workload:src/**,terraform/**,src/XtremeIdiots.Portal.Repository.Database/**
   terraform-state-check-dev:
-    if: github.event_name != 'schedule'
+    needs: [detect-changes]
+    if: |
+      (github.event_name != 'schedule') &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     permissions:
       contents: read
       id-token: write
@@ -62,8 +66,9 @@ jobs:
       - detect-changes
       - terraform-state-check-dev
     if: |
-      !failure() && !cancelled() &&
-      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')
+      (!failure() && !cancelled() &&
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')) &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     permissions:
       contents: read
       id-token: write
@@ -94,7 +99,9 @@ jobs:
       build_version: ${{ steps.v1-ci.outputs.build_version }}
 
   terraform-plan-and-apply-dev:
-    if: github.event_name != 'schedule'
+    if: |
+      (github.event_name != 'schedule') &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     permissions:
       contents: read
       id-token: write
@@ -172,9 +179,10 @@ jobs:
       - build-and-test
       - terraform-plan-and-apply-dev
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       github.event_name != 'schedule' &&
-      (needs.detect-changes.outputs.database == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')
+      (needs.detect-changes.outputs.database == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')) &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -204,9 +212,10 @@ jobs:
       - terraform-plan-and-apply-dev
       - deploy-sql-database-dev
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       github.event_name != 'schedule' &&
-      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')) &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -239,9 +248,10 @@ jobs:
       - terraform-plan-and-apply-dev
       - deploy-sql-database-dev
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       github.event_name != 'schedule' &&
-      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')) &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -275,9 +285,10 @@ jobs:
       - app-service-deploy-v1-dev
       - app-service-deploy-v2-dev
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       github.event_name != 'schedule' &&
-      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')
+      (needs.detect-changes.outputs.src == 'true' || needs.terraform-state-check-dev.outputs.state_tainted == 'true')) &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-dev
@@ -334,8 +345,9 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-prd
     if: |
-      !failure() && !cancelled() &&
-      (needs.terraform-plan-and-apply-dev.result == 'success' || github.event_name == 'schedule')
+      (!failure() && !cancelled() &&
+      (needs.terraform-plan-and-apply-dev.result == 'success' || github.event_name == 'schedule')) &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     steps:
       - if: needs.detect-changes.outputs.terraform == 'true'
         uses: frasermolyneux/actions/terraform-plan-and-apply@terraform-plan-and-apply/v2.0.0
@@ -405,9 +417,10 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-prd
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       needs.terraform-plan-and-apply-prd.result == 'success' &&
-      needs.detect-changes.outputs.database == 'true'
+      needs.detect-changes.outputs.database == 'true') &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     steps:
       - uses: frasermolyneux/actions/deploy-sql-database@deploy-sql-database/v1.3
         with:
@@ -437,9 +450,10 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-prd
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       needs.terraform-plan-and-apply-prd.result == 'success' &&
-      needs.detect-changes.outputs.src == 'true'
+      needs.detect-changes.outputs.src == 'true') &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     steps:
       - uses: frasermolyneux/actions/deploy-app-service@deploy-app-service/v1.3
         with:
@@ -472,9 +486,10 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-prd
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       needs.terraform-plan-and-apply-prd.result == 'success' &&
-      needs.detect-changes.outputs.src == 'true'
+      needs.detect-changes.outputs.src == 'true') &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     steps:
       - uses: frasermolyneux/actions/deploy-app-service@deploy-app-service/v1.3
         with:
@@ -508,9 +523,10 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-prd
     if: |
-      !failure() && !cancelled() &&
+      (!failure() && !cancelled() &&
       needs.terraform-plan-and-apply-prd.result == 'success' &&
-      needs.detect-changes.outputs.src == 'true'
+      needs.detect-changes.outputs.src == 'true') &&
+      (github.event_name != 'push' || needs.detect-changes.outputs.workload == 'true')
     steps:
       - uses: frasermolyneux/actions/apim-api-import@apim-api-import/v1.0
         with:
