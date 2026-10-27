@@ -1,3 +1,5 @@
+using Microsoft.Data.SqlClient;
+
 namespace XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 public static class BoundedPruner
@@ -11,6 +13,14 @@ public static class BoundedPruner
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(TimeSpan.FromSeconds(20));
+        return await RunAsync(deleteBatches, cancellationToken, budget.Token).ConfigureAwait(false);
+    }
+
+    internal static async Task<bool> RunAsync(
+        IReadOnlyList<Func<CancellationToken, Task<int>>> deleteBatches,
+        CancellationToken cancellationToken,
+        CancellationToken budgetToken)
+    {
         var batches = 0;
         try
         {
@@ -18,8 +28,8 @@ public static class BoundedPruner
             {
                 while (batches < MaxBatches)
                 {
-                    budget.Token.ThrowIfCancellationRequested();
-                    var affected = await deleteBatch(budget.Token).ConfigureAwait(false);
+                    budgetToken.ThrowIfCancellationRequested();
+                    var affected = await deleteBatch(budgetToken).ConfigureAwait(false);
                     batches++;
                     if (affected == 0)
                     {
@@ -35,9 +45,15 @@ public static class BoundedPruner
 
             return true;
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && budget.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && budgetToken.IsCancellationRequested)
         {
             // Earlier batches have committed; the next invocation resumes from remaining rows.
+            return false;
+        }
+        catch (SqlException exception) when (exception.Number == 0 &&
+            !cancellationToken.IsCancellationRequested && budgetToken.IsCancellationRequested)
+        {
+            // SqlClient can report cancellation of an executing command as error zero.
             return false;
         }
     }

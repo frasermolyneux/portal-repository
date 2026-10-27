@@ -1,5 +1,7 @@
 using System.Data.Common;
 using System.Net;
+using System.Reflection;
+using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -176,6 +178,67 @@ public sealed class HistoryAndRetentionTests : IDisposable
             BoundedPruner.RunAsync([_ => Task.FromResult(0)], canceled.Token));
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             BoundedPruner.RunAsync([_ => throw new InvalidOperationException("Synthetic failure")], CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1205)]
+    public async Task Pruning_RecognizesSqlClientBudgetCancellationWithoutMaskingOtherSqlErrors(int number)
+    {
+        var exception = CreateSqlException(number);
+        using var budget = new CancellationTokenSource();
+        var batches = 0;
+        Task<int> Delete(CancellationToken token)
+        {
+            Assert.Equal(budget.Token, token);
+            if (++batches == 1)
+            {
+                return Task.FromResult(1);
+            }
+            budget.Cancel();
+            throw exception;
+        }
+
+        var pruning = BoundedPruner.RunAsync([Delete], CancellationToken.None, budget.Token);
+        if (number == 0)
+        {
+            Assert.False(await pruning);
+        }
+        else
+        {
+            Assert.Same(exception, await Assert.ThrowsAsync<SqlException>(() => pruning));
+        }
+        Assert.Equal(2, batches);
+    }
+
+    [Fact]
+    public async Task Pruning_PropagatesSqlErrorsOutsideBudgetAndDuringCallerCancellation()
+    {
+        var exception = CreateSqlException(0);
+        Assert.Same(exception, await Assert.ThrowsAsync<SqlException>(() =>
+            BoundedPruner.RunAsync([_ => throw exception], CancellationToken.None)));
+
+        using var caller = new CancellationTokenSource();
+        Assert.Same(exception, await Assert.ThrowsAsync<SqlException>(() =>
+            BoundedPruner.RunAsync([_ =>
+            {
+                caller.Cancel();
+                throw exception;
+            }], caller.Token)));
+    }
+
+    private static SqlException CreateSqlException(int number)
+    {
+        // SqlClient exposes no public constructor for provider exceptions.
+        var error = typeof(SqlError).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(constructor => constructor.GetParameters().Length == 8)
+            .Invoke([number, (byte)0, (byte)11, "Synthetic", "Synthetic SQL error", "", 0, null]);
+        var errors = (SqlErrorCollection)Activator.CreateInstance(typeof(SqlErrorCollection), nonPublic: true)!;
+        typeof(SqlErrorCollection).GetMethod("Add", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(errors, [error]);
+        return (SqlException)typeof(SqlException).GetMethod("CreateException",
+            BindingFlags.Static | BindingFlags.NonPublic, null,
+            [typeof(SqlErrorCollection), typeof(string)], null)!.Invoke(null, [errors, "16.0"])!;
     }
 
     private GameServer AddServer()
