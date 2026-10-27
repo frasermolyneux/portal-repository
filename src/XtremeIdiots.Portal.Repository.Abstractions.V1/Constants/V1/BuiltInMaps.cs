@@ -1,7 +1,7 @@
 namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 
 /// <summary>
-/// Defines maps included in CoD4 and CoD5 dedicated server installations
+/// Defines maps included in CoD4, CoD4x and CoD5 dedicated server installations
 /// (base game, DLC, and bonus content). These maps are already present on
 /// servers and do not require FTP file uploads during map rotation sync.
 /// </summary>
@@ -71,7 +71,7 @@ public static class BuiltInMaps
     /// </summary>
     public static bool IsBuiltIn(GameType gameType, string mapName)
     {
-        return Maps.TryGetValue(gameType, out var maps) && maps.Contains(mapName);
+        return GetBuiltInMaps(gameType).Contains(mapName);
     }
 
     /// <summary>
@@ -79,6 +79,7 @@ public static class BuiltInMaps
     /// </summary>
     public static IReadOnlySet<string> GetBuiltInMaps(GameType gameType)
     {
+        gameType = gameType == GameType.CallOfDuty4x ? GameType.CallOfDuty4 : gameType;
         return Maps.TryGetValue(gameType, out var maps) ? maps : new HashSet<string>();
     }
 }
