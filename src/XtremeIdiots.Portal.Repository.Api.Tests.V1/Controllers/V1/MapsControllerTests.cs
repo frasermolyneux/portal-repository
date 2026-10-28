@@ -28,6 +28,9 @@ public class MapsControllerTests
         await db.SaveChangesAsync();
         var result = await ((IMapsApi)CreateController(db)).GetMapGames();
         Assert.Equal(GameType.CallOfDuty4, Assert.Single(result.Result!.Data!.Games));
+        db.Maps.RemoveRange(db.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4));
+        await db.SaveChangesAsync();
+        Assert.Empty((await ((IMapsApi)CreateController(db)).GetMapGames()).Result!.Data!.Games);
     }
 
     [Theory]

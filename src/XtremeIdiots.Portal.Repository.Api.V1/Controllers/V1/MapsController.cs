@@ -60,8 +60,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         async Task<ApiResult<MapGamesDto>> IMapsApi.GetMapGames(CancellationToken cancellationToken)
         {
-            var games = await context.Maps.AsNoTracking().Where(m => m.MapName != null && m.MapName != "")
-                .Select(m => m.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : m.GameType)
+            var games = await context.Maps.AsNoTracking().Where(m => m.GameType != (int)GameType.CallOfDuty4x && m.MapName != null && m.MapName != "")
+                .Select(m => m.GameType)
                 .Distinct().OrderBy(game => game).ToListAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse<MapGamesDto>(new MapGamesDto
             {

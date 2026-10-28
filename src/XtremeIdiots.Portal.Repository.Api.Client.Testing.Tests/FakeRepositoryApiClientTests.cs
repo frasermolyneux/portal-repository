@@ -11,6 +11,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 [Trait("Category", "Unit")]
 public class FakeRepositoryApiClientTests
 {
+    [Fact]
+    public async Task MapGamesDoNotAdvertiseLegacyOnlyFamilies()
+    {
+        var client = new FakeRepositoryApiClient();
+        var legacy = Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Maps.MapDto>(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new { MapId = Guid.NewGuid(), GameType = GameType.CallOfDuty4x, MapName = "mp_legacy" }))!;
+        client.MapsApi.AddMap(legacy);
+        Assert.Empty((await client.Maps.V1.GetMapGames()).Result!.Data!.Games);
+        Assert.Empty((await client.Maps.V1.GetMaps(GameType.CallOfDuty4, null, null, null, 0, 20, null)).Result!.Data!.Items!);
+        client.MapsApi.AddMap(Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Maps.MapDto>(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new { MapId = Guid.NewGuid(), GameType = GameType.CallOfDuty4, MapName = "mp_canonical" }))!);
+        Assert.Equal(GameType.CallOfDuty4, Assert.Single((await client.Maps.V1.GetMapGames()).Result!.Data!.Games));
+    }
+
     [Theory]
     [InlineData(GameType.CallOfDuty4)]
     [InlineData(GameType.CallOfDuty4x)]
