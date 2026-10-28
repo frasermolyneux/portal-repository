@@ -1,6 +1,7 @@
 using System.Net;
 
 using MX.Api.Abstractions;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -17,6 +18,12 @@ public class FakeMapAnalyticsApi : IMapAnalyticsApi
     private MapsByGameDto _byGame = new();
     private MapsByServerDto _byServer = new();
     private MapDetailDto _mapDetail = new();
+    private MapInsightsDto _insights = new();
+
+    public FakeMapAnalyticsApi SetInsights(MapInsightsDto insights) { _insights = insights; return this; }
+
+    public Task<ApiResult<MapInsightsDto>> GetInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(new ApiResult<MapInsightsDto>(HttpStatusCode.OK, new ApiResponse<MapInsightsDto>(_insights)));
 
     public FakeMapAnalyticsApi SetOverview(MapsOverviewDto overview) { _overview = overview; return this; }
     public FakeMapAnalyticsApi SetHotspots(MapsHotspotsDto hotspots) { _hotspots = hotspots; return this; }
@@ -35,6 +42,7 @@ public class FakeMapAnalyticsApi : IMapAnalyticsApi
         _byGame = new();
         _byServer = new();
         _mapDetail = new();
+        _insights = new();
         return this;
     }
 

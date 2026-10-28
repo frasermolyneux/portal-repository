@@ -18,6 +18,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         // ───────────────────────── Map Rotation CRUD ─────────────────────────
 
+        public async Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/map-rotations/public-servers", Method.Get, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<PublicServerRotationsDto>();
+        }
+
         public async Task<ApiResult<MapRotationDto>> GetMapRotation(Guid mapRotationId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/map-rotations/{mapRotationId}", Method.Get).ConfigureAwait(false);
