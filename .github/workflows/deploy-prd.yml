@@ -139,7 +139,10 @@ jobs:
             sql_server_fqdn sql_database_name api_management_name api_management_resource_group_name \
             api_management_product_id api_version_set_id backup_storage_account_name; do
             value=$(terraform output -raw "$name")
-            test -n "$value"
+            if [[ -z "$value" ]]; then
+              echo "::error::Required Terraform output '$name' is empty."
+              exit 1
+            fi
             echo "$name=$value" >> "$GITHUB_OUTPUT"
           done
         env:
@@ -239,6 +242,7 @@ jobs:
       - build-and-test
       - terraform-plan-and-apply-dev
       - deploy-sql-database-dev
+      - app-service-deploy-v1-dev
     if: |
       !failure() && !cancelled() &&
       github.event_name != 'schedule' &&
@@ -367,7 +371,10 @@ jobs:
             sql_server_fqdn sql_database_name api_management_name api_management_resource_group_name \
             api_management_product_id api_version_set_id backup_storage_account_name; do
             value=$(terraform output -raw "$name")
-            test -n "$value"
+            if [[ -z "$value" ]]; then
+              echo "::error::Required Terraform output '$name' is empty."
+              exit 1
+            fi
             echo "$name=$value" >> "$GITHUB_OUTPUT"
           done
         env:
@@ -466,6 +473,7 @@ jobs:
       - terraform-plan-and-apply-prd
       - deploy-sql-database-prd
       - app-service-deploy-v2-dev
+      - app-service-deploy-v1-prd
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.repository }}-prd
