@@ -208,7 +208,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map was created if successful; otherwise, a 409 Conflict response.</returns>
         async Task<ApiResult> IMapsApi.CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken)
         {
-            if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken).ConfigureAwait(false))
+            var mapGameType = createMapDto.GameType.GetMapGameType().ToGameTypeInt();
+            if (await context.Maps.AnyAsync(m => m.GameType == mapGameType && m.MapName == createMapDto.MapName, cancellationToken).ConfigureAwait(false))
             {
                 var response = new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapConflictMessage));
                 return response.ToApiResult(HttpStatusCode.Conflict);
@@ -264,9 +265,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating all maps were created if successful; otherwise, a 409 Conflict response.</returns>
         async Task<ApiResult> IMapsApi.CreateMaps(List<CreateMapDto> createMapDtos, CancellationToken cancellationToken)
         {
+            var namesByGame = new Dictionary<GameType, HashSet<string>>();
             foreach (var createMapDto in createMapDtos)
             {
-                if (await context.Maps.AnyAsync(m => m.GameType == createMapDto.GameType.ToGameTypeInt() && m.MapName == createMapDto.MapName, cancellationToken).ConfigureAwait(false))
+                var mapGameType = createMapDto.GameType.GetMapGameType();
+                if (!namesByGame.TryGetValue(mapGameType, out var names))
+                {
+                    namesByGame[mapGameType] = names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                if (!names.Add(createMapDto.MapName) ||
+                    await context.Maps.AnyAsync(m => m.GameType == (int)mapGameType && m.MapName == createMapDto.MapName, cancellationToken).ConfigureAwait(false))
                 {
                     var response = new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapConflictMessage));
                     return response.ToApiResult(HttpStatusCode.Conflict);
@@ -473,7 +482,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             // Apply filters (without Include for efficient counting)
             if (gameType.HasValue)
             {
-                baseQuery = baseQuery.Where(mv => mv.Map.GameType == gameType.Value.ToGameTypeInt());
+                var mapGameType = gameType.Value.GetMapGameType().ToGameTypeInt();
+                baseQuery = baseQuery.Where(mv => mv.Map.GameType == mapGameType);
             }
 
             if (mapId.HasValue)
@@ -853,10 +863,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>The filtered query.</returns>
         private IQueryable<Map> ApplyFilter(IQueryable<Map> query, GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString)
         {
+            query = query.Where(m => m.GameType != (int)GameType.CallOfDuty4x);
             if (gameType.HasValue)
             {
-                var compatibleGameTypes = gameType.Value.GetCompatibleMapGameTypes().Select(gt => (int)gt).ToArray();
-                query = query.Where(m => compatibleGameTypes.Contains(m.GameType));
+                var mapGameType = gameType.Value.GetMapGameType().ToGameTypeInt();
+                query = query.Where(m => m.GameType == mapGameType);
             }
 
             if (mapNames?.Length > 0)

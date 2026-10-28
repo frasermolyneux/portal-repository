@@ -19,7 +19,7 @@ public class MapsControllerTests
     [Theory]
     [InlineData(GameType.CallOfDuty4)]
     [InlineData(GameType.CallOfDuty4x)]
-    public async Task GetMaps_CompatibleGameFilterIncludesBothCod4VariantsButNotCod5(GameType gameType)
+    public async Task GetMaps_BothCod4FiltersReturnOnlyCanonicalMaps(GameType gameType)
     {
         using var db = DbContextHelper.CreateInMemoryContext();
         db.Maps.AddRange(
@@ -31,33 +31,101 @@ public class MapsControllerTests
 
         var result = await api.GetMaps(gameType, null, null, null, 0, 20, null);
 
-        Assert.Equal(new[] { "mp_cod4", "mp_cod4x" }, result.Result!.Data!.Items!.Select(m => m.MapName).Order());
-        Assert.Equal(2, result.Result.Pagination!.FilteredCount);
+        Assert.Equal("mp_cod4", Assert.Single(result.Result!.Data!.Items!).MapName);
+        Assert.Equal(1, result.Result.Pagination!.FilteredCount);
+
+        var all = await api.GetMaps(null, null, null, null, 0, 20, null);
+        Assert.Equal(2, all.Result!.Data!.Items!.Count());
+        Assert.DoesNotContain(all.Result.Data.Items!, map => map.GameType == GameType.CallOfDuty4x);
     }
 
     [Theory]
-    [InlineData(GameType.CallOfDuty4, GameType.CallOfDuty4x)]
-    [InlineData(GameType.CallOfDuty4x, GameType.CallOfDuty4)]
-    public async Task GetMap_ByNameFallsBackToCompatibleMapAndPrefersExactMatch(
-        GameType requestedType, GameType fallbackType)
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty4x)]
+    public async Task GetMap_BothCod4TypesResolveCanonicalMapEvenBeforeLegacyRowsAreRemoved(GameType requestedType)
     {
         using var db = DbContextHelper.CreateInMemoryContext();
-        var compatible = new Map { MapId = Guid.NewGuid(), GameType = (int)fallbackType, MapName = "mp_shared" };
-        db.Maps.Add(compatible);
+        var canonical = new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, MapName = "mp_shared" };
+        db.Maps.Add(canonical);
+        db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4x, MapName = "mp_shared" });
         db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, MapName = "mp_shared" });
         await db.SaveChangesAsync();
         var api = (IMapsApi)CreateController(db);
 
-        var fallback = await api.GetMap(requestedType, "mp_shared");
-        Assert.Equal(compatible.MapId, fallback.Result!.Data!.MapId);
-
-        var exact = new Map { MapId = Guid.NewGuid(), GameType = (int)requestedType, MapName = "mp_shared" };
-        db.Maps.Add(exact);
-        await db.SaveChangesAsync();
-
-        var preferred = await api.GetMap(requestedType, "mp_shared");
-        Assert.Equal(exact.MapId, preferred.Result!.Data!.MapId);
+        var result = await api.GetMap(requestedType, "mp_shared");
+        Assert.Equal(canonical.MapId, result.Result!.Data!.MapId);
         Assert.Equal(HttpStatusCode.NotFound, (await api.GetMap(GameType.CallOfDuty2, "mp_shared")).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CreateCod4xMap_PersistsInCanonicalCatalogue(bool bulk)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var api = (IMapsApi)CreateController(db);
+        var dto = new CreateMapDto(GameType.CallOfDuty4x, "mp_shared")
+        {
+            MapFiles = [new MapFileDto("mp_shared.ff", "https://redirect.test/mp_shared.ff")]
+        };
+
+        var created = bulk ? await api.CreateMaps([dto]) : await api.CreateMap(dto);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal((int)GameType.CallOfDuty4, Assert.Single(db.Maps).GameType);
+        var result = await api.GetMap(GameType.CallOfDuty4x, "mp_shared");
+        Assert.Equal(dto.MapFiles, result.Result!.Data!.MapFiles);
+        var duplicate = bulk ? await api.CreateMaps([dto]) : await api.CreateMap(dto);
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+        Assert.Single(db.Maps);
+    }
+
+    [Fact]
+    public async Task Cod4xVoting_UsesSharedMapWhilePreservingProfilesServersAndRepeatVoteSemantics()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var map = new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, MapName = "mp_shared" };
+        var player = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, Username = "Classic", Guid = "classic" };
+        var player4x = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4x, Username = "Native", Guid = "native" };
+        var server = new GameServer { GameServerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, Title = "Classic", Hostname = "classic.test", BanFileRootPath = "" };
+        var server4x = new GameServer { GameServerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4x, Title = "Native", Hostname = "native.test", BanFileRootPath = "" };
+        db.Maps.Add(map);
+        db.Players.AddRange(player, player4x);
+        db.GameServers.AddRange(server, server4x);
+        await db.SaveChangesAsync();
+        var api = (IMapsApi)CreateController(db);
+
+        var lookup = await api.GetMap(GameType.CallOfDuty4x, "mp_shared");
+        var sharedId = lookup.Result!.Data!.MapId;
+        await api.UpsertMapVote(new UpsertMapVoteDto(sharedId, player.PlayerId, server.GameServerId, true));
+        await api.UpsertMapVote(new UpsertMapVoteDto(sharedId, player4x.PlayerId, server4x.GameServerId, true));
+        var originalVoteId = db.MapVotes.Single(vote => vote.PlayerId == player4x.PlayerId).MapVoteId;
+        await api.UpsertMapVote(new UpsertMapVoteDto(sharedId, player4x.PlayerId, server4x.GameServerId, false));
+
+        var votes = await api.GetMapVotes(GameType.CallOfDuty4x, null, 0, 20, null);
+        Assert.Equal(2, votes.Result!.Pagination!.FilteredCount);
+        Assert.All(votes.Result.Data!.Items!, vote => Assert.Equal(map.MapId, vote.MapId));
+        var nativeVote = Assert.Single(votes.Result.Data.Items!, vote => vote.PlayerId == player4x.PlayerId);
+        Assert.Equal(originalVoteId, nativeVote.MapVoteId);
+        Assert.False(nativeVote.Like);
+        Assert.Equal(server4x.GameServerId, nativeVote.GameServerId);
+        Assert.Equal(GameType.CallOfDuty4x, nativeVote.Player!.GameType);
+        Assert.Equal(GameType.CallOfDuty4x, nativeVote.GameServer!.GameType);
+    }
+
+    [Fact]
+    public async Task CreateMaps_RejectsConflictingCanonicalNamesWithinTheBatchWithoutPersisting()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var api = (IMapsApi)CreateController(db);
+
+        var result = await api.CreateMaps([
+            new CreateMapDto(GameType.CallOfDuty4, "mp_shared"),
+            new CreateMapDto(GameType.CallOfDuty4x, "MP_SHARED")
+        ]);
+
+        Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+        Assert.Empty(db.Maps);
     }
 
     private MapsController CreateController(PortalDbContext context)

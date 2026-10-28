@@ -1,0 +1,22 @@
+name: Map consolidation checks
+
+on:
+  pull_request:
+    paths:
+      - "maintenance/Consolidate-Cod4Maps.sql"
+      - "maintenance/Test-ConsolidateCod4Maps.ps1"
+      - ".github/workflows/map-consolidation-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-migration:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate migration against isolated LocalDB fixtures
+        shell: pwsh
+        run: .\maintenance\Test-ConsolidateCod4Maps.ps1

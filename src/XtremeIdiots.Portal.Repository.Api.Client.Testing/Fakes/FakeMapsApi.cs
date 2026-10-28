@@ -45,9 +45,8 @@ public class FakeMapsApi : IMapsApi
 
     public Task<ApiResult<MapDto>> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default)
     {
-        var compatibleGameTypes = gameType.GetCompatibleMapGameTypes();
-        var map = _maps.Values.Where(m => compatibleGameTypes.Contains(m.GameType) && m.MapName == mapName)
-            .OrderByDescending(m => m.GameType == gameType).ThenBy(m => m.MapId).FirstOrDefault();
+        var mapGameType = gameType.GetMapGameType();
+        var map = _maps.Values.FirstOrDefault(m => m.GameType == mapGameType && m.MapName == mapName);
         if (map != null)
         {
             return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(map)));
@@ -58,11 +57,10 @@ public class FakeMapsApi : IMapsApi
 
     public Task<ApiResult<CollectionModel<MapDto>>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken = default)
     {
-        var items = _maps.Values.AsEnumerable();
+        var items = _maps.Values.Where(m => m.GameType != GameType.CallOfDuty4x);
         if (gameType.HasValue)
         {
-            var compatibleGameTypes = gameType.Value.GetCompatibleMapGameTypes();
-            items = items.Where(m => compatibleGameTypes.Contains(m.GameType));
+            items = items.Where(m => m.GameType == gameType.Value.GetMapGameType());
         }
 
         if (mapNames != null)
@@ -83,7 +81,7 @@ public class FakeMapsApi : IMapsApi
 
         if (gameType.HasValue)
         {
-            items = items.Where(mv => mv.Map?.GameType == gameType.Value);
+            items = items.Where(mv => mv.Map?.GameType == gameType.Value.GetMapGameType());
         }
 
         if (mapId.HasValue)

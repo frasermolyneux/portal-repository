@@ -15,8 +15,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 namespace XtremeIdiots.Portal.Repository.Api.V1.Services
 {
     /// <summary>
-    /// Default (uncached) implementation of <see cref="IMapReadService"/>. Behaviour mirrors
-    /// the pre-refactor <c>MapsController.GetMap</c> paths for both overloads.
+    /// Uncached map reads. COD4 and COD4x share the COD4 catalogue.
     /// </summary>
     public sealed class MapReadService : IMapReadService
     {
@@ -46,14 +45,11 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services
 
         public async Task<ApiResult<MapDto>> GetMapByGameTypeAndNameAsync(GameType gameType, string mapName, CancellationToken cancellationToken)
         {
-            var compatibleGameTypes = gameType.GetCompatibleMapGameTypes().Select(gt => (int)gt).ToArray();
-            var requestedGameType = (int)gameType;
+            var mapGameType = (int)gameType.GetMapGameType();
             var map = await context.Maps
                 .Include(m => m.MapVotes)
                 .AsNoTracking()
-                .Where(m => compatibleGameTypes.Contains(m.GameType) && m.MapName == mapName)
-                .OrderByDescending(m => m.GameType == requestedGameType)
-                .ThenBy(m => m.MapId)
+                .Where(m => m.GameType == mapGameType && m.MapName == mapName)
                 .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
 

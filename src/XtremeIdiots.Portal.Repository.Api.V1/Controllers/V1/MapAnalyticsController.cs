@@ -9,6 +9,7 @@ using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics;
@@ -90,7 +91,12 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         var grouped = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.MapName != null && s.MapName != "" && s.GameServer != null && !s.GameServer.Deleted)
-            .GroupBy(s => new { s.MapName, s.GameServer!.GameType })
+            .GroupBy(s => new
+            {
+                s.MapName,
+                GameType = s.GameServer!.GameType == (int)GameType.CallOfDuty4x
+                    ? (int)GameType.CallOfDuty4 : s.GameServer.GameType
+            })
             .Select(g => new
             {
                 g.Key.MapName,
@@ -145,7 +151,12 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         var totalPlays = await basePlays.CountAsync(cancellationToken).ConfigureAwait(false);
 
         var grouped = await basePlays
-            .GroupBy(s => new { s.MapName, s.GameServer!.GameType })
+            .GroupBy(s => new
+            {
+                s.MapName,
+                GameType = s.GameServer!.GameType == (int)GameType.CallOfDuty4x
+                    ? (int)GameType.CallOfDuty4 : s.GameServer.GameType
+            })
             .Select(g => new { g.Key.MapName, g.Key.GameType, Count = g.Count() })
             .OrderByDescending(x => x.Count)
             .Take(top)
@@ -244,13 +255,18 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
 
         // Two translatable queries instead of COUNT + COUNT(DISTINCT) in a single grouped projection
         // (which EF Core does not reliably translate).
-        var playsByGameType = await basePlays
-            .GroupBy(s => s.GameServer!.GameType)
+        var familyPlays = basePlays.Select(s => new
+        {
+            s.MapName,
+            GameType = s.GameServer!.GameType == (int)GameType.CallOfDuty4x
+                ? (int)GameType.CallOfDuty4 : s.GameServer.GameType
+        });
+        var playsByGameType = await familyPlays
+            .GroupBy(s => s.GameType)
             .Select(g => new { GameType = g.Key, Plays = g.Count() })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var mapsByGameType = await basePlays
-            .Select(s => new { GameType = s.GameServer!.GameType, s.MapName })
+        var mapsByGameType = await familyPlays
             .Distinct()
             .GroupBy(x => x.GameType)
             .Select(g => new { GameType = g.Key, Maps = g.Count() })
@@ -371,6 +387,7 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
             .AsNoTracking()
             .CountAsync(v => v.MapId == mapId && v.Timestamp >= fromUtc && v.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
+        var compatibleGameTypes = ((GameType)map.GameType).GetCompatibleMapGameTypes().Select(game => (int)game).ToArray();
         var playerSamples = await context.GameServerStats
             .AsNoTracking()
             .Where(s =>
@@ -379,7 +396,7 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
                 && s.Timestamp < toUtc
                 && s.GameServer != null
                 && !s.GameServer.Deleted
-                && s.GameServer.GameType == map.GameType)
+                && compatibleGameTypes.Contains(s.GameServer.GameType))
             .Select(s => s.PlayerCount)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 

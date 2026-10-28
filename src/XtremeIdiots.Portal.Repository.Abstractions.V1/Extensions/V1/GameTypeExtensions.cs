@@ -5,6 +5,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1
     public static class GameTypeExtensions
     {
         /// <summary>
+        /// Returns the catalogue owning a game's maps, without changing its server or player identity.
+        /// </summary>
+        public static GameType GetMapGameType(this GameType gameType) =>
+            gameType == GameType.CallOfDuty4x ? GameType.CallOfDuty4 : gameType;
+
+        /// <summary>
         /// Returns games that share compatible maps and map rotations.
         /// </summary>
         public static GameType[] GetCompatibleMapGameTypes(this GameType gameType)

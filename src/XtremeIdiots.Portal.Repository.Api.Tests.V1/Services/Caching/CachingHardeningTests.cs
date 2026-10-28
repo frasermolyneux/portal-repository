@@ -280,7 +280,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var subject = new CachingMapReadService(inner, cache, CreateMetrics(), NullLogger<CachingMapReadService>.Instance);
 
             _ = await subject.GetMapByGameTypeAndNameAsync(GameType.CallOfDuty4, "mp_crash", CancellationToken.None);
-            _ = await subject.GetMapByGameTypeAndNameAsync(GameType.CallOfDuty4, "mp_crash", CancellationToken.None);
+            _ = await subject.GetMapByGameTypeAndNameAsync(GameType.CallOfDuty4x, "mp_crash", CancellationToken.None);
 
             Assert.Equal(1, inner.ByGameNameCalls);
         }

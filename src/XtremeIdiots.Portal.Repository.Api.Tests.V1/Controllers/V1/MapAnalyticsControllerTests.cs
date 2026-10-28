@@ -80,6 +80,45 @@ public class MapAnalyticsControllerTests
     }
 
     [Fact]
+    public async Task SharedMapAnalytics_CombineCod4EnginesWithoutCombiningOtherGamesOrChangingServers()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var classic = SeedServer(context);
+        var native = SeedServer(context, GameType.CallOfDuty4x);
+        var other = SeedServer(context, GameType.CallOfDuty5);
+        var mapId = Guid.NewGuid();
+        context.Maps.Add(new Map { MapId = mapId, MapName = "mp_shared", GameType = (int)GameType.CallOfDuty4 });
+        SeedStat(context, classic.GameServerId, "mp_shared", 10);
+        SeedStat(context, native.GameServerId, "mp_shared", 20);
+        SeedStat(context, other.GameServerId, "mp_shared", 30);
+        context.MapVotes.AddRange(
+            new MapVote { MapVoteId = Guid.NewGuid(), MapId = mapId, PlayerId = Guid.NewGuid(), GameServerId = classic.GameServerId, Like = true, Timestamp = Now },
+            new MapVote { MapVoteId = Guid.NewGuid(), MapId = mapId, PlayerId = Guid.NewGuid(), GameServerId = native.GameServerId, Like = true, Timestamp = Now });
+        await context.SaveChangesAsync();
+        var api = CreateApi(context);
+
+        var top = await api.GetTopPlayed(FromUtc, ToUtc, 10);
+        var combined = Assert.Single(top.Result!.Data!.Items, item => item.GameType == GameType.CallOfDuty4);
+        Assert.Equal(2, combined.PlaysCount);
+        Assert.Equal(2, top.Result.Data.Items.Count);
+        var hotspots = await api.GetHotspots(FromUtc, ToUtc, 10);
+        Assert.Equal(15, Assert.Single(hotspots.Result!.Data!.Items,
+            item => item.GameType == GameType.CallOfDuty4).AvgPlayers);
+        var byGame = await api.GetByGame(FromUtc, ToUtc);
+        var family = Assert.Single(byGame.Result!.Data!.Items, item => item.GameType == GameType.CallOfDuty4);
+        Assert.Equal(2, family.TotalPlays);
+        Assert.Equal(1, family.MapsPlayed);
+        Assert.Equal(2, family.TotalVotes);
+        var detail = await api.GetMapDetail(mapId, FromUtc, ToUtc);
+        Assert.Equal(2, detail.Result!.Data!.PlaysCount);
+        Assert.Equal(15, detail.Result.Data.AvgPlayers);
+        Assert.Equal(2, detail.Result.Data.VotesCount);
+        var byServer = await api.GetByServer(native.GameServerId, FromUtc, ToUtc);
+        Assert.Equal(1, Assert.Single(byServer.Result!.Data!.Items).PlaysCount);
+        Assert.Equal((int)GameType.CallOfDuty4x, native.GameType);
+    }
+
+    [Fact]
     public async Task GetTopPlayed_ComputesSharePercent()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
