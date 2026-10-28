@@ -133,18 +133,15 @@ jobs:
       - id: terraform-output-dev
         shell: bash
         run: |
+          set -euo pipefail
           cd terraform
-          echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
-          echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
-          echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
-          echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
-          echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
-          echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
-          echo "api_management_name=$(terraform output -raw api_management_name)" >> $GITHUB_OUTPUT
-          echo "api_management_resource_group_name=$(terraform output -raw api_management_resource_group_name)" >> $GITHUB_OUTPUT
-          echo "api_management_product_id=$(terraform output -raw api_management_product_id)" >> $GITHUB_OUTPUT
-          echo "api_version_set_id=$(terraform output -raw api_version_set_id)" >> $GITHUB_OUTPUT
-          echo "backup_storage_account_name=$(terraform output -raw backup_storage_account_name)" >> $GITHUB_OUTPUT
+          for name in web_app_name_v1 web_app_resource_group_v1 web_app_name_v2 web_app_resource_group_v2 \
+            sql_server_fqdn sql_database_name api_management_name api_management_resource_group_name \
+            api_management_product_id api_version_set_id backup_storage_account_name; do
+            value=$(terraform output -raw "$name")
+            test -n "$value"
+            echo "$name=$value" >> "$GITHUB_OUTPUT"
+          done
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -364,18 +361,15 @@ jobs:
       - id: terraform-output-prd
         shell: bash
         run: |
+          set -euo pipefail
           cd terraform
-          echo "web_app_name_v1=$(terraform output -raw web_app_name_v1)" >> $GITHUB_OUTPUT
-          echo "web_app_resource_group_v1=$(terraform output -raw web_app_resource_group_v1)" >> $GITHUB_OUTPUT
-          echo "web_app_name_v2=$(terraform output -raw web_app_name_v2)" >> $GITHUB_OUTPUT
-          echo "web_app_resource_group_v2=$(terraform output -raw web_app_resource_group_v2)" >> $GITHUB_OUTPUT
-          echo "sql_server_fqdn=$(terraform output -raw sql_server_fqdn)" >> $GITHUB_OUTPUT
-          echo "sql_database_name=$(terraform output -raw sql_database_name)" >> $GITHUB_OUTPUT
-          echo "api_management_name=$(terraform output -raw api_management_name)" >> $GITHUB_OUTPUT
-          echo "api_management_resource_group_name=$(terraform output -raw api_management_resource_group_name)" >> $GITHUB_OUTPUT
-          echo "api_management_product_id=$(terraform output -raw api_management_product_id)" >> $GITHUB_OUTPUT
-          echo "api_version_set_id=$(terraform output -raw api_version_set_id)" >> $GITHUB_OUTPUT
-          echo "backup_storage_account_name=$(terraform output -raw backup_storage_account_name)" >> $GITHUB_OUTPUT
+          for name in web_app_name_v1 web_app_resource_group_v1 web_app_name_v2 web_app_resource_group_v2 \
+            sql_server_fqdn sql_database_name api_management_name api_management_resource_group_name \
+            api_management_product_id api_version_set_id backup_storage_account_name; do
+            value=$(terraform output -raw "$name")
+            test -n "$value"
+            echo "$name=$value" >> "$GITHUB_OUTPUT"
+          done
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
