@@ -20,7 +20,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default)
         {
-            var request = await CreateRequestAsync("v1/map-rotations/public-servers", Method.Get).ConfigureAwait(false);
+            var request = await CreateRequestAsync("v1/map-rotations/public-servers", Method.Get, cancellationToken).ConfigureAwait(false);
             return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<PublicServerRotationsDto>();
         }
 
