@@ -44,6 +44,20 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
 
     async Task<ApiResult<MapInsightsDto>> IMapAnalyticsApi.GetInsights(DateTime fromUtc, DateTime toUtc,
         GameType? gameType, Guid? gameServerId, CancellationToken cancellationToken)
+        => await BuildInsights(fromUtc, toUtc, gameType, gameServerId, true, cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("insights/votes")]
+    [ProducesResponseType<MapInsightsDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetVoteInsights([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc,
+        [FromQuery] GameType? gameType = null, [FromQuery] Guid? gameServerId = null, CancellationToken cancellationToken = default)
+        => (await ((IMapAnalyticsApi)this).GetVoteInsights(fromUtc, toUtc, gameType, gameServerId, cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+    Task<ApiResult<MapInsightsDto>> IMapAnalyticsApi.GetVoteInsights(DateTime fromUtc, DateTime toUtc,
+        GameType? gameType, Guid? gameServerId, CancellationToken cancellationToken)
+        => BuildInsights(fromUtc, toUtc, gameType, gameServerId, false, cancellationToken);
+
+    private async Task<ApiResult<MapInsightsDto>> BuildInsights(DateTime fromUtc, DateTime toUtc,
+        GameType? gameType, Guid? gameServerId, bool includePlayerActivity, CancellationToken cancellationToken)
     {
         if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
             || toUtc - fromUtc > TimeSpan.FromDays(365)
@@ -114,7 +128,7 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         {
             stats = stats.Where(s => s.GameServerId == gameServerId);
         }
-        var hotspots = await stats.GroupBy(s => new
+        var hotspots = includePlayerActivity ? await stats.GroupBy(s => new
         {
             s.MapName,
             GameType = s.GameServer!.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : s.GameServer.GameType
@@ -126,7 +140,7 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
             PeakPlayers = g.Max(s => s.PlayerCount),
             SampleCount = g.Count()
         }).OrderByDescending(s => s.AvgPlayers).ThenBy(s => s.MapName)
-            .Take(12).ToListAsync(cancellationToken).ConfigureAwait(false);
+            .Take(12).ToListAsync(cancellationToken).ConfigureAwait(false) : [];
 
         var established = ratings.Where(r => r.Votes >= 5).ToList();
         return new ApiResponse<MapInsightsDto>(new MapInsightsDto

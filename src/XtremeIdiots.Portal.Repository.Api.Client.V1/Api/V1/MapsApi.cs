@@ -23,6 +23,12 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         }
 
+        public async Task<ApiResult<MapGamesDto>> GetMapGames(CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/maps/games", Method.Get, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<MapGamesDto>();
+        }
+
         public async Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync($"v1/maps/{mapId}", Method.Get).ConfigureAwait(false);
@@ -198,5 +204,4 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         }
     }
 }
-
 

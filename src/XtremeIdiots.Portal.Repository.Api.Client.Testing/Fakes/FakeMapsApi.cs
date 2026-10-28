@@ -33,6 +33,14 @@ public class FakeMapsApi : IMapsApi
     }
     public FakeMapsApi Reset() { _maps.Clear(); _mapVotes.Clear(); _errorResponses.Clear(); return this; }
 
+    public Task<ApiResult<MapGamesDto>> GetMapGames(CancellationToken cancellationToken = default)
+        => Task.FromResult(new ApiResult<MapGamesDto>(HttpStatusCode.OK, new ApiResponse<MapGamesDto>(new MapGamesDto
+        {
+            Games = _maps.Values.Where(map => map.GameType != GameType.CallOfDuty4x && !string.IsNullOrWhiteSpace(map.MapName))
+                .Select(map => map.GameType).Where(game => game != GameType.Unknown && Enum.IsDefined(game))
+                .Distinct().Order().ToList()
+        })));
+
     public Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default)
     {
         if (_maps.TryGetValue(mapId, out var map))

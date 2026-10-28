@@ -73,6 +73,14 @@ public sealed class PublicMapExperienceTests : IDisposable
         Assert.All(commands.Text, sql => Assert.Contains("GROUP BY", sql));
         Assert.DoesNotContain(commands.Text, sql => sql.Contains("PlayerId", StringComparison.OrdinalIgnoreCase));
 
+        commands.Text.Clear();
+        var votesOnly = (await api.GetVoteInsights(now.AddDays(-30), now, GameType.CallOfDuty4x)).Result!.Data!;
+        Assert.Equal(result.TotalVotes, votesOnly.TotalVotes);
+        Assert.Equal(result.Popular, votesOnly.Popular);
+        Assert.Empty(votesOnly.Hotspots);
+        Assert.Single(commands.Text);
+        Assert.DoesNotContain(commands.Text, sql => sql.Contains("GameServerStats", StringComparison.OrdinalIgnoreCase));
+
         var scoped = (await api.GetInsights(now.AddDays(-30), now, GameType.CallOfDuty4, native.GameServerId)).Result!.Data!;
         Assert.Equal(3, scoped.TotalVotes);
         Assert.Empty(scoped.Popular);

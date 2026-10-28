@@ -16,6 +16,23 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class MapsControllerTests
 {
+    [Fact]
+    public async Task GetMapGames_ReturnsOnlyPopulatedCanonicalFamilies()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        db.Maps.AddRange(
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, MapName = "mp_classic" },
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4x, MapName = "mp_native" },
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, MapName = "" },
+            new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.Unknown, MapName = "unknown" });
+        await db.SaveChangesAsync();
+        var result = await ((IMapsApi)CreateController(db)).GetMapGames();
+        Assert.Equal(GameType.CallOfDuty4, Assert.Single(result.Result!.Data!.Games));
+        db.Maps.RemoveRange(db.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4));
+        await db.SaveChangesAsync();
+        Assert.Empty((await ((IMapsApi)CreateController(db)).GetMapGames()).Result!.Data!.Games);
+    }
+
     [Theory]
     [InlineData(GameType.CallOfDuty4)]
     [InlineData(GameType.CallOfDuty4x)]
