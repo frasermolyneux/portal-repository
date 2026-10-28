@@ -92,11 +92,12 @@ public class MapCatalogueConcurrencyTests
             var legacy = new Map { GameType = 24, MapName = "mp_shared" };
             var player = new Player { GameType = 24, Guid = "native", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             var otherPlayer = new Player { GameType = 24, Guid = "other", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            var otherMap = new Map { GameType = 2, MapName = "mp_other" };
             var server = new GameServer { GameType = 24, Title = "Native", Hostname = "native.test", BanFileRootPath = "" };
-            setup.AddRange(canonical, legacy, player, otherPlayer, server);
+            setup.AddRange(canonical, legacy, otherMap, player, otherPlayer, server);
             await setup.SaveChangesAsync();
             var gate = new InsertGate("MapVotes");
-            var observer = new LockObserver("Portal.MapVote:");
+            var observer = new LockObserver("[\"Portal.MapVote:");
             await using var first = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
                 .UseSqlServer(connectionString).AddInterceptors(gate).Options);
             await using var second = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
@@ -109,8 +110,10 @@ public class MapCatalogueConcurrencyTests
                 await observer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
                 Assert.NotSame(secondOperation, await Task.WhenAny(secondOperation, Task.Delay(300)));
                 await using var unrelated = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options);
-                Assert.Equal(HttpStatusCode.OK, (await CreateApi(unrelated).UpsertMapVote(
-                    new(canonical.MapId, otherPlayer.PlayerId, server.GameServerId, true)).WaitAsync(TimeSpan.FromSeconds(5))).StatusCode);
+                Assert.Equal(HttpStatusCode.OK, (await CreateApi(unrelated).UpsertMapVotes([
+                    new(canonical.MapId, otherPlayer.PlayerId, server.GameServerId, true),
+                    new(otherMap.MapId, otherPlayer.PlayerId, server.GameServerId, true)
+                ]).WaitAsync(TimeSpan.FromSeconds(5))).StatusCode);
             }
             finally
             {
@@ -119,7 +122,7 @@ public class MapCatalogueConcurrencyTests
             Assert.Equal(HttpStatusCode.OK, (await firstOperation).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await secondOperation).StatusCode);
             Assert.Equal(canonical.MapId, (await setup.MapVotes.SingleAsync(vote => vote.PlayerId == player.PlayerId)).MapId);
-            Assert.Equal(2, await setup.MapVotes.CountAsync());
+            Assert.Equal(3, await setup.MapVotes.CountAsync());
         });
 
     [Fact]

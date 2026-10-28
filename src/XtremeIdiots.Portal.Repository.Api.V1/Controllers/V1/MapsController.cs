@@ -724,19 +724,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 {
                     var lockKeys = upsertMapVoteDtos.Select(vote =>
                         $"Portal.MapVote:{canonicalIds[vote.MapId]:N}:{vote.PlayerId:N}:{vote.GameServerId:N}")
-                        .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
-                    foreach (var lockKey in lockKeys)
-                    {
-                        await context.Database.ExecuteSqlInterpolatedAsync($"""
-                            DECLARE @result int;
+                        .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                    var lockKeysJson = JsonConvert.SerializeObject(lockKeys);
+                    await context.Database.ExecuteSqlInterpolatedAsync($"""
+                        DECLARE @locks table (Position int PRIMARY KEY, Resource nvarchar(255));
+                        INSERT @locks SELECT CONVERT(int, [key]), [value] FROM OPENJSON({lockKeysJson});
+                        DECLARE @position int = 0, @resource nvarchar(255), @result int;
+                        WHILE @position < (SELECT COUNT(*) FROM @locks)
+                        BEGIN
+                            SELECT @resource = Resource FROM @locks WHERE Position = @position;
                             EXEC @result = sys.sp_getapplock
-                                @Resource = {lockKey},
+                                @Resource = @resource,
                                 @LockMode = N'Exclusive',
                                 @LockOwner = N'Transaction',
                                 @LockTimeout = 30000;
                             IF @result < 0 THROW 51000, 'Unable to lock the map vote.', 1;
-                            """, cancellationToken).ConfigureAwait(false);
-                    }
+                            SET @position += 1;
+                        END;
+                        """, cancellationToken).ConfigureAwait(false);
                 }
                 var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
                 var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
