@@ -46,6 +46,11 @@ public sealed class PublicMapExperienceTests : IDisposable
         Vote(shared, deleted, false);
         Vote(shared, classic, false, now.AddDays(-40));
         Vote(low, native, true);
+        var legacyLow = Map("mp_low", GameType.CallOfDuty4x);
+        for (var i = 0; i < 4; i++)
+        {
+            Vote(legacyLow, classic, true);
+        }
         Vote(cod5, other, false);
         Stat(classic, "mp_shared", -1, 10);
         Stat(native, "mp_shared", -2, 20);
@@ -58,11 +63,11 @@ public sealed class PublicMapExperienceTests : IDisposable
 
         var result = (await api.GetInsights(now.AddDays(-30), now, GameType.CallOfDuty4x)).Result!.Data!;
 
-        Assert.Equal((7, 6, 1, 2), (result.TotalVotes, result.TotalLikes, result.TotalDislikes, result.RatedMaps));
-        var popular = Assert.Single(result.Popular);
+        Assert.Equal((11, 10, 1, 2), (result.TotalVotes, result.TotalLikes, result.TotalDislikes, result.RatedMaps));
+        var popular = Assert.Single(result.Popular, m => m.MapId == shared.MapId);
         Assert.Equal(shared.MapId, popular.MapId);
         Assert.Equal(83.3, popular.Approval);
-        Assert.Contains(result.MostVoted, r => r.MapId == low.MapId && r.Votes == 1);
+        Assert.Contains(result.Popular, r => r.MapId == low.MapId && r.Votes == 5);
         Assert.Equal(15, Assert.Single(result.Hotspots).AvgPlayers);
         Assert.Equal(2, commands.Text.Count);
         Assert.All(commands.Text, sql => Assert.Contains("GROUP BY", sql));
@@ -92,6 +97,9 @@ public sealed class PublicMapExperienceTests : IDisposable
         var map = Map("mp_custom", GameType.CallOfDuty4);
         map.TotalLikes = 8;
         map.TotalDislikes = 2;
+        var legacy = Map("mp_custom", GameType.CallOfDuty4x);
+        legacy.TotalLikes = 3;
+        legacy.TotalDislikes = 2;
         var rotation = new MapRotation
         {
             MapRotationId = Guid.NewGuid(),
@@ -107,7 +115,7 @@ public sealed class PublicMapExperienceTests : IDisposable
         {
             MapRotationMapId = Guid.NewGuid(),
             MapRotation = rotation,
-            Map = map,
+            Map = legacy,
             SortOrder = 0
         });
         var assignment = new MapRotationServerAssignment
@@ -152,7 +160,7 @@ public sealed class PublicMapExperienceTests : IDisposable
         Assert.Equal(expectHistory, projected.IsObservedHistory);
         Assert.Equal(expectHistory ? null : "Normal", projected.RotationTitle);
         Assert.Equal(expectHistory ? new[] { "mp_custom", "mp_unindexed" } : ["mp_custom"], projected.Maps.Select(m => m.MapName));
-        Assert.Equal((map.MapId, 10, 80d), (projected.Maps[0].MapId, projected.Maps[0].Votes, projected.Maps[0].Approval));
+        Assert.Equal((map.MapId, 15, 73.3d), (projected.Maps[0].MapId, projected.Maps[0].Votes, projected.Maps[0].Approval));
         Assert.InRange(commands.Text.Count, 4, 7);
         Assert.Single(commands.Text, sql => sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
     }

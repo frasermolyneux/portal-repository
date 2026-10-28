@@ -66,17 +66,32 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         }
         var votes = context.MapVotes.AsNoTracking().Where(v => v.Timestamp >= fromUtc && v.Timestamp < toUtc
             && (v.GameServerId == null || publicServers.Any(s => s.GameServerId == v.GameServerId)));
+        var familyVotes =
+            from vote in votes
+            join canonical in context.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4)
+                on new { vote.Map.GameType, vote.Map.MapName }
+                equals new { GameType = (int)GameType.CallOfDuty4x, canonical.MapName } into canonicalMaps
+            from canonical in canonicalMaps.DefaultIfEmpty()
+            select new
+            {
+                MapId = canonical == null ? vote.MapId : canonical.MapId,
+                GameType = canonical == null ? vote.Map.GameType : canonical.GameType,
+                MapName = canonical == null ? vote.Map.MapName : canonical.MapName,
+                MapImageUri = canonical == null ? vote.Map.MapImageUri : canonical.MapImageUri,
+                vote.Like,
+                vote.GameServerId
+            };
         if (family.HasValue)
         {
-            votes = votes.Where(v => v.Map.GameType == family);
+            familyVotes = familyVotes.Where(v => v.GameType == family);
         }
         if (gameServerId.HasValue)
         {
-            votes = votes.Where(v => v.GameServerId == gameServerId);
+            familyVotes = familyVotes.Where(v => v.GameServerId == gameServerId);
         }
 
         // Aggregate in SQL; no player identities or individual vote histories leave this query.
-        var ratings = await votes.GroupBy(v => new { v.MapId, v.Map.GameType, v.Map.MapName, v.Map.MapImageUri })
+        var ratings = await familyVotes.GroupBy(v => new { v.MapId, v.GameType, v.MapName, v.MapImageUri })
             .Select(g => new MapRatingDto
             {
                 MapId = g.Key.MapId,
