@@ -33,8 +33,14 @@ public class MapAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IMapAnalytic
     }
 
     public async Task<ApiResult<MapInsightsDto>> GetInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default)
+        => await ReadInsights("v1/analytics/maps/insights", fromUtc, toUtc, gameType, gameServerId, cancellationToken).ConfigureAwait(false);
+
+    public Task<ApiResult<MapInsightsDto>> GetVoteInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default)
+        => ReadInsights("v1/analytics/maps/insights/votes", fromUtc, toUtc, gameType, gameServerId, cancellationToken);
+
+    private async Task<ApiResult<MapInsightsDto>> ReadInsights(string route, DateTime fromUtc, DateTime toUtc, GameType? gameType, Guid? gameServerId, CancellationToken cancellationToken)
     {
-        var request = await CreateRequestAsync("v1/analytics/maps/insights", Method.Get, cancellationToken).ConfigureAwait(false);
+        var request = await CreateRequestAsync(route, Method.Get, cancellationToken).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
         if (gameType.HasValue)

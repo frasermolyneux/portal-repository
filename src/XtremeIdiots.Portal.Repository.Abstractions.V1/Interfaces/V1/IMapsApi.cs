@@ -7,6 +7,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IMapsApi
     {
+        Task<ApiResult<MapGamesDto>> GetMapGames(CancellationToken cancellationToken = default);
         Task<ApiResult<MapDto>> GetMap(Guid mapId, CancellationToken cancellationToken = default);
         Task<ApiResult<MapDto>> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default);
         Task<ApiResult<CollectionModel<MapDto>>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken = default);

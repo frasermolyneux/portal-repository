@@ -53,6 +53,22 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             this.cacheInvalidator = cacheInvalidator;
         }
 
+        [HttpGet("maps/games")]
+        [ProducesResponseType<MapGamesDto>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMapGames(CancellationToken cancellationToken = default)
+            => (await ((IMapsApi)this).GetMapGames(cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+        async Task<ApiResult<MapGamesDto>> IMapsApi.GetMapGames(CancellationToken cancellationToken)
+        {
+            var games = await context.Maps.AsNoTracking().Where(m => m.MapName != null && m.MapName != "")
+                .Select(m => m.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : m.GameType)
+                .Distinct().OrderBy(game => game).ToListAsync(cancellationToken).ConfigureAwait(false);
+            return new ApiResponse<MapGamesDto>(new MapGamesDto
+            {
+                Games = games.Select(game => (GameType)game).Where(game => game != GameType.Unknown && Enum.IsDefined(game)).ToList()
+            }).ToApiResult();
+        }
+
         /// <summary>
         /// Retrieves a specific map by its unique identifier.
         /// </summary>

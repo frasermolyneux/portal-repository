@@ -25,6 +25,9 @@ public class FakeMapAnalyticsApi : IMapAnalyticsApi
     public Task<ApiResult<MapInsightsDto>> GetInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default)
         => Task.FromResult(new ApiResult<MapInsightsDto>(HttpStatusCode.OK, new ApiResponse<MapInsightsDto>(_insights)));
 
+    public Task<ApiResult<MapInsightsDto>> GetVoteInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(new ApiResult<MapInsightsDto>(HttpStatusCode.OK, new ApiResponse<MapInsightsDto>(_insights with { Hotspots = [] })));
+
     public FakeMapAnalyticsApi SetOverview(MapsOverviewDto overview) { _overview = overview; return this; }
     public FakeMapAnalyticsApi SetHotspots(MapsHotspotsDto hotspots) { _hotspots = hotspots; return this; }
     public FakeMapAnalyticsApi SetTopPlayed(MapsTopPlayedDto topPlayed) { _topPlayed = topPlayed; return this; }

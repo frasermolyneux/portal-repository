@@ -9,6 +9,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 public interface IMapAnalyticsApi
 {
     Task<ApiResult<MapInsightsDto>> GetInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default);
+    Task<ApiResult<MapInsightsDto>> GetVoteInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default);
 
     Task<ApiResult<MapsOverviewDto>> GetOverview(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 
