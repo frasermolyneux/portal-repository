@@ -669,24 +669,23 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult> IMapsApi.UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken)
         {
             Guid[] familyMapIds = [];
+            var commitAttempted = false;
+            var commitUncertain = false;
+            ApiResult UnconfirmedCommit()
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict, ApiErrorMessages.MapVoteCommitUnconfirmedMessage))
+                    .ToApiResult(HttpStatusCode.Conflict);
+            }
             async Task<ApiResult> UpsertAsync()
             {
+                if (commitAttempted)
+                {
+                    commitUncertain = true;
+                    return UnconfirmedCommit();
+                }
                 context.ChangeTracker.Clear();
                 await using var transaction = context.Database.IsRelational()
                     ? await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false) : null;
-                if (context.Database.IsSqlServer())
-                {
-                    await context.Database.ExecuteSqlRawAsync("""
-                    DECLARE @result int;
-                    EXEC @result = sys.sp_getapplock
-                        @Resource = N'Portal.MapVotes',
-                        @LockMode = N'Exclusive',
-                        @LockOwner = N'Transaction',
-                        @LockTimeout = 30000;
-                    IF @result < 0 THROW 51000, 'Unable to lock map votes.', 1;
-                    """, cancellationToken).ConfigureAwait(false);
-                }
-
                 var mapIds = upsertMapVoteDtos.Select(x => x.MapId).ToList();
                 var requestedMaps = await context.Maps.AsNoTracking().Where(map => mapIds.Contains(map.MapId))
                     .Select(map => new { map.MapId, map.GameType, map.MapName })
@@ -721,6 +720,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
 
                 familyMapIds = canonicalIds.Keys.ToArray();
+                if (context.Database.IsSqlServer())
+                {
+                    var lockKeys = upsertMapVoteDtos.Select(vote =>
+                        $"Portal.MapVote:{canonicalIds[vote.MapId]:N}:{vote.PlayerId:N}:{vote.GameServerId:N}")
+                        .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+                    foreach (var lockKey in lockKeys)
+                    {
+                        await context.Database.ExecuteSqlInterpolatedAsync($"""
+                            DECLARE @result int;
+                            EXEC @result = sys.sp_getapplock
+                                @Resource = {lockKey},
+                                @LockMode = N'Exclusive',
+                                @LockOwner = N'Transaction',
+                                @LockTimeout = 30000;
+                            IF @result < 0 THROW 51000, 'Unable to lock the map vote.', 1;
+                            """, cancellationToken).ConfigureAwait(false);
+                    }
+                }
                 var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
                 var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
 
@@ -767,13 +784,24 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                 if (transaction != null)
                 {
-                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    commitAttempted = true;
+                    try
+                    {
+                        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        // Replaying an unknown commit could overwrite a newer successful vote.
+                        commitUncertain = true;
+                        logger.LogWarning(exception, "The map vote commit could not be confirmed.");
+                        return UnconfirmedCommit();
+                    }
                 }
                 return new ApiResponse().ToApiResult();
             }
 
             var result = await context.Database.CreateExecutionStrategy().ExecuteAsync(UpsertAsync).ConfigureAwait(false);
-            if (result.IsSuccess)
+            if (result.IsSuccess || commitUncertain)
             {
                 await Task.WhenAll(familyMapIds.Select(id => cacheInvalidator.InvalidateMapAsync(id, cancellationToken))).ConfigureAwait(false);
             }

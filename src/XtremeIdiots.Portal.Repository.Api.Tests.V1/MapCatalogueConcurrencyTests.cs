@@ -91,11 +91,12 @@ public class MapCatalogueConcurrencyTests
             var canonical = new Map { GameType = 2, MapName = "mp_shared" };
             var legacy = new Map { GameType = 24, MapName = "mp_shared" };
             var player = new Player { GameType = 24, Guid = "native", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            var otherPlayer = new Player { GameType = 24, Guid = "other", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             var server = new GameServer { GameType = 24, Title = "Native", Hostname = "native.test", BanFileRootPath = "" };
-            setup.AddRange(canonical, legacy, player, server);
+            setup.AddRange(canonical, legacy, player, otherPlayer, server);
             await setup.SaveChangesAsync();
             var gate = new InsertGate("MapVotes");
-            var observer = new LockObserver("Portal.MapVotes");
+            var observer = new LockObserver("Portal.MapVote:");
             await using var first = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
                 .UseSqlServer(connectionString).AddInterceptors(gate).Options);
             await using var second = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
@@ -107,6 +108,9 @@ public class MapCatalogueConcurrencyTests
             {
                 await observer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
                 Assert.NotSame(secondOperation, await Task.WhenAny(secondOperation, Task.Delay(300)));
+                await using var unrelated = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options);
+                Assert.Equal(HttpStatusCode.OK, (await CreateApi(unrelated).UpsertMapVote(
+                    new(canonical.MapId, otherPlayer.PlayerId, server.GameServerId, true)).WaitAsync(TimeSpan.FromSeconds(5))).StatusCode);
             }
             finally
             {
@@ -114,7 +118,33 @@ public class MapCatalogueConcurrencyTests
             }
             Assert.Equal(HttpStatusCode.OK, (await firstOperation).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await secondOperation).StatusCode);
-            Assert.Equal(canonical.MapId, (await setup.MapVotes.SingleAsync()).MapId);
+            Assert.Equal(canonical.MapId, (await setup.MapVotes.SingleAsync(vote => vote.PlayerId == player.PlayerId)).MapId);
+            Assert.Equal(2, await setup.MapVotes.CountAsync());
+        });
+
+    [Fact]
+    public Task UnknownVoteCommit_ReturnsConflictWithoutReplayingOverANewerVote()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            await using var setup = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options);
+            var map = new Map { GameType = 2, MapName = "mp_shared" };
+            var player = new Player { GameType = 24, Guid = "native", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            var server = new GameServer { GameType = 24, Title = "Native", Hostname = "native.test", BanFileRootPath = "" };
+            setup.AddRange(map, player, server);
+            await setup.SaveChangesAsync();
+            var fault = new CommitFault(true, async () =>
+            {
+                await using var newer = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options);
+                Assert.Equal(HttpStatusCode.OK, (await CreateApi(newer).UpsertMapVote(new(map.MapId, player.PlayerId, server.GameServerId, false))).StatusCode);
+            });
+            await using var context = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(2, TimeSpan.Zero, null))
+                .AddInterceptors(fault).Options);
+            var result = await CreateApi(context).UpsertMapVote(new(map.MapId, player.PlayerId, server.GameServerId, true));
+
+            Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+            Assert.Equal(1, fault.Failures);
+            Assert.False((await setup.MapVotes.SingleAsync()).Like);
         });
 
     [Theory]
@@ -140,7 +170,7 @@ public class MapCatalogueConcurrencyTests
     private static IMapsApi CreateApi(PortalDbContext context) =>
         new MapsController(context, NullLogger<MapsController>.Instance, new MapReadService(context), new NoOpRepositoryCacheInvalidator());
 
-    private sealed class CommitFault(bool commitSucceeded) : DbTransactionInterceptor
+    private sealed class CommitFault(bool commitSucceeded, Func<Task>? afterCommit = null) : DbTransactionInterceptor
     {
         public int Failures { get; private set; }
 
@@ -155,14 +185,17 @@ public class MapCatalogueConcurrencyTests
             return ValueTask.FromResult(result);
         }
 
-        public override Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken = default)
+        public override async Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken = default)
         {
             if (commitSucceeded && Failures == 0)
             {
                 Failures++;
+                if (afterCommit != null)
+                {
+                    await afterCommit();
+                }
                 throw new TimeoutException("Simulated lost commit acknowledgement.");
             }
-            return Task.CompletedTask;
         }
     }
 
@@ -190,7 +223,8 @@ public class MapCatalogueConcurrencyTests
         public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(DbCommand command,
             CommandEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (command.CommandText.Contains(resource, StringComparison.Ordinal))
+            if (command.CommandText.Contains(resource, StringComparison.Ordinal) ||
+                command.Parameters.Cast<DbParameter>().Any(parameter => parameter.Value is string value && value.StartsWith(resource, StringComparison.Ordinal)))
             {
                 Entered.TrySetResult();
             }
