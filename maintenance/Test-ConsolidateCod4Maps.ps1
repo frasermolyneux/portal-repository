@@ -113,30 +113,33 @@ CREATE TABLE dbo.MapRotationAssignmentOperations(Status int NOT NULL);
     Assert-Rejected 'New cross-catalogue vote collision' "INSERT dbo.MapVotes SELECT NEWID(),'00000000-0000-0000-0000-000000000002',PlayerId,GameServerId,[Like],[Timestamp] FROM dbo.MapVotes WHERE MapVoteId='00000000-0000-0000-0000-000000000102';" 51009
 
     Reset-Fixture
-    $nestedSql = $sql.Replace("'", "''")
-    Invoke-Db @"
-SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-INSERT dbo.Maps(MapId,GameType,MapName) VALUES(NEWID(),5,N'mp_callers_work');
-DECLARE @rejected bit = 0, @callerState int, @callerCount int;
-BEGIN TRY
-    EXEC sys.sp_executesql N'$nestedSql';
-END TRY
-BEGIN CATCH
-    SELECT @callerState = XACT_STATE(), @callerCount = @@TRANCOUNT;
-    IF ERROR_MESSAGE() <> N'Run map consolidation outside an existing transaction.'
-        RAISERROR('Unexpected nested invocation error.', 16, 1);
-    SET @rejected = 1;
-END CATCH;
-IF @rejected <> 1 OR @callerState <> 1 OR @callerCount <> 1
-BEGIN
-    RAISERROR('Nested rejection failed: rejected=%d, state=%d, count=%d.', 16, 1, @rejected, @callerState, @callerCount);
-    RETURN;
-END;
-COMMIT TRANSACTION;
-IF NOT EXISTS (SELECT 1 FROM dbo.Maps WHERE MapName=N'mp_callers_work')
-    RAISERROR('Caller work was lost.', 16, 1);
-"@
+    $connection = [System.Data.SqlClient.SqlConnection]::new("Server=(localdb)\MSSQLLocalDB;Database=$database;Integrated Security=True;Encrypt=False;Connect Timeout=30")
+    try {
+        $connection.Open()
+        $transaction = $connection.BeginTransaction()
+        try {
+            $command = $connection.CreateCommand()
+            $command.Transaction = $transaction
+            $command.CommandTimeout = 60
+            $command.CommandText = "SET XACT_ABORT ON; INSERT dbo.Maps(MapId,GameType,MapName) VALUES(NEWID(),5,N'mp_callers_work');"
+            [void]$command.ExecuteNonQuery()
+            $command.CommandText = $sql
+            $rejected = $false
+            try { [void]$command.ExecuteNonQuery() }
+            catch {
+                $exception = $_.Exception
+                while ($exception.InnerException) { $exception = $exception.InnerException }
+                if ($exception -isnot [System.Data.SqlClient.SqlException] -or $exception.Number -ne 50000) { throw }
+                $rejected = $true
+            }
+            $command.CommandText = 'SELECT CASE WHEN XACT_STATE()=1 AND @@TRANCOUNT=1 THEN 1 ELSE 0 END;'
+            if (!$rejected -or $command.ExecuteScalar() -ne 1) { throw 'Nested rejection damaged the caller transaction.' }
+            $transaction.Commit()
+        }
+        finally { $transaction.Dispose() }
+    }
+    finally { $connection.Dispose() }
+    if ((Invoke-Db "SELECT COUNT(*) FROM dbo.Maps WHERE MapName=N'mp_callers_work'" -Scalar) -ne 1) { throw 'Caller work was lost.' }
     $results.Add([pscustomobject]@{ test = 'Nested invocation preserves the caller transaction'; passed = $true })
 }
 finally {

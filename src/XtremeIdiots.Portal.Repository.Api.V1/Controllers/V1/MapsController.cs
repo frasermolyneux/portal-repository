@@ -671,12 +671,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             Guid[] familyMapIds = [];
             async Task<ApiResult> UpsertAsync()
             {
-            context.ChangeTracker.Clear();
-            await using var transaction = context.Database.IsRelational()
-                ? await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false) : null;
-            if (context.Database.IsSqlServer())
-            {
-                await context.Database.ExecuteSqlRawAsync("""
+                context.ChangeTracker.Clear();
+                await using var transaction = context.Database.IsRelational()
+                    ? await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false) : null;
+                if (context.Database.IsSqlServer())
+                {
+                    await context.Database.ExecuteSqlRawAsync("""
                     DECLARE @result int;
                     EXEC @result = sys.sp_getapplock
                         @Resource = N'Portal.MapVotes',
@@ -685,91 +685,91 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         @LockTimeout = 30000;
                     IF @result < 0 THROW 51000, 'Unable to lock map votes.', 1;
                     """, cancellationToken).ConfigureAwait(false);
-            }
+                }
 
-            var mapIds = upsertMapVoteDtos.Select(x => x.MapId).ToList();
-            var requestedMaps = await context.Maps.AsNoTracking().Where(map => mapIds.Contains(map.MapId))
-                .Select(map => new { map.MapId, map.GameType, map.MapName })
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (mapIds.Except(requestedMaps.Select(map => map.MapId)).Any())
-            {
-                return new ApiResult(HttpStatusCode.NotFound);
-            }
+                var mapIds = upsertMapVoteDtos.Select(x => x.MapId).ToList();
+                var requestedMaps = await context.Maps.AsNoTracking().Where(map => mapIds.Contains(map.MapId))
+                    .Select(map => new { map.MapId, map.GameType, map.MapName })
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+                if (mapIds.Except(requestedMaps.Select(map => map.MapId)).Any())
+                {
+                    return new ApiResult(HttpStatusCode.NotFound);
+                }
 
-            var familyNames = requestedMaps.Where(map => map.GameType == (int)GameType.CallOfDuty4 || map.GameType == (int)GameType.CallOfDuty4x)
-                .Select(map => map.MapName).ToArray();
-            var canonicalPairs = await (
-                from map in context.Maps
-                join canonical in context.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4)
-                    on map.MapName equals canonical.MapName
-                where (map.GameType == (int)GameType.CallOfDuty4 || map.GameType == (int)GameType.CallOfDuty4x)
-                    && familyNames.Contains(map.MapName)
-                select new { map.MapId, CanonicalId = canonical.MapId })
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (canonicalPairs.GroupBy(map => map.MapId).Any(group => group.Count() > 1))
-            {
-                return new ApiResult(HttpStatusCode.Conflict);
-            }
-            var canonicalIds = canonicalPairs.ToDictionary(map => map.MapId, map => map.CanonicalId);
-            foreach (var map in requestedMaps.Where(map => map.GameType != (int)GameType.CallOfDuty4 && map.GameType != (int)GameType.CallOfDuty4x))
-            {
-                canonicalIds[map.MapId] = map.MapId;
-            }
-            if (mapIds.Except(canonicalIds.Keys).Any())
-            {
-                return new ApiResult(HttpStatusCode.NotFound);
-            }
-
-            familyMapIds = canonicalIds.Keys.ToArray();
-            var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
-            var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
-
-            var existingVotes = await context.MapVotes
-                .Where(mv => familyMapIds.Contains(mv.MapId) && playerIds.Contains(mv.PlayerId) &&
-                            (mv.GameServerId == null || gameServerIds.Contains(mv.GameServerId.Value)))
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-            foreach (var upsertMapVote in upsertMapVoteDtos)
-            {
-                var canonicalId = canonicalIds[upsertMapVote.MapId];
-                var matchingVotes = existingVotes
-                    .Where(mv => canonicalIds[mv.MapId] == canonicalId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId)
-                    .ToList();
-                if (matchingVotes.Select(vote => vote.MapId).Distinct().Skip(1).Any())
+                var familyNames = requestedMaps.Where(map => map.GameType == (int)GameType.CallOfDuty4 || map.GameType == (int)GameType.CallOfDuty4x)
+                    .Select(map => map.MapName).ToArray();
+                var canonicalPairs = await (
+                    from map in context.Maps
+                    join canonical in context.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4)
+                        on map.MapName equals canonical.MapName
+                    where (map.GameType == (int)GameType.CallOfDuty4 || map.GameType == (int)GameType.CallOfDuty4x)
+                        && familyNames.Contains(map.MapName)
+                    select new { map.MapId, CanonicalId = canonical.MapId })
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+                if (canonicalPairs.GroupBy(map => map.MapId).Any(group => group.Count() > 1))
                 {
                     return new ApiResult(HttpStatusCode.Conflict);
                 }
-                var mapVote = matchingVotes.FirstOrDefault();
-
-                // Move the entire existing group without deleting pre-existing duplicate votes.
-                foreach (var existing in matchingVotes)
+                var canonicalIds = canonicalPairs.ToDictionary(map => map.MapId, map => map.CanonicalId);
+                foreach (var map in requestedMaps.Where(map => map.GameType != (int)GameType.CallOfDuty4 && map.GameType != (int)GameType.CallOfDuty4x))
                 {
-                    existing.MapId = canonicalId;
+                    canonicalIds[map.MapId] = map.MapId;
+                }
+                if (mapIds.Except(canonicalIds.Keys).Any())
+                {
+                    return new ApiResult(HttpStatusCode.NotFound);
                 }
 
-                if (mapVote == null)
+                familyMapIds = canonicalIds.Keys.ToArray();
+                var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
+                var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
+
+                var existingVotes = await context.MapVotes
+                    .Where(mv => familyMapIds.Contains(mv.MapId) && playerIds.Contains(mv.PlayerId) &&
+                                (mv.GameServerId == null || gameServerIds.Contains(mv.GameServerId.Value)))
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+                foreach (var upsertMapVote in upsertMapVoteDtos)
                 {
-                    var newMapVote = upsertMapVote.ToEntity();
-                    newMapVote.MapId = canonicalId;
-                    context.MapVotes.Add(newMapVote);
-                    existingVotes.Add(newMapVote);
-                }
-                else
-                {
-                    if (mapVote.Like != upsertMapVote.Like)
+                    var canonicalId = canonicalIds[upsertMapVote.MapId];
+                    var matchingVotes = existingVotes
+                        .Where(mv => canonicalIds[mv.MapId] == canonicalId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId)
+                        .ToList();
+                    if (matchingVotes.Select(vote => vote.MapId).Distinct().Skip(1).Any())
                     {
-                        mapVote.Like = upsertMapVote.Like;
-                        mapVote.Timestamp = DateTime.UtcNow;
+                        return new ApiResult(HttpStatusCode.Conflict);
+                    }
+                    var mapVote = matchingVotes.FirstOrDefault();
+
+                    // Move the entire existing group without deleting pre-existing duplicate votes.
+                    foreach (var existing in matchingVotes)
+                    {
+                        existing.MapId = canonicalId;
+                    }
+
+                    if (mapVote == null)
+                    {
+                        var newMapVote = upsertMapVote.ToEntity();
+                        newMapVote.MapId = canonicalId;
+                        context.MapVotes.Add(newMapVote);
+                        existingVotes.Add(newMapVote);
+                    }
+                    else
+                    {
+                        if (mapVote.Like != upsertMapVote.Like)
+                        {
+                            mapVote.Like = upsertMapVote.Like;
+                            mapVote.Timestamp = DateTime.UtcNow;
+                        }
                     }
                 }
-            }
 
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            if (transaction != null)
-            {
-                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            }
-            return new ApiResponse().ToApiResult();
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                return new ApiResponse().ToApiResult();
             }
 
             var result = await context.Database.CreateExecutionStrategy().ExecuteAsync(UpsertAsync).ConfigureAwait(false);
