@@ -60,8 +60,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
         public static string SettingsNamespaceTag(string ns) => $"settings:ns:{ns}";
 
         // --- Maps ---
-        public static string MapByIdKey(Guid mapId) => $"repository:{SchemaVersion}:map:{mapId:N}";
-        public static string MapByGameNameKey(string gameType, string mapName) => $"repository:{SchemaVersion}:map:{gameType}:{mapName}";
+        public static string MapByIdKey(Guid mapId) => $"repository:{SchemaVersion}:map-family:{mapId:N}";
+        public static string MapByGameNameKey(string gameType, string mapName) => $"repository:{SchemaVersion}:map-family:{gameType}:{mapName}";
         public static string MapTag(Guid mapId) => $"map:{mapId:N}";
 
         /// <summary>Tag applied to every cached map entry. Use for bulk eviction (e.g. after RebuildMapPopularity).</summary>

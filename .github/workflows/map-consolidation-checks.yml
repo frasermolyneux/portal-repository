@@ -1,0 +1,36 @@
+name: Map consolidation checks
+
+on:
+  pull_request:
+    paths:
+      - "maintenance/Consolidate-Cod4Maps.sql"
+      - "maintenance/Test-ConsolidateCod4Maps.ps1"
+      - "src/XtremeIdiots.Portal.Repository.Api.V1/**"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/MapCatalogueConcurrencyTests.cs"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/UserProfileArchivalConcurrencyTests.cs"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/TestHelpers/SqlServerTestDatabase.cs"
+      - ".github/workflows/map-consolidation-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-migration:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+          global-json-file: global.json
+      - name: Validate migration against isolated LocalDB fixtures
+        shell: pwsh
+        run: .\maintenance\Test-ConsolidateCod4Maps.ps1
+      - name: Validate concurrent API creates and transition votes on SQL Server
+        if: success() || failure()
+        shell: pwsh
+        run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests"

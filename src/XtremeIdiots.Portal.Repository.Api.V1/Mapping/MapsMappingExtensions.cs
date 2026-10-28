@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
@@ -61,7 +62,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
 
             return new Map
             {
-                GameType = dto.GameType.ToGameTypeInt(),
+                GameType = dto.GameType.GetMapGameType().ToGameTypeInt(),
                 MapName = dto.MapName,
                 MapFiles = dto.MapFiles?.Count > 0 ? JsonConvert.SerializeObject(dto.MapFiles) : null,
                 TotalLikes = 0,

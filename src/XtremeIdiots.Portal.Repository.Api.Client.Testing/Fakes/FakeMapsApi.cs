@@ -37,7 +37,7 @@ public class FakeMapsApi : IMapsApi
     {
         if (_maps.TryGetValue(mapId, out var map))
         {
-            return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(map)));
+            return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(WithSharedPopularity(map))));
         }
 
         return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.NotFound, new ApiResponse<MapDto>(new ApiError("NOT_FOUND", "Map not found"))));
@@ -45,12 +45,11 @@ public class FakeMapsApi : IMapsApi
 
     public Task<ApiResult<MapDto>> GetMap(GameType gameType, string mapName, CancellationToken cancellationToken = default)
     {
-        var compatibleGameTypes = gameType.GetCompatibleMapGameTypes();
-        var map = _maps.Values.Where(m => compatibleGameTypes.Contains(m.GameType) && m.MapName == mapName)
-            .OrderByDescending(m => m.GameType == gameType).ThenBy(m => m.MapId).FirstOrDefault();
+        var mapGameType = gameType.GetMapGameType();
+        var map = _maps.Values.FirstOrDefault(m => m.GameType == mapGameType && m.MapName == mapName);
         if (map != null)
         {
-            return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(map)));
+            return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.OK, new ApiResponse<MapDto>(WithSharedPopularity(map))));
         }
 
         return Task.FromResult(new ApiResult<MapDto>(HttpStatusCode.NotFound, new ApiResponse<MapDto>(new ApiError("NOT_FOUND", "Map not found"))));
@@ -58,11 +57,10 @@ public class FakeMapsApi : IMapsApi
 
     public Task<ApiResult<CollectionModel<MapDto>>> GetMaps(GameType? gameType, string[]? mapNames, MapsFilter? filter, string? filterString, int skipEntries, int takeEntries, MapsOrder? order, CancellationToken cancellationToken = default)
     {
-        var items = _maps.Values.AsEnumerable();
+        var items = _maps.Values.Where(m => m.GameType != GameType.CallOfDuty4x);
         if (gameType.HasValue)
         {
-            var compatibleGameTypes = gameType.Value.GetCompatibleMapGameTypes();
-            items = items.Where(m => compatibleGameTypes.Contains(m.GameType));
+            items = items.Where(m => m.GameType == gameType.Value.GetMapGameType());
         }
 
         if (mapNames != null)
@@ -70,7 +68,7 @@ public class FakeMapsApi : IMapsApi
             items = items.Where(m => mapNames.Contains(m.MapName));
         }
 
-        var list = items.Skip(skipEntries).Take(takeEntries).ToList();
+        var list = items.Skip(skipEntries).Take(takeEntries).Select(WithSharedPopularity).ToList();
         var collection = new CollectionModel<MapDto> { Items = list };
         return Task.FromResult(new ApiResult<CollectionModel<MapDto>>(HttpStatusCode.OK, new ApiResponse<CollectionModel<MapDto>>(collection)));
     }
@@ -83,12 +81,17 @@ public class FakeMapsApi : IMapsApi
 
         if (gameType.HasValue)
         {
-            items = items.Where(mv => mv.Map?.GameType == gameType.Value);
+            var compatibleGames = gameType.Value.GetCompatibleMapGameTypes();
+            items = items.Where(mv => mv.Map is { } map && compatibleGames.Contains(map.GameType));
         }
 
         if (mapId.HasValue)
         {
-            items = items.Where(mv => mv.MapId == mapId.Value);
+            _maps.TryGetValue(mapId.Value, out var selected);
+            items = items.Where(mv => mv.MapId == mapId.Value ||
+                (selected is not null && mv.Map is { } map &&
+                 selected.GameType.GetMapGameType() == GameType.CallOfDuty4 &&
+                 map.GameType.GetMapGameType() == GameType.CallOfDuty4 && selected.MapName == map.MapName));
         }
 
         var totalCount = _mapVotes.Count;
@@ -109,6 +112,29 @@ public class FakeMapsApi : IMapsApi
             Pagination = new ApiPagination(totalCount, filteredCount, skipEntries, takeEntries)
         };
         return Task.FromResult(new ApiResult<CollectionModel<MapVoteDto>>(HttpStatusCode.OK, response));
+    }
+
+    private MapDto WithSharedPopularity(MapDto map)
+    {
+        var legacy = map.GameType == GameType.CallOfDuty4
+            ? _maps.Values.FirstOrDefault(other => other.GameType == GameType.CallOfDuty4x && other.MapName == map.MapName)
+            : null;
+        if (legacy is null)
+        {
+            return map;
+        }
+
+        var likes = map.TotalLikes + legacy.TotalLikes;
+        var dislikes = map.TotalDislikes + legacy.TotalDislikes;
+        var total = map.TotalVotes + legacy.TotalVotes;
+        return map with
+        {
+            TotalLikes = likes,
+            TotalDislikes = dislikes,
+            TotalVotes = total,
+            LikePercentage = total > 0 ? likes * 100.0 / total : 0,
+            DislikePercentage = total > 0 ? dislikes * 100.0 / total : 0
+        };
     }
 
     public Task<ApiResult> CreateMap(CreateMapDto createMapDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));

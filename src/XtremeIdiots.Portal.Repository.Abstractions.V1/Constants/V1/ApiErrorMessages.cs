@@ -22,6 +22,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Constants.V1
         public const string UserProfileConflictMessage = "User profile with this identity already exists";
         public const string PlayerConflictMessage = "Player with this game type and identifier already exists";
         public const string MapConflictMessage = "Map with this game type and name already exists";
+        public const string MapVoteCommitUnconfirmedMessage = "The map vote commit could not be confirmed. Refresh votes before retrying.";
 
         // Validation Error Messages
         public const string TagIdRequiredMessage = "TagId is required";

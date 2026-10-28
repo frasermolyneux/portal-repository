@@ -5,6 +5,7 @@ using MX.Caching.Abstractions;
 using MX.Caching.TableStorage;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
 
 using Microsoft.Extensions.Logging;
@@ -84,7 +85,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
 
         public async Task<ApiResult<MapDto>> GetMapByGameTypeAndNameAsync(GameType gameType, string mapName, CancellationToken cancellationToken)
         {
-            var key = new CacheKey(RepositoryCacheKeys.MapByGameNameKey(gameType.ToString(), mapName));
+            var key = new CacheKey(RepositoryCacheKeys.MapByGameNameKey(gameType.GetMapGameType().ToString(), mapName));
             // We cannot use a stable mapId tag here because we don't know the mapId without
             // hitting the DB. This entry carries MapAllTag only — it is NOT tagged with
             // MapTag(mapId) and therefore will NOT be evicted by InvalidateMapAsync(mapId).

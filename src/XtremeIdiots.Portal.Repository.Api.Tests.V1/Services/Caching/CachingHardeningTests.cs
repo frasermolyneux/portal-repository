@@ -252,6 +252,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var subject = new CachingMapReadService(inner, cache, CreateMetrics(), NullLogger<CachingMapReadService>.Instance);
             var id = Guid.NewGuid();
 
+            await cache.GetOrCreateAsync(
+                new CacheKey($"repository:{RepositoryCacheKeys.SchemaVersion}:map:{id:N}"),
+                new CachePolicy { Enabled = true, Tier = CacheTier.Tiered, Ttl = TimeSpan.FromMinutes(5), L1Ttl = TimeSpan.FromSeconds(15) },
+                _ => ValueTask.FromResult(Ok(new MapDto())),
+                CancellationToken.None);
             _ = await subject.GetMapByIdAsync(id, CancellationToken.None);
             _ = await subject.GetMapByIdAsync(id, CancellationToken.None);
 
@@ -278,9 +283,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var inner = new CountingMapService();
             var cache = new FakeMxCache();
             var subject = new CachingMapReadService(inner, cache, CreateMetrics(), NullLogger<CachingMapReadService>.Instance);
+            await cache.GetOrCreateAsync(
+                new CacheKey($"repository:{RepositoryCacheKeys.SchemaVersion}:map:CallOfDuty4:mp_crash"),
+                new CachePolicy { Enabled = true, Tier = CacheTier.Tiered, Ttl = TimeSpan.FromMinutes(2), L1Ttl = TimeSpan.FromSeconds(15) },
+                _ => ValueTask.FromResult(Ok(new MapDto())),
+                CancellationToken.None);
 
             _ = await subject.GetMapByGameTypeAndNameAsync(GameType.CallOfDuty4, "mp_crash", CancellationToken.None);
-            _ = await subject.GetMapByGameTypeAndNameAsync(GameType.CallOfDuty4, "mp_crash", CancellationToken.None);
+            _ = await subject.GetMapByGameTypeAndNameAsync(GameType.CallOfDuty4x, "mp_crash", CancellationToken.None);
 
             Assert.Equal(1, inner.ByGameNameCalls);
         }
