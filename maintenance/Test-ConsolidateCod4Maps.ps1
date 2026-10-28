@@ -118,21 +118,24 @@ CREATE TABLE dbo.MapRotationAssignmentOperations(Status int NOT NULL);
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 INSERT dbo.Maps(MapId,GameType,MapName) VALUES(NEWID(),5,N'mp_callers_work');
+DECLARE @rejected bit = 0, @callerState int, @callerCount int;
 BEGIN TRY
     EXEC sys.sp_executesql N'$nestedSql';
-    THROW 51020, 'Nested invocation was not rejected.', 1;
 END TRY
 BEGIN CATCH
-    IF ERROR_MESSAGE() <> N'Run map consolidation outside an existing transaction.' THROW;
-    IF XACT_STATE() <> 1 OR @@TRANCOUNT <> 1
-    BEGIN
-        DECLARE @diagnostic nvarchar(2048) = CONCAT('Nested rejection damaged the caller transaction: state=', XACT_STATE(), ', count=', @@TRANCOUNT, '.');
-        THROW 51021, @diagnostic, 1;
-    END;
+    SELECT @callerState = XACT_STATE(), @callerCount = @@TRANCOUNT;
+    IF ERROR_MESSAGE() <> N'Run map consolidation outside an existing transaction.'
+        RAISERROR('Unexpected nested invocation error.', 16, 1);
+    SET @rejected = 1;
 END CATCH;
+IF @rejected <> 1 OR @callerState <> 1 OR @callerCount <> 1
+BEGIN
+    RAISERROR('Nested rejection failed: rejected=%d, state=%d, count=%d.', 16, 1, @rejected, @callerState, @callerCount);
+    RETURN;
+END;
 COMMIT TRANSACTION;
 IF NOT EXISTS (SELECT 1 FROM dbo.Maps WHERE MapName=N'mp_callers_work')
-    THROW 51022, 'Caller work was lost.', 1;
+    RAISERROR('Caller work was lost.', 16, 1);
 "@
     $results.Add([pscustomobject]@{ test = 'Nested invocation preserves the caller transaction'; passed = $true })
 }

@@ -112,6 +112,9 @@ public class MapAnalyticsControllerTests
         Assert.Equal(2, family.TotalPlays);
         Assert.Equal(1, family.MapsPlayed);
         Assert.Equal(3, family.TotalVotes);
+        var voted = Assert.Single((await api.GetTopVoted(FromUtc, ToUtc, 1)).Result!.Data!.Items);
+        Assert.Equal(mapId, voted.MapId);
+        Assert.Equal(3, voted.VotesCount);
         var detail = await api.GetMapDetail(mapId, FromUtc, ToUtc);
         Assert.Equal(2, detail.Result!.Data!.PlaysCount);
         Assert.Equal(15, detail.Result.Data.AvgPlayers);
@@ -119,6 +122,27 @@ public class MapAnalyticsControllerTests
         var byServer = await api.GetByServer(native.GameServerId, FromUtc, ToUtc);
         Assert.Equal(1, Assert.Single(byServer.Result!.Data!.Items).PlaysCount);
         Assert.Equal((int)GameType.CallOfDuty4x, native.GameType);
+    }
+
+    [Fact]
+    public async Task OtherGameDuplicateNames_KeepSeparateVoteDetailsAndRankings()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = SeedServer(context, GameType.CallOfDuty5);
+        var first = new Map { MapId = Guid.NewGuid(), GameType = 5, MapName = "mp_same" };
+        var second = new Map { MapId = Guid.NewGuid(), GameType = 5, MapName = "mp_same" };
+        context.Maps.AddRange(first, second);
+        foreach (var map in new[] { first, first, second })
+        {
+            context.MapVotes.Add(new MapVote { MapVoteId = Guid.NewGuid(), MapId = map.MapId, PlayerId = Guid.NewGuid(), GameServerId = server.GameServerId, Like = true, Timestamp = Now });
+        }
+        await context.SaveChangesAsync();
+        var api = CreateApi(context);
+        var firstDetail = (await api.GetMapDetail(first.MapId, FromUtc, ToUtc)).Result!.Data!;
+        var secondDetail = (await api.GetMapDetail(second.MapId, FromUtc, ToUtc)).Result!.Data!;
+        Assert.Equal((2, 1d), (firstDetail.VotesCount, firstDetail.AveragePosition));
+        Assert.Equal((1, 2d), (secondDetail.VotesCount, secondDetail.AveragePosition));
+        Assert.Equal(2, (await api.GetTopVoted(FromUtc, ToUtc, 10)).Result!.Data!.Items.Count);
     }
 
     [Fact]

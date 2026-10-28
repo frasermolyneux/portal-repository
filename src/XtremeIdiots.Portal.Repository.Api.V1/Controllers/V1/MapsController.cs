@@ -255,6 +255,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating all maps were created if successful; otherwise, a 409 Conflict response.</returns>
         async Task<ApiResult> IMapsApi.CreateMaps(List<CreateMapDto> createMapDtos, CancellationToken cancellationToken)
         {
+            if (createMapDtos.Any(dto => dto == null || string.IsNullOrWhiteSpace(dto.MapName)))
+            {
+                return new ApiResponse(new ApiError(ApiErrorCodes.DeserializationError, ApiErrorMessages.InvalidRequestBodyMessage)).ToBadRequestResult();
+            }
+
             Guid[] createdIds = [];
             async Task<ApiResult> CreateAsync(CancellationToken token)
             {
@@ -601,6 +606,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> UpsertMapVote([FromBody] UpsertMapVoteDto upsertMapVoteDto, CancellationToken cancellationToken = default)
         {
             var response = await ((IMapsApi)this).UpsertMapVote(upsertMapVoteDto, cancellationToken).ConfigureAwait(false);
@@ -627,6 +633,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> UpsertMapVotes(CancellationToken cancellationToken = default)
         {
             var requestBody = await new StreamReader(Request.Body).ReadToEndAsync().ConfigureAwait(false);
@@ -661,6 +668,25 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating all map votes were processed successfully.</returns>
         async Task<ApiResult> IMapsApi.UpsertMapVotes(List<UpsertMapVoteDto> upsertMapVoteDtos, CancellationToken cancellationToken)
         {
+            Guid[] familyMapIds = [];
+            async Task<ApiResult> UpsertAsync()
+            {
+            context.ChangeTracker.Clear();
+            await using var transaction = context.Database.IsRelational()
+                ? await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false) : null;
+            if (context.Database.IsSqlServer())
+            {
+                await context.Database.ExecuteSqlRawAsync("""
+                    DECLARE @result int;
+                    EXEC @result = sys.sp_getapplock
+                        @Resource = N'Portal.MapVotes',
+                        @LockMode = N'Exclusive',
+                        @LockOwner = N'Transaction',
+                        @LockTimeout = 30000;
+                    IF @result < 0 THROW 51000, 'Unable to lock map votes.', 1;
+                    """, cancellationToken).ConfigureAwait(false);
+            }
+
             var mapIds = upsertMapVoteDtos.Select(x => x.MapId).ToList();
             var requestedMaps = await context.Maps.AsNoTracking().Where(map => mapIds.Contains(map.MapId))
                 .Select(map => new { map.MapId, map.GameType, map.MapName })
@@ -672,14 +698,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var familyNames = requestedMaps.Where(map => map.GameType == (int)GameType.CallOfDuty4 || map.GameType == (int)GameType.CallOfDuty4x)
                 .Select(map => map.MapName).ToArray();
-            var canonicalIds = await (
+            var canonicalPairs = await (
                 from map in context.Maps
                 join canonical in context.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4)
                     on map.MapName equals canonical.MapName
                 where (map.GameType == (int)GameType.CallOfDuty4 || map.GameType == (int)GameType.CallOfDuty4x)
                     && familyNames.Contains(map.MapName)
                 select new { map.MapId, CanonicalId = canonical.MapId })
-                .ToDictionaryAsync(map => map.MapId, map => map.CanonicalId, cancellationToken).ConfigureAwait(false);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            if (canonicalPairs.GroupBy(map => map.MapId).Any(group => group.Count() > 1))
+            {
+                return new ApiResult(HttpStatusCode.Conflict);
+            }
+            var canonicalIds = canonicalPairs.ToDictionary(map => map.MapId, map => map.CanonicalId);
             foreach (var map in requestedMaps.Where(map => map.GameType != (int)GameType.CallOfDuty4 && map.GameType != (int)GameType.CallOfDuty4x))
             {
                 canonicalIds[map.MapId] = map.MapId;
@@ -689,7 +720,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
-            var familyMapIds = canonicalIds.Keys.ToArray();
+            familyMapIds = canonicalIds.Keys.ToArray();
             var playerIds = upsertMapVoteDtos.Select(x => x.PlayerId).ToList();
             var gameServerIds = upsertMapVoteDtos.Select(x => x.GameServerId).ToList();
 
@@ -704,6 +735,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var matchingVotes = existingVotes
                     .Where(mv => canonicalIds[mv.MapId] == canonicalId && mv.PlayerId == upsertMapVote.PlayerId && mv.GameServerId == upsertMapVote.GameServerId)
                     .ToList();
+                if (matchingVotes.Select(vote => vote.MapId).Distinct().Skip(1).Any())
+                {
+                    return new ApiResult(HttpStatusCode.Conflict);
+                }
                 var mapVote = matchingVotes.FirstOrDefault();
 
                 // Move the entire existing group without deleting pre-existing duplicate votes.
@@ -730,10 +765,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-            await Task.WhenAll(familyMapIds.Select(id => cacheInvalidator.InvalidateMapAsync(id, cancellationToken))).ConfigureAwait(false);
-
+            if (transaction != null)
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
             return new ApiResponse().ToApiResult();
+            }
+
+            var result = await context.Database.CreateExecutionStrategy().ExecuteAsync(UpsertAsync).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                await Task.WhenAll(familyMapIds.Select(id => cacheInvalidator.InvalidateMapAsync(id, cancellationToken))).ConfigureAwait(false);
+            }
+            return result;
         }
 
         /// <summary>

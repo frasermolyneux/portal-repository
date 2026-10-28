@@ -252,6 +252,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Services.Caching
             var subject = new CachingMapReadService(inner, cache, CreateMetrics(), NullLogger<CachingMapReadService>.Instance);
             var id = Guid.NewGuid();
 
+            await cache.GetOrCreateAsync(
+                new CacheKey($"repository:{RepositoryCacheKeys.SchemaVersion}:map:{id:N}"),
+                new CachePolicy { Enabled = true, Tier = CacheTier.Tiered, Ttl = TimeSpan.FromMinutes(5), L1Ttl = TimeSpan.FromSeconds(15) },
+                _ => ValueTask.FromResult(Ok(new MapDto())),
+                CancellationToken.None);
             _ = await subject.GetMapByIdAsync(id, CancellationToken.None);
             _ = await subject.GetMapByIdAsync(id, CancellationToken.None);
 

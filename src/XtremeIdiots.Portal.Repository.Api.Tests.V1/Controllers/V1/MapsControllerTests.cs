@@ -132,6 +132,53 @@ public class MapsControllerTests
     }
 
     [Fact]
+    public async Task CreateMaps_RejectsMalformedBatchEntries()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var api = (IMapsApi)CreateController(db);
+        foreach (var name in new string?[] { null, "", " " })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await api.CreateMaps([new(GameType.CallOfDuty4x, name!)])).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.CreateMaps([null!])).StatusCode);
+        Assert.Empty(db.Maps);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UpsertVotes_RejectsAmbiguousIdentityOrCrossCatalogueCollisionWithoutMovingRows(bool ambiguousMaps)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var canonical = new Map { MapId = Guid.NewGuid(), GameType = 2, MapName = "mp_shared" };
+        var legacy = new Map { MapId = Guid.NewGuid(), GameType = 24, MapName = "mp_shared" };
+        db.Maps.AddRange(canonical, legacy);
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        if (ambiguousMaps)
+        {
+            db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = 2, MapName = "mp_shared" });
+        }
+        else
+        {
+            foreach (var map in new[] { canonical, legacy })
+            {
+                db.MapVotes.Add(new MapVote { MapVoteId = Guid.NewGuid(), MapId = map.MapId, PlayerId = playerId, GameServerId = serverId, Like = true, Timestamp = DateTime.UtcNow });
+            }
+        }
+        await db.SaveChangesAsync();
+        var api = (IMapsApi)CreateController(db);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.UpsertMapVote(new(canonical.MapId, playerId, serverId, false))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.UpsertMapVotes([new(legacy.MapId, playerId, serverId, false)])).StatusCode);
+        if (!ambiguousMaps)
+        {
+            Assert.Equal(1, db.MapVotes.Count(vote => vote.MapId == canonical.MapId));
+            Assert.Equal(1, db.MapVotes.Count(vote => vote.MapId == legacy.MapId));
+            Assert.All(db.MapVotes, vote => Assert.True(vote.Like));
+        }
+    }
+
+    [Fact]
     public async Task SharedRatingsAndPopularityOrdering_IncludeLegacyRowsUntilCutover()
     {
         using var db = DbContextHelper.CreateInMemoryContext();

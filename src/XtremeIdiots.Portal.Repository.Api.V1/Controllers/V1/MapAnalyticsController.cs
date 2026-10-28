@@ -196,9 +196,15 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
             return new ApiResult<MapsTopVotedDto>(HttpStatusCode.BadRequest);
         }
 
-        var grouped = await context.MapVotes
-            .AsNoTracking()
-            .Where(v => v.Timestamp >= fromUtc && v.Timestamp < toUtc)
+        var familyVotes =
+            from vote in context.MapVotes.AsNoTracking()
+            join canonical in context.Maps.Where(map => map.GameType == (int)GameType.CallOfDuty4)
+                on new { vote.Map.GameType, vote.Map.MapName }
+                equals new { GameType = (int)GameType.CallOfDuty4x, canonical.MapName } into canonicalMaps
+            from canonical in canonicalMaps.DefaultIfEmpty()
+            where vote.Timestamp >= fromUtc && vote.Timestamp < toUtc
+            select new { MapId = canonical == null ? vote.MapId : canonical.MapId };
+        var grouped = await familyVotes
             .GroupBy(v => v.MapId)
             .Select(g => new { MapId = g.Key, Count = g.Count() })
             .OrderByDescending(x => x.Count)
@@ -386,9 +392,10 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
 
         var compatibleGameTypes = ((GameType)map.GameType).GetCompatibleMapGameTypes().Select(game => (int)game).ToArray();
         var familyGameType = (int)((GameType)map.GameType).GetMapGameType();
+        var sharedFamily = familyGameType == (int)GameType.CallOfDuty4;
         var votesCount = await context.MapVotes
             .AsNoTracking()
-            .CountAsync(v => v.Map.MapName == map.MapName && compatibleGameTypes.Contains(v.Map.GameType)
+            .CountAsync(v => (sharedFamily ? v.Map.MapName == map.MapName && compatibleGameTypes.Contains(v.Map.GameType) : v.MapId == mapId)
                 && v.Timestamp >= fromUtc && v.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
         var playerSamples = await context.GameServerStats
@@ -405,7 +412,7 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
 
         var votesForTargetMap = await context.MapVotes
             .AsNoTracking()
-            .Where(v => v.Map.MapName == map.MapName && compatibleGameTypes.Contains(v.Map.GameType)
+            .Where(v => (sharedFamily ? v.Map.MapName == map.MapName && compatibleGameTypes.Contains(v.Map.GameType) : v.MapId == mapId)
                 && v.Timestamp >= fromUtc && v.Timestamp < toUtc && v.GameServerId != null)
             .Select(v => v.GameServerId)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -416,10 +423,11 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
             .GroupBy(v => new
             {
                 v.GameServerId,
+                MapId = v.Map.GameType == (int)GameType.CallOfDuty4 || v.Map.GameType == (int)GameType.CallOfDuty4x ? Guid.Empty : v.MapId,
                 v.Map.MapName,
                 GameType = v.Map.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : v.Map.GameType
             })
-            .Select(g => new { g.Key.GameServerId, g.Key.MapName, g.Key.GameType, Count = g.Count() })
+            .Select(g => new { g.Key.GameServerId, g.Key.MapId, g.Key.MapName, g.Key.GameType, Count = g.Count() })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var targetVotesByServer = votesForTargetMap
@@ -433,10 +441,12 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
                 var mapsForServer = voteCountsByServerAndMap
                     .Where(x => x.GameServerId == server.Key)
                     .OrderByDescending(x => x.Count)
+                    .ThenBy(x => x.MapId)
                     .ThenBy(x => x.MapName, StringComparer.Ordinal)
                     .ToList();
 
-                var rank = mapsForServer.FindIndex(x => x.GameType == familyGameType && x.MapName == map.MapName);
+                var rank = mapsForServer.FindIndex(x => sharedFamily
+                    ? x.GameType == familyGameType && x.MapName == map.MapName : x.MapId == mapId);
                 return rank < 0 ? 0d : rank + 1d;
             })
             .DefaultIfEmpty(0d)
