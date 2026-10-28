@@ -1,14 +1,20 @@
 -- Run separately after canonical map readers/writers and sync jobs are deployed.
+-- Run a dry-run preflight before deploying canonical-only readers; abort on missing counterparts.
 -- Allow old consumer caches/requests to expire first and retain an external preimage.
+-- After commit, run Maps.RebuildMapPopularity through the API to invalidate all map caches.
+-- Allow the 15-second Repository L1 lifetime to expire before final live verification.
 -- Default is a transactional dry run. Set ApplyChanges to 1 only for the approved cutover.
 DECLARE @ApplyChanges bit = 0;
+IF @@TRANCOUNT <> 0
+BEGIN
+    RAISERROR('Run map consolidation outside an existing transaction.', 16, 1);
+    RETURN;
+END;
+
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 SET DEADLOCK_PRIORITY LOW;
 SET LOCK_TIMEOUT 15000;
-
-IF @@TRANCOUNT <> 0
-    THROW 51000, 'Run map consolidation outside an existing transaction.', 1;
 
 BEGIN TRY
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;

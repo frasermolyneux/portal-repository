@@ -45,8 +45,9 @@ public class MapsControllerTests
     public async Task GetMap_BothCod4TypesResolveCanonicalMapEvenBeforeLegacyRowsAreRemoved(GameType requestedType)
     {
         using var db = DbContextHelper.CreateInMemoryContext();
-        var canonical = new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, MapName = "mp_shared" };
+        var canonical = new Map { MapId = Guid.Parse("00000000-0000-0000-0000-000000000002"), GameType = (int)GameType.CallOfDuty4, MapName = "mp_shared" };
         db.Maps.Add(canonical);
+        db.Maps.Add(new Map { MapId = Guid.Parse("00000000-0000-0000-0000-000000000003"), GameType = (int)GameType.CallOfDuty4, MapName = "mp_shared" });
         db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4x, MapName = "mp_shared" });
         db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty5, MapName = "mp_shared" });
         await db.SaveChangesAsync();
@@ -113,19 +114,88 @@ public class MapsControllerTests
         Assert.Equal(GameType.CallOfDuty4x, nativeVote.GameServer!.GameType);
     }
 
-    [Fact]
-    public async Task CreateMaps_RejectsConflictingCanonicalNamesWithinTheBatchWithoutPersisting()
+    [Theory]
+    [InlineData("MP_SHARED")]
+    [InlineData("mp_shared ")]
+    public async Task CreateMaps_RejectsConflictingCanonicalNamesWithinTheBatchWithoutPersisting(string duplicateName)
     {
         using var db = DbContextHelper.CreateInMemoryContext();
         var api = (IMapsApi)CreateController(db);
 
         var result = await api.CreateMaps([
             new CreateMapDto(GameType.CallOfDuty4, "mp_shared"),
-            new CreateMapDto(GameType.CallOfDuty4x, "MP_SHARED")
+            new CreateMapDto(GameType.CallOfDuty4x, duplicateName)
         ]);
 
         Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
         Assert.Empty(db.Maps);
+    }
+
+    [Fact]
+    public async Task SharedRatingsAndPopularityOrdering_IncludeLegacyRowsUntilCutover()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var canonical = new Map { MapId = Guid.NewGuid(), GameType = 2, MapName = "mp_shared", TotalLikes = 2, TotalDislikes = 1, TotalVotes = 3 };
+        db.Maps.AddRange(canonical,
+            new Map { MapId = Guid.NewGuid(), GameType = 24, MapName = "mp_shared", TotalLikes = 3, TotalDislikes = 1, TotalVotes = 4 },
+            new Map { MapId = Guid.NewGuid(), GameType = 2, MapName = "mp_other", TotalLikes = 4, TotalVotes = 4 });
+        await db.SaveChangesAsync();
+        var api = (IMapsApi)CreateController(db);
+
+        var listed = await api.GetMaps(GameType.CallOfDuty4x, null, null, null, 0, 1, MapsOrder.PopularityDesc);
+        var top = Assert.Single(listed.Result!.Data!.Items!);
+        Assert.Equal(canonical.MapId, top.MapId);
+        Assert.Equal(5, top.TotalLikes);
+        Assert.Equal(7, top.TotalVotes);
+        Assert.Equal(2, listed.Result.Pagination!.TotalCount);
+        var byName = (await api.GetMap(GameType.CallOfDuty4x, "mp_shared")).Result!.Data!;
+        var byId = (await api.GetMap(canonical.MapId)).Result!.Data!;
+        Assert.Equal((top.MapId, top.TotalLikes, top.TotalVotes), (byName.MapId, byName.TotalLikes, byName.TotalVotes));
+        Assert.Equal((top.MapId, top.TotalLikes, top.TotalVotes), (byId.MapId, byId.TotalLikes, byId.TotalVotes));
+        Assert.Equal(500.0 / 7, top.LikePercentage, 8);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task RepeatVotesDuringCutover_ReuseHistoricalRowsAndPreserveExistingDuplicates(bool bulk, bool legacyInput)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var canonical = new Map { MapId = Guid.NewGuid(), GameType = 2, MapName = "mp_shared" };
+        var legacy = new Map { MapId = Guid.NewGuid(), GameType = 24, MapName = "mp_shared" };
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var timestamp = DateTime.UtcNow.AddDays(-1);
+        var firstId = Guid.NewGuid();
+        var duplicateId = Guid.NewGuid();
+        db.Maps.AddRange(canonical, legacy);
+        db.MapVotes.AddRange(
+            new MapVote { MapVoteId = firstId, MapId = legacy.MapId, PlayerId = playerId, GameServerId = serverId, Like = true, Timestamp = timestamp },
+            new MapVote { MapVoteId = duplicateId, MapId = legacy.MapId, PlayerId = playerId, GameServerId = serverId, Like = true, Timestamp = timestamp });
+        await db.SaveChangesAsync();
+        var api = (IMapsApi)CreateController(db);
+        Assert.Equal(2, (await api.GetMapVotes(GameType.CallOfDuty4x, canonical.MapId, 0, 20, null)).Result!.Pagination!.FilteredCount);
+        var vote = new UpsertMapVoteDto(legacyInput ? legacy.MapId : canonical.MapId, playerId, serverId, false);
+
+        var result = bulk ? await api.UpsertMapVotes([vote, vote]) : await api.UpsertMapVote(vote);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var rows = db.MapVotes.ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(new[] { firstId, duplicateId }.Order(), rows.Select(row => row.MapVoteId).Order());
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(canonical.MapId, row.MapId);
+            Assert.Equal(playerId, row.PlayerId);
+            Assert.Equal(serverId, row.GameServerId);
+        });
+        Assert.Equal(timestamp, Assert.Single(rows, row => row.Like).Timestamp);
+        Assert.True(Assert.Single(rows, row => !row.Like).Timestamp > timestamp);
+        Assert.Equal(HttpStatusCode.NotFound, (await api.UpsertMapVote(
+            new UpsertMapVoteDto(Guid.NewGuid(), playerId, serverId, true))).StatusCode);
+        Assert.Equal(2, db.MapVotes.Count());
     }
 
     private MapsController CreateController(PortalDbContext context)

@@ -5,6 +5,10 @@ on:
     paths:
       - "maintenance/Consolidate-Cod4Maps.sql"
       - "maintenance/Test-ConsolidateCod4Maps.ps1"
+      - "src/XtremeIdiots.Portal.Repository.Api.V1/**"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/MapCatalogueConcurrencyTests.cs"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/UserProfileArchivalConcurrencyTests.cs"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/TestHelpers/SqlServerTestDatabase.cs"
       - ".github/workflows/map-consolidation-checks.yml"
   workflow_dispatch:
 
@@ -17,6 +21,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
       - name: Validate migration against isolated LocalDB fixtures
         shell: pwsh
         run: .\maintenance\Test-ConsolidateCod4Maps.ps1
+      - name: Validate concurrent API creates and transition votes on SQL Server
+        shell: pwsh
+        run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests"

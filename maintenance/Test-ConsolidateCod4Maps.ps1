@@ -111,6 +111,27 @@ CREATE TABLE dbo.MapRotationAssignmentOperations(Status int NOT NULL);
     Assert-Rejected 'Legacy pack references are protected' 'INSERT dbo.MapPackMaps SELECT MapId FROM dbo.Maps WHERE GameType=24;' 51007
     Assert-Rejected 'Running rotation blocks cutover' 'INSERT dbo.MapRotationAssignmentOperations VALUES(0);' 51008
     Assert-Rejected 'New cross-catalogue vote collision' "INSERT dbo.MapVotes SELECT NEWID(),'00000000-0000-0000-0000-000000000002',PlayerId,GameServerId,[Like],[Timestamp] FROM dbo.MapVotes WHERE MapVoteId='00000000-0000-0000-0000-000000000102';" 51009
+
+    Reset-Fixture
+    $nestedSql = $sql.Replace("'", "''")
+    Invoke-Db @"
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+INSERT dbo.Maps(MapId,GameType,MapName) VALUES(NEWID(),5,N'mp_callers_work');
+BEGIN TRY
+    EXEC sys.sp_executesql N'$nestedSql';
+    THROW 51020, 'Nested invocation was not rejected.', 1;
+END TRY
+BEGIN CATCH
+    IF ERROR_MESSAGE() <> N'Run map consolidation outside an existing transaction.' THROW;
+    IF XACT_STATE() <> 1 OR @@TRANCOUNT <> 1
+        THROW 51021, 'Nested rejection damaged the caller transaction.', 1;
+END CATCH;
+COMMIT TRANSACTION;
+IF NOT EXISTS (SELECT 1 FROM dbo.Maps WHERE MapName=N'mp_callers_work')
+    THROW 51022, 'Caller work was lost.', 1;
+"@
+    $results.Add([pscustomobject]@{ test = 'Nested invocation preserves the caller transaction'; passed = $true })
 }
 finally {
     if ($created) {
