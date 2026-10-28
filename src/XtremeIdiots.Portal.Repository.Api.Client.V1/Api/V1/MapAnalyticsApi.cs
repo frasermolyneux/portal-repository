@@ -6,6 +6,7 @@ using MX.Api.Client.Auth;
 using MX.Api.Client.Extensions;
 
 using RestSharp;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -29,6 +30,24 @@ public class MapAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IMapAnalytic
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
         return response.ToApiResult<MapsOverviewDto>();
+    }
+
+    public async Task<ApiResult<MapInsightsDto>> GetInsights(DateTime fromUtc, DateTime toUtc, GameType? gameType = null, Guid? gameServerId = null, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync("v1/analytics/maps/insights", Method.Get).ConfigureAwait(false);
+        request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
+        request.AddQueryParameter("toUtc", toUtc.ToString("O"));
+        if (gameType.HasValue)
+        {
+            request.AddQueryParameter("gameType", gameType.Value.ToString());
+        }
+
+        if (gameServerId.HasValue)
+        {
+            request.AddQueryParameter("gameServerId", gameServerId.Value.ToString());
+        }
+
+        return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<MapInsightsDto>();
     }
 
     public async Task<ApiResult<MapsHotspotsDto>> GetHotspots(DateTime fromUtc, DateTime toUtc, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)

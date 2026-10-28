@@ -34,6 +34,98 @@ public class MapAnalyticsController : ControllerBase, IMapAnalyticsApi
         this.context = context;
     }
 
+    [HttpGet("insights")]
+    [ProducesResponseType<MapInsightsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetInsights([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc,
+        [FromQuery] GameType? gameType = null, [FromQuery] Guid? gameServerId = null, CancellationToken cancellationToken = default)
+        => (await ((IMapAnalyticsApi)this).GetInsights(fromUtc, toUtc, gameType, gameServerId, cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+    async Task<ApiResult<MapInsightsDto>> IMapAnalyticsApi.GetInsights(DateTime fromUtc, DateTime toUtc,
+        GameType? gameType, Guid? gameServerId, CancellationToken cancellationToken)
+    {
+        if (!AnalyticsQueryValidator.TryValidateWindow(fromUtc, toUtc, out _)
+            || toUtc - fromUtc > TimeSpan.FromDays(365)
+            || gameType.HasValue && (!Enum.IsDefined(gameType.Value) || gameType == GameType.Unknown))
+        {
+            return new ApiResult<MapInsightsDto>(HttpStatusCode.BadRequest);
+        }
+
+        var publicServers = context.GameServers.AsNoTracking().Where(s => s.ServerListEnabled && !s.Deleted);
+        if (gameServerId.HasValue && !await publicServers.AnyAsync(s => s.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false))
+        {
+            return new ApiResult<MapInsightsDto>(HttpStatusCode.NotFound);
+        }
+
+        var family = gameType.HasValue ? (int?)gameType.Value.GetMapGameType() : null;
+        if (gameServerId.HasValue && family.HasValue && !await publicServers.AnyAsync(s => s.GameServerId == gameServerId
+            && (s.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : s.GameType) == family, cancellationToken).ConfigureAwait(false))
+        {
+            return new ApiResult<MapInsightsDto>(HttpStatusCode.BadRequest);
+        }
+        var votes = context.MapVotes.AsNoTracking().Where(v => v.Timestamp >= fromUtc && v.Timestamp < toUtc
+            && (v.GameServerId == null || publicServers.Any(s => s.GameServerId == v.GameServerId)));
+        if (family.HasValue)
+        {
+            votes = votes.Where(v => v.Map.GameType == family);
+        }
+        if (gameServerId.HasValue)
+        {
+            votes = votes.Where(v => v.GameServerId == gameServerId);
+        }
+
+        // Aggregate in SQL; no player identities or individual vote histories leave this query.
+        var ratings = await votes.GroupBy(v => new { v.MapId, v.Map.GameType, v.Map.MapName, v.Map.MapImageUri })
+            .Select(g => new MapRatingDto
+            {
+                MapId = g.Key.MapId,
+                GameType = (GameType)g.Key.GameType,
+                MapName = g.Key.MapName ?? "",
+                MapImageUri = g.Key.MapImageUri,
+                Likes = g.Count(v => v.Like),
+                Dislikes = g.Count(v => !v.Like)
+            }).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var stats = context.GameServerStats.AsNoTracking().Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc
+            && s.MapName != null && s.MapName != "" && s.GameServer != null
+            && publicServers.Any(server => server.GameServerId == s.GameServerId));
+        if (family.HasValue)
+        {
+            stats = stats.Where(s => (s.GameServer!.GameType == (int)GameType.CallOfDuty4x
+                ? (int)GameType.CallOfDuty4 : s.GameServer.GameType) == family);
+        }
+        if (gameServerId.HasValue)
+        {
+            stats = stats.Where(s => s.GameServerId == gameServerId);
+        }
+        var hotspots = await stats.GroupBy(s => new
+        {
+            s.MapName,
+            GameType = s.GameServer!.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : s.GameServer.GameType
+        }).Select(g => new MapHotspotItemDto
+        {
+            MapName = g.Key.MapName!,
+            GameType = (GameType)g.Key.GameType,
+            AvgPlayers = g.Average(s => (double)s.PlayerCount),
+            PeakPlayers = g.Max(s => s.PlayerCount),
+            SampleCount = g.Count()
+        }).OrderByDescending(s => s.AvgPlayers).ThenBy(s => s.MapName)
+            .Take(12).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var established = ratings.Where(r => r.Votes >= 5).ToList();
+        return new ApiResponse<MapInsightsDto>(new MapInsightsDto
+        {
+            RatedMaps = ratings.Count,
+            TotalLikes = ratings.Sum(r => r.Likes),
+            TotalDislikes = ratings.Sum(r => r.Dislikes),
+            MostVoted = ratings.OrderByDescending(r => r.Votes).ThenBy(r => r.MapName).Take(12).ToList(),
+            Popular = established.OrderByDescending(r => r.Approval).ThenByDescending(r => r.Votes).ThenBy(r => r.MapName).Take(12).ToList(),
+            Unpopular = established.OrderBy(r => r.Approval).ThenByDescending(r => r.Votes).ThenBy(r => r.MapName).Take(12).ToList(),
+            Hotspots = hotspots
+        }).ToApiResult();
+    }
+
     [HttpGet("overview")]
     [ProducesResponseType<MapsOverviewDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

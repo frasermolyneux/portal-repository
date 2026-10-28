@@ -32,6 +32,99 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         // ───────────────────────── Map Rotation CRUD ─────────────────────────
 
+        [HttpGet("map-rotations/public-servers")]
+        [ProducesResponseType<PublicServerRotationsDto>(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetPublicServerRotations(CancellationToken cancellationToken = default)
+            => (await ((IMapRotationsApi)this).GetPublicServerRotations(cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+        async Task<ApiResult<PublicServerRotationsDto>> IMapRotationsApi.GetPublicServerRotations(CancellationToken cancellationToken)
+        {
+            var publicServers = context.GameServers.AsNoTracking().Where(s => s.ServerListEnabled && !s.Deleted);
+            var servers = await publicServers.OrderBy(s => s.ServerListPosition).ThenBy(s => s.GameServerId)
+                .Select(s => new { s.GameServerId, s.Title, s.GameType }).ToListAsync(cancellationToken).ConfigureAwait(false);
+            var assignments = await context.MapRotationServerAssignments.AsNoTracking()
+                .Where(a => publicServers.Any(s => s.GameServerId == a.GameServerId)
+                    && a.UnassignedAt == null && a.ActivationState == (int)ActivationState.Active
+                    && a.ConfigVariableName != null && a.ConfigVariableName.ToLower() == "sv_maprotation")
+                .Select(a => new
+                {
+                    a.GameServerId,
+                    a.ActivatedVersion,
+                    a.DeploymentState,
+                    a.MapRotation.Version,
+                    a.MapRotation.Title,
+                    Maps = a.MapRotation.MapRotationMaps.Where(m => m.Map.MapName != null && m.Map.MapName != "")
+                        .OrderBy(m => m.SortOrder).Select(m => new PublicRotationMapDto
+                        {
+                            MapId = m.MapId,
+                            MapName = m.Map.MapName!,
+                            MapImageUri = m.Map.MapImageUri,
+                            Likes = m.Map.TotalLikes,
+                            Dislikes = m.Map.TotalDislikes
+                        }).ToList()
+                })
+                .AsSplitQuery().ToListAsync(cancellationToken).ConfigureAwait(false);
+            var cutoff = DateTime.UtcNow.AddDays(-2);
+            var recent = await context.GameServerStats.AsNoTracking()
+                .Where(s => s.Timestamp >= cutoff && s.MapName != null && s.MapName != ""
+                    && publicServers.Any(server => server.GameServerId == s.GameServerId))
+                .GroupBy(s => new { s.GameServerId, s.MapName })
+                .Select(g => new { g.Key.GameServerId, MapName = g.Key.MapName!, LastSeen = g.Max(s => s.Timestamp) })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            var names = recent.Select(s => s.MapName).Distinct().ToArray();
+            var metadata = await context.Maps.AsNoTracking().Where(m => m.MapName != null && names.Contains(m.MapName)
+                && m.GameType != (int)GameType.CallOfDuty4x)
+                .Select(m => new Map
+                {
+                    MapId = m.MapId,
+                    GameType = m.GameType,
+                    MapName = m.MapName,
+                    MapImageUri = m.MapImageUri,
+                    TotalLikes = m.TotalLikes,
+                    TotalDislikes = m.TotalDislikes
+                }).ToListAsync(cancellationToken).ConfigureAwait(false);
+            var lookup = metadata.GroupBy(m => (m.GameType, Name: m.MapName!.ToUpperInvariant()))
+                .ToDictionary(g => g.Key, g => g.OrderBy(m => m.MapId).First());
+            var result = new PublicServerRotationsDto();
+            foreach (var server in servers)
+            {
+                var candidates = assignments.Where(a => a.GameServerId == server.GameServerId).ToList();
+                // Ambiguous or unapplied assignments are not evidence of the current rotation.
+                var assignment = candidates.Count == 1
+                    && candidates[0].ActivatedVersion == candidates[0].Version
+                    && candidates[0].DeploymentState != (int)DeploymentState.Removed
+                    ? candidates[0] : null;
+                var maps = assignment?.Maps;
+                if (maps is null || maps.Count == 0)
+                {
+                    maps = recent.Where(s => s.GameServerId == server.GameServerId).OrderByDescending(s => s.LastSeen)
+                        .ThenBy(s => s.MapName).DistinctBy(s => s.MapName, StringComparer.OrdinalIgnoreCase)
+                        .Select(s => PublicMap(s.MapName, lookup.GetValueOrDefault(((int)((GameType)server.GameType).GetMapGameType(), s.MapName.ToUpperInvariant()))))
+                        .ToList();
+                    assignment = null;
+                }
+                result.Servers.Add(new()
+                {
+                    GameServerId = server.GameServerId,
+                    Title = server.Title,
+                    GameType = (GameType)server.GameType,
+                    RotationTitle = assignment?.Title,
+                    IsObservedHistory = assignment is null,
+                    Maps = maps
+                });
+            }
+            return new ApiResponse<PublicServerRotationsDto>(result).ToApiResult();
+        }
+
+        private static PublicRotationMapDto PublicMap(string name, Map? map) => new()
+        {
+            MapId = map?.MapId,
+            MapName = name,
+            MapImageUri = map?.MapImageUri,
+            Likes = map?.TotalLikes ?? 0,
+            Dislikes = map?.TotalDislikes ?? 0
+        };
+
         /// <summary>
         /// Retrieves a specific map rotation by its unique identifier.
         /// </summary>

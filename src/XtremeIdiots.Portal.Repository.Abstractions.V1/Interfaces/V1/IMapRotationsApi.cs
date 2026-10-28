@@ -6,6 +6,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IMapRotationsApi
 {
+    Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default);
+
     // Map Rotation CRUD
     Task<ApiResult<MapRotationDto>> GetMapRotation(Guid mapRotationId, CancellationToken cancellationToken = default);
     Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default);

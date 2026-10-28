@@ -14,6 +14,12 @@ public class FakeMapRotationsApi : IMapRotationsApi
     private readonly ConcurrentDictionary<Guid, MapRotationServerAssignmentDto> _serverAssignments = new();
     private readonly ConcurrentDictionary<Guid, MapRotationAssignmentOperationDto> _assignmentOperations = new();
     private readonly ConcurrentDictionary<string, (HttpStatusCode StatusCode, ApiError Error)> _errorResponses = new(StringComparer.OrdinalIgnoreCase);
+    private PublicServerRotationsDto _publicRotations = new();
+
+    public FakeMapRotationsApi SetPublicServerRotations(PublicServerRotationsDto rotations) { _publicRotations = rotations; return this; }
+
+    public Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default)
+        => Task.FromResult(new ApiResult<PublicServerRotationsDto>(HttpStatusCode.OK, new ApiResponse<PublicServerRotationsDto>(_publicRotations)));
 
     public FakeMapRotationsApi AddMapRotation(MapRotationDto mapRotation) { _mapRotations[mapRotation.MapRotationId] = mapRotation; return this; }
     public FakeMapRotationsApi AddServerAssignment(MapRotationServerAssignmentDto assignment) { _serverAssignments[assignment.MapRotationServerAssignmentId] = assignment; return this; }
@@ -23,7 +29,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
         return this;
     }
-    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); return this; }
+    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _publicRotations = new(); return this; }
 
     // ───────────────────────── Map Rotation CRUD ─────────────────────────
 
