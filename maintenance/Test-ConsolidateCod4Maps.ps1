@@ -125,7 +125,10 @@ END TRY
 BEGIN CATCH
     IF ERROR_MESSAGE() <> N'Run map consolidation outside an existing transaction.' THROW;
     IF XACT_STATE() <> 1 OR @@TRANCOUNT <> 1
-        THROW 51021, 'Nested rejection damaged the caller transaction.', 1;
+    BEGIN
+        DECLARE @diagnostic nvarchar(2048) = CONCAT('Nested rejection damaged the caller transaction: state=', XACT_STATE(), ', count=', @@TRANCOUNT, '.');
+        THROW 51021, @diagnostic, 1;
+    END;
 END CATCH;
 COMMIT TRANSACTION;
 IF NOT EXISTS (SELECT 1 FROM dbo.Maps WHERE MapName=N'mp_callers_work')

@@ -30,5 +30,6 @@ jobs:
         shell: pwsh
         run: .\maintenance\Test-ConsolidateCod4Maps.ps1
       - name: Validate concurrent API creates and transition votes on SQL Server
+        if: success() || failure()
         shell: pwsh
         run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests"
