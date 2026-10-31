@@ -1,5 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using Moq;
 using Newtonsoft.Json;
 using Xunit;
@@ -551,6 +554,31 @@ public class MapsControllerTests
         {
             File.Delete(temporaryFilePath);
         }
+    }
+
+    [Fact]
+    public async Task UpdateMapImage_WithUploadedFileAndUnknownMap_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        await using var content = new MemoryStream([1, 2, 3]);
+        var files = new FormFileCollection
+        {
+            new FormFile(content, 0, content.Length, "map", "map.jpg")
+        };
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Form = new FormCollection(
+            new Dictionary<string, StringValues>(),
+            files);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = httpContext
+        };
+
+        var result = await controller.UpdateMapImage(Guid.NewGuid());
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, statusCodeResult.StatusCode);
     }
 
     [Fact]
