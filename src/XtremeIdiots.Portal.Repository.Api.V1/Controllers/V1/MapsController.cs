@@ -1056,7 +1056,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         private static bool TryResolveTemporaryFilePath(string filePath, out string safeFilePath)
         {
             safeFilePath = string.Empty;
-            if (string.IsNullOrWhiteSpace(filePath))
+            if (string.IsNullOrWhiteSpace(filePath) || !Path.IsPathFullyQualified(filePath))
             {
                 return false;
             }

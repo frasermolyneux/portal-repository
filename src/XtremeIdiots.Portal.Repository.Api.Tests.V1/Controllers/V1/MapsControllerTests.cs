@@ -506,11 +506,52 @@ public class MapsControllerTests
         await context.SaveChangesAsync();
 
         var api = (IMapsApi)CreateController(context);
-        var filePath = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "outside-temp.jpg");
+        var temporaryFilePath = Path.GetTempFileName();
 
-        var result = await api.UpdateMapImage(mapId, filePath);
+        try
+        {
+            var filePath = Path.Combine(
+                Path.GetPathRoot(Path.GetTempPath())!,
+                Path.GetFileName(temporaryFilePath));
 
-        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+            var result = await api.UpdateMapImage(mapId, filePath);
+
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        }
+        finally
+        {
+            File.Delete(temporaryFilePath);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateMapImage_WithRelativeTemporaryPath_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var mapId = Guid.NewGuid();
+        context.Maps.Add(new Map
+        {
+            MapId = mapId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapName = "mp_testmap"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IMapsApi)CreateController(context);
+        var temporaryFilePath = Path.GetTempFileName();
+
+        try
+        {
+            var relativePath = Path.GetRelativePath(Directory.GetCurrentDirectory(), temporaryFilePath);
+
+            var result = await api.UpdateMapImage(mapId, relativePath);
+
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        }
+        finally
+        {
+            File.Delete(temporaryFilePath);
+        }
     }
 
     [Fact]
