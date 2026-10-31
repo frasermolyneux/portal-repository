@@ -506,13 +506,12 @@ public class MapsControllerTests
         await context.SaveChangesAsync();
 
         var api = (IMapsApi)CreateController(context);
-        var temporaryFilePath = Path.GetTempFileName();
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), Path.GetRandomFileName());
+        await File.WriteAllTextAsync(filePath, "test");
 
         try
         {
-            var filePath = Path.Combine(
-                Path.GetPathRoot(Path.GetTempPath())!,
-                Path.GetFileName(temporaryFilePath));
+            Assert.True(File.Exists(filePath));
 
             var result = await api.UpdateMapImage(mapId, filePath);
 
@@ -520,7 +519,7 @@ public class MapsControllerTests
         }
         finally
         {
-            File.Delete(temporaryFilePath);
+            File.Delete(filePath);
         }
     }
 
