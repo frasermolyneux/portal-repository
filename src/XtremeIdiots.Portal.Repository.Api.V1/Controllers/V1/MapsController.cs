@@ -870,6 +870,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map image was updated if successful; otherwise, appropriate error responses.</returns>
         async Task<ApiResult> IMapsApi.UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken)
         {
+            if (!TryResolveTemporaryFilePath(filePath, out var safeFilePath) || !System.IO.File.Exists(safeFilePath))
+            {
+                return new ApiResult(HttpStatusCode.BadRequest);
+            }
+
             var map = await context.Maps
                 .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
 
@@ -895,9 +900,9 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             // Determine content type (default to jpeg as we enforce .jpg suffix)
-            var contentType = GetContentTypeFromExtension(Path.GetExtension(filePath));
+            var contentType = GetContentTypeFromExtension(Path.GetExtension(safeFilePath));
 
-            await using var fileStream = System.IO.File.OpenRead(filePath);
+            await using var fileStream = System.IO.File.OpenRead(safeFilePath);
             var uploadOptions = new BlobUploadOptions
             {
                 HttpHeaders = new BlobHttpHeaders
@@ -1046,6 +1051,31 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             };
 
             return orderedQuery.Skip(skipEntries).Take(takeEntries);
+        }
+
+        private static bool TryResolveTemporaryFilePath(string filePath, out string safeFilePath)
+        {
+            safeFilePath = string.Empty;
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return false;
+            }
+
+            var fileName = Path.GetFileName(filePath);
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return false;
+            }
+
+            safeFilePath = Path.Combine(Path.GetTempPath(), fileName);
+            var comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
+            return string.Equals(
+                Path.GetFullPath(filePath),
+                Path.GetFullPath(safeFilePath),
+                comparison);
         }
 
         /// <summary>

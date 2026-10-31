@@ -493,6 +493,27 @@ public class MapsControllerTests
     }
 
     [Fact]
+    public async Task UpdateMapImage_WithPathOutsideTemporaryDirectory_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var mapId = Guid.NewGuid();
+        context.Maps.Add(new Map
+        {
+            MapId = mapId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapName = "mp_testmap"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IMapsApi)CreateController(context);
+        var filePath = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "outside-temp.jpg");
+
+        var result = await api.UpdateMapImage(mapId, filePath);
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
     public async Task GetMapVotes_ReturnsCollection()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
