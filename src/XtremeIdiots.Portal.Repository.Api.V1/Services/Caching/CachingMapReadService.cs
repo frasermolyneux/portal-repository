@@ -46,8 +46,15 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Services.Caching
         private static string SanitizeForLog(string value) =>
             value.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
 
-        private sealed class FactoryAbortException(ApiResult<MapDto> result) : Exception
+        /// <summary>
+        /// Exception used to prevent a non-success map result from being cached.
+        /// </summary>
+        /// <param name="result">The original map result returned by the factory.</param>
+        public sealed class FactoryAbortException(ApiResult<MapDto> result) : Exception
         {
+            /// <summary>
+            /// Gets the original map result returned by the factory.
+            /// </summary>
             public ApiResult<MapDto> Result { get; } = result;
         }
 
