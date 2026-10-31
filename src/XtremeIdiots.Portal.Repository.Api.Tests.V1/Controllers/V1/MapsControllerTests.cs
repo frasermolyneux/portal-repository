@@ -1,5 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using Moq;
 using Newtonsoft.Json;
 using Xunit;
@@ -490,6 +493,92 @@ public class MapsControllerTests
         var result = await api.DeleteMap(mapId);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateMapImage_WithPathOutsideTemporaryDirectory_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var mapId = Guid.NewGuid();
+        context.Maps.Add(new Map
+        {
+            MapId = mapId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapName = "mp_testmap"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IMapsApi)CreateController(context);
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), Path.GetRandomFileName());
+        await File.WriteAllTextAsync(filePath, "test");
+
+        try
+        {
+            Assert.True(File.Exists(filePath));
+
+            var result = await api.UpdateMapImage(mapId, filePath);
+
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateMapImage_WithRelativeTemporaryPath_ReturnsBadRequest()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var mapId = Guid.NewGuid();
+        context.Maps.Add(new Map
+        {
+            MapId = mapId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapName = "mp_testmap"
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IMapsApi)CreateController(context);
+        var temporaryFilePath = Path.GetTempFileName();
+
+        try
+        {
+            var relativePath = Path.GetRelativePath(Directory.GetCurrentDirectory(), temporaryFilePath);
+
+            var result = await api.UpdateMapImage(mapId, relativePath);
+
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        }
+        finally
+        {
+            File.Delete(temporaryFilePath);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateMapImage_WithUploadedFileAndUnknownMap_ReturnsNotFound()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        await using var content = new MemoryStream([1, 2, 3]);
+        var files = new FormFileCollection
+        {
+            new FormFile(content, 0, content.Length, "map", "map.jpg")
+        };
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Form = new FormCollection(
+            new Dictionary<string, StringValues>(),
+            files);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = httpContext
+        };
+
+        var result = await controller.UpdateMapImage(Guid.NewGuid());
+
+        var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, statusCodeResult.StatusCode);
     }
 
     [Fact]

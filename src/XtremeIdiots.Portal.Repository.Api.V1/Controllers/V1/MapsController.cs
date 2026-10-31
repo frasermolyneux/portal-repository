@@ -849,14 +849,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var file = Request.Form.Files.First();
-
-            var filePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            using (var stream = System.IO.File.Create(filePath))
-            {
-                await file.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
-            }
-
-            var response = await ((IMapsApi)this).UpdateMapImage(mapId, filePath, cancellationToken).ConfigureAwait(false);
+            await using var fileStream = file.OpenReadStream();
+            var response = await UpdateMapImage(
+                mapId,
+                fileStream,
+                Path.GetExtension(file.FileName),
+                cancellationToken).ConfigureAwait(false);
 
             return response.ToHttpResult();
         }
@@ -868,7 +866,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="filePath">The path to the temporary image file to upload.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result indicating the map image was updated if successful; otherwise, appropriate error responses.</returns>
-        async Task<ApiResult> IMapsApi.UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken)
+        Task<ApiResult> IMapsApi.UpdateMapImage(Guid mapId, string filePath, CancellationToken cancellationToken)
+        {
+            // Local paths are a client-side transport detail and must not be dereferenced by the API host.
+            return Task.FromResult(new ApiResult(HttpStatusCode.BadRequest));
+        }
+
+        private async Task<ApiResult> UpdateMapImage(
+            Guid mapId,
+            Stream fileStream,
+            string? extension,
+            CancellationToken cancellationToken)
         {
             var map = await context.Maps
                 .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
@@ -895,9 +903,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             // Determine content type (default to jpeg as we enforce .jpg suffix)
-            var contentType = GetContentTypeFromExtension(Path.GetExtension(filePath));
+            var contentType = GetContentTypeFromExtension(extension);
 
-            await using var fileStream = System.IO.File.OpenRead(filePath);
             var uploadOptions = new BlobUploadOptions
             {
                 HttpHeaders = new BlobHttpHeaders
