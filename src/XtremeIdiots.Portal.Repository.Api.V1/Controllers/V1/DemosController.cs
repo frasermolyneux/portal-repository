@@ -190,6 +190,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// Uploads a demo file to the specified demo record.
         /// </summary>
         /// <param name="demoId">The unique identifier of the demo to upload the file to.</param>
+        /// <param name="files">The uploaded demo files.</param>
         /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
         /// <returns>A success response if the file was uploaded successfully.</returns>
         [HttpPost("demos/{demoId:guid}/file")]
@@ -197,19 +198,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        public async Task<IActionResult> SetDemoFile(Guid demoId, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> SetDemoFile(Guid demoId, [FromForm] IFormFileCollection? files, CancellationToken cancellationToken = default)
         {
-            if (Request.Form.Files.Count == 0)
+            if (files == null || files.Count == 0)
             {
-                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage))).ToHttpResult();
+                return new ApiResponse<object>(new ApiError(ApiErrorCodes.NoFilesProvided, ApiErrorMessages.NoFilesProvidedMessage)).ToBadRequestResult().ToHttpResult();
             }
 
             List<string> whitelistedExtensions = [".dm_1", ".dm_6"];
 
-            var file = Request.Form.Files.First();
+            var file = files.First();
             if (!whitelistedExtensions.Any(ext => file.FileName.EndsWith(ext)))
             {
-                return new ApiResult(HttpStatusCode.BadRequest, new ApiResponse(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage))).ToHttpResult();
+                return new ApiResponse<object>(new ApiError(ApiErrorCodes.InvalidFileType, ApiErrorMessages.InvalidFileTypeMessage)).ToBadRequestResult().ToHttpResult();
             }
 
             var tempFile = new FileInfo(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
