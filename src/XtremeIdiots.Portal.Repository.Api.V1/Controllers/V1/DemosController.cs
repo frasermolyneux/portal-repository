@@ -16,6 +16,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Demos;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.ModelBinding;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
@@ -198,7 +199,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        public async Task<IActionResult> SetDemoFile(Guid demoId, [FromForm] IFormFileCollection? files, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> SetDemoFile(
+            Guid demoId,
+            [FromForm, ModelBinder(BinderType = typeof(AllFormFilesModelBinder))] IFormFileCollection? files,
+            CancellationToken cancellationToken = default)
         {
             if (files == null || files.Count == 0)
             {

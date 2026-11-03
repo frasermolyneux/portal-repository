@@ -17,12 +17,12 @@ public class DemoFileUploadBindingTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
-    public async Task SetDemoFile_WithInvalidExtension_ReturnsInvalidFileType()
+    public async Task SetDemoFile_WithFilenameAsPartName_ReturnsInvalidFileType()
     {
         using var client = _factory.CreateClient();
         using var content = new MultipartFormDataContent
         {
-            { new ByteArrayContent([1, 2, 3]), "files", "invalid.txt" }
+            { new ByteArrayContent([1, 2, 3]), "invalid.txt", "invalid.txt" }
         };
 
         var response = await client.PostAsync($"/v1.0/demos/{Guid.NewGuid()}/file", content);
