@@ -32,3 +32,7 @@ GO
 CREATE NONCLUSTERED INDEX [IX_MapVotes_MapId_Like]
     ON [dbo].[MapVotes]([MapId], [Like])
     INCLUDE ([Timestamp]);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_MapVotes_GameServerId_MapId_Like]
+    ON [dbo].[MapVotes]([GameServerId], [MapId], [Like]);

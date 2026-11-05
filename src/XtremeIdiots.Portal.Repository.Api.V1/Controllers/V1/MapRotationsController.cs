@@ -85,6 +85,30 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }).ToListAsync(cancellationToken).ConfigureAwait(false);
             var lookup = metadata.GroupBy(m => ((int)((GameType)m.GameType).GetMapGameType(), Name: m.MapName!.ToUpperInvariant()))
                 .ToDictionary(g => g.Key, g => g.OrderBy(m => m.GameType == (int)GameType.CallOfDuty4x).ThenBy(m => m.MapId).First());
+            var serverIds = servers.Select(s => s.GameServerId).ToArray();
+            var serverVotes = await context.MapVotes.AsNoTracking()
+                .Where(v => v.GameServerId != null && serverIds.Contains(v.GameServerId.Value))
+                .GroupBy(v => new
+                {
+                    GameServerId = v.GameServerId!.Value,
+                    MapId = v.Map.GameType == (int)GameType.CallOfDuty4 || v.Map.GameType == (int)GameType.CallOfDuty4x
+                        ? Guid.Empty : v.MapId,
+                    GameType = v.Map.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : v.Map.GameType,
+                    MapName = v.Map.MapName!.ToUpper()
+                })
+                .Select(g => new
+                {
+                    g.Key.GameServerId,
+                    g.Key.MapId,
+                    g.Key.GameType,
+                    g.Key.MapName,
+                    Likes = g.Count(v => v.Like),
+                    Dislikes = g.Count(v => !v.Like)
+                })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            var serverVoteLookup = serverVotes.ToDictionary(
+                v => (v.GameServerId, v.MapId, v.GameType, v.MapName),
+                v => (v.Likes, v.Dislikes));
             var result = new PublicServerRotationsDto();
             foreach (var server in servers)
             {
@@ -105,6 +129,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         .Select(s => PublicMap(s.MapName, lookup.GetValueOrDefault((serverFamily, s.MapName.ToUpperInvariant()))))
                         .ToList();
                     assignment = null;
+                }
+                for (var index = 0; index < maps.Count; index++)
+                {
+                    var map = maps[index];
+                    var sharedFamily = serverFamily == (int)GameType.CallOfDuty4;
+                    var key = (server.GameServerId, sharedFamily ? Guid.Empty : map.MapId ?? Guid.Empty,
+                        serverFamily, map.MapName.ToUpperInvariant());
+                    var counts = serverVoteLookup.GetValueOrDefault(key);
+                    maps[index] = map with { ServerLikes = counts.Likes, ServerDislikes = counts.Dislikes };
                 }
                 result.Servers.Add(new()
                 {
