@@ -108,6 +108,65 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
     }
 
     [Fact]
+    public async Task GetPublicServerRotations_ReturnsGlobalAndServerPopularity()
+    {
+        var serverId = Guid.NewGuid();
+        var mapId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        _factory.SeedDatabase(ctx =>
+        {
+            var server = new GameServer
+            {
+                GameServerId = serverId,
+                GameType = (int)GameType.CallOfDuty5,
+                Title = "Public server popularity",
+                Hostname = "127.0.0.1",
+                ServerListEnabled = true
+            };
+            var map = new Map
+            {
+                MapId = mapId,
+                GameType = (int)GameType.CallOfDuty5,
+                MapName = "mp_popularity",
+                TotalLikes = 9,
+                TotalDislikes = 3
+            };
+            ctx.AddRange(server, map,
+                new Player { PlayerId = playerId, GameType = (int)GameType.CallOfDuty5, FirstSeen = now, LastSeen = now },
+                new GameServerStat
+                {
+                    GameServerStatId = Guid.NewGuid(),
+                    GameServerId = serverId,
+                    MapName = map.MapName,
+                    Timestamp = now,
+                    PlayerCount = 1
+                },
+                new MapVote
+                {
+                    MapVoteId = Guid.NewGuid(),
+                    GameServerId = serverId,
+                    MapId = mapId,
+                    PlayerId = playerId,
+                    Like = true,
+                    Timestamp = now
+                });
+            ctx.SaveChanges();
+        });
+
+        var response = await _client.GetAsync("/v1.0/map-rotations/public-servers");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = JsonConvert.DeserializeObject<MX.Api.Abstractions.ApiResponse<PublicServerRotationsDto>>(
+            await response.Content.ReadAsStringAsync())!.Data!;
+        var server = Assert.Single(payload.Servers, item => item.GameServerId == serverId);
+        var map = Assert.Single(server.Maps);
+        Assert.True(server.IsObservedHistory);
+        Assert.Equal((9, 3, 12, 75d), (map.Likes, map.Dislikes, map.Votes, map.Approval));
+        Assert.Equal((1, 0, 1, 100d), (map.ServerLikes, map.ServerDislikes, map.ServerVotes, map.ServerApproval));
+    }
+
+    [Fact]
     public async Task GetMapRotation_ReturnsOk_WhenExists()
     {
         var rotationId = Guid.NewGuid();
