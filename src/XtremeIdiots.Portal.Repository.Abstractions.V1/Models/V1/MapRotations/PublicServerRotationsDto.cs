@@ -12,6 +12,12 @@ public record PublicRotationMapDto
     public int Dislikes { get; init; }
     public int Votes => Likes + Dislikes;
     public double Approval => Votes == 0 ? 0 : Math.Round(100d * Likes / Votes, 1);
+    public int? ServerLikes { get; init; }
+    public int? ServerDislikes { get; init; }
+    public int? ServerVotes => ServerLikes.HasValue && ServerDislikes.HasValue ? ServerLikes + ServerDislikes : null;
+    public double? ServerApproval => ServerVotes.HasValue
+        ? ServerVotes == 0 ? 0 : Math.Round(100d * ServerLikes!.Value / ServerVotes.Value, 1)
+        : null;
 }
 
 public record PublicServerRotationDto

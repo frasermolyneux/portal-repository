@@ -101,6 +101,7 @@ public sealed class PublicMapExperienceTests : IDisposable
         string variable, bool stale, bool removed, bool ambiguous, bool expectHistory)
     {
         var server = Server(GameType.CallOfDuty4x);
+        var otherServer = Server(GameType.CallOfDuty4);
         var hidden = Server(GameType.CallOfDuty4x, listed: false);
         var map = Map("mp_custom", GameType.CallOfDuty4);
         map.TotalLikes = 8;
@@ -157,20 +158,41 @@ public sealed class PublicMapExperienceTests : IDisposable
         Stat(server, "mp_custom", -1);
         Stat(server, "mp_unindexed", -2);
         Stat(server, "mp_expired", -49);
+        Stat(otherServer, "mp_custom", -1);
         Stat(hidden, "mp_secret", -1);
+        Vote(map, server, true);
+        Vote(legacy, server, false);
+        Vote(legacy, otherServer, true);
+        Vote(map, otherServer, true);
+        Vote(map, hidden, false);
+        Vote(map, null, false);
         await context.SaveChangesAsync();
         commands.Text.Clear();
 
         var result = (await ((IMapRotationsApi)new MapRotationsController(context)).GetPublicServerRotations()).Result!.Data!;
 
-        var projected = Assert.Single(result.Servers);
+        var projected = Assert.Single(result.Servers, item => item.GameServerId == server.GameServerId);
         Assert.Equal(GameType.CallOfDuty4x, projected.GameType);
         Assert.Equal(expectHistory, projected.IsObservedHistory);
         Assert.Equal(expectHistory ? null : "Normal", projected.RotationTitle);
         Assert.Equal(expectHistory ? new[] { "mp_custom", "mp_unindexed" } : ["mp_custom"], projected.Maps.Select(m => m.MapName));
-        Assert.Equal((map.MapId, 15, 73.3d), (projected.Maps[0].MapId, projected.Maps[0].Votes, projected.Maps[0].Approval));
-        Assert.InRange(commands.Text.Count, 4, 7);
-        Assert.Single(commands.Text, sql => sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal((map.MapId, 15, 73.3d, 1, 1, 2, 50d),
+            (projected.Maps[0].MapId, projected.Maps[0].Votes, projected.Maps[0].Approval,
+                projected.Maps[0].ServerLikes, projected.Maps[0].ServerDislikes,
+                projected.Maps[0].ServerVotes, projected.Maps[0].ServerApproval));
+        var isolated = Assert.Single(result.Servers, item => item.GameServerId == otherServer.GameServerId);
+        Assert.Equal((2, 0, 2, 100d),
+            (isolated.Maps[0].ServerLikes, isolated.Maps[0].ServerDislikes,
+                isolated.Maps[0].ServerVotes, isolated.Maps[0].ServerApproval));
+        if (expectHistory)
+        {
+            Assert.Equal((0, 0, 0, 0d),
+                (projected.Maps[1].ServerLikes, projected.Maps[1].ServerDislikes,
+                    projected.Maps[1].ServerVotes, projected.Maps[1].ServerApproval));
+        }
+        Assert.InRange(commands.Text.Count, 5, 8);
+        Assert.Single(commands.Text, sql => sql.Contains("MapVotes", StringComparison.OrdinalIgnoreCase)
+            && sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
     }
 
     private GameServer Server(GameType type, bool listed = true)
