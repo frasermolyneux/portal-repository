@@ -25,8 +25,9 @@ jobs:
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-    - uses: frasermolyneux/actions/terraform-plan@terraform-plan/v2.0.1
+    - uses: frasermolyneux/actions/terraform-plan@027d7e31bb32b734090aaed01b36d74f1d658b61 # terraform-plan/v5.0.0
       with:
+        terraform-version: "1.17.1"
         terraform-folder: "terraform"
         terraform-var-file: "tfvars/dev.tfvars"
         terraform-backend-file: "backends/dev.backend.hcl"
