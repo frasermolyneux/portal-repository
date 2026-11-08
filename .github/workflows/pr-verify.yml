@@ -56,7 +56,7 @@ jobs:
 
       - name: Run focused V1 API integration tests
         id: integration-v1
-        uses: frasermolyneux/actions/dotnet-test@c4dcaf4142a2e56a5c50af52c7c9eb8c441ebfab # dotnet-test/v1.1.1
+        uses: frasermolyneux/actions/dotnet-test@b86f0707e0bf5bc7de100cd43351dcc3b8971914 # dotnet-test/v1.3.1
         with:
           suite: Integration-V1
           project: XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1
@@ -66,7 +66,7 @@ jobs:
 
       - name: Run V2 API integration tests
         id: integration-v2
-        uses: frasermolyneux/actions/dotnet-test@c4dcaf4142a2e56a5c50af52c7c9eb8c441ebfab # dotnet-test/v1.1.1
+        uses: frasermolyneux/actions/dotnet-test@b86f0707e0bf5bc7de100cd43351dcc3b8971914 # dotnet-test/v1.3.1
         with:
           suite: Integration-V2
           project: XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2
