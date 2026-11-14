@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -193,5 +195,83 @@ public class DemosControllerTests
         Assert.Null(demo.ServerName);
         Assert.Null(demo.FileUri);
         Assert.Equal(0, demo.FileSize);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SetDemoFile_WithoutFiles_ReturnsNoFilesProvided(bool useNullCollection)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var controller = CreateController(context);
+        IFormFileCollection? files = useNullCollection ? null : new FormFileCollection();
+
+        var result = await controller.SetDemoFile(Guid.NewGuid(), files);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        var response = Assert.IsType<MX.Api.Abstractions.ApiResponse<object>>(objectResult.Value);
+        Assert.Equal(ApiErrorCodes.NoFilesProvided, Assert.Single(response.Errors!).Code);
+    }
+
+    [Fact]
+    public async Task SetDemoFile_WithInvalidExtension_ReturnsInvalidFileType()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        await using var content = new MemoryStream([1, 2, 3]);
+        var files = new FormFileCollection
+        {
+            new FormFile(content, 0, content.Length, "files", "invalid.txt")
+        };
+        var controller = CreateController(context);
+
+        var result = await controller.SetDemoFile(Guid.NewGuid(), files);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        var response = Assert.IsType<MX.Api.Abstractions.ApiResponse<object>>(objectResult.Value);
+        Assert.Equal(ApiErrorCodes.InvalidFileType, Assert.Single(response.Errors!).Code);
+    }
+
+    [Fact]
+    public async Task SetDemoFile_WithMultipleFiles_UsesFirstFile()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var demoId = Guid.NewGuid();
+        context.Demos.Add(new Demo
+        {
+            DemoId = demoId,
+            GameType = (int)GameType.CallOfDuty5
+        });
+        await context.SaveChangesAsync();
+
+        var processor = new Mock<IDemoFileProcessor>();
+        processor
+            .Setup(x => x.ProcessAsync(It.IsAny<string>(), GameType.CallOfDuty5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DemoFileProcessingResult(
+                "stored.dm_6",
+                new Uri("https://storage.example/demos/stored.dm_6"),
+                new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Utc),
+                "mp_cassino5",
+                "xidmace3",
+                "dm",
+                "^1>XI< ^3DM3",
+                798868));
+        await using var firstContent = new MemoryStream([1, 2, 3]);
+        await using var secondContent = new MemoryStream([4, 5, 6]);
+        var files = new FormFileCollection
+        {
+            new FormFile(firstContent, 0, firstContent.Length, "files", "first.dm_6"),
+            new FormFile(secondContent, 0, secondContent.Length, "files", "second.dm_6")
+        };
+        var controller = CreateController(context, processor);
+
+        var result = await controller.SetDemoFile(demoId, files);
+
+        Assert.Equal(StatusCodes.Status200OK, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Equal("first", Assert.Single(context.Demos).Title);
+        processor.Verify(
+            x => x.ProcessAsync(It.IsAny<string>(), GameType.CallOfDuty5, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }
