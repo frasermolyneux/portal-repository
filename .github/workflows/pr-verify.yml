@@ -56,7 +56,7 @@ jobs:
 
       - name: Run focused V1 API integration tests
         id: integration-v1
-        uses: frasermolyneux/actions/dotnet-test@b86f0707e0bf5bc7de100cd43351dcc3b8971914 # dotnet-test/v1.3.1
+        uses: frasermolyneux/actions/dotnet-test@a6271c58ed8e8f3b6fbdb738ac7566863fdc38c8 # dotnet-test/v3.0.1
         with:
           suite: Integration-V1
           project: XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1
@@ -66,7 +66,7 @@ jobs:
 
       - name: Run V2 API integration tests
         id: integration-v2
-        uses: frasermolyneux/actions/dotnet-test@b86f0707e0bf5bc7de100cd43351dcc3b8971914 # dotnet-test/v1.3.1
+        uses: frasermolyneux/actions/dotnet-test@a6271c58ed8e8f3b6fbdb738ac7566863fdc38c8 # dotnet-test/v3.0.1
         with:
           suite: Integration-V2
           project: XtremeIdiots.Portal.Repository.Api.IntegrationTests.V2
@@ -98,7 +98,7 @@ jobs:
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     steps:
-      - uses: frasermolyneux/actions/terraform-plan@027d7e31bb32b734090aaed01b36d74f1d658b61 # terraform-plan/v5.0.0
+      - uses: frasermolyneux/actions/terraform-plan@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # terraform-plan/v6.0.0
         with:
           terraform-version: "1.17.1"
           terraform-folder: "terraform"
@@ -120,7 +120,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/terraform-plan-and-apply@027d7e31bb32b734090aaed01b36d74f1d658b61 # terraform-plan-and-apply/v5.0.0
+      - uses: frasermolyneux/actions/terraform-plan-and-apply@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # terraform-plan-and-apply/v6.0.0
         with:
           terraform-version: "1.17.1"
           terraform-folder: "terraform"
@@ -167,7 +167,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-sql-database@027d7e31bb32b734090aaed01b36d74f1d658b61 # deploy-sql-database/v2.0.0
+      - uses: frasermolyneux/actions/deploy-sql-database@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # deploy-sql-database/v6.0.0
         with:
           sql-args: /Variables:env=dev /Variables:instance=01
           sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
@@ -190,7 +190,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-app-service@027d7e31bb32b734090aaed01b36d74f1d658b61 # deploy-app-service/v1.3.1
+      - uses: frasermolyneux/actions/deploy-app-service@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # deploy-app-service/v6.0.0
         with:
           web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V1"
           web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}
@@ -201,7 +201,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - uses: frasermolyneux/actions/wait-for-version@027d7e31bb32b734090aaed01b36d74f1d658b61 # wait-for-version/v1.0.2
+      - uses: frasermolyneux/actions/wait-for-version@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # wait-for-version/v6.0.0
         with:
           info-url: "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v1 }}.azurewebsites.net/v1.0/info"
           expected-version: ${{ needs.build-and-test.outputs.build_version }}
@@ -218,7 +218,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-app-service@027d7e31bb32b734090aaed01b36d74f1d658b61 # deploy-app-service/v1.3.1
+      - uses: frasermolyneux/actions/deploy-app-service@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # deploy-app-service/v6.0.0
         with:
           web-artifact-name: "XtremeIdiots.Portal.Repository.Api.V2"
           web-app-name: ${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}
@@ -229,7 +229,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - uses: frasermolyneux/actions/wait-for-version@027d7e31bb32b734090aaed01b36d74f1d658b61 # wait-for-version/v1.0.2
+      - uses: frasermolyneux/actions/wait-for-version@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # wait-for-version/v6.0.0
         with:
           info-url: "https://${{ needs.terraform-plan-and-apply-dev.outputs.web_app_name_v2 }}.azurewebsites.net/v2.0/info"
           expected-version: ${{ needs.build-and-test.outputs.build_version }}
@@ -250,7 +250,7 @@ jobs:
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     steps:
-      - uses: frasermolyneux/actions/terraform-plan@027d7e31bb32b734090aaed01b36d74f1d658b61 # terraform-plan/v5.0.0
+      - uses: frasermolyneux/actions/terraform-plan@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # terraform-plan/v6.0.0
         with:
           terraform-version: "1.17.1"
           terraform-folder: "terraform"
