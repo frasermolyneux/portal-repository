@@ -138,7 +138,6 @@ app.MapControllers();
 
 app.MapGet("/", () => Results.Ok()).ExcludeFromDescription();
 
-app.Run();
+await app.RunAsync();
 
 public partial class Program { }
-
