@@ -40,6 +40,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedDashboardAnalyticsApi> _dashboardAnalytics = new();
         private readonly Mock<IVersionedMapAnalyticsApi> _mapAnalytics = new();
         private readonly Mock<IVersionedPlayerAnalyticsV2Api> _playerAnalyticsV2 = new();
+        private readonly Mock<IVersionedPlaytimeApi> _playtime = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -76,7 +77,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _serverAnalytics.Object,
             _dashboardAnalytics.Object,
             _mapAnalytics.Object,
-            _playerAnalyticsV2.Object);
+            _playerAnalyticsV2.Object,
+            _playtime.Object);
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -118,6 +120,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_dashboardAnalytics.Object, client.DashboardAnalytics);
             Assert.Same(_mapAnalytics.Object, client.MapAnalytics);
             Assert.Same(_playerAnalyticsV2.Object, client.PlayerAnalyticsV2);
+            Assert.Same(_playtime.Object, client.Playtime);
         }
 
         [Fact]

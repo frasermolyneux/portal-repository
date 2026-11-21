@@ -65,13 +65,21 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<PlayerIpAddress> PlayerIpAddresses { get; set; }
 
+    public virtual DbSet<PlayerSession> PlayerSessions { get; set; }
+
+    public virtual DbSet<PlayerSessionMapSegment> PlayerSessionMapSegments { get; set; }
+
     public virtual DbSet<PlayerTag> PlayerTags { get; set; }
+
+    public virtual DbSet<PlaytimeObservation> PlaytimeObservations { get; set; }
 
     public virtual DbSet<ProtectedName> ProtectedNames { get; set; }
 
     public virtual DbSet<RecentPlayer> RecentPlayers { get; set; }
 
     public virtual DbSet<Report> Reports { get; set; }
+
+    public virtual DbSet<ServerMapRun> ServerMapRuns { get; set; }
 
     public virtual DbSet<Tag> Tags { get; set; }
 
@@ -401,6 +409,40 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Player).WithMany(p => p.PlayerIpAddresses).HasConstraintName("FK_dbo.PlayerIpAddresses_dbo.Players_PlayerId");
         });
 
+        modelBuilder.Entity<PlayerSession>(entity =>
+        {
+            entity.HasKey(e => e.SessionId).HasName("PK_dbo.PlayerSession");
+
+            entity.HasIndex(e => new { e.PlayerId, e.ServerId }, "UX_PlayerSession_OneOpenSession")
+                .IsUnique()
+                .HasFilter("[EndUtc] IS NULL");
+
+            entity.Property(e => e.SessionId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Player).WithMany(p => p.PlayerSessions)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PlayerSession_Players");
+
+            entity.HasOne(d => d.Server).WithMany(p => p.PlayerSessions)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PlayerSession_GameServers");
+        });
+
+        modelBuilder.Entity<PlayerSessionMapSegment>(entity =>
+        {
+            entity.HasKey(e => e.SegmentId).HasName("PK_dbo.PlayerSessionMapSegment");
+
+            entity.HasIndex(e => new { e.MapRunId, e.StartUtc, e.EndUtc }, "IX_PlayerSessionMapSegment_Map_Time").HasFilter("[MapRunId] IS NOT NULL");
+
+            entity.Property(e => e.SegmentId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.MapRun).WithMany(p => p.PlayerSessionMapSegments).HasConstraintName("FK_PlayerSessionMapSegment_MapRun");
+
+            entity.HasOne(d => d.Session).WithMany(p => p.PlayerSessionMapSegments)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PlayerSessionMapSegment_Session");
+        });
+
         modelBuilder.Entity<PlayerTag>(entity =>
         {
             entity.HasKey(e => e.PlayerTagId).HasName("PK_dbo.PlayerTags");
@@ -416,6 +458,21 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Tag).WithMany(p => p.PlayerTags).HasConstraintName("FK_dbo.PlayerTags_dbo.Tags_TagId");
 
             entity.HasOne(d => d.UserProfile).WithMany(p => p.PlayerTags).HasConstraintName("FK_dbo.PlayerTags_dbo.UserProfiles_UserProfileId");
+        });
+
+        modelBuilder.Entity<PlaytimeObservation>(entity =>
+        {
+            entity.HasKey(e => e.ObservationId).HasName("PK_dbo.PlaytimeObservation");
+
+            entity.HasIndex(e => new { e.ServerId, e.ProducerEpoch, e.ProducerSequence }, "UX_PlaytimeObservation_ProducerSequence")
+                .IsUnique()
+                .HasFilter("[ProducerEpoch] IS NOT NULL AND [ProducerSequence] IS NOT NULL");
+
+            entity.Property(e => e.ObservationId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Server).WithMany(p => p.PlaytimeObservations)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PlaytimeObservation_GameServers");
         });
 
         modelBuilder.Entity<ProtectedName>(entity =>
@@ -455,6 +512,21 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Player).WithMany(p => p.Reports).HasConstraintName("FK_dbo.Reports_dbo.Players_PlayerId");
 
             entity.HasOne(d => d.UserProfile).WithMany(p => p.ReportUserProfiles).HasConstraintName("FK_dbo.Reports_dbo.UserProfiles_Id");
+        });
+
+        modelBuilder.Entity<ServerMapRun>(entity =>
+        {
+            entity.HasKey(e => e.RunId).HasName("PK_dbo.ServerMapRun");
+
+            entity.HasIndex(e => new { e.MapId, e.StartUtc, e.EndUtc }, "IX_ServerMapRun_Map_Time").HasFilter("[MapId] IS NOT NULL");
+
+            entity.Property(e => e.RunId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Map).WithMany(p => p.ServerMapRuns).HasConstraintName("FK_ServerMapRun_Maps");
+
+            entity.HasOne(d => d.Server).WithMany(p => p.ServerMapRuns)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ServerMapRun_GameServers");
         });
 
         modelBuilder.Entity<Tag>(entity =>
