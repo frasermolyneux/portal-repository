@@ -54,6 +54,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return response.ToApiResult<ConnectedPlayerActivationCodeDto>();
         }
 
+        public async Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueConnectedPlayerClaimCode(
+            ActivateConnectedPlayerActivationCodeDto dto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/connected-players/claim-code", Method.Post, cancellationToken).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<ConnectedPlayerActivationCodeDto>();
+        }
+
         public async Task<ApiResult<ConnectedPlayerDto>> ConsumeConnectedPlayerActivationCode(
             ConsumeConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken = default)
@@ -63,6 +71,37 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
             var response = await ExecuteAsync(request).ConfigureAwait(false);
             return response.ToApiResult<ConnectedPlayerDto>();
+        }
+
+        public async Task<ApiResult<ConnectedPlayerClaimDto>> SubmitConnectedPlayerClaim(SubmitConnectedPlayerClaimDto dto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/connected-players/claims", Method.Post, cancellationToken).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<ConnectedPlayerClaimDto>();
+        }
+
+        public async Task<ApiResult<CollectionModel<ConnectedPlayerClaimDto>>> GetPendingConnectedPlayerClaims(Guid userProfileId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profiles/{userProfileId}/connected-player-claims", Method.Get, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<CollectionModel<ConnectedPlayerClaimDto>>();
+        }
+
+        public async Task<ApiResult<ConnectedPlayerClaimDto>> ApproveConnectedPlayerClaim(Guid userProfileId, Guid claimId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profiles/{userProfileId}/connected-player-claims/{claimId}/approve", Method.Post, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<ConnectedPlayerClaimDto>();
+        }
+
+        public async Task<ApiResult<ConnectedPlayerClaimDto>> DeclineConnectedPlayerClaim(Guid userProfileId, Guid claimId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profiles/{userProfileId}/connected-player-claims/{claimId}/decline", Method.Post, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<ConnectedPlayerClaimDto>();
+        }
+
+        public async Task<ApiResult> UnlinkOwnConnectedPlayer(Guid userProfileId, Guid connectedPlayerProfileId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profiles/{userProfileId}/connected-players/{connectedPlayerProfileId}", Method.Delete, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult();
         }
 
         public async Task<ApiResult<CollectionModel<ConnectedPlayerDto>>> GetConnectedPlayersByUserProfile(

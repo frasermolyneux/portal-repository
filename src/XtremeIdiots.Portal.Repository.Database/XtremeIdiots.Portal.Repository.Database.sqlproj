@@ -91,6 +91,7 @@
     <Build Include="dbo\Tables\CentralBanFileStatus.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerProfiles.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerActivationCodes.sql" />
+    <Build Include="dbo\Tables\ConnectedPlayerClaims.sql" />
     <Build Include="dbo\Tables\UserProfileLifecycleOperations.sql" />
     <Build Include="dbo\Tables\PlaytimeObservation.sql" />
     <Build Include="dbo\Tables\PlayerSession.sql" />

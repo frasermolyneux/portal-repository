@@ -79,6 +79,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var executionStrategy = context.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteInTransactionAsync(async operationCancellationToken =>
         {
+            await UserProfileLifecycle.LockAsync(context, operationCancellationToken).ConfigureAwait(false);
             var player = await context.Players
                 .FirstOrDefaultAsync(p => p.PlayerId == playerId, operationCancellationToken)
                 .ConfigureAwait(false);
@@ -112,6 +113,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var connectedPlayerClaims = await context.ConnectedPlayerClaims.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var connectedPlayerProfiles = await context.ConnectedPlayerProfiles.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var playerAliases = await context.PlayerAliases.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -163,6 +165,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             context.AdminActions.RemoveRange(adminActions);
             context.AutomationActionStates.RemoveRange(automationActionStates);
             context.ChatMessages.RemoveRange(chatMessages);
+            context.ConnectedPlayerClaims.RemoveRange(connectedPlayerClaims);
             context.ConnectedPlayerProfiles.RemoveRange(connectedPlayerProfiles);
             context.MapVotes.RemoveRange(mapVotes);
             context.PlayerAliases.RemoveRange(playerAliases);
