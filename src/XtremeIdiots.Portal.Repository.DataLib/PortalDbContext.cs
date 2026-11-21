@@ -25,6 +25,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<ConnectedPlayerActivationCode> ConnectedPlayerActivationCodes { get; set; }
 
+    public virtual DbSet<ConnectedPlayerClaim> ConnectedPlayerClaims { get; set; }
+
     public virtual DbSet<ConnectedPlayerProfile> ConnectedPlayerProfiles { get; set; }
 
     public virtual DbSet<Demo> Demos { get; set; }
@@ -168,6 +170,27 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.UserProfile).WithOne(p => p.ConnectedPlayerActivationCode)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_dbo.ConnectedPlayerActivationCodes_dbo.UserProfiles_UserProfileId");
+        });
+
+        modelBuilder.Entity<ConnectedPlayerClaim>(entity =>
+        {
+            entity.HasKey(e => e.ConnectedPlayerClaimId).HasName("PK_dbo.ConnectedPlayerClaims");
+
+            entity.Property(e => e.ConnectedPlayerClaimId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.ConnectedPlayerActivationCode).WithOne(p => p.ConnectedPlayerClaim)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ConnectedPlayerClaims_ActivationCodes");
+
+            entity.HasOne(d => d.ConnectedPlayerProfile).WithMany(p => p.ConnectedPlayerClaims).HasConstraintName("FK_ConnectedPlayerClaims_Profiles");
+
+            entity.HasOne(d => d.Player).WithMany(p => p.ConnectedPlayerClaims)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ConnectedPlayerClaims_Players");
+
+            entity.HasOne(d => d.UserProfile).WithMany(p => p.ConnectedPlayerClaims)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ConnectedPlayerClaims_UserProfiles");
         });
 
         modelBuilder.Entity<ConnectedPlayerProfile>(entity =>

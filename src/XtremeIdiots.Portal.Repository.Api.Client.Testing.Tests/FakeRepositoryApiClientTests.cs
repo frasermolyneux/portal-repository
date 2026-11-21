@@ -426,6 +426,31 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
+    public async Task ConnectedPlayers_ApprovalCodeCannotUseLegacyConsumption()
+    {
+        var client = new FakeRepositoryApiClient();
+        var user = Guid.NewGuid();
+        var player = Guid.NewGuid();
+        var server = Guid.NewGuid();
+        var issued = await client.ConnectedPlayers.V1.IssueConnectedPlayerClaimCode(new() { UserProfileId = user });
+        var code = issued.Result!.Data!;
+        Assert.Equal(TimeSpan.FromHours(1), code.ExpiresAtUtc - code.ActivatedAtUtc);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, (await client.ConnectedPlayers.V1.ConsumeConnectedPlayerActivationCode(new() { PlayerId = player, Code = code.Code })).StatusCode);
+        var request = new SubmitConnectedPlayerClaimDto { RequestId = Guid.NewGuid(), PlayerId = player, GameServerId = server, Code = code.Code };
+        Assert.Equal(System.Net.HttpStatusCode.Created, (await client.ConnectedPlayers.V1.SubmitConnectedPlayerClaim(request)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await client.ConnectedPlayers.V1.SubmitConnectedPlayerClaim(request)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, (await client.ConnectedPlayers.V1.SubmitConnectedPlayerClaim(request with { GameServerId = Guid.NewGuid() })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await client.ConnectedPlayers.V1.ApproveConnectedPlayerClaim(user, request.RequestId)).StatusCode);
+
+        var legacy = (await client.ConnectedPlayers.V1.ActivateConnectedPlayerActivationCode(new() { UserProfileId = Guid.NewGuid() })).Result!.Data!;
+        var legacyPlayer = Guid.NewGuid();
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.ConnectedPlayers.V1.SubmitConnectedPlayerClaim(new()
+            { RequestId = Guid.NewGuid(), PlayerId = legacyPlayer, GameServerId = server, Code = legacy.Code })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Created, (await client.ConnectedPlayers.V1.ConsumeConnectedPlayerActivationCode(new()
+            { PlayerId = legacyPlayer, Code = legacy.Code })).StatusCode);
+    }
+
+    [Fact]
     public async Task GlobalAnalytics_V1_GetTimeseriesComparisonOverload_ReturnsConfiguredResponse()
     {
         var client = new FakeRepositoryApiClient();

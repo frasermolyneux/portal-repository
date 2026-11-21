@@ -194,3 +194,32 @@ generation can access its private setter without weakening validation or making
 the DTO publicly mutable. HTTP integration tests request both host specifications
 (`/openapi/v1.0.json` and `/openapi/v2.0.json`) and verify the V1 archive reason
 remains required, writable in JSON, and bounded to 500 characters.
+
+## V1 connected-player approval transition
+
+The Portal BFF authenticates the member through Invision and derives the user
+profile ID server-side. Repository endpoints require the existing ServiceAccount
+role and trust that supplied scope; other ServiceAccount callers are not
+independently distinguished. Browser-supplied profile IDs must not be trusted.
+
+`POST /v1.0/connected-players/claim-code` takes `{ userProfileId }` and returns
+a one-hour code. `POST /v1.0/connected-players/claims` takes `{ requestId,
+playerId, gameServerId, code }`; the event processor must keep the same UUID
+for retries of the same event. A successful submission consumes the code and
+creates a pending claim for 24 hours, not an active link. A claim snapshots the
+server name if available; a missing server leaves the name null. Replaying a
+request ID with different player, server or code returns a conflict. Profile-
+scoped claim listing, approval, decline and unlink endpoints enforce ownership.
+Approval and unlink immediately reconcile system-managed player tags.
+
+During migration, the existing activation-code issue and immediate-consume
+operations retain their legacy behavior for legacy-issued codes. Approval codes
+are marked separately and cannot be consumed by the legacy endpoint. Deploy the
+compatible Repository first, migrate event processors and Portal issuance to
+the claim flow together, then remove legacy issuance and consumption after all
+consumers have cut over. Do not advertise approval while issuing legacy codes.
+Existing direct-link operations remain available to trusted ServiceAccount
+callers for compatibility, including administrative `AdminForced` links; the
+member BFF must never expose them to ordinary browser users.
+Codes are not reissued while their historical rows remain; any future retention
+or reuse policy must account for delayed and replayed events.

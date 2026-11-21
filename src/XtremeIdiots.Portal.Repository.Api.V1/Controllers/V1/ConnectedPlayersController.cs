@@ -29,12 +29,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("v{version:apiVersion}")]
-    public class ConnectedPlayersController : ControllerBase, IConnectedPlayersApi
+    public partial class ConnectedPlayersController : ControllerBase, IConnectedPlayersApi
     {
         private const string ConnectedPlayerVerifiedTagName = "verified-player";
         private const int ActivationCodeExpiryMinutes = 5;
         private const int ActivationCodeMaxAttempts = 5;
         private const string DefaultActivationSource = "WebsiteActivation";
+        private const string ClaimActivationSource = "ApprovalRequired";
         private static readonly JsonSerializerOptions SettingsJsonSerializerOptions = new()
         {
             PropertyNameCaseInsensitive = true
@@ -73,7 +74,17 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         async Task<ApiResult<ConnectedPlayerActivationCodeDto>> IConnectedPlayersApi.ActivateConnectedPlayerActivationCode(
             ActivateConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken)
+            => await IssueActivationCode(dto, DefaultActivationSource, ActivationCodeExpiryMinutes, cancellationToken).ConfigureAwait(false);
+
+        private async Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueActivationCode(
+            ActivateConnectedPlayerActivationCodeDto dto, string source, int expiryMinutes, CancellationToken cancellationToken)
         {
+            if (dto is null)
+            {
+                return new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.BadRequest,
+                    new ApiResponse<ConnectedPlayerActivationCodeDto>(new ApiError(ApiErrorCodes.RequestBodyNull, ApiErrorMessages.RequestBodyNullMessage)));
+            }
+
             var userProfileExists = await context.UserProfiles
                 .Where(u => u.ArchivedAtUtc == null)
                 .AsNoTracking()
@@ -106,6 +117,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     .ConfigureAwait(false);
 
                 var now = DateTime.UtcNow;
+                var currentCode = source == ClaimActivationSource
+                    ? existingActiveCodes.FirstOrDefault(code => code.ExpiresAtUtc > now && code.ActivatedBy == source)
+                    : null;
+                if (currentCode is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    return new ApiResponse<ConnectedPlayerActivationCodeDto>(currentCode.ToDto()).ToApiResult();
+                }
+
                 var invalidatedCodeIds = new List<Guid>();
                 foreach (var existingCode in existingActiveCodes)
                 {
@@ -120,12 +140,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     UserProfileId = dto.UserProfileId,
                     Code = codeValue,
                     CodeHash = HashToken(codeValue),
-                    ExpiresAtUtc = now.AddMinutes(ActivationCodeExpiryMinutes),
+                    ExpiresAtUtc = now.AddMinutes(expiryMinutes),
                     AttemptCount = 0,
                     MaxAttempts = ActivationCodeMaxAttempts,
                     IsActive = true,
                     ActivatedAtUtc = now,
-                    ActivatedBy = DefaultActivationSource
+                    ActivatedBy = source
                 };
 
                 try
@@ -252,178 +272,89 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             ConsumeConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(dto.Code))
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Code))
             {
-                return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                    new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.InvalidRequest, ApiErrorMessages.InvalidRequestBodyMessage)));
+                return LegacyCodeError(HttpStatusCode.BadRequest, ApiErrorCodes.InvalidRequest, ApiErrorMessages.InvalidRequestBodyMessage);
             }
 
-            var playerExists = await context.Players
-                .AsNoTracking()
-                .AnyAsync(player => player.PlayerId == dto.PlayerId, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (!playerExists)
+            var codeHash = HashToken(dto.Code.Trim().ToUpperInvariant());
+            var result = await UserProfileLifecycle.ExecuteAsync(context, async () =>
             {
-                return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                    new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound)));
-            }
-
-            var codeValue = dto.Code.Trim().ToUpperInvariant();
-            var codeHash = HashToken(codeValue);
-
-            var executionStrategy = context.Database.CreateExecutionStrategy();
-            return await executionStrategy.ExecuteAsync(async () =>
-            {
-                // Reset tracking so an outer transient retry re-reads committed state.
-                context.ChangeTracker.Clear();
-
-                await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-                await UserProfileLifecycle.LockAsync(context, cancellationToken).ConfigureAwait(false);
-
-                var activationCode = await context.ConnectedPlayerActivationCodes
-                    .OrderByDescending(code => code.ActivatedAtUtc)
-                    .FirstOrDefaultAsync(code => code.CodeHash == codeHash, cancellationToken)
-                    .ConfigureAwait(false);
-
-                if (activationCode == null)
+                if (!await context.Players.AnyAsync(p => p.PlayerId == dto.PlayerId, cancellationToken).ConfigureAwait(false))
                 {
-                    await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-
-                    return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                        new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeInvalid, ApiErrorMessages.ConnectedPlayerActivationCodeInvalidMessage)));
+                    return LegacyCodeError(HttpStatusCode.BadRequest, ApiErrorCodes.EntityNotFound, ApiErrorMessages.EntityNotFound);
                 }
 
-                if (!activationCode.IsActive || !await context.UserProfiles.AnyAsync(u => u.UserProfileId == activationCode.UserProfileId && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false))
+                var code = await context.ConnectedPlayerActivationCodes.OrderByDescending(c => c.ActivatedAtUtc)
+                    .FirstOrDefaultAsync(c => c.CodeHash == codeHash, cancellationToken).ConfigureAwait(false);
+                if (code is null)
                 {
-                    await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-
-                    return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                        new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeInactive, ApiErrorMessages.ConnectedPlayerActivationCodeInactiveMessage)));
+                    return LegacyCodeError(HttpStatusCode.BadRequest, ApiErrorCodes.ConnectedPlayerActivationCodeInvalid, ApiErrorMessages.ConnectedPlayerActivationCodeInvalidMessage);
                 }
-
-                var existingLink = await context.ConnectedPlayerProfiles
-                    .AsNoTracking()
-                    .Include(cp => cp.Player)
-                    .FirstOrDefaultAsync(cp => cp.PlayerId == dto.PlayerId && cp.IsActive, cancellationToken)
-                    .ConfigureAwait(false);
+                if (code.ActivatedBy == ClaimActivationSource)
+                {
+                    return LegacyCodeError(HttpStatusCode.Conflict, ApiErrorCodes.EntityConflict, "This code requires member approval.");
+                }
+                if (!code.IsActive || !await context.UserProfiles.AnyAsync(u => u.UserProfileId == code.UserProfileId && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false))
+                {
+                    return LegacyCodeError(HttpStatusCode.BadRequest, ApiErrorCodes.ConnectedPlayerActivationCodeInactive, ApiErrorMessages.ConnectedPlayerActivationCodeInactiveMessage);
+                }
 
                 var now = DateTime.UtcNow;
-
-                if (existingLink != null)
+                var existing = await context.ConnectedPlayerProfiles.Include(p => p.Player)
+                    .FirstOrDefaultAsync(p => p.PlayerId == dto.PlayerId && p.IsActive, cancellationToken).ConfigureAwait(false);
+                if (existing is not null && existing.UserProfileId != code.UserProfileId)
                 {
-                    if (existingLink.UserProfileId == activationCode.UserProfileId)
+                    return LegacyCodeError(HttpStatusCode.Conflict, ApiErrorCodes.ConnectedPlayerAlreadyLinked, ApiErrorMessages.ConnectedPlayerAlreadyLinkedMessage);
+                }
+                if (existing is null && code.ExpiresAtUtc <= now)
+                {
+                    code.IsActive = false;
+                    code.InvalidatedAtUtc = now;
+                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    return LegacyCodeError(HttpStatusCode.BadRequest, ApiErrorCodes.ConnectedPlayerActivationCodeExpired, ApiErrorMessages.ConnectedPlayerActivationCodeExpiredMessage);
+                }
+                if (existing is null && code.AttemptCount >= code.MaxAttempts)
+                {
+                    code.IsActive = false;
+                    code.InvalidatedAtUtc = now;
+                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    return LegacyCodeError(HttpStatusCode.BadRequest, ApiErrorCodes.ConnectedPlayerActivationCodeAttemptsExceeded, ApiErrorMessages.ConnectedPlayerActivationCodeAttemptsExceededMessage);
+                }
+
+                code.IsActive = false;
+                code.ConsumedAtUtc = now;
+                var created = existing is null;
+                if (existing is null)
+                {
+                    existing = new ConnectedPlayerProfile
                     {
-                        activationCode.IsActive = false;
-                        activationCode.ConsumedAtUtc = now;
-                        await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
-                        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-
-                        auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerActivationCodeConsumed", AuditAction.Update)
-                            .WithActor(activationCode.UserProfileId.ToString(), "ConnectedPlayersController")
-                            .WithTarget(dto.PlayerId.ToString(), "Player")
-                            .WithSource("ConnectedPlayersController")
-                            .Build());
-
-                        return new ApiResponse<ConnectedPlayerDto>(existingLink.ToDto()).ToApiResult();
-                    }
-
-                    await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-
-                    return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.Conflict,
-                        new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerAlreadyLinked, ApiErrorMessages.ConnectedPlayerAlreadyLinkedMessage)));
+                        ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = dto.PlayerId, UserProfileId = code.UserProfileId,
+                        LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(), LinkedAtUtc = now,
+                        LinkedByUserProfileId = code.UserProfileId, IsActive = true
+                    };
+                    context.ConnectedPlayerProfiles.Add(existing);
                 }
-
-                if (activationCode.ExpiresAtUtc <= now)
-                {
-                    activationCode.IsActive = false;
-                    activationCode.InvalidatedAtUtc = now;
-                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-
-                    auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerActivationCodeExpired", AuditAction.Update)
-                        .WithActor(activationCode.UserProfileId.ToString(), "ConnectedPlayersController")
-                        .WithTarget(activationCode.ConnectedPlayerActivationCodeId.ToString(), "ConnectedPlayerActivationCode")
-                        .WithSource("ConnectedPlayersController")
-                        .Build());
-
-                    return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                        new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeExpired, ApiErrorMessages.ConnectedPlayerActivationCodeExpiredMessage)));
-                }
-
-                if (activationCode.AttemptCount >= activationCode.MaxAttempts)
-                {
-                    activationCode.IsActive = false;
-                    activationCode.InvalidatedAtUtc = now;
-                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-
-                    auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerActivationCodeAttemptsExceeded", AuditAction.Update)
-                        .WithActor(activationCode.UserProfileId.ToString(), "ConnectedPlayersController")
-                        .WithTarget(activationCode.ConnectedPlayerActivationCodeId.ToString(), "ConnectedPlayerActivationCode")
-                        .WithSource("ConnectedPlayersController")
-                        .Build());
-
-                    return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                        new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeAttemptsExceeded, ApiErrorMessages.ConnectedPlayerActivationCodeAttemptsExceededMessage)));
-                }
-
-                activationCode.IsActive = false;
-                activationCode.ConsumedAtUtc = now;
-
-                var profile = new ConnectedPlayerProfile
-                {
-                    PlayerId = dto.PlayerId,
-                    UserProfileId = activationCode.UserProfileId,
-                    LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
-                    LinkedAtUtc = now,
-                    LinkedByUserProfileId = activationCode.UserProfileId,
-                    IsActive = true
-                };
-
-                try
-                {
-                    await context.ConnectedPlayerProfiles.AddAsync(profile, cancellationToken).ConfigureAwait(false);
-                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                    await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
-                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (DbUpdateException)
-                {
-                    var activeLinkExists = await context.ConnectedPlayerProfiles
-                        .AsNoTracking()
-                        .AnyAsync(cp => cp.PlayerId == dto.PlayerId && cp.IsActive, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-
-                    if (activeLinkExists)
-                    {
-                        return new ApiResult<ConnectedPlayerDto>(HttpStatusCode.Conflict,
-                            new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerAlreadyLinked, ApiErrorMessages.ConnectedPlayerAlreadyLinkedMessage)));
-                    }
-
-                    throw;
-                }
-
-                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await ReconcileConnectedPlayerTagForPlayer(dto.PlayerId, cancellationToken).ConfigureAwait(false);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await context.Entry(existing).Reference(p => p.Player).LoadAsync(cancellationToken).ConfigureAwait(false);
+                return new ApiResponse<ConnectedPlayerDto>(existing.ToDto()).ToApiResult(
+                    created ? HttpStatusCode.Created : HttpStatusCode.OK);
+            }, cancellationToken).ConfigureAwait(false);
+            if (result.StatusCode is HttpStatusCode.OK or HttpStatusCode.Created)
+            {
                 auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerActivationCodeConsumed", AuditAction.Update)
-                    .WithActor(activationCode.UserProfileId.ToString(), "ConnectedPlayersController")
+                    .WithActor(result.Result!.Data!.UserProfileId.ToString(), "ConnectedPlayersController")
                     .WithTarget(dto.PlayerId.ToString(), "Player")
                     .WithSource("ConnectedPlayersController")
                     .Build());
-
-                var hydrated = await context.ConnectedPlayerProfiles
-                    .AsNoTracking()
-                    .Include(cp => cp.Player)
-                    .FirstAsync(cp => cp.ConnectedPlayerProfileId == profile.ConnectedPlayerProfileId, cancellationToken)
-                    .ConfigureAwait(false);
-
-                return new ApiResponse<ConnectedPlayerDto>(hydrated.ToDto()).ToApiResult(HttpStatusCode.Created);
-            }).ConfigureAwait(false);
+            }
+            return result;
         }
+
+        private static ApiResult<ConnectedPlayerDto> LegacyCodeError(HttpStatusCode status, string code, string message)
+            => new(status, new ApiResponse<ConnectedPlayerDto>(new ApiError(code, message)));
 
         [HttpPost("connected-players/link")]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -998,7 +929,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var code = GenerateActivationCode();
                 var exists = await context.ConnectedPlayerActivationCodes
                     .AsNoTracking()
-                    .AnyAsync(existingCode => existingCode.Code == code && existingCode.IsActive, cancellationToken)
+                    .AnyAsync(existingCode => existingCode.Code == code, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (!exists)
