@@ -44,6 +44,11 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
         using var scope = scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
         var cutoff = DateTime.UtcNow - MissingDisconnectThreshold;
+        await SweepAsync(context, cutoff, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task SweepAsync(PortalDbContext context, DateTime cutoff, CancellationToken cancellationToken)
+    {
         var stale = await context.PlayerSessions
             .Where(x => x.EndUtc == null && x.LastConfirmedUtc < cutoff)
             .ToListAsync(cancellationToken)

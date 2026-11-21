@@ -25,6 +25,8 @@ public partial class PlayerSession
     [StringLength(50)]
     public string? GamePlayerId { get; set; }
 
+    public bool? IsBot { get; set; }
+
     public DateTime StartUtc { get; set; }
 
     public DateTime LastConfirmedUtc { get; set; }

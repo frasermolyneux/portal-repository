@@ -5,6 +5,7 @@ CREATE TABLE [dbo].[PlayerSession]
     [ServerId] UNIQUEIDENTIFIER NOT NULL,
     [GameType] INT NOT NULL,
     [GamePlayerId] NVARCHAR(50) NULL,
+    [IsBot] BIT NULL,
     [StartUtc] DATETIME2 NOT NULL,
     [LastConfirmedUtc] DATETIME2 NOT NULL,
     [EndUtc] DATETIME2 NULL,

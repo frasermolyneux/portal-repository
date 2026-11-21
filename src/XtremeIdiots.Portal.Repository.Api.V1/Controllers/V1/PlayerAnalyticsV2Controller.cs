@@ -407,6 +407,7 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
         var measuredSegments = await context.PlayerSessionMapSegments
             .AsNoTracking()
             .Where(segment => !segment.UnknownMap &&
+                              segment.Session.IsBot != true &&
                               segment.Session.PlayerId == playerId &&
                               segment.StartUtc < toUtc &&
                               segment.EndUtc > fromUtc)

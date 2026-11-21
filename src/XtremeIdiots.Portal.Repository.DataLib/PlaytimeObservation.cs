@@ -43,6 +43,16 @@ public partial class PlaytimeObservation
     [StringLength(256)]
     public string? MapName { get; set; }
 
+    public bool? IsBot { get; set; }
+
+    public DateTime? ProducerStartedUtc { get; set; }
+
+    public long? DroppedCapacityMax { get; set; }
+
+    public long? DroppedAttemptsMax { get; set; }
+
+    public long? DroppedAgeMax { get; set; }
+
     public byte? RosterCompleteness { get; set; }
 
     [MaxLength(32)]
