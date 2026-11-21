@@ -445,9 +445,9 @@ public class FakeRepositoryApiClientTests
         var legacy = (await client.ConnectedPlayers.V1.ActivateConnectedPlayerActivationCode(new() { UserProfileId = Guid.NewGuid() })).Result!.Data!;
         var legacyPlayer = Guid.NewGuid();
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.ConnectedPlayers.V1.SubmitConnectedPlayerClaim(new()
-            { RequestId = Guid.NewGuid(), PlayerId = legacyPlayer, GameServerId = server, Code = legacy.Code })).StatusCode);
+        { RequestId = Guid.NewGuid(), PlayerId = legacyPlayer, GameServerId = server, Code = legacy.Code })).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.Created, (await client.ConnectedPlayers.V1.ConsumeConnectedPlayerActivationCode(new()
-            { PlayerId = legacyPlayer, Code = legacy.Code })).StatusCode);
+        { PlayerId = legacyPlayer, Code = legacy.Code })).StatusCode);
     }
 
     [Fact]

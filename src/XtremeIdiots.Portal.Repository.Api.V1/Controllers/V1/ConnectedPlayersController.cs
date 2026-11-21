@@ -329,9 +329,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 {
                     existing = new ConnectedPlayerProfile
                     {
-                        ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = dto.PlayerId, UserProfileId = code.UserProfileId,
-                        LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(), LinkedAtUtc = now,
-                        LinkedByUserProfileId = code.UserProfileId, IsActive = true
+                        ConnectedPlayerProfileId = Guid.NewGuid(),
+                        PlayerId = dto.PlayerId,
+                        UserProfileId = code.UserProfileId,
+                        LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+                        LinkedAtUtc = now,
+                        LinkedByUserProfileId = code.UserProfileId,
+                        IsActive = true
                     };
                     context.ConnectedPlayerProfiles.Add(existing);
                 }

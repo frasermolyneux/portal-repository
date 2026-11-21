@@ -24,9 +24,15 @@ public class ConnectedPlayerClaimsTests(CustomWebApplicationFactory factory) : I
             db.GameServers.Add(new GameServer { GameServerId = server, Title = "Test server", Hostname = "localhost", BanFileRootPath = "/" });
             db.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
             {
-                ConnectedPlayerActivationCodeId = Guid.NewGuid(), UserProfileId = user, Code = "ABC123", CodeHash = "hash",
-                ActivatedBy = "ApprovalRequired", IsActive = true, ActivatedAtUtc = DateTime.UtcNow,
-                ExpiresAtUtc = DateTime.UtcNow.AddHours(1), MaxAttempts = 5
+                ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+                UserProfileId = user,
+                Code = "ABC123",
+                CodeHash = "hash",
+                ActivatedBy = "ApprovalRequired",
+                IsActive = true,
+                ActivatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                MaxAttempts = 5
             });
             db.SaveChanges();
         });

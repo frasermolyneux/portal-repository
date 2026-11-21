@@ -156,9 +156,13 @@ public partial class ConnectedPlayersController
 
                 var link = new ConnectedPlayerProfile
                 {
-                    ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = claim.PlayerId, UserProfileId = userProfileId,
-                    LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(), LinkedAtUtc = now,
-                    LinkedByUserProfileId = userProfileId, IsActive = true
+                    ConnectedPlayerProfileId = Guid.NewGuid(),
+                    PlayerId = claim.PlayerId,
+                    UserProfileId = userProfileId,
+                    LinkMethod = ConnectedPlayerLinkMethod.ActivationCode.ToString(),
+                    LinkedAtUtc = now,
+                    LinkedByUserProfileId = userProfileId,
+                    IsActive = true
                 };
                 context.ConnectedPlayerProfiles.Add(link);
                 claim.ConnectedPlayerProfileId = link.ConnectedPlayerProfileId;
@@ -201,10 +205,17 @@ public partial class ConnectedPlayersController
 
     private static ConnectedPlayerClaimDto ToClaimDto(ConnectedPlayerClaim claim) => new()
     {
-        ClaimId = claim.ConnectedPlayerClaimId, UserProfileId = claim.UserProfileId, PlayerId = claim.PlayerId,
-        GameServerId = claim.GameServerId, GameServerName = claim.GameServerName,
-        Username = claim.Player.Username ?? string.Empty, GameType = (GameType)claim.Player.GameType, Status = claim.Status,
-        CreatedAtUtc = claim.CreatedAtUtc, ExpiresAtUtc = claim.ExpiresAtUtc, ResolvedAtUtc = claim.ResolvedAtUtc,
+        ClaimId = claim.ConnectedPlayerClaimId,
+        UserProfileId = claim.UserProfileId,
+        PlayerId = claim.PlayerId,
+        GameServerId = claim.GameServerId,
+        GameServerName = claim.GameServerName,
+        Username = claim.Player.Username ?? string.Empty,
+        GameType = (GameType)claim.Player.GameType,
+        Status = claim.Status,
+        CreatedAtUtc = claim.CreatedAtUtc,
+        ExpiresAtUtc = claim.ExpiresAtUtc,
+        ResolvedAtUtc = claim.ResolvedAtUtc,
         ConnectedPlayerProfileId = claim.ConnectedPlayerProfileId
     };
 

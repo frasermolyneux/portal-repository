@@ -31,10 +31,28 @@ public class ConnectedPlayerClaimsConcurrencyTests
             }
             await setup.SaveChangesAsync();
 
-            var firstCode = new ConnectedPlayerActivationCode { UserProfileId = firstUser.UserProfileId, Code = "ABC123", CodeHash = "A",
-                ActivatedBy = "ApprovalRequired", IsActive = true, ActivatedAtUtc = DateTime.UtcNow, ExpiresAtUtc = DateTime.UtcNow.AddHours(1), MaxAttempts = 5 };
-            var secondCode = new ConnectedPlayerActivationCode { UserProfileId = secondUser.UserProfileId, Code = "DEF456", CodeHash = "B",
-                ActivatedBy = "ApprovalRequired", IsActive = true, ActivatedAtUtc = DateTime.UtcNow, ExpiresAtUtc = DateTime.UtcNow.AddHours(1), MaxAttempts = 5 };
+            var firstCode = new ConnectedPlayerActivationCode
+            {
+                UserProfileId = firstUser.UserProfileId,
+                Code = "ABC123",
+                CodeHash = "A",
+                ActivatedBy = "ApprovalRequired",
+                IsActive = true,
+                ActivatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                MaxAttempts = 5
+            };
+            var secondCode = new ConnectedPlayerActivationCode
+            {
+                UserProfileId = secondUser.UserProfileId,
+                Code = "DEF456",
+                CodeHash = "B",
+                ActivatedBy = "ApprovalRequired",
+                IsActive = true,
+                ActivatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                MaxAttempts = 5
+            };
             setup.AddRange(firstCode, secondCode);
             await setup.SaveChangesAsync();
             var firstId = Guid.NewGuid();
@@ -45,9 +63,9 @@ public class ConnectedPlayerClaimsConcurrencyTests
             IConnectedPlayersApi first = new ConnectedPlayersController(firstDb, Mock.Of<IAuditLogger>());
             IConnectedPlayersApi second = new ConnectedPlayersController(secondDb, Mock.Of<IAuditLogger>());
             Assert.Equal(HttpStatusCode.Created, (await first.SubmitConnectedPlayerClaim(new SubmitConnectedPlayerClaimDto
-                { RequestId = firstId, PlayerId = player.PlayerId, GameServerId = serverId, Code = firstCode.Code })).StatusCode);
+            { RequestId = firstId, PlayerId = player.PlayerId, GameServerId = serverId, Code = firstCode.Code })).StatusCode);
             Assert.Equal(HttpStatusCode.Created, (await second.SubmitConnectedPlayerClaim(new SubmitConnectedPlayerClaimDto
-                { RequestId = secondId, PlayerId = player.PlayerId, GameServerId = serverId, Code = secondCode.Code })).StatusCode);
+            { RequestId = secondId, PlayerId = player.PlayerId, GameServerId = serverId, Code = secondCode.Code })).StatusCode);
             var outcomes = await Task.WhenAll(first.ApproveConnectedPlayerClaim(firstUser.UserProfileId, firstId),
                 second.ApproveConnectedPlayerClaim(secondUser.UserProfileId, secondId));
             Assert.Single(outcomes, outcome => outcome.StatusCode == HttpStatusCode.OK);

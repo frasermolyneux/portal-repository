@@ -51,12 +51,30 @@ public class ConnectedPlayerClaimsTests
         db.UserProfiles.Add(new UserProfile { UserProfileId = user });
         db.Players.Add(new Player { PlayerId = player });
         db.ConnectedPlayerActivationCodes.AddRange(
-            new ConnectedPlayerActivationCode { ConnectedPlayerActivationCodeId = Guid.NewGuid(), UserProfileId = user,
-                Code = "LEGACY", CodeHash = "legacy", IsActive = true, ActivatedAtUtc = DateTime.UtcNow.AddMinutes(-1),
-                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(4), ActivatedBy = "WebsiteActivation", MaxAttempts = 5 },
-            new ConnectedPlayerActivationCode { ConnectedPlayerActivationCodeId = Guid.NewGuid(), UserProfileId = user,
-                Code = "EXPIRE", CodeHash = "expired", IsActive = true, ActivatedAtUtc = DateTime.UtcNow.AddHours(-2),
-                ExpiresAtUtc = DateTime.UtcNow.AddHours(-1), ActivatedBy = "ApprovalRequired", MaxAttempts = 5 });
+            new ConnectedPlayerActivationCode
+            {
+                ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+                UserProfileId = user,
+                Code = "LEGACY",
+                CodeHash = "legacy",
+                IsActive = true,
+                ActivatedAtUtc = DateTime.UtcNow.AddMinutes(-1),
+                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(4),
+                ActivatedBy = "WebsiteActivation",
+                MaxAttempts = 5
+            },
+            new ConnectedPlayerActivationCode
+            {
+                ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+                UserProfileId = user,
+                Code = "EXPIRE",
+                CodeHash = "expired",
+                IsActive = true,
+                ActivatedAtUtc = DateTime.UtcNow.AddHours(-2),
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(-1),
+                ActivatedBy = "ApprovalRequired",
+                MaxAttempts = 5
+            });
         await db.SaveChangesAsync();
         var api = (IConnectedPlayersApi)new ConnectedPlayersController(db, Mock.Of<IAuditLogger>());
 
@@ -81,19 +99,40 @@ public class ConnectedPlayerClaimsTests
         {
             db.Tags.Add(new Tag { TagId = Guid.NewGuid(), Name = name });
         }
-        db.UserProfileClaims.Add(new UserProfileClaim { UserProfileClaimId = Guid.NewGuid(), UserProfileId = user, SystemGenerated = true,
-            ClaimType = UserProfileClaimType.ClanMember, ClaimValue = "" });
+        db.UserProfileClaims.Add(new UserProfileClaim
+        {
+            UserProfileClaimId = Guid.NewGuid(),
+            UserProfileId = user,
+            SystemGenerated = true,
+            ClaimType = UserProfileClaimType.ClanMember,
+            ClaimValue = ""
+        });
         foreach (var role in new[] { UserProfileClaimType.SeniorAdmin, UserProfileClaimType.HeadAdmin,
             UserProfileClaimType.GameAdmin, UserProfileClaimType.Moderator })
         {
-            db.UserProfileClaims.Add(new UserProfileClaim { UserProfileClaimId = Guid.NewGuid(), UserProfileId = user, SystemGenerated = true,
-                ClaimType = role, ClaimValue = GameType.CallOfDuty4.ToString() });
+            db.UserProfileClaims.Add(new UserProfileClaim
+            {
+                UserProfileClaimId = Guid.NewGuid(),
+                UserProfileId = user,
+                SystemGenerated = true,
+                ClaimType = role,
+                ClaimValue = GameType.CallOfDuty4.ToString()
+            });
         }
         var unrelated = db.Tags.Local.Single(t => t.Name == "unrelated");
         db.PlayerTags.Add(new PlayerTag { PlayerTagId = Guid.NewGuid(), PlayerId = player, TagId = unrelated.TagId, Assigned = DateTime.UtcNow });
-        db.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode { ConnectedPlayerActivationCodeId = Guid.NewGuid(),
-            UserProfileId = user, Code = "ABC123", CodeHash = "hash", IsActive = true, ActivatedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = DateTime.UtcNow.AddHours(1), ActivatedBy = "ApprovalRequired", MaxAttempts = 5 });
+        db.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = user,
+            Code = "ABC123",
+            CodeHash = "hash",
+            IsActive = true,
+            ActivatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+            ActivatedBy = "ApprovalRequired",
+            MaxAttempts = 5
+        });
         await db.SaveChangesAsync();
         var api = (IConnectedPlayersApi)new ConnectedPlayersController(db, Mock.Of<IAuditLogger>());
         var submission = new SubmitConnectedPlayerClaimDto { RequestId = request, PlayerId = player, GameServerId = server, Code = "ABC123" };
@@ -129,9 +168,18 @@ public class ConnectedPlayerClaimsTests
         var server = Guid.NewGuid();
         db.UserProfiles.Add(new UserProfile { UserProfileId = user });
         db.Players.AddRange(new Player { PlayerId = player }, new Player { PlayerId = other });
-        db.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode { ConnectedPlayerActivationCodeId = Guid.NewGuid(),
-            UserProfileId = user, Code = "ABC123", CodeHash = "hash", IsActive = true, ActivatedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = DateTime.UtcNow.AddHours(1), ActivatedBy = "ApprovalRequired", MaxAttempts = 5 });
+        db.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+        {
+            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+            UserProfileId = user,
+            Code = "ABC123",
+            CodeHash = "hash",
+            IsActive = true,
+            ActivatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+            ActivatedBy = "ApprovalRequired",
+            MaxAttempts = 5
+        });
         await db.SaveChangesAsync();
         var api = (IConnectedPlayersApi)new ConnectedPlayersController(db, Mock.Of<IAuditLogger>());
         Assert.Equal(HttpStatusCode.Created, (await api.SubmitConnectedPlayerClaim(new() { RequestId = request, PlayerId = player, GameServerId = server, Code = "ABC123" })).StatusCode);
@@ -152,8 +200,15 @@ public class ConnectedPlayerClaimsTests
         var request = Guid.NewGuid();
         db.UserProfiles.Add(new UserProfile { UserProfileId = user });
         db.Players.Add(new Player { PlayerId = player });
-        db.ConnectedPlayerClaims.Add(new ConnectedPlayerClaim { ConnectedPlayerClaimId = request, UserProfileId = user, PlayerId = player,
-            Status = "Pending", CreatedAtUtc = DateTime.UtcNow.AddDays(-2), ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1) });
+        db.ConnectedPlayerClaims.Add(new ConnectedPlayerClaim
+        {
+            ConnectedPlayerClaimId = request,
+            UserProfileId = user,
+            PlayerId = player,
+            Status = "Pending",
+            CreatedAtUtc = DateTime.UtcNow.AddDays(-2),
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1)
+        });
         await db.SaveChangesAsync();
         var api = (IConnectedPlayersApi)new ConnectedPlayersController(db, Mock.Of<IAuditLogger>());
         Assert.Equal(HttpStatusCode.Conflict, (await api.ApproveConnectedPlayerClaim(user, request)).StatusCode);

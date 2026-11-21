@@ -148,9 +148,16 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
                 return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.Conflict));
             }
             var created = existing is null;
-            var link = existing ?? new ConnectedPlayerDto { ConnectedPlayerProfileId = Guid.NewGuid(), PlayerId = dto.PlayerId,
-                UserProfileId = code.UserProfileId, LinkedByUserProfileId = code.UserProfileId,
-                LinkMethod = ConnectedPlayerLinkMethod.ActivationCode, IsActive = true, LinkedAtUtc = DateTime.UtcNow };
+            var link = existing ?? new ConnectedPlayerDto
+            {
+                ConnectedPlayerProfileId = Guid.NewGuid(),
+                PlayerId = dto.PlayerId,
+                UserProfileId = code.UserProfileId,
+                LinkedByUserProfileId = code.UserProfileId,
+                LinkMethod = ConnectedPlayerLinkMethod.ActivationCode,
+                IsActive = true,
+                LinkedAtUtc = DateTime.UtcNow
+            };
             _connectedPlayers[link.ConnectedPlayerProfileId] = link;
             _activationCodes[code.ConnectedPlayerActivationCodeId] = code with { IsActive = false };
             return Task.FromResult(new ApiResult<ConnectedPlayerDto>(created ? HttpStatusCode.Created : HttpStatusCode.OK, new ApiResponse<ConnectedPlayerDto>(link)));
