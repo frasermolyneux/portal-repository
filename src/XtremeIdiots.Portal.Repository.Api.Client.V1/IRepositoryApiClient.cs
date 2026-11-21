@@ -40,5 +40,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedDashboardAnalyticsApi DashboardAnalytics { get; }
         IVersionedMapAnalyticsApi MapAnalytics { get; }
         IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 { get; }
+        IVersionedPlaytimeApi Playtime { get; }
     }
 }

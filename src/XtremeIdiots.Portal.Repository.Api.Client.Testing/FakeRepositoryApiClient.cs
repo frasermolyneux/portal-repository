@@ -209,6 +209,12 @@ public class FakeVersionedPlayerAnalyticsV2Api : IVersionedPlayerAnalyticsV2Api
     public IPlayerAnalyticsV2Api V1 { get; }
 }
 
+public class FakeVersionedPlaytimeApi : IVersionedPlaytimeApi
+{
+    public FakeVersionedPlaytimeApi(FakePlaytimeApi v1) => V1 = v1;
+    public IPlaytimeApi V1 { get; }
+}
+
 /// <summary>
 /// In-memory fake of <see cref="IRepositoryApiClient"/> for unit and integration tests.
 /// Eliminates the need for nested mock hierarchies.
@@ -251,6 +257,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeDashboardAnalyticsApi DashboardAnalyticsApi { get; } = new();
     public FakeMapAnalyticsApi MapAnalyticsApi { get; } = new();
     public FakePlayerAnalyticsV2Api PlayerAnalyticsV2Api { get; } = new();
+    public FakePlaytimeApi PlaytimeApi { get; } = new();
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -287,6 +294,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     private readonly Lazy<FakeVersionedDashboardAnalyticsApi> _dashboardAnalytics;
     private readonly Lazy<FakeVersionedMapAnalyticsApi> _mapAnalytics;
     private readonly Lazy<FakeVersionedPlayerAnalyticsV2Api> _playerAnalyticsV2;
+    private readonly Lazy<FakeVersionedPlaytimeApi> _playtime;
 
     public FakeRepositoryApiClient()
     {
@@ -325,6 +333,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         _dashboardAnalytics = new Lazy<FakeVersionedDashboardAnalyticsApi>(() => new FakeVersionedDashboardAnalyticsApi(DashboardAnalyticsApi));
         _mapAnalytics = new Lazy<FakeVersionedMapAnalyticsApi>(() => new FakeVersionedMapAnalyticsApi(MapAnalyticsApi));
         _playerAnalyticsV2 = new Lazy<FakeVersionedPlayerAnalyticsV2Api>(() => new FakeVersionedPlayerAnalyticsV2Api(PlayerAnalyticsV2Api));
+        _playtime = new Lazy<FakeVersionedPlaytimeApi>(() => new FakeVersionedPlaytimeApi(PlaytimeApi));
     }
 
     public IVersionedAdminActionsApi AdminActions => _adminActions.Value;
@@ -362,6 +371,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedDashboardAnalyticsApi DashboardAnalytics => _dashboardAnalytics.Value;
     public IVersionedMapAnalyticsApi MapAnalytics => _mapAnalytics.Value;
     public IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 => _playerAnalyticsV2.Value;
+    public IVersionedPlaytimeApi Playtime => _playtime.Value;
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,

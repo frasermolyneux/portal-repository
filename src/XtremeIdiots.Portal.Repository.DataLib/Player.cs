@@ -64,6 +64,9 @@ public partial class Player
     public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; } = new List<PlayerIpAddress>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<PlayerSession> PlayerSessions { get; set; } = new List<PlayerSession>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<PlayerTag> PlayerTags { get; set; } = new List<PlayerTag>();
 
     [InverseProperty("Player")]

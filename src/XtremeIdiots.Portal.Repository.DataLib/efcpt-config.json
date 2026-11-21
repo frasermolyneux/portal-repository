@@ -137,6 +137,18 @@
     },
     {
       "name": "[dbo].[UserProfileLifecycleOperations]"
+    },
+    {
+      "name": "[dbo].[PlaytimeObservation]"
+    },
+    {
+      "name": "[dbo].[PlayerSession]"
+    },
+    {
+      "name": "[dbo].[ServerMapRun]"
+    },
+    {
+      "name": "[dbo].[PlayerSessionMapSegment]"
     }
   ]
 }
