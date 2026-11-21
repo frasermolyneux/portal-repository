@@ -130,6 +130,39 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task ReusedConnectionCorrelationDoesNotReuseSessionPrimaryKey()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-40);
+        var controller = new PlaytimeController(context);
+        var api = (IPlaytimeApi)controller;
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1") with { ConnectionCorrelationId = correlationId },
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddMinutes(20), "guid-1") with { ConnectionCorrelationId = correlationId },
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(25), "guid-1") with { ConnectionCorrelationId = correlationId }
+            ]
+        });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.NotEqual(sessions[0].SessionId, sessions[1].SessionId);
+        Assert.All(sessions, x => Assert.Equal(correlationId, x.ConnectionCorrelationId));
+        Assert.Equal(start, sessions[0].EndUtc);
+        Assert.Equal(start.AddMinutes(25), sessions[1].EndUtc);
+    }
+
+    [Fact]
     public async Task CompleteRosterClosesMissingPresenceButPartialRosterDoesNot()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -389,6 +422,148 @@ public class PlaytimeControllerTests
         Assert.Single(sessions);
         Assert.Equal(start, sessions[0].StartUtc);
         Assert.Equal(start.AddMinutes(15), sessions[0].EndUtc);
+    }
+
+    [Fact]
+    public async Task DelayedJoinAndDisconnectCorrectAnInferredSession()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var connectionId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-30);
+        var controller = new PlaytimeController(context);
+        var api = (IPlaytimeApi)controller;
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddMinutes(10), "guid-1") with { ConnectionCorrelationId = connectionId }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1") with { ConnectionCorrelationId = connectionId }
+            ]
+        });
+
+        await PlaytimeSweeperHostedService.SweepAsync(context, start.AddMinutes(11), CancellationToken.None);
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(15), "guid-1") with
+                {
+                    ConnectionCorrelationId = connectionId,
+                    IsBot = true
+                }
+            ]
+        });
+
+        var session = Assert.Single(await context.PlayerSessions.ToListAsync());
+        Assert.Equal(start, session.StartUtc);
+        Assert.Equal(start.AddMinutes(15), session.EndUtc);
+        Assert.True(session.IsBot);
+    }
+
+    [Fact]
+    public async Task DuplicateJoinCanResolveBotClassificationAfterSessionClosure()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+            start, "guid-1") with
+        { IsBot = null };
+        var controller = new PlaytimeController(context);
+        var api = (IPlaytimeApi)controller;
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                join,
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(10), "guid-1")
+            ]
+        });
+        var resolved = await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [join with { IsBot = true }]
+        });
+        Assert.Equal(PlaytimeObservationOutcome.Duplicate, resolved.Result?.Data?.Items.Single().Outcome);
+
+        var conflicting = await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [join with { IsBot = false }]
+        });
+        Assert.Equal(PlaytimeObservationOutcome.Rejected, conflicting.Result?.Data?.Items.Single().Outcome);
+
+        var session = Assert.Single(await context.PlayerSessions.ToListAsync());
+        Assert.True(session.IsBot);
+    }
+
+    [Fact]
+    public async Task DelayedMapChangeIsInsertedChronologicallyAndOnlyRebuildsItsInterval()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-40);
+        var controller = new PlaytimeController(context);
+        var api = (IPlaytimeApi)controller;
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1"),
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.MapChanged,
+                    start, null, "mp_a"),
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.MapChanged,
+                    start.AddMinutes(20), null, "mp_b"),
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(30), "guid-1")
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.MapChanged,
+                    start.AddMinutes(10), null, "My Map")
+            ]
+        });
+
+        var runs = await context.ServerMapRuns.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(3, runs.Count);
+        Assert.Equal(start, runs[0].StartUtc);
+        Assert.Equal(start.AddMinutes(10), runs[0].EndUtc);
+        Assert.Equal("my_map", runs[1].NormalizedMapKey);
+        Assert.Equal(start.AddMinutes(10), runs[1].StartUtc);
+        Assert.Equal(start.AddMinutes(20), runs[1].EndUtc);
+        Assert.Equal("mp_b", runs[2].NormalizedMapKey);
+        Assert.Null(runs[2].EndUtc);
+
+        var mapTotals = await api.GetTotals(
+            start,
+            start.AddMinutes(30),
+            playerId,
+            serverId,
+            GameType.CallOfDuty4,
+            "My Map");
+        Assert.Equal(600, mapTotals.Result?.Data?.MeasuredSeconds);
     }
 
     [Fact]

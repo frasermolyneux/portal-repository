@@ -11,6 +11,7 @@ using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -22,6 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 {
     private static readonly TimeSpan LateEventThreshold = TimeSpan.FromHours(24);
+    private static readonly TimeSpan FutureEventThreshold = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan ReconnectGapThreshold = TimeSpan.FromMinutes(15);
     private readonly PortalDbContext context;
 
@@ -52,194 +54,261 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         var items = new List<PlaytimeObservationItemResultDto>(dto.Observations.Count);
-        await using var transaction = await context.Database.BeginTransactionAsync().ConfigureAwait(false);
-
-        foreach (var observation in dto.Observations)
+        var strategy = context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            var now = DateTime.UtcNow;
-            var hash = ComputeHash(observation);
-            var existing = await context.PlaytimeObservations
-                .FirstOrDefaultAsync(x => x.ObservationId == observation.ObservationId)
-                .ConfigureAwait(false);
-
-            if (existing is not null)
+            context.ChangeTracker.Clear();
+            items.Clear();
+            await using var transaction = await context.Database.BeginTransactionAsync().ConfigureAwait(false);
+            foreach (var serverId in dto.Observations
+                         .Select(x => x.ServerId)
+                         .Distinct()
+                         .OrderBy(x => x))
             {
-                if (existing.ResolutionDeadlineUtc is not null &&
-                    now > existing.ResolutionDeadlineUtc.Value)
+                await PlaytimeServerLock.AcquireAsync(context, serverId, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+
+            foreach (var observation in dto.Observations)
+            {
+                var now = DateTime.UtcNow;
+                var hash = ComputeHash(observation);
+                var existing = await context.PlaytimeObservations
+                    .FirstOrDefaultAsync(x => x.ObservationId == observation.ObservationId)
+                    .ConfigureAwait(false);
+
+                if (existing is not null)
                 {
+                    if (existing.ResolutionDeadlineUtc is not null &&
+                        now > existing.ResolutionDeadlineUtc.Value)
+                    {
+                        items.Add(new PlaytimeObservationItemResultDto
+                        {
+                            ObservationId = observation.ObservationId,
+                            Outcome = PlaytimeObservationOutcome.Rejected,
+                            Reason = "Replay or identity resolution arrived after the accepted correction window."
+                        });
+                        continue;
+                    }
+                    var outcome = CryptographicOperations.FixedTimeEquals(existing.PayloadHash, hash)
+                        ? PlaytimeObservationOutcome.Duplicate
+                        : PlaytimeObservationOutcome.Rejected;
                     items.Add(new PlaytimeObservationItemResultDto
                     {
                         ObservationId = observation.ObservationId,
-                        Outcome = PlaytimeObservationOutcome.Rejected,
-                        Reason = "Replay or identity resolution arrived after the accepted correction window."
+                        Outcome = outcome,
+                        Reason = outcome == PlaytimeObservationOutcome.Rejected
+                            ? "ObservationId was reused for conflicting payload data."
+                            : null
                     });
+                    if (outcome == PlaytimeObservationOutcome.Duplicate &&
+                        !await HasValidCanonicalPlayers(observation).ConfigureAwait(false))
+                    {
+                        items[^1] = Rejected(
+                            observation.ObservationId,
+                            "Canonical player is unknown or belongs to another game.");
+                        continue;
+                    }
+                    if (outcome == PlaytimeObservationOutcome.Duplicate)
+                    {
+                        var previousRoster = DeserializeRosterResolutions(existing.ResolvedRosterJson);
+                        if (HasConflictingResolution(existing, observation, previousRoster))
+                        {
+                            items[^1] = Rejected(
+                                observation.ObservationId,
+                                "Replay conflicts with a previously resolved player identity or bot classification.");
+                            continue;
+                        }
+
+                        var identityResolved = observation.CanonicalPlayerId is not null &&
+                                               existing.CanonicalPlayerId is null;
+                        var botResolved = observation.IsBot is not null &&
+                                          existing.IsBot is null;
+                        var rosterResolutionsChanged = false;
+                        var mergedRoster = previousRoster;
+                        if (observation.Roster is not null)
+                        {
+                            var merged = MergeRosterResolutions(mergedRoster, observation.Roster);
+                            rosterResolutionsChanged = !AreRosterResolutionsEqual(mergedRoster, merged);
+                            mergedRoster = merged;
+                            existing.ResolvedRosterJson = SerializeRosterResolutions(mergedRoster);
+                        }
+                        if (identityResolved)
+                        {
+                            if (observation.CanonicalPlayerId is not null)
+                            {
+                                existing.CanonicalPlayerId = observation.CanonicalPlayerId;
+                            }
+                        }
+                        if (botResolved)
+                        {
+                            existing.IsBot = observation.IsBot;
+                        }
+                        if (identityResolved || botResolved || rosterResolutionsChanged)
+                        {
+                            var resolvedObservation = observation with
+                            {
+                                CanonicalPlayerId = existing.CanonicalPlayerId,
+                                IsBot = existing.IsBot,
+                                Roster = observation.Roster is null
+                                    ? null
+                                    : mergedRoster.Select(x => new PlaytimeRosterPlayerDto
+                                    {
+                                        GamePlayerId = x.GamePlayerId,
+                                        SlotId = x.SlotId,
+                                        CanonicalPlayerId = x.CanonicalPlayerId,
+                                        IsBot = x.IsBot
+                                    }).ToList()
+                            };
+                            await ReconcileObservation(resolvedObservation, now).ConfigureAwait(false);
+                            await context.SaveChangesAsync().ConfigureAwait(false);
+                        }
+                    }
                     continue;
                 }
-                var outcome = CryptographicOperations.FixedTimeEquals(existing.PayloadHash, hash)
-                    ? PlaytimeObservationOutcome.Duplicate
-                    : PlaytimeObservationOutcome.Rejected;
+
+                var server = await context.GameServers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.GameServerId == observation.ServerId)
+                    .ConfigureAwait(false);
+                if (server is null)
+                {
+                    items.Add(Rejected(observation.ObservationId, "Unknown server."));
+                    continue;
+                }
+                if (server.GameType != (int)observation.GameType)
+                {
+                    items.Add(Rejected(observation.ObservationId, "Server and game type are inconsistent."));
+                    continue;
+                }
+                if (observation.ObservationId == Guid.Empty)
+                {
+                    items.Add(Rejected(observation.ObservationId, "ObservationId is required."));
+                    continue;
+                }
+                if (observation.EventUtc == default)
+                {
+                    items.Add(Rejected(observation.ObservationId, "EventUtc is required."));
+                    continue;
+                }
+                if (!Enum.IsDefined(observation.Kind))
+                {
+                    items.Add(Rejected(observation.ObservationId, "Unknown observation kind."));
+                    continue;
+                }
+                if (!Enum.IsDefined(observation.TimestampQuality))
+                {
+                    items.Add(Rejected(observation.ObservationId, "Unknown timestamp quality."));
+                    continue;
+                }
+                if (!Enum.IsDefined(observation.RosterCompleteness))
+                {
+                    items.Add(Rejected(observation.ObservationId, "Unknown roster completeness."));
+                    continue;
+                }
+                if (observation.Kind == PlaytimeObservationKind.MapChanged &&
+                    string.IsNullOrWhiteSpace(observation.MapName))
+                {
+                    items.Add(Rejected(observation.ObservationId, "MapChanged observations require MapName."));
+                    continue;
+                }
+                if (observation.Kind == PlaytimeObservationKind.ServerRoster &&
+                    observation.RosterCompleteness == PlaytimeRosterCompleteness.Complete &&
+                    observation.Roster is null)
+                {
+                    items.Add(Rejected(observation.ObservationId, "A complete roster requires Roster entries."));
+                    continue;
+                }
+
+                var eventUtc = NormalizeUtc(observation.EventUtc);
+                if (now - eventUtc > LateEventThreshold)
+                {
+                    items.Add(Rejected(observation.ObservationId, "Event is too late for the accepted correction window."));
+                    continue;
+                }
+                if (eventUtc - now > FutureEventThreshold)
+                {
+                    items.Add(Rejected(observation.ObservationId, "Event is beyond the accepted clock-skew allowance."));
+                    continue;
+                }
+                if (observation.GamePlayerId?.Length > 50 || observation.MapName?.Length > 256)
+                {
+                    items.Add(Rejected(observation.ObservationId, "GamePlayerId or MapName exceeds the supported length."));
+                    continue;
+                }
+                if (!await HasValidCanonicalPlayers(observation).ConfigureAwait(false))
+                {
+                    items.Add(Rejected(observation.ObservationId, "Canonical player is unknown or belongs to another game."));
+                    continue;
+                }
+                if ((observation.Roster ?? []).Any(x => x.GamePlayerId?.Length > 50))
+                {
+                    items.Add(Rejected(observation.ObservationId, "Roster GamePlayerId exceeds the supported length."));
+                    continue;
+                }
+
+                if (observation.ProducerEpoch is not null && observation.ProducerSequence is not null)
+                {
+                    var sequenceExists = await context.PlaytimeObservations
+                        .AsNoTracking()
+                        .AnyAsync(x => x.ServerId == observation.ServerId &&
+                                       x.ProducerEpoch == observation.ProducerEpoch &&
+                                       x.ProducerSequence == observation.ProducerSequence)
+                        .ConfigureAwait(false);
+                    if (sequenceExists)
+                    {
+                        items.Add(Rejected(observation.ObservationId, "Producer sequence was reused."));
+                        continue;
+                    }
+                }
+
+                var fact = new PlaytimeObservation
+                {
+                    ObservationId = observation.ObservationId,
+                    ServerId = observation.ServerId,
+                    GameType = (int)observation.GameType,
+                    Kind = (byte)observation.Kind,
+                    EventUtc = eventUtc,
+                    ReceivedUtc = now,
+                    TimestampQuality = (byte)observation.TimestampQuality,
+                    ProducerEpoch = observation.ProducerEpoch,
+                    ProducerSequence = observation.ProducerSequence,
+                    ConnectionCorrelationId = observation.ConnectionCorrelationId,
+                    CanonicalPlayerId = observation.CanonicalPlayerId,
+                    GamePlayerId = observation.GamePlayerId,
+                    SlotId = observation.SlotId,
+                    MapName = observation.MapName,
+                    IsBot = observation.IsBot,
+                    ProducerStartedUtc = observation.Coverage?.ProducerStartedUtc,
+                    DroppedCapacityMax = observation.Coverage?.DroppedCapacityMax,
+                    DroppedAttemptsMax = observation.Coverage?.DroppedAttemptsMax,
+                    DroppedAgeMax = observation.Coverage?.DroppedAgeMax,
+                    RosterCompleteness = (byte)observation.RosterCompleteness,
+                    ResolvedRosterJson = SerializeRosterResolutions(
+                        observation.Roster?.Select(x => new RosterResolution
+                        {
+                            GamePlayerId = x.GamePlayerId,
+                            SlotId = x.SlotId,
+                            CanonicalPlayerId = x.CanonicalPlayerId,
+                            IsBot = x.IsBot
+                        }).ToList() ?? []),
+                    ResolutionDeadlineUtc = now.Add(LateEventThreshold),
+                    PayloadHash = hash,
+                    Outcome = (byte)PlaytimeObservationOutcome.Accepted
+                };
+
+                context.PlaytimeObservations.Add(fact);
+                await ReconcileObservation(observation, now).ConfigureAwait(false);
+                await context.SaveChangesAsync().ConfigureAwait(false);
                 items.Add(new PlaytimeObservationItemResultDto
                 {
                     ObservationId = observation.ObservationId,
-                    Outcome = outcome,
-                    Reason = outcome == PlaytimeObservationOutcome.Rejected
-                        ? "ObservationId was reused for conflicting payload data."
-                        : null
+                    Outcome = PlaytimeObservationOutcome.Accepted
                 });
-                if (outcome == PlaytimeObservationOutcome.Duplicate)
-                {
-                    var identityResolved = observation.CanonicalPlayerId is not null &&
-                                           existing.CanonicalPlayerId is null;
-                    var botResolved = observation.IsBot is not null &&
-                                      existing.IsBot is null;
-                    var rosterResolutionsChanged = false;
-                    if (observation.Roster is not null)
-                    {
-                        var previous = DeserializeRosterResolutions(existing.ResolvedRosterJson);
-                        var merged = MergeRosterResolutions(previous, observation.Roster);
-                        rosterResolutionsChanged = !AreRosterResolutionsEqual(previous, merged);
-                        existing.ResolvedRosterJson = SerializeRosterResolutions(merged);
-                    }
-                    if (identityResolved)
-                    {
-                        if (observation.CanonicalPlayerId is not null)
-                        {
-                            existing.CanonicalPlayerId = observation.CanonicalPlayerId;
-                        }
-                    }
-                    if (botResolved)
-                    {
-                        existing.IsBot = observation.IsBot;
-                    }
-                    if (identityResolved || botResolved || rosterResolutionsChanged)
-                    {
-                        await ReconcileObservation(observation, now).ConfigureAwait(false);
-                        await context.SaveChangesAsync().ConfigureAwait(false);
-                    }
-                }
-                continue;
             }
 
-            var server = await context.GameServers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.GameServerId == observation.ServerId)
-                .ConfigureAwait(false);
-            if (server is null)
-            {
-                items.Add(Rejected(observation.ObservationId, "Unknown server."));
-                continue;
-            }
-            if (server.GameType != (int)observation.GameType)
-            {
-                items.Add(Rejected(observation.ObservationId, "Server and game type are inconsistent."));
-                continue;
-            }
-            if (observation.ObservationId == Guid.Empty)
-            {
-                items.Add(Rejected(observation.ObservationId, "ObservationId is required."));
-                continue;
-            }
-            if (observation.EventUtc == default)
-            {
-                items.Add(Rejected(observation.ObservationId, "EventUtc is required."));
-                continue;
-            }
-            if (!Enum.IsDefined(observation.Kind))
-            {
-                items.Add(Rejected(observation.ObservationId, "Unknown observation kind."));
-                continue;
-            }
-            if (!Enum.IsDefined(observation.TimestampQuality))
-            {
-                items.Add(Rejected(observation.ObservationId, "Unknown timestamp quality."));
-                continue;
-            }
-            if (!Enum.IsDefined(observation.RosterCompleteness))
-            {
-                items.Add(Rejected(observation.ObservationId, "Unknown roster completeness."));
-                continue;
-            }
-            if (observation.Kind == PlaytimeObservationKind.MapChanged &&
-                string.IsNullOrWhiteSpace(observation.MapName))
-            {
-                items.Add(Rejected(observation.ObservationId, "MapChanged observations require MapName."));
-                continue;
-            }
-            if (observation.Kind == PlaytimeObservationKind.ServerRoster &&
-                observation.RosterCompleteness == PlaytimeRosterCompleteness.Complete &&
-                observation.Roster is null)
-            {
-                items.Add(Rejected(observation.ObservationId, "A complete roster requires Roster entries."));
-                continue;
-            }
-
-            if (now - observation.EventUtc > LateEventThreshold)
-            {
-                items.Add(Rejected(observation.ObservationId, "Event is too late for the accepted correction window."));
-                continue;
-            }
-
-            if (observation.ProducerEpoch is not null && observation.ProducerSequence is not null)
-            {
-                var sequenceExists = await context.PlaytimeObservations
-                    .AsNoTracking()
-                    .AnyAsync(x => x.ServerId == observation.ServerId &&
-                                   x.ProducerEpoch == observation.ProducerEpoch &&
-                                   x.ProducerSequence == observation.ProducerSequence)
-                    .ConfigureAwait(false);
-                if (sequenceExists)
-                {
-                    items.Add(Rejected(observation.ObservationId, "Producer sequence was reused."));
-                    continue;
-                }
-            }
-
-            var fact = new PlaytimeObservation
-            {
-                ObservationId = observation.ObservationId,
-                ServerId = observation.ServerId,
-                GameType = (int)observation.GameType,
-                Kind = (byte)observation.Kind,
-                EventUtc = NormalizeUtc(observation.EventUtc),
-                ReceivedUtc = now,
-                TimestampQuality = (byte)observation.TimestampQuality,
-                ProducerEpoch = observation.ProducerEpoch,
-                ProducerSequence = observation.ProducerSequence,
-                ConnectionCorrelationId = observation.ConnectionCorrelationId,
-                CanonicalPlayerId = observation.CanonicalPlayerId,
-                GamePlayerId = observation.GamePlayerId,
-                SlotId = observation.SlotId,
-                MapName = observation.MapName,
-                IsBot = observation.IsBot,
-                ProducerStartedUtc = observation.Coverage?.ProducerStartedUtc,
-                DroppedCapacityMax = observation.Coverage?.DroppedCapacityMax,
-                DroppedAttemptsMax = observation.Coverage?.DroppedAttemptsMax,
-                DroppedAgeMax = observation.Coverage?.DroppedAgeMax,
-                RosterCompleteness = (byte)observation.RosterCompleteness,
-                ResolvedRosterJson = SerializeRosterResolutions(
-                    observation.Roster?.Select(x => new RosterResolution
-                    {
-                        GamePlayerId = x.GamePlayerId,
-                        SlotId = x.SlotId,
-                        CanonicalPlayerId = x.CanonicalPlayerId,
-                        IsBot = x.IsBot
-                    }).ToList() ?? []),
-                ResolutionDeadlineUtc = now.Add(LateEventThreshold),
-                PayloadHash = hash,
-                Outcome = (byte)PlaytimeObservationOutcome.Accepted
-            };
-
-            context.PlaytimeObservations.Add(fact);
-            await ReconcileObservation(observation, now).ConfigureAwait(false);
-            await context.SaveChangesAsync().ConfigureAwait(false);
-            items.Add(new PlaytimeObservationItemResultDto
-            {
-                ObservationId = observation.ObservationId,
-                Outcome = PlaytimeObservationOutcome.Accepted
-            });
-        }
-
-        await transaction.CommitAsync().ConfigureAwait(false);
+            await transaction.CommitAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
         var result = new PlaytimeObservationBatchResultDto { Items = items };
         return new ApiResponse<PlaytimeObservationBatchResultDto>(result).ToApiResult();
     }
@@ -273,7 +342,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var query = context.PlayerSessions.AsNoTracking().Where(x => x.PlayerId == playerId);
         if (fromUtc is not null)
         {
-            query = query.Where(x => x.StartUtc < fromUtc.Value || x.EndUtc > fromUtc.Value);
+            query = query.Where(x => x.EndUtc == null || x.EndUtc > fromUtc.Value);
         }
 
         if (toUtc is not null)
@@ -354,9 +423,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         if (!string.IsNullOrWhiteSpace(mapName))
         {
+            var normalizedMapName = NormalizeMapKey(mapName);
             segments = segments.Where(x => !x.UnknownMap &&
                 ((x.MapRun!.Map != null && x.MapRun.Map.MapName == mapName) ||
-                 x.MapRun!.NormalizedMapKey == mapName));
+                 x.MapRun!.NormalizedMapKey == normalizedMapName));
         }
 
         var list = await segments.ToListAsync().ConfigureAwait(false);
@@ -476,7 +546,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             }
 
             await CloseSession(observation.CanonicalPlayerId.Value, observation.ServerId, eventUtc,
-                (byte)observation.TimestampQuality, 1).ConfigureAwait(false);
+                (byte)observation.TimestampQuality, 1, observation.ConnectionCorrelationId, observation.IsBot)
+                .ConfigureAwait(false);
         }
         else if (observation.Kind == PlaytimeObservationKind.MapChanged)
         {
@@ -491,12 +562,61 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
     private async Task EnsureSession(Guid playerId, PlaytimeObservationDto observation, DateTime eventUtc)
     {
+        PlayerSession? correlated = null;
+        if (observation.ConnectionCorrelationId is Guid correlationId)
+        {
+            var correlatedSessions = context.PlayerSessions
+                .Where(x => x.ConnectionCorrelationId == correlationId &&
+                            x.PlayerId == playerId &&
+                            x.ServerId == observation.ServerId);
+            correlated = await correlatedSessions
+                .Where(x => x.StartUtc <= eventUtc &&
+                            (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc)
+                .OrderByDescending(x => x.StartUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+            correlated ??= await correlatedSessions
+                .Where(x => x.StartUtc > eventUtc && x.StartUtc <= eventUtc.Add(LateEventThreshold))
+                .OrderBy(x => x.StartUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+        }
+        if (correlated is null && !string.IsNullOrWhiteSpace(observation.GamePlayerId))
+        {
+            correlated = await context.PlayerSessions
+                .Where(x => x.PlayerId == playerId &&
+                            x.ServerId == observation.ServerId &&
+                            x.GamePlayerId == observation.GamePlayerId &&
+                            x.StartUtc <= eventUtc &&
+                            (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc)
+                .OrderByDescending(x => x.StartUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+        }
+        if (correlated?.EndUtc is not null && eventUtc <= correlated.EndUtc.Value)
+        {
+            if (eventUtc < correlated.StartUtc)
+            {
+                correlated.StartUtc = eventUtc;
+                correlated.StartQuality = (byte)observation.TimestampQuality;
+            }
+            if (observation.IsBot is not null && correlated.IsBot is null)
+            {
+                correlated.IsBot = observation.IsBot;
+            }
+            correlated.LastConfirmedUtc = correlated.LastConfirmedUtc > eventUtc
+                ? correlated.LastConfirmedUtc
+                : eventUtc;
+            await RebuildSegments(correlated).ConfigureAwait(false);
+            return;
+        }
+
         var open = await context.PlayerSessions
             .FirstOrDefaultAsync(x => x.PlayerId == playerId && x.ServerId == observation.ServerId && x.EndUtc == null)
             .ConfigureAwait(false);
         if (open is not null)
         {
-            if (observation.IsBot is not null)
+            if (observation.IsBot is not null && open.IsBot is null)
             {
                 open.IsBot = observation.IsBot;
             }
@@ -512,6 +632,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             }
             else
             {
+                if (eventUtc < open.StartUtc)
+                {
+                    open.StartUtc = eventUtc;
+                    open.StartQuality = (byte)observation.TimestampQuality;
+                }
                 open.LastConfirmedUtc = open.LastConfirmedUtc > eventUtc ? open.LastConfirmedUtc : eventUtc;
                 await RebuildSegments(open).ConfigureAwait(false);
                 return;
@@ -520,9 +645,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         var session = new PlayerSession
         {
-            SessionId = observation.ConnectionCorrelationId ?? Guid.NewGuid(),
+            SessionId = Guid.NewGuid(),
             PlayerId = playerId,
             ServerId = observation.ServerId,
+            ConnectionCorrelationId = observation.ConnectionCorrelationId,
             GameType = (int)observation.GameType,
             GamePlayerId = observation.GamePlayerId,
             IsBot = observation.IsBot,
@@ -536,27 +662,48 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         await RebuildSegments(session).ConfigureAwait(false);
     }
 
-    private async Task CloseSession(Guid playerId, Guid serverId, DateTime eventUtc, byte endQuality, byte closureReason)
+    private async Task CloseSession(
+        Guid playerId,
+        Guid serverId,
+        DateTime eventUtc,
+        byte endQuality,
+        byte closureReason,
+        Guid? connectionCorrelationId,
+        bool? isBot)
     {
-        var open = await context.PlayerSessions
+        var session = connectionCorrelationId is Guid correlationId
+            ? await context.PlayerSessions
+                .Where(x => x.ConnectionCorrelationId == correlationId &&
+                                          x.PlayerId == playerId &&
+                                          x.ServerId == serverId &&
+                                          x.StartUtc <= eventUtc)
+                .OrderByDescending(x => x.StartUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false)
+            : null;
+        session ??= await context.PlayerSessions
             .FirstOrDefaultAsync(x => x.PlayerId == playerId && x.ServerId == serverId && x.EndUtc == null)
             .ConfigureAwait(false);
-        if (open is null)
+        if (session is null)
         {
             return;
         }
 
-        if (eventUtc < open.StartUtc)
+        if (eventUtc < session.StartUtc)
         {
             return;
         }
 
-        open.LastConfirmedUtc = open.LastConfirmedUtc > eventUtc ? open.LastConfirmedUtc : eventUtc;
-        open.EndUtc = open.LastConfirmedUtc;
-        open.EndQuality = endQuality;
-        open.ClosureReason = closureReason;
-        open.IsFinal = closureReason != 3;
-        await RebuildSegments(open).ConfigureAwait(false);
+        if (isBot is not null && session.IsBot is null)
+        {
+            session.IsBot = isBot;
+        }
+        var endUtc = session.LastConfirmedUtc > eventUtc ? session.LastConfirmedUtc : eventUtc;
+        session.EndUtc = endUtc;
+        session.EndQuality = endQuality;
+        session.ClosureReason = closureReason;
+        session.IsFinal = closureReason != 3;
+        await RebuildSegments(session).ConfigureAwait(false);
     }
 
     private async Task<bool> IsStaleRosterObservation(PlaytimeObservationDto observation, DateTime eventUtc)
@@ -641,6 +788,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             {
                 continue;
             }
+            if (session.LastConfirmedUtc > eventUtc)
+            {
+                continue;
+            }
 
             session.LastConfirmedUtc = eventUtc;
             session.EndUtc = eventUtc;
@@ -658,22 +809,18 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return;
         }
 
-        var openRun = await context.ServerMapRuns
-            .Where(x => x.ServerId == observation.ServerId && x.EndUtc == null)
-            .OrderByDescending(x => x.StartUtc)
-            .FirstOrDefaultAsync().ConfigureAwait(false);
-
         var normalized = NormalizeMapKey(observation.MapName);
-        if (openRun is not null &&
-            string.Equals(openRun.NormalizedMapKey, normalized, StringComparison.OrdinalIgnoreCase))
+        var activeRun = await context.ServerMapRuns
+            .Where(x => x.ServerId == observation.ServerId &&
+                        x.StartUtc <= eventUtc &&
+                        (x.EndUtc == null || x.EndUtc > eventUtc))
+            .OrderByDescending(x => x.StartUtc)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+        if (activeRun is not null &&
+            string.Equals(activeRun.NormalizedMapKey, normalized, StringComparison.OrdinalIgnoreCase))
         {
             return;
-        }
-
-        if (openRun is not null)
-        {
-            openRun.EndUtc = eventUtc < openRun.StartUtc ? openRun.StartUtc : eventUtc;
-            openRun.IsFinal = true;
         }
 
         var map = await context.Maps
@@ -681,28 +828,81 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .FirstOrDefaultAsync(x => x.GameType == (int)observation.GameType &&
                                       (x.MapName == observation.MapName || x.DisplayName == observation.MapName))
             .ConfigureAwait(false);
-        var run = new ServerMapRun
+
+        DateTime? rebuildEnd;
+        if (activeRun is not null && activeRun.StartUtc == eventUtc)
         {
-            RunId = Guid.NewGuid(),
-            ServerId = observation.ServerId,
-            GameType = (int)observation.GameType,
-            MapId = map?.MapId,
-            NormalizedMapKey = normalized,
-            StartUtc = eventUtc,
-            AttributionQuality = map is null
+            activeRun.GameType = (int)observation.GameType;
+            activeRun.MapId = map?.MapId;
+            activeRun.NormalizedMapKey = normalized;
+            activeRun.AttributionQuality = map is null
                 ? (byte)PlaytimeTimestampQuality.Unknown
-                : (byte)observation.TimestampQuality,
-            IsFinal = false
-        };
-        context.ServerMapRuns.Add(run);
+                : (byte)observation.TimestampQuality;
+            rebuildEnd = activeRun.EndUtc;
+        }
+        else
+        {
+            if (activeRun is not null)
+            {
+                activeRun.EndUtc = eventUtc;
+                activeRun.IsFinal = true;
+            }
+
+            var nextRun = await context.ServerMapRuns
+                .Where(x => x.ServerId == observation.ServerId && x.StartUtc > eventUtc)
+                .OrderBy(x => x.StartUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+            var run = new ServerMapRun
+            {
+                RunId = Guid.NewGuid(),
+                ServerId = observation.ServerId,
+                GameType = (int)observation.GameType,
+                MapId = map?.MapId,
+                NormalizedMapKey = normalized,
+                StartUtc = eventUtc,
+                EndUtc = nextRun?.StartUtc,
+                AttributionQuality = map is null
+                    ? (byte)PlaytimeTimestampQuality.Unknown
+                    : (byte)observation.TimestampQuality,
+                IsFinal = nextRun is not null
+            };
+            context.ServerMapRuns.Add(run);
+            rebuildEnd = run.EndUtc;
+        }
+
         await context.SaveChangesAsync().ConfigureAwait(false);
 
-        var sessions = await context.PlayerSessions
-            .Where(x => x.ServerId == observation.ServerId && x.StartUtc < eventUtc)
-            .ToListAsync().ConfigureAwait(false);
-        foreach (var session in sessions)
+        var sessionsQuery = context.PlayerSessions
+            .Where(x => x.ServerId == observation.ServerId &&
+                        x.StartUtc < (rebuildEnd ?? DateTime.MaxValue) &&
+                        (x.EndUtc ?? x.LastConfirmedUtc) > eventUtc);
+        var skip = 0;
+        while (true)
         {
-            await RebuildSegments(session).ConfigureAwait(false);
+            var batch = await sessionsQuery
+                .OrderBy(x => x.SessionId)
+                .Select(x => x.SessionId)
+                .Skip(skip)
+                .Take(100)
+                .ToListAsync()
+                .ConfigureAwait(false);
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            var sessions = await context.PlayerSessions
+                .Where(x => batch.Contains(x.SessionId))
+                .ToListAsync().ConfigureAwait(false);
+            foreach (var session in sessions)
+            {
+                await RebuildSegments(session).ConfigureAwait(false);
+            }
+
+            await context.SaveChangesAsync().ConfigureAwait(false);
+            context.ChangeTracker.Clear();
+            skip += batch.Count;
         }
     }
 
@@ -743,6 +943,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     EndUtc = start,
                     UnknownMap = true
                 });
+                cursor = start;
             }
             if (finish > start)
             {
@@ -800,6 +1001,25 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         Outcome = PlaytimeObservationOutcome.Rejected,
         Reason = reason
     };
+
+    private async Task<bool> HasValidCanonicalPlayers(PlaytimeObservationDto observation)
+    {
+        var playerIds = (observation.Roster ?? [])
+            .Where(x => x.CanonicalPlayerId is not null)
+            .Select(x => x.CanonicalPlayerId!.Value)
+            .Concat(observation.CanonicalPlayerId is Guid playerId ? [playerId] : [])
+            .ToList();
+        if (playerIds.Contains(Guid.Empty))
+        {
+            return false;
+        }
+
+        var distinctPlayerIds = playerIds.Distinct().ToList();
+        return distinctPlayerIds.Count == 0 ||
+               await context.Players.CountAsync(x => distinctPlayerIds.Contains(x.PlayerId) &&
+                                                      x.GameType == (int)observation.GameType)
+                   .ConfigureAwait(false) == distinctPlayerIds.Count;
+    }
 
     private static DateTime NormalizeUtc(DateTime value) =>
         value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
@@ -886,6 +1106,28 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         return true;
+    }
+
+    private static bool HasConflictingResolution(
+        PlaytimeObservation existing,
+        PlaytimeObservationDto incoming,
+        IReadOnlyCollection<RosterResolution> previousRoster)
+    {
+        if ((existing.CanonicalPlayerId is not null &&
+             incoming.CanonicalPlayerId is not null &&
+             existing.CanonicalPlayerId != incoming.CanonicalPlayerId) ||
+            (existing.IsBot is not null && incoming.IsBot is not null && existing.IsBot != incoming.IsBot))
+        {
+            return true;
+        }
+
+        var previous = previousRoster.ToDictionary(x => (x.GamePlayerId, x.SlotId));
+        return incoming.Roster?.Any(player =>
+            previous.TryGetValue((player.GamePlayerId, player.SlotId), out var resolved) &&
+            ((resolved.CanonicalPlayerId is not null &&
+              player.CanonicalPlayerId is not null &&
+              resolved.CanonicalPlayerId != player.CanonicalPlayerId) ||
+             (resolved.IsBot is not null && player.IsBot is not null && resolved.IsBot != player.IsBot))) == true;
     }
 
     private static string SerializeRosterResolutions(IReadOnlyCollection<RosterResolution> resolutions) =>

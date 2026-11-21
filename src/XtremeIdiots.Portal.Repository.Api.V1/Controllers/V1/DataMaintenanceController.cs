@@ -87,6 +87,15 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var playtimeSessions = await context.PlayerSessions
+                .Where(s => s.PlayerId == playerId)
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
+            var playtimeSessionIds = playtimeSessions.Select(s => s.SessionId).ToList();
+            var playtimeSegments = await context.PlayerSessionMapSegments
+                .Where(s => playtimeSessionIds.Contains(s.SessionId))
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -99,6 +108,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             var recentPlayers = await context.RecentPlayers.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var reports = await context.Reports.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
 
+            context.PlayerSessionMapSegments.RemoveRange(playtimeSegments);
+            context.PlayerSessions.RemoveRange(playtimeSessions);
             context.AdminActions.RemoveRange(adminActions);
             context.AutomationActionStates.RemoveRange(automationActionStates);
             context.ChatMessages.RemoveRange(chatMessages);

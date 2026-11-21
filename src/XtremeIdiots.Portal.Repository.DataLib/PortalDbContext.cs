@@ -413,6 +413,8 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.SessionId).HasName("PK_dbo.PlayerSession");
 
+            entity.HasIndex(e => new { e.ServerId, e.ConnectionCorrelationId, e.StartUtc }, "IX_PlayerSession_Server_ConnectionCorrelation").HasFilter("[ConnectionCorrelationId] IS NOT NULL");
+
             entity.HasIndex(e => new { e.PlayerId, e.ServerId }, "UX_PlayerSession_OneOpenSession")
                 .IsUnique()
                 .HasFilter("[EndUtc] IS NULL");

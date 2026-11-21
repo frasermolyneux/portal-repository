@@ -20,6 +20,8 @@ public partial class PlayerSession
 
     public Guid ServerId { get; set; }
 
+    public Guid? ConnectionCorrelationId { get; set; }
+
     public int GameType { get; set; }
 
     [StringLength(50)]

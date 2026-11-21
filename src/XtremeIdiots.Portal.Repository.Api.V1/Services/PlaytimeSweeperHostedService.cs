@@ -50,38 +50,68 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
 
     public static async Task SweepAsync(PortalDbContext context, DateTime cutoff, CancellationToken cancellationToken)
     {
-        var stale = await context.PlayerSessions
+        var staleServers = await context.PlayerSessions
+            .AsNoTracking()
             .Where(x => x.EndUtc == null && x.LastConfirmedUtc < cutoff)
+            .Select(x => x.ServerId)
+            .Distinct()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
-
-        foreach (var session in stale)
-        {
-            session.EndUtc = session.LastConfirmedUtc;
-            session.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
-            session.ClosureReason = 3;
-            session.IsFinal = false;
-            await RebuildSegments(context, session, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (stale.Count > 0)
-        {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        var expiredResolutions = await context.PlaytimeObservations
+        var expiryServers = await context.PlaytimeObservations
+            .AsNoTracking()
             .Where(x => x.ResolutionDeadlineUtc != null &&
                         x.ResolutionDeadlineUtc < DateTime.UtcNow &&
                         x.ResolvedRosterJson != null)
+            .Select(x => x.ServerId)
+            .Distinct()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
-        foreach (var observation in expiredResolutions)
+        var serverIds = staleServers.Concat(expiryServers).Distinct().OrderBy(x => x).ToList();
+        var strategy = context.Database.CreateExecutionStrategy();
+
+        foreach (var serverId in serverIds)
         {
-            observation.ResolvedRosterJson = null;
-        }
-        if (expiredResolutions.Count > 0)
-        {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await strategy.ExecuteAsync(async () =>
+            {
+                context.ChangeTracker.Clear();
+                await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                await PlaytimeServerLock.AcquireAsync(context, serverId, cancellationToken).ConfigureAwait(false);
+
+                var stale = await context.PlayerSessions
+                    .Where(x => x.ServerId == serverId &&
+                                x.EndUtc == null &&
+                                x.LastConfirmedUtc < cutoff)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                foreach (var session in stale)
+                {
+                    session.EndUtc = session.LastConfirmedUtc;
+                    session.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
+                    session.ClosureReason = 3;
+                    session.IsFinal = false;
+                    await RebuildSegments(context, session, cancellationToken).ConfigureAwait(false);
+                }
+
+                var expiredResolutions = await context.PlaytimeObservations
+                    .Where(x => x.ServerId == serverId &&
+                                x.ResolutionDeadlineUtc != null &&
+                                x.ResolutionDeadlineUtc < DateTime.UtcNow &&
+                                x.ResolvedRosterJson != null)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                foreach (var observation in expiredResolutions)
+                {
+                    observation.ResolvedRosterJson = null;
+                }
+
+                if (stale.Count > 0 || expiredResolutions.Count > 0)
+                {
+                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
     }
 
@@ -124,6 +154,7 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
                     EndUtc = start,
                     UnknownMap = true
                 });
+                cursor = start;
             }
             if (finish > start)
             {

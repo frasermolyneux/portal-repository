@@ -3,6 +3,7 @@ CREATE TABLE [dbo].[PlayerSession]
     [SessionId] UNIQUEIDENTIFIER NOT NULL,
     [PlayerId] UNIQUEIDENTIFIER NOT NULL,
     [ServerId] UNIQUEIDENTIFIER NOT NULL,
+    [ConnectionCorrelationId] UNIQUEIDENTIFIER NULL,
     [GameType] INT NOT NULL,
     [GamePlayerId] NVARCHAR(50) NULL,
     [IsBot] BIT NULL,
@@ -30,4 +31,10 @@ GO
 
 CREATE INDEX [IX_PlayerSession_Server_Time]
     ON [dbo].[PlayerSession]([ServerId], [StartUtc], [EndUtc]) INCLUDE ([PlayerId], [GameType]);
+GO
+
+CREATE INDEX [IX_PlayerSession_Server_ConnectionCorrelation]
+    ON [dbo].[PlayerSession]([ServerId], [ConnectionCorrelationId], [StartUtc])
+    INCLUDE ([PlayerId], [EndUtc])
+    WHERE [ConnectionCorrelationId] IS NOT NULL;
 GO

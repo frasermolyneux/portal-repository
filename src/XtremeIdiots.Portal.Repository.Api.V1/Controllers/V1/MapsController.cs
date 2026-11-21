@@ -466,6 +466,14 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var mapRuns = await context.ServerMapRuns
+                .Where(x => x.MapId == mapId)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            foreach (var mapRun in mapRuns)
+            {
+                mapRun.MapId = null;
+            }
             context.Remove(map);
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
