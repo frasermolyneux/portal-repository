@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using MX.Observability.ApplicationInsights.Auditing;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -15,6 +16,55 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class ConnectedPlayerClaimsConcurrencyTests
 {
+    [Fact]
+    public Task DeletePlayer_WaitsForInFlightClaimBeforeReadingDependents()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var user = new UserProfile();
+            var player = new Player { FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            setup.AddRange(user, player);
+            await setup.SaveChangesAsync();
+            var code = new ConnectedPlayerActivationCode
+            {
+                UserProfileId = user.UserProfileId,
+                Code = "ABC123",
+                CodeHash = "A",
+                ActivatedBy = "ApprovalRequired",
+                IsActive = true,
+                ActivatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                MaxAttempts = 5
+            };
+            setup.Add(code);
+            await setup.SaveChangesAsync();
+
+            await using var transaction = await setup.Database.BeginTransactionAsync();
+            await setup.Database.ExecuteSqlRawAsync("EXEC sys.sp_getapplock @Resource = N'Portal.UserProfileLifecycle', @LockMode = N'Exclusive', @LockOwner = N'Transaction'");
+            await using var deletionDb = new PortalDbContext(options);
+            IDataMaintenanceApi maintenance = new DataMaintenanceController(deletionDb, new ConfigurationBuilder().Build());
+            var deletion = maintenance.DeletePlayer(player.PlayerId);
+            await Task.Delay(250);
+            Assert.False(deletion.IsCompleted);
+            setup.ConnectedPlayerClaims.Add(new ConnectedPlayerClaim
+            {
+                ConnectedPlayerClaimId = Guid.NewGuid(),
+                ConnectedPlayerActivationCodeId = code.ConnectedPlayerActivationCodeId,
+                UserProfileId = user.UserProfileId,
+                PlayerId = player.PlayerId,
+                GameServerId = Guid.NewGuid(),
+                Status = "Pending",
+                CreatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(24)
+            });
+            await setup.SaveChangesAsync();
+            await transaction.CommitAsync();
+            Assert.Equal(HttpStatusCode.OK, (await deletion).StatusCode);
+            await using var verify = new PortalDbContext(options);
+            Assert.Empty(await verify.ConnectedPlayerClaims.Where(c => c.PlayerId == player.PlayerId).ToListAsync());
+        });
+
     [Fact]
     public Task ConcurrentApprovals_OnlyOneMemberOwnsPlayer()
         => SqlServerTestDatabase.RunAsync(async connectionString =>

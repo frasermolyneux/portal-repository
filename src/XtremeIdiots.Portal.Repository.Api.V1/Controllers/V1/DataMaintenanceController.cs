@@ -78,6 +78,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var executionStrategy = context.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteInTransactionAsync(async operationCancellationToken =>
         {
+            await UserProfileLifecycle.LockAsync(context, operationCancellationToken).ConfigureAwait(false);
             var player = await context.Players
                 .FirstOrDefaultAsync(p => p.PlayerId == playerId, operationCancellationToken)
                 .ConfigureAwait(false);

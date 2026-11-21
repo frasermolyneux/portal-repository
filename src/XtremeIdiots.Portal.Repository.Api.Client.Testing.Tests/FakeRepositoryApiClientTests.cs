@@ -451,6 +451,20 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
+    public async Task ConnectedPlayers_ConcurrentApprovalIssuanceReusesCodeAndInvalidInputsFail()
+    {
+        var client = new FakeRepositoryApiClient();
+        var user = Guid.NewGuid();
+        var results = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(
+            () => client.ConnectedPlayers.V1.IssueConnectedPlayerClaimCode(new() { UserProfileId = user }))));
+        Assert.Single(results.Select(r => r.Result!.Data!.ConnectedPlayerActivationCodeId).Distinct());
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.ConnectedPlayers.V1.ConsumeConnectedPlayerActivationCode(new()
+        { PlayerId = Guid.NewGuid(), Code = null! })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.ConnectedPlayers.V1.SubmitConnectedPlayerClaim(new()
+        { RequestId = Guid.NewGuid(), PlayerId = Guid.NewGuid(), GameServerId = Guid.NewGuid(), Code = null! })).StatusCode);
+    }
+
+    [Fact]
     public async Task GlobalAnalytics_V1_GetTimeseriesComparisonOverload_ReturnsConfiguredResponse()
     {
         var client = new FakeRepositoryApiClient();
