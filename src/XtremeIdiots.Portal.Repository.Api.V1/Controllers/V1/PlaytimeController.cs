@@ -1,8 +1,10 @@
 using System.Net;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Asp.Versioning;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -38,11 +40,13 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> BatchObservations([FromBody] PlaytimeObservationBatchDto dto, CancellationToken cancellationToken)
     {
-        var response = await ((IPlaytimeApi)this).BatchObservations(dto).ConfigureAwait(false);
+        var response = await ((IPlaytimeApi)this).BatchObservations(dto, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<PlaytimeObservationBatchResultDto>> IPlaytimeApi.BatchObservations(PlaytimeObservationBatchDto dto)
+    async Task<ApiResult<PlaytimeObservationBatchResultDto>> IPlaytimeApi.BatchObservations(
+        PlaytimeObservationBatchDto dto,
+        CancellationToken cancellationToken)
     {
         if (dto?.Observations is null)
         {
@@ -62,15 +66,16 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var strategy = context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             context.ChangeTracker.Clear();
             items.Clear();
-            await using var transaction = await context.Database.BeginTransactionAsync().ConfigureAwait(false);
+            await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
             foreach (var serverId in dto.Observations
                          .Select(x => x.ServerId)
                          .Distinct()
                          .OrderBy(x => x))
             {
-                await PlaytimeServerLock.AcquireAsync(context, serverId, CancellationToken.None)
+                await PlaytimeServerLock.AcquireAsync(context, serverId, cancellationToken)
                     .ConfigureAwait(false);
             }
 
@@ -91,7 +96,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 var now = DateTime.UtcNow;
                 var hash = ComputeHash(observation);
                 var existing = await context.PlaytimeObservations
-                    .FirstOrDefaultAsync(x => x.ObservationId == observation.ObservationId)
+                    .FirstOrDefaultAsync(x => x.ObservationId == observation.ObservationId, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (existing is not null)
@@ -119,7 +124,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                             : null
                     });
                     if (outcome == PlaytimeObservationOutcome.Duplicate &&
-                        !await HasValidCanonicalPlayers(observation).ConfigureAwait(false))
+                        !await HasValidCanonicalPlayers(observation, cancellationToken).ConfigureAwait(false))
                     {
                         items[^1] = Rejected(
                             observation.ObservationId,
@@ -181,8 +186,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                                         IsBot = x.IsBot
                                     }).ToList()
                             };
-                            await ReconcileObservation(resolvedObservation, now).ConfigureAwait(false);
-                            await context.SaveChangesAsync().ConfigureAwait(false);
+                            await ReconcileObservation(resolvedObservation, now, cancellationToken).ConfigureAwait(false);
+                            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                         }
                     }
                     continue;
@@ -190,7 +195,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
                 var server = await context.GameServers
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.GameServerId == observation.ServerId)
+                    .FirstOrDefaultAsync(x => x.GameServerId == observation.ServerId, cancellationToken)
                     .ConfigureAwait(false);
                 if (server is null)
                 {
@@ -257,7 +262,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     items.Add(Rejected(observation.ObservationId, "GamePlayerId or MapName exceeds the supported length."));
                     continue;
                 }
-                if (!await HasValidCanonicalPlayers(observation).ConfigureAwait(false))
+                if (!await HasValidCanonicalPlayers(observation, cancellationToken).ConfigureAwait(false))
                 {
                     items.Add(Rejected(observation.ObservationId, "Canonical player is unknown or belongs to another game."));
                     continue;
@@ -268,7 +273,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         .AsNoTracking()
                         .AnyAsync(x => x.ServerId == observation.ServerId &&
                                        x.ProducerEpoch == observation.ProducerEpoch &&
-                                       x.ProducerSequence == observation.ProducerSequence)
+                                       x.ProducerSequence == observation.ProducerSequence,
+                            cancellationToken)
                         .ConfigureAwait(false);
                     if (sequenceExists)
                     {
@@ -313,8 +319,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 };
 
                 context.PlaytimeObservations.Add(fact);
-                await ReconcileObservation(observation, now).ConfigureAwait(false);
-                await context.SaveChangesAsync().ConfigureAwait(false);
+                await ReconcileObservation(observation, now, cancellationToken).ConfigureAwait(false);
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                 items.Add(new PlaytimeObservationItemResultDto
                 {
                     ObservationId = observation.ObservationId,
@@ -322,7 +328,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 });
             }
 
-            await transaction.CommitAsync().ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }).ConfigureAwait(false);
         var result = new PlaytimeObservationBatchResultDto { Items = items };
         return new ApiResponse<PlaytimeObservationBatchResultDto>(result).ToApiResult();
@@ -333,13 +339,25 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPlayerSessions(Guid playerId, [FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, [FromQuery] int skipEntries = 0, [FromQuery] int takeEntries = 100, CancellationToken cancellationToken = default)
     {
-        var response = await ((IPlaytimeApi)this).GetPlayerSessions(playerId, fromUtc, toUtc, skipEntries, takeEntries).ConfigureAwait(false);
+        var response = await ((IPlaytimeApi)this).GetPlayerSessions(
+            playerId,
+            fromUtc,
+            toUtc,
+            skipEntries,
+            takeEntries,
+            cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<IReadOnlyList<PlayerSessionDto>>> IPlaytimeApi.GetPlayerSessions(Guid playerId, DateTime? fromUtc, DateTime? toUtc, int skipEntries, int takeEntries)
+    async Task<ApiResult<IReadOnlyList<PlayerSessionDto>>> IPlaytimeApi.GetPlayerSessions(
+        Guid playerId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        int skipEntries,
+        int takeEntries,
+        CancellationToken cancellationToken)
     {
-        if (!await context.Players.AsNoTracking().AnyAsync(x => x.PlayerId == playerId).ConfigureAwait(false))
+        if (!await context.Players.AsNoTracking().AnyAsync(x => x.PlayerId == playerId, cancellationToken).ConfigureAwait(false))
         {
             return new ApiResult<IReadOnlyList<PlayerSessionDto>>(HttpStatusCode.NotFound);
         }
@@ -370,7 +388,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .ThenBy(x => x.SessionId)
             .Skip(skipEntries)
             .Take(takeEntries)
-            .ToListAsync()
+            .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
         var knownSegments = new List<(Guid SessionId, DateTime StartUtc, DateTime EndUtc)>();
@@ -380,7 +398,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .AsNoTracking()
                 .Where(x => !x.UnknownMap && sessions.Select(s => s.SessionId).Contains(x.SessionId))
                 .Select(x => new { x.SessionId, x.StartUtc, x.EndUtc })
-                .ToListAsync()
+                .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
             knownSegments.AddRange(segmentRows.Select(x => (x.SessionId, x.StartUtc, x.EndUtc)));
         }
@@ -428,11 +446,25 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetTotals([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, [FromQuery] Guid? playerId, [FromQuery] Guid? serverId, [FromQuery] GameType? gameType, [FromQuery] string? mapName, CancellationToken cancellationToken)
     {
-        var response = await ((IPlaytimeApi)this).GetTotals(fromUtc, toUtc, playerId, serverId, gameType, mapName).ConfigureAwait(false);
+        var response = await ((IPlaytimeApi)this).GetTotals(
+            fromUtc,
+            toUtc,
+            playerId,
+            serverId,
+            gameType,
+            mapName,
+            cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<PlaytimeTotalsDto>> IPlaytimeApi.GetTotals(DateTime fromUtc, DateTime toUtc, Guid? playerId, Guid? serverId, GameType? gameType, string? mapName)
+    async Task<ApiResult<PlaytimeTotalsDto>> IPlaytimeApi.GetTotals(
+        DateTime fromUtc,
+        DateTime toUtc,
+        Guid? playerId,
+        Guid? serverId,
+        GameType? gameType,
+        string? mapName,
+        CancellationToken cancellationToken)
     {
         if (fromUtc == default || toUtc == default || fromUtc >= toUtc)
         {
@@ -441,9 +473,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         var segments = context.PlayerSessionMapSegments
             .AsNoTracking()
-            .Include(x => x.Session)
-            .Include(x => x.MapRun)
-            .ThenInclude(x => x!.Map)
             .Where(x => x.StartUtc < toUtc && x.EndUtc > fromUtc);
 
         if (playerId is not null)
@@ -470,42 +499,119 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                  x.MapRun!.NormalizedMapKey == normalizedMapName));
         }
 
-        var list = await segments.ToListAsync().ConfigureAwait(false);
         long knownSeconds = 0;
         long unknownSeconds = 0;
         long knownBotSeconds = 0;
         long unclassifiedSeconds = 0;
-        var hasKnownNonBot = false;
-        foreach (var segment in list)
+        bool hasKnownNonBot;
+        if (context.Database.IsSqlServer())
         {
-            var start = segment.StartUtc < fromUtc ? fromUtc : segment.StartUtc;
-            var end = segment.EndUtc > toUtc ? toUtc : segment.EndUtc;
-            if (end <= start)
+            var aggregates = await context.Database.SqlQueryRaw<PlaytimeTotalsAggregate>(
+                    """
+                    WITH clipped AS
+                    (
+                        SELECT session.IsBot,
+                               segment.UnknownMap,
+                               CASE WHEN segment.StartUtc < @FromUtc THEN @FromUtc ELSE segment.StartUtc END AS ClippedStartUtc,
+                               CASE WHEN segment.EndUtc > @ToUtc THEN @ToUtc ELSE segment.EndUtc END AS ClippedEndUtc
+                        FROM dbo.PlayerSessionMapSegment AS segment
+                        INNER JOIN dbo.PlayerSession AS session ON session.SessionId = segment.SessionId
+                        LEFT JOIN dbo.ServerMapRun AS mapRun ON mapRun.RunId = segment.MapRunId
+                        LEFT JOIN dbo.Maps AS map ON map.MapId = mapRun.MapId
+                        WHERE segment.StartUtc < @ToUtc
+                          AND segment.EndUtc > @FromUtc
+                          AND (@PlayerId IS NULL OR session.PlayerId = @PlayerId)
+                          AND (@ServerId IS NULL OR session.ServerId = @ServerId)
+                          AND (@GameType IS NULL OR session.GameType = @GameType)
+                          AND (@MapName IS NULL OR
+                               (segment.UnknownMap = 0 AND
+                                (map.MapName = @MapName OR map.DisplayName = @MapName OR
+                                 mapRun.NormalizedMapKey = @NormalizedMapName)))
+                    ),
+                    durations AS
+                    (
+                        SELECT IsBot,
+                               UnknownMap,
+                               CASE WHEN ClippedEndUtc > ClippedStartUtc
+                                    THEN DATEDIFF_BIG(NANOSECOND, ClippedStartUtc, ClippedEndUtc) / 10000000
+                                    ELSE 0 END AS Seconds
+                        FROM clipped
+                    )
+                    SELECT COALESCE(SUM(CASE WHEN IsBot = 1 THEN Seconds ELSE 0 END), 0) AS KnownBotSeconds,
+                           COALESCE(SUM(CASE WHEN IsBot IS NULL THEN Seconds ELSE 0 END), 0) AS UnclassifiedSeconds,
+                           COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 1
+                                             THEN Seconds ELSE 0 END), 0) AS UnknownMapSeconds,
+                           COALESCE(SUM(CASE WHEN IsBot = 0 AND UnknownMap = 0
+                                             THEN Seconds ELSE 0 END), 0) AS KnownSeconds,
+                           CAST(CASE WHEN MAX(CASE WHEN IsBot = 0 AND Seconds > 0 THEN 1 ELSE 0 END) = 1
+                                     THEN 1 ELSE 0 END AS bit) AS HasKnownNonBot
+                    FROM durations
+                    """,
+                    new SqlParameter("@FromUtc", SqlDbType.DateTime2) { Value = fromUtc },
+                    new SqlParameter("@ToUtc", SqlDbType.DateTime2) { Value = toUtc },
+                    new SqlParameter("@PlayerId", SqlDbType.UniqueIdentifier) { Value = (object?)playerId ?? DBNull.Value },
+                    new SqlParameter("@ServerId", SqlDbType.UniqueIdentifier) { Value = (object?)serverId ?? DBNull.Value },
+                    new SqlParameter("@GameType", SqlDbType.Int)
+                    {
+                        Value = gameType is null ? DBNull.Value : (int)gameType.Value
+                    },
+                    new SqlParameter("@MapName", SqlDbType.NVarChar, -1)
+                    {
+                        Value = string.IsNullOrWhiteSpace(mapName) ? DBNull.Value : mapName
+                    },
+                    new SqlParameter("@NormalizedMapName", SqlDbType.NVarChar, -1)
+                    {
+                        Value = string.IsNullOrWhiteSpace(mapName) ? DBNull.Value : NormalizeMapKey(mapName)
+                    })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            var aggregate = aggregates.Single();
+            knownSeconds = aggregate.KnownSeconds;
+            unknownSeconds = aggregate.UnknownMapSeconds;
+            knownBotSeconds = aggregate.KnownBotSeconds;
+            unclassifiedSeconds = aggregate.UnclassifiedSeconds;
+            hasKnownNonBot = aggregate.HasKnownNonBot;
+        }
+        else
+        {
+            var list = await segments
+                .Include(x => x.Session)
+                .Include(x => x.MapRun)
+                .ThenInclude(x => x!.Map)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            hasKnownNonBot = false;
+            foreach (var segment in list)
             {
-                continue;
-            }
+                var start = segment.StartUtc < fromUtc ? fromUtc : segment.StartUtc;
+                var end = segment.EndUtc > toUtc ? toUtc : segment.EndUtc;
+                if (end <= start)
+                {
+                    continue;
+                }
 
-            var seconds = (long)Math.Floor((end - start).TotalSeconds);
-            if (segment.Session.IsBot == true)
-            {
-                knownBotSeconds += seconds;
-                continue;
-            }
-            if (segment.Session.IsBot is null)
-            {
-                unclassifiedSeconds += seconds;
-            }
-            else
-            {
-                hasKnownNonBot = true;
-            }
-            if (segment.UnknownMap)
-            {
-                unknownSeconds += seconds;
-            }
-            else
-            {
-                knownSeconds += seconds;
+                var seconds = (long)Math.Floor((end - start).TotalSeconds);
+                if (segment.Session.IsBot == true)
+                {
+                    knownBotSeconds += seconds;
+                    continue;
+                }
+                if (segment.Session.IsBot is null)
+                {
+                    unclassifiedSeconds += seconds;
+                }
+                else
+                {
+                    hasKnownNonBot = true;
+                }
+                if (segment.UnknownMap)
+                {
+                    unknownSeconds += seconds;
+                }
+                else
+                {
+                    knownSeconds += seconds;
+                }
             }
         }
 
@@ -515,7 +621,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .Where(x => (!serverId.HasValue || x.ServerId == serverId) &&
                         (!gameType.HasValue || x.GameType == (int)gameType))
             .Select(x => (DateTime?)x.EventUtc)
-            .MaxAsync()
+            .MaxAsync(cancellationToken)
             .ConfigureAwait(false);
 
         var coverageReports = await context.PlaytimeObservations
@@ -541,7 +647,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 DroppedAttemptsMax = group.Max(x => x.DroppedAttemptsMax ?? 0),
                 DroppedAgeMax = group.Max(x => x.DroppedAgeMax ?? 0)
             })
-            .ToListAsync()
+            .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         coverageReports = coverageReports
             .OrderBy(x => x.ReportedUtc)
@@ -566,7 +672,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         return new ApiResponse<PlaytimeTotalsDto>(result).ToApiResult();
     }
 
-    private async Task ReconcileObservation(PlaytimeObservationDto observation, DateTime receivedUtc)
+    private async Task ReconcileObservation(
+        PlaytimeObservationDto observation,
+        DateTime receivedUtc,
+        CancellationToken cancellationToken)
     {
         var eventUtc = NormalizeUtc(observation.EventUtc);
         if (observation.Kind == PlaytimeObservationKind.PlayerJoined)
@@ -576,7 +685,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 return;
             }
 
-            await EnsureSession(observation.CanonicalPlayerId.Value, observation, eventUtc).ConfigureAwait(false);
+            await EnsureSession(observation.CanonicalPlayerId.Value, observation, eventUtc, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
         }
         else if (observation.Kind == PlaytimeObservationKind.PlayerLeft)
         {
@@ -586,17 +696,21 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             }
 
             await CloseSession(observation.CanonicalPlayerId.Value, observation.ServerId, eventUtc,
-                (byte)observation.TimestampQuality, 1, observation.ConnectionCorrelationId, observation.IsBot)
+                (byte)observation.TimestampQuality,
+                1,
+                observation.ConnectionCorrelationId,
+                observation.IsBot,
+                cancellationToken)
                 .ConfigureAwait(false);
         }
         else if (observation.Kind == PlaytimeObservationKind.MapChanged)
         {
-            await ChangeMapRun(observation, eventUtc).ConfigureAwait(false);
+            await ChangeMapRun(observation, eventUtc, cancellationToken).ConfigureAwait(false);
         }
         else if (observation.Kind == PlaytimeObservationKind.ServerRoster)
         {
-            await ReconcileRoster(observation, eventUtc).ConfigureAwait(false);
-            await ChangeMapRun(observation, eventUtc).ConfigureAwait(false);
+            await ReconcileRoster(observation, eventUtc, cancellationToken).ConfigureAwait(false);
+            await ChangeMapRun(observation, eventUtc, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -604,7 +718,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         Guid playerId,
         PlaytimeObservationDto observation,
         DateTime eventUtc,
-        bool allowCreate = true)
+        bool allowCreate = true,
+        CancellationToken cancellationToken = default)
     {
         PlayerSession? correlated = null;
         if (observation.ConnectionCorrelationId is Guid correlationId)
@@ -617,12 +732,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .Where(x => x.StartUtc <= eventUtc &&
                             (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc)
                 .OrderByDescending(x => x.StartUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
             correlated ??= await correlatedSessions
                 .Where(x => x.StartUtc > eventUtc && x.StartUtc <= eventUtc.Add(LateEventThreshold))
                 .OrderBy(x => x.StartUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
         if (correlated is null && !string.IsNullOrWhiteSpace(observation.GamePlayerId))
@@ -638,12 +753,16 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                              x.ConnectionCorrelationId == null ||
                              x.ConnectionCorrelationId == observation.ConnectionCorrelationId))
                 .OrderByDescending(x => x.StartUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
             correlated ??= await matchingGamePlayerSessions
-                .Where(x => x.StartUtc > eventUtc && x.StartUtc <= eventUtc.Add(LateEventThreshold))
+                .Where(x => x.StartUtc > eventUtc &&
+                            x.StartUtc <= eventUtc.Add(LateEventThreshold) &&
+                            (observation.ConnectionCorrelationId == null ||
+                             x.ConnectionCorrelationId == null ||
+                             x.ConnectionCorrelationId == observation.ConnectionCorrelationId))
                 .OrderBy(x => x.StartUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
         if (correlated?.EndUtc is not null && eventUtc <= correlated.EndUtc.Value)
@@ -660,8 +779,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             correlated.LastConfirmedUtc = correlated.LastConfirmedUtc > eventUtc
                 ? correlated.LastConfirmedUtc
                 : eventUtc;
-            await RebuildSegments(correlated).ConfigureAwait(false);
-            await ApplyRetainedLeave(playerId, observation, correlated).ConfigureAwait(false);
+            await ApplyRetainedLeave(playerId, observation, correlated, cancellationToken).ConfigureAwait(false);
+            await RebuildSegments(correlated, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -678,13 +797,15 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 {
                     correlated.IsBot = observation.IsBot;
                 }
-                await RebuildSegments(correlated).ConfigureAwait(false);
+                await RebuildSegments(correlated, cancellationToken).ConfigureAwait(false);
             }
             return;
         }
 
         var open = await context.PlayerSessions
-            .FirstOrDefaultAsync(x => x.PlayerId == playerId && x.ServerId == observation.ServerId && x.EndUtc == null)
+            .FirstOrDefaultAsync(
+                x => x.PlayerId == playerId && x.ServerId == observation.ServerId && x.EndUtc == null,
+                cancellationToken)
             .ConfigureAwait(false);
         if (open is null)
         {
@@ -712,7 +833,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
             var inferred = await inferredQuery
                 .OrderByDescending(x => x.EndUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
             if (inferred is not null)
             {
@@ -721,21 +842,16 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 inferred.ClosureReason = null;
                 inferred.IsFinal = false;
                 inferred.LastConfirmedUtc = eventUtc;
-                inferred.IsBot ??= observation.IsBot;
                 inferred.GamePlayerId ??= observation.GamePlayerId;
-                await RebuildSegments(inferred).ConfigureAwait(false);
-                await ApplyRetainedLeave(playerId, observation, inferred).ConfigureAwait(false);
+                inferred.IsBot ??= observation.IsBot;
+                await ApplyRetainedLeave(playerId, observation, inferred, cancellationToken).ConfigureAwait(false);
+                await RebuildSegments(inferred, cancellationToken).ConfigureAwait(false);
                 return;
             }
         }
 
         if (open is not null)
         {
-            if (observation.IsBot is not null && open.IsBot is null)
-            {
-                open.IsBot = observation.IsBot;
-            }
-
             var changedKnownConnection = observation.ConnectionCorrelationId is not null &&
                                          open.ConnectionCorrelationId is not null &&
                                          observation.ConnectionCorrelationId != open.ConnectionCorrelationId;
@@ -743,7 +859,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             {
                 if (eventUtc < open.StartUtc)
                 {
-                    await CreateHistoricalSession(playerId, observation, eventUtc, open.StartUtc)
+                    await CreateHistoricalSession(playerId, observation, eventUtc, open.StartUtc, cancellationToken)
                         .ConfigureAwait(false);
                     return;
                 }
@@ -752,7 +868,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 open.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
                 open.ClosureReason = 3;
                 open.IsFinal = false;
-                await RebuildSegments(open).ConfigureAwait(false);
+                await RebuildSegments(open, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -763,10 +879,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     open.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
                     open.ClosureReason = 3;
                     open.IsFinal = false;
-                    await RebuildSegments(open).ConfigureAwait(false);
+                    await RebuildSegments(open, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
+                    if (observation.IsBot is not null && open.IsBot is null)
+                    {
+                        open.IsBot = observation.IsBot;
+                    }
                     if (eventUtc < open.StartUtc)
                     {
                         open.StartUtc = eventUtc;
@@ -775,8 +895,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     open.LastConfirmedUtc = open.LastConfirmedUtc > eventUtc ? open.LastConfirmedUtc : eventUtc;
                     open.ConnectionCorrelationId ??= observation.ConnectionCorrelationId;
                     open.GamePlayerId ??= observation.GamePlayerId;
-                    await RebuildSegments(open).ConfigureAwait(false);
-                    await ApplyRetainedLeave(playerId, observation, open).ConfigureAwait(false);
+                    await ApplyRetainedLeave(playerId, observation, open, cancellationToken).ConfigureAwait(false);
+                    await RebuildSegments(open, cancellationToken).ConfigureAwait(false);
                     return;
                 }
             }
@@ -797,16 +917,17 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             IsFinal = false
         };
         context.PlayerSessions.Add(session);
-        await context.SaveChangesAsync().ConfigureAwait(false);
-        await RebuildSegments(session).ConfigureAwait(false);
-        await ApplyRetainedLeave(playerId, observation, session).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await ApplyRetainedLeave(playerId, observation, session, cancellationToken).ConfigureAwait(false);
+        await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task CreateHistoricalSession(
         Guid playerId,
         PlaytimeObservationDto observation,
         DateTime startUtc,
-        DateTime endUtc)
+        DateTime endUtc,
+        CancellationToken cancellationToken)
     {
         var session = new PlayerSession
         {
@@ -826,15 +947,16 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             IsFinal = false
         };
         context.PlayerSessions.Add(session);
-        await context.SaveChangesAsync().ConfigureAwait(false);
-        await RebuildSegments(session).ConfigureAwait(false);
-        await ApplyRetainedLeave(playerId, observation, session).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await ApplyRetainedLeave(playerId, observation, session, cancellationToken).ConfigureAwait(false);
+        await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ApplyRetainedLeave(
         Guid playerId,
         PlaytimeObservationDto join,
-        PlayerSession session)
+        PlayerSession session,
+        CancellationToken cancellationToken)
     {
         var leaves = context.PlaytimeObservations
             .AsNoTracking()
@@ -849,7 +971,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var leave = await leaves
             .OrderBy(x => x.EventUtc)
             .ThenBy(x => x.ObservationId)
-            .FirstOrDefaultAsync()
+            .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         if (leave is null)
         {
@@ -864,7 +986,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         session.ClosureReason = 1;
         session.IsFinal = true;
         session.IsBot ??= leave.IsBot;
-        await RebuildSegments(session).ConfigureAwait(false);
     }
 
     private async Task CloseSession(
@@ -874,7 +995,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         byte endQuality,
         byte closureReason,
         Guid? connectionCorrelationId,
-        bool? isBot)
+        bool? isBot,
+        CancellationToken cancellationToken)
     {
         var session = connectionCorrelationId is Guid correlationId
             ? await context.PlayerSessions
@@ -883,7 +1005,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                                           x.ServerId == serverId &&
                                           x.StartUtc <= eventUtc)
                 .OrderByDescending(x => x.StartUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false)
             : null;
         if (session is null)
@@ -896,7 +1018,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     x.ConnectionCorrelationId == null ||
                     x.ConnectionCorrelationId == connectionCorrelationId);
             }
-            session = await openSessions.FirstOrDefaultAsync().ConfigureAwait(false);
+            session = await openSessions.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         }
         if (session is null)
         {
@@ -917,10 +1039,13 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         session.EndQuality = endQuality;
         session.ClosureReason = closureReason;
         session.IsFinal = closureReason != 3;
-        await RebuildSegments(session).ConfigureAwait(false);
+        await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<bool> IsStaleRosterObservation(PlaytimeObservationDto observation, DateTime eventUtc)
+    private async Task<bool> IsStaleRosterObservation(
+        PlaytimeObservationDto observation,
+        DateTime eventUtc,
+        CancellationToken cancellationToken)
     {
         var latest = await context.PlaytimeObservations
             .AsNoTracking()
@@ -929,7 +1054,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.Outcome == (byte)PlaytimeObservationOutcome.Accepted)
             .OrderByDescending(x => x.EventUtc)
             .ThenByDescending(x => x.ProducerSequence)
-            .FirstOrDefaultAsync()
+            .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
         if (latest is null)
@@ -954,14 +1079,17 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         return false;
     }
 
-    private async Task ReconcileRoster(PlaytimeObservationDto observation, DateTime eventUtc)
+    private async Task ReconcileRoster(
+        PlaytimeObservationDto observation,
+        DateTime eventUtc,
+        CancellationToken cancellationToken)
     {
         if (observation.RosterCompleteness is PlaytimeRosterCompleteness.Failed or PlaytimeRosterCompleteness.NotApplicable)
         {
             return;
         }
 
-        var stale = await IsStaleRosterObservation(observation, eventUtc).ConfigureAwait(false);
+        var stale = await IsStaleRosterObservation(observation, eventUtc, cancellationToken).ConfigureAwait(false);
 
         var ids = observation.Roster?
             .Where(x => x.CanonicalPlayerId is not null)
@@ -981,7 +1109,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         IsBot = player.IsBot
                     },
                     eventUtc,
-                    allowCreate: !stale).ConfigureAwait(false);
+                    allowCreate: !stale,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -995,7 +1124,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         var open = await context.PlayerSessions
             .Where(x => x.ServerId == observation.ServerId && x.EndUtc == null)
-            .ToListAsync().ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         foreach (var session in open)
         {
             if (ids.Contains(session.PlayerId))
@@ -1012,11 +1141,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             session.EndQuality = (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp;
             session.ClosureReason = 2;
             session.IsFinal = false;
-            await RebuildSegments(session).ConfigureAwait(false);
+            await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task ChangeMapRun(PlaytimeObservationDto observation, DateTime eventUtc)
+    private async Task ChangeMapRun(
+        PlaytimeObservationDto observation,
+        DateTime eventUtc,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(observation.MapName))
         {
@@ -1033,7 +1165,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                                x.ProducerSequence > producerSequence &&
                                x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
                                (x.Kind == (byte)PlaytimeObservationKind.MapChanged ||
-                                x.Kind == (byte)PlaytimeObservationKind.ServerRoster))
+                                x.Kind == (byte)PlaytimeObservationKind.ServerRoster),
+                    cancellationToken)
                 .ConfigureAwait(false))
         {
             return;
@@ -1045,7 +1178,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.StartUtc <= eventUtc &&
                         (x.EndUtc == null || x.EndUtc > eventUtc))
             .OrderByDescending(x => x.StartUtc)
-            .FirstOrDefaultAsync()
+            .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         if (activeRun is not null &&
             string.Equals(activeRun.NormalizedMapKey, normalized, StringComparison.OrdinalIgnoreCase))
@@ -1057,7 +1190,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var map = await context.Maps
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.GameType == mapGameType &&
-                                      (x.MapName == observation.MapName || x.DisplayName == observation.MapName))
+                                      (x.MapName == observation.MapName || x.DisplayName == observation.MapName),
+                cancellationToken)
             .ConfigureAwait(false);
 
         DateTime? rebuildEnd;
@@ -1082,7 +1216,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             var nextRun = await context.ServerMapRuns
                 .Where(x => x.ServerId == observation.ServerId && x.StartUtc > eventUtc)
                 .OrderBy(x => x.StartUtc)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
             var run = new ServerMapRun
             {
@@ -1102,7 +1236,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             rebuildEnd = run.EndUtc;
         }
 
-        await context.SaveChangesAsync().ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         var sessionsQuery = context.PlayerSessions
             .Where(x => x.ServerId == observation.ServerId &&
@@ -1116,7 +1250,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .Select(x => x.SessionId)
                 .Skip(skip)
                 .Take(100)
-                .ToListAsync()
+                .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
             if (batch.Count == 0)
             {
@@ -1125,30 +1259,33 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
             var sessions = await context.PlayerSessions
                 .Where(x => batch.Contains(x.SessionId))
-                .ToListAsync().ConfigureAwait(false);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
             foreach (var session in sessions)
             {
-                await RebuildSegments(session).ConfigureAwait(false);
+                await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
             }
 
-            await context.SaveChangesAsync().ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             context.ChangeTracker.Clear();
             skip += batch.Count;
         }
     }
 
-    private async Task RebuildSegments(PlayerSession session)
+    private async Task RebuildSegments(PlayerSession session, CancellationToken cancellationToken)
     {
+        var localSegments = context.PlayerSessionMapSegments.Local
+            .Where(x => x.SessionId == session.SessionId)
+            .ToList();
+        context.PlayerSessionMapSegments.RemoveRange(localSegments);
+        var old = await context.PlayerSessionMapSegments
+            .Where(x => x.SessionId == session.SessionId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        context.PlayerSessionMapSegments.RemoveRange(old);
         var end = session.EndUtc ?? session.LastConfirmedUtc;
         if (end <= session.StartUtc)
         {
             return;
         }
-
-        var old = await context.PlayerSessionMapSegments
-            .Where(x => x.SessionId == session.SessionId)
-            .ToListAsync().ConfigureAwait(false);
-        context.PlayerSessionMapSegments.RemoveRange(old);
 
         var runs = await context.ServerMapRuns
             .AsNoTracking()
@@ -1156,7 +1293,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.StartUtc < end &&
                         (x.EndUtc == null || x.EndUtc > session.StartUtc))
             .OrderBy(x => x.StartUtc)
-            .ToListAsync().ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var cursor = session.StartUtc;
         foreach (var run in runs)
@@ -1214,7 +1351,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         Reason = reason
     };
 
-    private async Task<bool> HasValidCanonicalPlayers(PlaytimeObservationDto observation)
+    private async Task<bool> HasValidCanonicalPlayers(
+        PlaytimeObservationDto observation,
+        CancellationToken cancellationToken)
     {
         var playerIds = (observation.Roster ?? [])
             .Where(x => x.CanonicalPlayerId is not null)
@@ -1229,7 +1368,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var distinctPlayerIds = playerIds.Distinct().ToList();
         return distinctPlayerIds.Count == 0 ||
                await context.Players.CountAsync(x => distinctPlayerIds.Contains(x.PlayerId) &&
-                                                      x.GameType == (int)observation.GameType)
+                                                      x.GameType == (int)observation.GameType,
+                   cancellationToken)
                    .ConfigureAwait(false) == distinctPlayerIds.Count;
     }
 
@@ -1245,6 +1385,15 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         public int SlotId { get; init; }
         public Guid? CanonicalPlayerId { get; init; }
         public bool? IsBot { get; init; }
+    }
+
+    private sealed class PlaytimeTotalsAggregate
+    {
+        public long KnownSeconds { get; set; }
+        public long UnknownMapSeconds { get; set; }
+        public long KnownBotSeconds { get; set; }
+        public long UnclassifiedSeconds { get; set; }
+        public bool HasKnownNonBot { get; set; }
     }
 
     private static List<RosterResolution> DeserializeRosterResolutions(string? json)

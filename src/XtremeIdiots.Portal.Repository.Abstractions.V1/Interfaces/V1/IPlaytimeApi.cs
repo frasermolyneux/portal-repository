@@ -6,14 +6,17 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IPlaytimeApi
 {
-    Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(PlaytimeObservationBatchDto dto);
+    Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(
+        PlaytimeObservationBatchDto dto,
+        CancellationToken cancellationToken = default);
 
     Task<ApiResult<IReadOnlyList<PlayerSessionDto>>> GetPlayerSessions(
         Guid playerId,
         DateTime? fromUtc,
         DateTime? toUtc,
         int skipEntries,
-        int takeEntries);
+        int takeEntries,
+        CancellationToken cancellationToken = default);
 
     Task<ApiResult<PlaytimeTotalsDto>> GetTotals(
         DateTime fromUtc,
@@ -21,5 +24,6 @@ public interface IPlaytimeApi
         Guid? playerId,
         Guid? serverId,
         GameType? gameType,
-        string? mapName);
+        string? mapName,
+        CancellationToken cancellationToken = default);
 }

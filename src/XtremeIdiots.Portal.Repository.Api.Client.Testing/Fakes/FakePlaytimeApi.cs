@@ -8,8 +8,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 
 public class FakePlaytimeApi : IPlaytimeApi
 {
-    public Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(PlaytimeObservationBatchDto dto)
+    public Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(
+        PlaytimeObservationBatchDto dto,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var items = dto.Observations.Select(x => new PlaytimeObservationItemResultDto
         {
             ObservationId = x.ObservationId,
@@ -22,14 +25,30 @@ public class FakePlaytimeApi : IPlaytimeApi
     }
 
     public Task<ApiResult<IReadOnlyList<PlayerSessionDto>>> GetPlayerSessions(
-        Guid playerId, DateTime? fromUtc, DateTime? toUtc, int skipEntries, int takeEntries)
-        => Task.FromResult(new ApiResult<IReadOnlyList<PlayerSessionDto>>(
+        Guid playerId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        int skipEntries,
+        int takeEntries,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ApiResult<IReadOnlyList<PlayerSessionDto>>(
             HttpStatusCode.OK,
             new ApiResponse<IReadOnlyList<PlayerSessionDto>>(Array.Empty<PlayerSessionDto>())));
+    }
 
     public Task<ApiResult<PlaytimeTotalsDto>> GetTotals(
-        DateTime fromUtc, DateTime toUtc, Guid? playerId, Guid? serverId, GameType? gameType, string? mapName)
-        => Task.FromResult(new ApiResult<PlaytimeTotalsDto>(
+        DateTime fromUtc,
+        DateTime toUtc,
+        Guid? playerId,
+        Guid? serverId,
+        GameType? gameType,
+        string? mapName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ApiResult<PlaytimeTotalsDto>(
             HttpStatusCode.OK,
             new ApiResponse<PlaytimeTotalsDto>(new PlaytimeTotalsDto
             {
@@ -41,4 +60,5 @@ public class FakePlaytimeApi : IPlaytimeApi
                 GameType = gameType,
                 MapName = mapName
             })));
+    }
 }

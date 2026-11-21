@@ -99,9 +99,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 .ConfigureAwait(false);
             var playtimeObservations = await context.PlaytimeObservations
                 .Where(o => o.CanonicalPlayerId == playerId ||
-                            (player.Guid != null && o.GamePlayerId == player.Guid) ||
+                            (player.Guid != null &&
+                             o.GameType == player.GameType &&
+                             o.GamePlayerId == player.Guid) ||
                             (o.ResolvedRosterJson != null &&
-                             o.ResolvedRosterJson.Contains(playerId.ToString())))
+                             (o.ResolvedRosterJson.Contains(playerId.ToString()) ||
+                              (player.Guid != null &&
+                               o.GameType == player.GameType &&
+                               o.ResolvedRosterJson.Contains(player.Guid)))))
                 .ToListAsync(operationCancellationToken)
                 .ConfigureAwait(false);
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -122,6 +127,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             {
                 var redactCanonicalPlayer = observation.CanonicalPlayerId == playerId;
                 var redactObservationGamePlayer = player.Guid != null &&
+                                                  observation.GameType == player.GameType &&
                                                   string.Equals(
                                                       observation.GamePlayerId,
                                                       player.Guid,
@@ -133,6 +139,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 var redactedRoster = roster
                     .Where(x => x.CanonicalPlayerId != playerId &&
                                 (player.Guid == null ||
+                                 observation.GameType != player.GameType ||
                                  !string.Equals(x.GamePlayerId, player.Guid, StringComparison.OrdinalIgnoreCase)))
                     .ToList();
                 if (redactedRoster.Count != roster.Count)

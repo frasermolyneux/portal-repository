@@ -65,7 +65,9 @@ public class DataMaintenanceControllerTests
 
         var playerId = Guid.NewGuid();
         var controlPlayerId = Guid.NewGuid();
+        var otherGamePlayerId = Guid.NewGuid();
         var gameServerId = Guid.NewGuid();
+        var otherGameServerId = Guid.NewGuid();
         var mapId = Guid.NewGuid();
         var userProfileId = Guid.NewGuid();
         var tagId = Guid.NewGuid();
@@ -87,6 +89,15 @@ public class DataMaintenanceControllerTests
             BanFileRootPath = "/",
             ServerListEnabled = true,
             Deleted = false,
+        });
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = otherGameServerId,
+            Title = "Other Game Server",
+            GameType = (int)GameType.CallOfDuty2,
+            Hostname = "localhost",
+            QueryPort = 28961,
+            ServerListEnabled = true
         });
 
         context.Maps.Add(new Map
@@ -131,6 +142,15 @@ public class DataMaintenanceControllerTests
             GameType = (int)GameType.CallOfDuty4,
             Username = "PlayerToKeep",
             Guid = "control-game-id",
+            FirstSeen = DateTime.UtcNow.AddMonths(-1),
+            LastSeen = DateTime.UtcNow,
+        });
+        context.Players.Add(new Player
+        {
+            PlayerId = otherGamePlayerId,
+            GameType = (int)GameType.CallOfDuty2,
+            Username = "Other Game Player",
+            Guid = "deleted-game-id",
             FirstSeen = DateTime.UtcNow.AddMonths(-1),
             LastSeen = DateTime.UtcNow,
         });
@@ -362,6 +382,30 @@ public class DataMaintenanceControllerTests
             new PlaytimeObservation
             {
                 ObservationId = Guid.NewGuid(),
+                ServerId = otherGameServerId,
+                GameType = (int)GameType.CallOfDuty2,
+                Kind = 1,
+                EventUtc = DateTime.UtcNow,
+                ReceivedUtc = DateTime.UtcNow,
+                TimestampQuality = 2,
+                CanonicalPlayerId = otherGamePlayerId,
+                GamePlayerId = "deleted-game-id",
+                ResolvedRosterJson = JsonSerializer.Serialize(new[]
+                {
+                    new
+                    {
+                        GamePlayerId = "deleted-game-id",
+                        SlotId = 1,
+                        CanonicalPlayerId = (Guid?)otherGamePlayerId,
+                        IsBot = false
+                    }
+                }),
+                PayloadHash = new byte[32],
+                Outcome = 1
+            },
+            new PlaytimeObservation
+            {
+                ObservationId = Guid.NewGuid(),
                 ServerId = gameServerId,
                 GameType = (int)GameType.CallOfDuty4,
                 Kind = 4,
@@ -418,6 +462,10 @@ public class DataMaintenanceControllerTests
         var unresolvedRoster = JsonSerializer.Deserialize<List<JsonElement>>(unresolvedObservation.ResolvedRosterJson!);
         var retainedUnresolvedRosterEntry = Assert.Single(unresolvedRoster!);
         Assert.Equal("control-game-id", retainedUnresolvedRosterEntry.GetProperty("GamePlayerId").GetString());
+        var otherGameObservation = context.PlaytimeObservations
+            .Single(o => o.ServerId == otherGameServerId && o.GamePlayerId == "deleted-game-id");
+        Assert.False(otherGameObservation.IdentifiersRedacted);
+        Assert.Equal(otherGamePlayerId, otherGameObservation.CanonicalPlayerId);
         var preservedObservation = context.PlaytimeObservations.Single(o => o.CanonicalPlayerId == controlPlayerId);
         Assert.False(preservedObservation.IdentifiersRedacted);
         Assert.Equal("control-game-id", preservedObservation.GamePlayerId);

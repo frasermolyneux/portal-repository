@@ -510,6 +510,7 @@ public class PlaytimeControllerTests
 
         var session = Assert.Single(await context.PlayerSessions.ToListAsync());
         Assert.True(session.IsBot);
+        Assert.Single(await context.PlayerSessionMapSegments.ToListAsync());
     }
 
     [Fact]
@@ -1139,7 +1140,11 @@ public class PlaytimeControllerTests
                 Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
                     start, "guid-1") with { ConnectionCorrelationId = firstConnection },
                 Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
-                    start.AddMinutes(5), "guid-1") with { ConnectionCorrelationId = secondConnection },
+                    start.AddMinutes(5), "guid-1") with
+                {
+                    ConnectionCorrelationId = secondConnection,
+                    IsBot = true
+                },
                 Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
                     start.AddMinutes(10), "guid-1") with { ConnectionCorrelationId = Guid.NewGuid() }
             ]
@@ -1157,8 +1162,49 @@ public class PlaytimeControllerTests
         Assert.Equal(2, sessions.Count);
         Assert.Equal(start.AddMinutes(-1), sessions[0].StartUtc);
         Assert.Equal(start, sessions[0].EndUtc);
+        Assert.Null(sessions[0].IsBot);
         Assert.Null(sessions[1].EndUtc);
+        Assert.True(sessions[1].IsBot);
         Assert.Equal(secondConnection, sessions[1].ConnectionCorrelationId);
+    }
+
+    [Fact]
+    public async Task DelayedJoinDoesNotMatchFutureSessionWithDifferentConnectionId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var existingConnection = Guid.NewGuid();
+        var delayedConnection = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddMinutes(10), "guid-1") with { ConnectionCorrelationId = existingConnection }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1") with { ConnectionCorrelationId = delayedConnection }
+            ]
+        });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(start, sessions[0].StartUtc);
+        Assert.Equal(start.AddMinutes(10), sessions[0].EndUtc);
+        Assert.Equal(delayedConnection, sessions[0].ConnectionCorrelationId);
+        Assert.Equal(start.AddMinutes(10), sessions[1].StartUtc);
+        Assert.Null(sessions[1].EndUtc);
+        Assert.Equal(existingConnection, sessions[1].ConnectionCorrelationId);
     }
 
     [Fact]

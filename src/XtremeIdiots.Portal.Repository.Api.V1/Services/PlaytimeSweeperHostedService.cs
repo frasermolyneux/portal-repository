@@ -117,17 +117,20 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
 
     private static async Task RebuildSegments(PortalDbContext context, PlayerSession session, CancellationToken cancellationToken)
     {
-        var end = session.EndUtc ?? session.LastConfirmedUtc;
-        if (end <= session.StartUtc)
-        {
-            return;
-        }
-
+        var localSegments = context.PlayerSessionMapSegments.Local
+            .Where(x => x.SessionId == session.SessionId)
+            .ToList();
+        context.PlayerSessionMapSegments.RemoveRange(localSegments);
         var old = await context.PlayerSessionMapSegments
             .Where(x => x.SessionId == session.SessionId)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         context.PlayerSessionMapSegments.RemoveRange(old);
+        var end = session.EndUtc ?? session.LastConfirmedUtc;
+        if (end <= session.StartUtc)
+        {
+            return;
+        }
 
         var runs = await context.ServerMapRuns
             .AsNoTracking()

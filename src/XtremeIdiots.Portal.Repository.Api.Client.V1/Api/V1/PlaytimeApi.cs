@@ -17,15 +17,23 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
     {
     }
 
-    public async Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(PlaytimeObservationBatchDto dto)
+    public async Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(
+        PlaytimeObservationBatchDto dto,
+        CancellationToken cancellationToken = default)
     {
         var request = await CreateRequestAsync("v1/playtime/observations:batch", Method.Post).ConfigureAwait(false);
         request.AddJsonBody(dto);
-        var response = await ExecuteAsync(request).ConfigureAwait(false);
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
         return response.ToApiResult<PlaytimeObservationBatchResultDto>();
     }
 
-    public async Task<ApiResult<IReadOnlyList<PlayerSessionDto>>> GetPlayerSessions(Guid playerId, DateTime? fromUtc, DateTime? toUtc, int skipEntries, int takeEntries)
+    public async Task<ApiResult<IReadOnlyList<PlayerSessionDto>>> GetPlayerSessions(
+        Guid playerId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        int skipEntries,
+        int takeEntries,
+        CancellationToken cancellationToken = default)
     {
         var request = await CreateRequestAsync($"v1/players/{playerId}/sessions", Method.Get).ConfigureAwait(false);
         if (fromUtc is not null)
@@ -40,11 +48,18 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
 
         request.AddQueryParameter("skipEntries", skipEntries.ToString());
         request.AddQueryParameter("takeEntries", takeEntries.ToString());
-        var response = await ExecuteAsync(request).ConfigureAwait(false);
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
         return response.ToApiResult<IReadOnlyList<PlayerSessionDto>>();
     }
 
-    public async Task<ApiResult<PlaytimeTotalsDto>> GetTotals(DateTime fromUtc, DateTime toUtc, Guid? playerId, Guid? serverId, GameType? gameType, string? mapName)
+    public async Task<ApiResult<PlaytimeTotalsDto>> GetTotals(
+        DateTime fromUtc,
+        DateTime toUtc,
+        Guid? playerId,
+        Guid? serverId,
+        GameType? gameType,
+        string? mapName,
+        CancellationToken cancellationToken = default)
     {
         var request = await CreateRequestAsync("v1/playtime/totals", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
@@ -69,7 +84,7 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
             request.AddQueryParameter("mapName", mapName);
         }
 
-        var response = await ExecuteAsync(request).ConfigureAwait(false);
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
         return response.ToApiResult<PlaytimeTotalsDto>();
     }
 }

@@ -480,11 +480,31 @@ public class MapsControllerTests
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var mapId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = serverId,
+            Title = "Test Server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            ServerListEnabled = true
+        });
         context.Maps.Add(new Map
         {
             MapId = mapId,
             GameType = (int)GameType.CallOfDuty4,
             MapName = "mp_delete"
+        });
+        context.ServerMapRuns.Add(new ServerMapRun
+        {
+            RunId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            MapId = mapId,
+            NormalizedMapKey = "mp_delete",
+            StartUtc = DateTime.UtcNow,
+            AttributionQuality = 0
         });
         await context.SaveChangesAsync();
 
@@ -493,6 +513,9 @@ public class MapsControllerTests
         var result = await api.DeleteMap(mapId);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var preservedRun = Assert.Single(context.ServerMapRuns);
+        Assert.Null(preservedRun.MapId);
+        Assert.Equal("mp_delete", preservedRun.NormalizedMapKey);
     }
 
     [Fact]
