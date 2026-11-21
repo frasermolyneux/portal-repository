@@ -533,7 +533,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         SELECT IsBot,
                                UnknownMap,
                                CASE WHEN ClippedEndUtc > ClippedStartUtc
-                                    THEN DATEDIFF_BIG(NANOSECOND, ClippedStartUtc, ClippedEndUtc) / 10000000
+                                    THEN DATEDIFF_BIG(NANOSECOND, ClippedStartUtc, ClippedEndUtc) / 1000000000
                                     ELSE 0 END AS Seconds
                         FROM clipped
                     )
@@ -541,7 +541,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                            COALESCE(SUM(CASE WHEN IsBot IS NULL THEN Seconds ELSE 0 END), 0) AS UnclassifiedSeconds,
                            COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 1
                                              THEN Seconds ELSE 0 END), 0) AS UnknownMapSeconds,
-                           COALESCE(SUM(CASE WHEN IsBot = 0 AND UnknownMap = 0
+                           COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 0
                                              THEN Seconds ELSE 0 END), 0) AS KnownSeconds,
                            CAST(CASE WHEN MAX(CASE WHEN IsBot = 0 AND Seconds > 0 THEN 1 ELSE 0 END) = 1
                                      THEN 1 ELSE 0 END AS bit) AS HasKnownNonBot
@@ -786,6 +786,37 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         if (!allowCreate)
         {
+            if (correlated is null)
+            {
+                var staleOpenSessions = context.PlayerSessions
+                    .Where(x => x.PlayerId == playerId &&
+                                x.ServerId == observation.ServerId &&
+                                x.EndUtc == null &&
+                                x.StartUtc <= eventUtc);
+                if (observation.ConnectionCorrelationId is Guid staleCorrelationId)
+                {
+                    staleOpenSessions = staleOpenSessions.Where(x =>
+                        x.ConnectionCorrelationId == staleCorrelationId ||
+                        (x.ConnectionCorrelationId == null &&
+                         !string.IsNullOrWhiteSpace(observation.GamePlayerId) &&
+                         x.GamePlayerId == observation.GamePlayerId));
+                }
+                else if (!string.IsNullOrWhiteSpace(observation.GamePlayerId))
+                {
+                    staleOpenSessions = staleOpenSessions.Where(x =>
+                        x.GamePlayerId == observation.GamePlayerId);
+                }
+                else
+                {
+                    staleOpenSessions = staleOpenSessions.Where(_ => false);
+                }
+
+                correlated = await staleOpenSessions
+                    .OrderByDescending(x => x.StartUtc)
+                    .FirstOrDefaultAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             if (correlated is not null)
             {
                 if (eventUtc < correlated.StartUtc)
@@ -797,6 +828,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 {
                     correlated.IsBot = observation.IsBot;
                 }
+                correlated.LastConfirmedUtc = correlated.LastConfirmedUtc > eventUtc
+                    ? correlated.LastConfirmedUtc
+                    : eventUtc;
+                correlated.ConnectionCorrelationId ??= observation.ConnectionCorrelationId;
+                correlated.GamePlayerId ??= observation.GamePlayerId;
                 await RebuildSegments(correlated, cancellationToken).ConfigureAwait(false);
             }
             return;
@@ -1136,7 +1172,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 continue;
             }
 
-            session.LastConfirmedUtc = eventUtc;
             session.EndUtc = eventUtc;
             session.EndQuality = (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp;
             session.ClosureReason = 2;
