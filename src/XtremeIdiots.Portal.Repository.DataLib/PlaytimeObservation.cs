@@ -55,6 +55,8 @@ public partial class PlaytimeObservation
 
     public string? ResolvedRosterJson { get; set; }
 
+    public DateTime? ResolutionDeadlineUtc { get; set; }
+
     public byte? RosterCompleteness { get; set; }
 
     [MaxLength(32)]

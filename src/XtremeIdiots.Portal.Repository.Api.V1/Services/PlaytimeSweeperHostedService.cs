@@ -68,6 +68,21 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
         {
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        var expiredResolutions = await context.PlaytimeObservations
+            .Where(x => x.ResolutionDeadlineUtc != null &&
+                        x.ResolutionDeadlineUtc < DateTime.UtcNow &&
+                        x.ResolvedRosterJson != null)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        foreach (var observation in expiredResolutions)
+        {
+            observation.ResolvedRosterJson = null;
+        }
+        if (expiredResolutions.Count > 0)
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static async Task RebuildSegments(PortalDbContext context, PlayerSession session, CancellationToken cancellationToken)

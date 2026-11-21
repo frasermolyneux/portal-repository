@@ -20,6 +20,7 @@ CREATE TABLE [dbo].[PlaytimeObservation]
     [DroppedAttemptsMax] BIGINT NULL,
     [DroppedAgeMax] BIGINT NULL,
     [ResolvedRosterJson] NVARCHAR(MAX) NULL,
+    [ResolutionDeadlineUtc] DATETIME2 NULL,
     [RosterCompleteness] TINYINT NULL,
     [PayloadHash] VARBINARY(32) NOT NULL,
     [Outcome] TINYINT NOT NULL,

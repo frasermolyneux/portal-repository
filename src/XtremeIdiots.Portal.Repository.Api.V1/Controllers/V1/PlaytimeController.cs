@@ -64,6 +64,17 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
             if (existing is not null)
             {
+                if (existing.ResolutionDeadlineUtc is not null &&
+                    now > existing.ResolutionDeadlineUtc.Value)
+                {
+                    items.Add(new PlaytimeObservationItemResultDto
+                    {
+                        ObservationId = observation.ObservationId,
+                        Outcome = PlaytimeObservationOutcome.Rejected,
+                        Reason = "Replay or identity resolution arrived after the accepted correction window."
+                    });
+                    continue;
+                }
                 var outcome = CryptographicOperations.FixedTimeEquals(existing.PayloadHash, hash)
                     ? PlaytimeObservationOutcome.Duplicate
                     : PlaytimeObservationOutcome.Rejected;
@@ -213,6 +224,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         CanonicalPlayerId = x.CanonicalPlayerId,
                         IsBot = x.IsBot
                     }).ToList() ?? []),
+                ResolutionDeadlineUtc = now.Add(LateEventThreshold),
                 PayloadHash = hash,
                 Outcome = (byte)PlaytimeObservationOutcome.Accepted
             };

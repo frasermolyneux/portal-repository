@@ -726,6 +726,62 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task LateIdentityReplayIsRejectedAfterCorrectionWindow()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddHours(-1);
+        var observationId = Guid.NewGuid();
+        var unresolved = new PlaytimeObservationDto
+        {
+            ObservationId = observationId,
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = start,
+            TimestampQuality = PlaytimeTimestampQuality.ParseTime,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto
+                {
+                    CanonicalPlayerId = null,
+                    GamePlayerId = "guid-1",
+                    SlotId = 1
+                }
+            ]
+        };
+        var controller = new PlaytimeController(context);
+        var api = (IPlaytimeApi)controller;
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [unresolved] });
+
+        var fact = await context.PlaytimeObservations.SingleAsync(x => x.ObservationId == observationId);
+        fact.ResolutionDeadlineUtc = DateTime.UtcNow.AddMinutes(-1);
+        await context.SaveChangesAsync();
+
+        var resolved = unresolved with
+        {
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto
+                {
+                    CanonicalPlayerId = playerId,
+                    GamePlayerId = "guid-1",
+                    SlotId = 1
+                }
+            ]
+        };
+        var replay = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [resolved] });
+        Assert.NotNull(replay.Result);
+        var data = replay.Result?.Data;
+        Assert.NotNull(data);
+        Assert.Equal(PlaytimeObservationOutcome.Rejected, data!.Items[0].Outcome);
+        Assert.Empty(await context.PlayerSessions.ToListAsync());
+    }
+
+    [Fact]
     public async Task BatchObservations_RejectsUnknownServerAndConflictingReuse()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
