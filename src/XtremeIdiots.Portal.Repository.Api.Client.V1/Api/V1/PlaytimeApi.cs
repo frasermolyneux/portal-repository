@@ -21,7 +21,7 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
         PlaytimeObservationBatchDto dto,
         CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync("v1/playtime/observations:batch", Method.Post).ConfigureAwait(false);
+        var request = await CreateRequestAsync("v1/playtime/observations:batch", Method.Post, cancellationToken).ConfigureAwait(false);
         request.AddJsonBody(dto);
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
         return response.ToApiResult<PlaytimeObservationBatchResultDto>();
@@ -35,7 +35,7 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
         int takeEntries,
         CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync($"v1/players/{playerId}/sessions", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync($"v1/players/{playerId}/sessions", Method.Get, cancellationToken).ConfigureAwait(false);
         if (fromUtc is not null)
         {
             request.AddQueryParameter("fromUtc", fromUtc.Value.ToString("O"));
@@ -61,7 +61,7 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
         string? mapName,
         CancellationToken cancellationToken = default)
     {
-        var request = await CreateRequestAsync("v1/playtime/totals", Method.Get).ConfigureAwait(false);
+        var request = await CreateRequestAsync("v1/playtime/totals", Method.Get, cancellationToken).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
         if (playerId is not null)
