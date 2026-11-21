@@ -123,22 +123,31 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                             ? "ObservationId was reused for conflicting payload data."
                             : null
                     });
+                    IReadOnlyCollection<RosterResolution> previousRoster = [];
+                    var replayObservation = observation;
+                    if (outcome == PlaytimeObservationOutcome.Duplicate)
+                    {
+                        previousRoster = DeserializeRosterResolutions(existing.ResolvedRosterJson);
+                        if (existing.IdentifiersRedacted)
+                        {
+                            replayObservation = await FilterRedactedReplay(
+                                existing,
+                                observation,
+                                previousRoster,
+                                cancellationToken).ConfigureAwait(false);
+                        }
+                    }
                     if (outcome == PlaytimeObservationOutcome.Duplicate &&
-                        !await HasValidCanonicalPlayers(observation, cancellationToken).ConfigureAwait(false))
+                        !await HasValidCanonicalPlayers(replayObservation, cancellationToken).ConfigureAwait(false))
                     {
                         items[^1] = Rejected(
                             observation.ObservationId,
                             "Canonical player is unknown or belongs to another game.");
                         continue;
                     }
-                    if (outcome == PlaytimeObservationOutcome.Duplicate && existing.IdentifiersRedacted)
-                    {
-                        continue;
-                    }
                     if (outcome == PlaytimeObservationOutcome.Duplicate)
                     {
-                        var previousRoster = DeserializeRosterResolutions(existing.ResolvedRosterJson);
-                        if (HasConflictingResolution(existing, observation, previousRoster))
+                        if (HasConflictingResolution(existing, replayObservation, previousRoster))
                         {
                             items[^1] = Rejected(
                                 observation.ObservationId,
@@ -146,37 +155,37 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                             continue;
                         }
 
-                        var identityResolved = observation.CanonicalPlayerId is not null &&
+                        var identityResolved = replayObservation.CanonicalPlayerId is not null &&
                                                existing.CanonicalPlayerId is null;
-                        var botResolved = observation.IsBot is not null &&
+                        var botResolved = replayObservation.IsBot is not null &&
                                           existing.IsBot is null;
                         var rosterResolutionsChanged = false;
                         var mergedRoster = previousRoster;
-                        if (observation.Roster is not null)
+                        if (replayObservation.Roster is not null)
                         {
-                            var merged = MergeRosterResolutions(mergedRoster, observation.Roster);
+                            var merged = MergeRosterResolutions(mergedRoster, replayObservation.Roster);
                             rosterResolutionsChanged = !AreRosterResolutionsEqual(mergedRoster, merged);
                             mergedRoster = merged;
                             existing.ResolvedRosterJson = SerializeRosterResolutions(mergedRoster);
                         }
                         if (identityResolved)
                         {
-                            if (observation.CanonicalPlayerId is not null)
+                            if (replayObservation.CanonicalPlayerId is not null)
                             {
-                                existing.CanonicalPlayerId = observation.CanonicalPlayerId;
+                                existing.CanonicalPlayerId = replayObservation.CanonicalPlayerId;
                             }
                         }
                         if (botResolved)
                         {
-                            existing.IsBot = observation.IsBot;
+                            existing.IsBot = replayObservation.IsBot;
                         }
                         if (identityResolved || botResolved || rosterResolutionsChanged)
                         {
-                            var resolvedObservation = observation with
+                            var resolvedObservation = replayObservation with
                             {
                                 CanonicalPlayerId = existing.CanonicalPlayerId,
                                 IsBot = existing.IsBot,
-                                Roster = observation.Roster is null
+                                Roster = replayObservation.Roster is null
                                     ? null
                                     : mergedRoster.Select(x => new PlaytimeRosterPlayerDto
                                     {
@@ -765,6 +774,17 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
+        if (correlated is not null &&
+            correlated.StartUtc > eventUtc &&
+            await HasAcceptedLeaveBetween(
+                playerId,
+                observation,
+                eventUtc,
+                correlated.StartUtc,
+                cancellationToken).ConfigureAwait(false))
+        {
+            correlated = null;
+        }
         if (correlated?.EndUtc is not null && eventUtc <= correlated.EndUtc.Value)
         {
             if (eventUtc < correlated.StartUtc)
@@ -843,6 +863,19 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 x => x.PlayerId == playerId && x.ServerId == observation.ServerId && x.EndUtc == null,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (open is not null &&
+            open.StartUtc > eventUtc &&
+            await HasAcceptedLeaveBetween(
+                playerId,
+                observation,
+                eventUtc,
+                open.StartUtc,
+                cancellationToken).ConfigureAwait(false))
+        {
+            await CreateHistoricalSession(playerId, observation, eventUtc, open.StartUtc, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
         if (open is null)
         {
             var inferredQuery = context.PlayerSessions
@@ -994,6 +1027,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         PlayerSession session,
         CancellationToken cancellationToken)
     {
+        if (session.IsFinal)
+        {
+            return;
+        }
+
+        var hasGamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId);
         var leaves = context.PlaytimeObservations
             .AsNoTracking()
             .Where(x => x.ServerId == session.ServerId &&
@@ -1003,7 +1042,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.EventUtc <= session.StartUtc.Add(LateEventThreshold) &&
                         x.ConnectionCorrelationId == session.ConnectionCorrelationId &&
                         (x.CanonicalPlayerId == playerId ||
-                         (x.CanonicalPlayerId == null && x.GamePlayerId == join.GamePlayerId)));
+                         (hasGamePlayerId &&
+                          x.CanonicalPlayerId == null &&
+                          x.GamePlayerId == join.GamePlayerId)));
         var leave = await leaves
             .OrderBy(x => x.EventUtc)
             .ThenBy(x => x.ObservationId)
@@ -1022,6 +1063,36 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         session.ClosureReason = 1;
         session.IsFinal = true;
         session.IsBot ??= leave.IsBot;
+    }
+
+    private async Task<bool> HasAcceptedLeaveBetween(
+        Guid playerId,
+        PlaytimeObservationDto join,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken cancellationToken)
+    {
+        if (endUtc <= startUtc)
+        {
+            return false;
+        }
+
+        var hasGamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId);
+        return await context.PlaytimeObservations
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.ServerId == join.ServerId &&
+                     x.Kind == (byte)PlaytimeObservationKind.PlayerLeft &&
+                     x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                     x.EventUtc > startUtc &&
+                     x.EventUtc <= endUtc &&
+                     x.ConnectionCorrelationId == join.ConnectionCorrelationId &&
+                     (x.CanonicalPlayerId == playerId ||
+                      (hasGamePlayerId &&
+                       x.CanonicalPlayerId == null &&
+                       x.GamePlayerId == join.GamePlayerId)),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task CloseSession(
@@ -1208,7 +1279,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     private async Task ChangeMapRun(
         PlaytimeObservationDto observation,
         DateTime eventUtc,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool replayLaterObservations = true)
     {
         if (string.IsNullOrWhiteSpace(observation.MapName))
         {
@@ -1225,7 +1297,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                                x.ProducerSequence > producerSequence &&
                                x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
                                (x.Kind == (byte)PlaytimeObservationKind.MapChanged ||
-                                x.Kind == (byte)PlaytimeObservationKind.ServerRoster),
+                                (x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                                 x.MapName != null &&
+                                 x.MapName.Trim().Length > 0)),
                     cancellationToken)
                 .ConfigureAwait(false))
         {
@@ -1297,6 +1371,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        if (replayLaterObservations)
+        {
+            await ReplayLaterMapObservations(
+                observation.ServerId,
+                eventUtc,
+                rebuildEnd,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         var sessionsQuery = context.PlayerSessions
             .Where(x => x.ServerId == observation.ServerId &&
@@ -1328,6 +1410,56 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             context.ChangeTracker.Clear();
             skip += batch.Count;
+        }
+    }
+
+    private async Task ReplayLaterMapObservations(
+        Guid serverId,
+        DateTime eventUtc,
+        DateTime? throughUtc,
+        CancellationToken cancellationToken)
+    {
+        var observationsQuery = context.PlaytimeObservations
+            .AsNoTracking()
+            .Where(x => x.ServerId == serverId &&
+                        x.EventUtc > eventUtc &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        (x.Kind == (byte)PlaytimeObservationKind.MapChanged ||
+                         (x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                          x.MapName != null &&
+                          x.MapName.Trim().Length > 0)));
+        if (throughUtc is DateTime endUtc)
+        {
+            observationsQuery = observationsQuery.Where(x => x.EventUtc <= endUtc);
+        }
+
+        var laterObservations = await observationsQuery
+            .OrderBy(x => x.EventUtc)
+            .ThenBy(x => x.ProducerEpoch)
+            .ThenBy(x => x.ProducerSequence)
+            .ThenBy(x => x.ObservationId)
+            .Select(x => new PlaytimeObservationDto
+            {
+                ObservationId = x.ObservationId,
+                ServerId = x.ServerId,
+                GameType = (GameType)x.GameType,
+                Kind = (PlaytimeObservationKind)x.Kind,
+                EventUtc = x.EventUtc,
+                TimestampQuality = (PlaytimeTimestampQuality)x.TimestampQuality,
+                ProducerEpoch = x.ProducerEpoch,
+                ProducerSequence = x.ProducerSequence,
+                MapName = x.MapName
+            })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var laterObservation in laterObservations)
+        {
+            await ChangeMapRun(
+                laterObservation,
+                NormalizeUtc(laterObservation.EventUtc),
+                cancellationToken,
+                replayLaterObservations: false).ConfigureAwait(false);
         }
     }
 
@@ -1431,6 +1563,54 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                                                       x.GameType == (int)observation.GameType,
                    cancellationToken)
                    .ConfigureAwait(false) == distinctPlayerIds.Count;
+    }
+
+    private async Task<PlaytimeObservationDto> FilterRedactedReplay(
+        PlaytimeObservation existing,
+        PlaytimeObservationDto replay,
+        IReadOnlyCollection<RosterResolution> previousRoster,
+        CancellationToken cancellationToken)
+    {
+        var retainedKeys = previousRoster
+            .Select(x => (x.GamePlayerId, x.SlotId))
+            .ToHashSet();
+        var retainedRoster = replay.Roster?
+            .Where(x => retainedKeys.Contains((x.GamePlayerId, x.SlotId)))
+            .ToList();
+        var candidatePlayerIds = (retainedRoster ?? [])
+            .Where(x => x.CanonicalPlayerId is not null)
+            .Select(x => x.CanonicalPlayerId!.Value)
+            .Concat(replay.CanonicalPlayerId is Guid playerId ? [playerId] : [])
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToList();
+        var validPlayerIds = candidatePlayerIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await context.Players
+                .AsNoTracking()
+                .Where(x => candidatePlayerIds.Contains(x.PlayerId) &&
+                            x.GameType == (int)replay.GameType)
+                .Select(x => x.PlayerId)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false))
+                .ToHashSet();
+
+        return replay with
+        {
+            CanonicalPlayerId = replay.CanonicalPlayerId is Guid canonicalPlayerId &&
+                                validPlayerIds.Contains(canonicalPlayerId)
+                ? canonicalPlayerId
+                : existing.CanonicalPlayerId,
+            GamePlayerId = existing.GamePlayerId,
+            IsBot = existing.IsBot ?? replay.IsBot,
+            Roster = retainedRoster?.Select(x => x with
+            {
+                CanonicalPlayerId = x.CanonicalPlayerId is Guid rosterPlayerId &&
+                                    validPlayerIds.Contains(rosterPlayerId)
+                    ? rosterPlayerId
+                    : null
+            }).ToList()
+        };
     }
 
     private static DateTime NormalizeUtc(DateTime value) =>
@@ -1560,17 +1740,36 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
     private static byte[] ComputeHash(PlaytimeObservationDto observation)
     {
-        var roster = observation.Roster is null
-            ? ""
-            : JsonSerializer.Serialize(observation.Roster.Select(x => new
+        var payload = JsonSerializer.Serialize(new
+        {
+            observation.ObservationId,
+            observation.ServerId,
+            observation.GameType,
+            observation.Kind,
+            EventUtc = NormalizeUtc(observation.EventUtc),
+            observation.TimestampQuality,
+            observation.ProducerEpoch,
+            observation.ProducerSequence,
+            observation.ConnectionCorrelationId,
+            observation.GamePlayerId,
+            observation.SlotId,
+            observation.MapName,
+            observation.RosterCompleteness,
+            Roster = observation.Roster?.Select(x => new
             {
                 x.GamePlayerId,
                 x.SlotId
-            }));
-        var coverage = observation.Coverage is null
-            ? ""
-            : $"{observation.Coverage.ProducerStartedUtc:O}|{observation.Coverage.DroppedCapacityMax}|{observation.Coverage.DroppedAttemptsMax}|{observation.Coverage.DroppedAgeMax}";
-        var payload = $"{observation.ObservationId}|{observation.ServerId}|{observation.GameType}|{observation.Kind}|{NormalizeUtc(observation.EventUtc):O}|{observation.TimestampQuality}|{observation.ProducerEpoch}|{observation.ProducerSequence}|{observation.ConnectionCorrelationId}|{observation.GamePlayerId}|{observation.SlotId}|{observation.MapName}|{observation.RosterCompleteness}|{roster}|{coverage}";
+            }),
+            Coverage = observation.Coverage is null
+                ? null
+                : new
+                {
+                    observation.Coverage.ProducerStartedUtc,
+                    observation.Coverage.DroppedCapacityMax,
+                    observation.Coverage.DroppedAttemptsMax,
+                    observation.Coverage.DroppedAgeMax
+                }
+        });
         return SHA256.HashData(Encoding.UTF8.GetBytes(payload));
     }
 }

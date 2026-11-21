@@ -89,6 +89,18 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var playtimeServerIds = await context.GameServers
+                .Where(x => x.GameType == player.GameType)
+                .OrderBy(x => x.GameServerId)
+                .Select(x => x.GameServerId)
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
+            foreach (var serverId in playtimeServerIds)
+            {
+                await PlaytimeServerLock.AcquireAsync(context, serverId, operationCancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             var playtimeSessions = await context.PlayerSessions
                 .Where(s => s.PlayerId == playerId)
                 .ToListAsync(operationCancellationToken)

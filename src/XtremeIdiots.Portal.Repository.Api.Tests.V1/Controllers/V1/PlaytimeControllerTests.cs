@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -728,6 +729,180 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task DelayedJoinDoesNotMergeAcrossAcceptedLeaveBoundary()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-30);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(10), "guid-1")
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddMinutes(20), "guid-1")
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(30), "guid-1")
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1")
+            ]
+        });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(start, sessions[0].StartUtc);
+        Assert.Equal(start.AddMinutes(10), sessions[0].EndUtc);
+        Assert.True(sessions[0].IsFinal);
+        Assert.Equal(start.AddMinutes(20), sessions[1].StartUtc);
+        Assert.Equal(start.AddMinutes(30), sessions[1].EndUtc);
+        Assert.True(sessions[1].IsFinal);
+    }
+
+    [Fact]
+    public async Task UnresolvedLeaveWithoutGamePlayerIdDoesNotCloseNewSession()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddMinutes(10), null) with { CanonicalPlayerId = null }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, null)
+            ]
+        });
+
+        var session = await context.PlayerSessions.SingleAsync();
+        Assert.Equal(start, session.StartUtc);
+        Assert.Null(session.EndUtc);
+        Assert.False(session.IsFinal);
+    }
+
+    [Fact]
+    public async Task DelayedJoinEnrichmentDoesNotShortenFinalSessionClosure()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        context.PlayerSessions.Add(new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            ServerId = serverId,
+            ConnectionCorrelationId = correlationId,
+            GameType = (int)GameType.CallOfDuty4,
+            GamePlayerId = "guid-1",
+            StartUtc = start,
+            EndUtc = start.AddMinutes(20),
+            LastConfirmedUtc = start,
+            StartQuality = (byte)PlaytimeTimestampQuality.ProducerTimestamp,
+            EndQuality = (byte)PlaytimeTimestampQuality.ProducerTimestamp,
+            ClosureReason = 1,
+            IsFinal = true
+        });
+        context.PlaytimeObservations.Add(new PlaytimeObservation
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            Kind = (byte)PlaytimeObservationKind.PlayerLeft,
+            EventUtc = start.AddMinutes(10),
+            ReceivedUtc = DateTime.UtcNow,
+            TimestampQuality = (byte)PlaytimeTimestampQuality.ProducerTimestamp,
+            ConnectionCorrelationId = correlationId,
+            CanonicalPlayerId = playerId,
+            GamePlayerId = "guid-1",
+            PayloadHash = new byte[32],
+            Outcome = (byte)PlaytimeObservationOutcome.Accepted
+        });
+        await context.SaveChangesAsync();
+
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddMinutes(5), "guid-1") with { ConnectionCorrelationId = correlationId }
+            ]
+        });
+
+        var session = await context.PlayerSessions.SingleAsync();
+        Assert.Equal(start.AddMinutes(20), session.EndUtc);
+        Assert.Equal((byte)1, session.ClosureReason);
+        Assert.True(session.IsFinal);
+    }
+
+    [Fact]
+    public async Task ObservationHashDoesNotCollideAcrossDelimitedFields()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var observationId = Guid.NewGuid();
+        var timestamp = DateTime.UtcNow.AddMinutes(-10);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var first = Observation(serverId, playerId, observationId, PlaytimeObservationKind.PlayerJoined,
+            timestamp, "a|1|b", "c") with
+        { SlotId = 2 };
+        var collidingPayload = Observation(serverId, playerId, observationId, PlaytimeObservationKind.PlayerJoined,
+            timestamp, "a", "b|2|c") with
+        { SlotId = 1 };
+
+        var accepted = await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [first]
+        });
+        var replay = await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [collidingPayload]
+        });
+
+        Assert.Equal(PlaytimeObservationOutcome.Accepted, accepted.Result?.Data?.Items.Single().Outcome);
+        Assert.Equal(PlaytimeObservationOutcome.Rejected, replay.Result?.Data?.Items.Single().Outcome);
+    }
+
+    [Fact]
     public async Task DelayedUncorrelatedLeaveCorrectsRosterInferredClosure()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -869,6 +1044,103 @@ public class PlaytimeControllerTests
             GameType.CallOfDuty4,
             "My Map");
         Assert.Equal(600, mapTotals.Result?.Data?.MeasuredSeconds);
+    }
+
+    [Fact]
+    public async Task MaplessRosterSequenceDoesNotSuppressMapEvidenceAtSameTimestamp()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var timestamp = DateTime.UtcNow.AddMinutes(-10);
+        var epoch = Guid.NewGuid();
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.ServerRoster,
+                    timestamp, null) with
+                {
+                    ProducerEpoch = epoch,
+                    ProducerSequence = 2,
+                    RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+                    Roster = []
+                }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.MapChanged,
+                    timestamp, null, "mp_a") with
+                {
+                    ProducerEpoch = epoch,
+                    ProducerSequence = 1
+                }
+            ]
+        });
+
+        var run = await context.ServerMapRuns.SingleAsync();
+        Assert.Equal("mp_a", run.NormalizedMapKey);
+    }
+
+    [Fact]
+    public async Task DelayedMapChangeReplaysLaterSameMapRosterConfirmation()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-30);
+        var epoch = Guid.NewGuid();
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.MapChanged,
+                    start, null, "mp_a") with { ProducerEpoch = epoch, ProducerSequence = 1 }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.ServerRoster,
+                    start.AddMinutes(10), null, "mp_a") with
+                {
+                    ProducerEpoch = epoch,
+                    ProducerSequence = 3,
+                    RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+                    Roster = []
+                }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.MapChanged,
+                    start.AddMinutes(5), null, "mp_b") with { ProducerEpoch = epoch, ProducerSequence = 2 }
+            ]
+        });
+
+        var runs = await context.ServerMapRuns.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(3, runs.Count);
+        Assert.Equal("mp_a", runs[0].NormalizedMapKey);
+        Assert.Equal(start, runs[0].StartUtc);
+        Assert.Equal(start.AddMinutes(5), runs[0].EndUtc);
+        Assert.Equal("mp_b", runs[1].NormalizedMapKey);
+        Assert.Equal(start.AddMinutes(5), runs[1].StartUtc);
+        Assert.Equal(start.AddMinutes(10), runs[1].EndUtc);
+        Assert.Equal("mp_a", runs[2].NormalizedMapKey);
+        Assert.Equal(start.AddMinutes(10), runs[2].StartUtc);
+        Assert.Null(runs[2].EndUtc);
     }
 
     [Fact]
@@ -1707,6 +1979,88 @@ public class PlaytimeControllerTests
             GameType.CallOfDuty4x,
             "mp_test");
         Assert.Equal(600, totals.Result?.Data?.MeasuredSeconds);
+    }
+
+    [Fact]
+    public async Task RedactedDuplicateReplayEnrichesOnlyRetainedRosterEntries()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var deletedPlayerId = Guid.NewGuid();
+        var retainedPlayerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, deletedPlayerId, serverId);
+        context.Players.Add(new Player
+        {
+            PlayerId = retainedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Retained",
+            Guid = "guid-retained",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        context.SaveChanges();
+
+        var observation = new PlaytimeObservationDto
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = DateTime.UtcNow.AddMinutes(-10),
+            TimestampQuality = PlaytimeTimestampQuality.ProducerTimestamp,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto
+                {
+                    GamePlayerId = "guid-1",
+                    SlotId = 1,
+                    CanonicalPlayerId = deletedPlayerId
+                },
+                new PlaytimeRosterPlayerDto
+                {
+                    GamePlayerId = "guid-retained",
+                    SlotId = 2
+                }
+            ]
+        };
+        var playtimeApi = (IPlaytimeApi)new PlaytimeController(context);
+        var firstSubmission = await playtimeApi.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [observation]
+        });
+        var deleteApi = (IDataMaintenanceApi)new DataMaintenanceController(
+            context,
+            new ConfigurationBuilder().Build());
+        var deletion = await deleteApi.DeletePlayer(deletedPlayerId);
+        var sourceRoster = observation.Roster!;
+        var replay = observation with
+        {
+            Roster =
+            [
+                sourceRoster[0],
+                sourceRoster[1] with { CanonicalPlayerId = retainedPlayerId }
+            ]
+        };
+        var replayResult = await ((IPlaytimeApi)new PlaytimeController(context))
+            .BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [replay]
+            });
+
+        Assert.Equal(PlaytimeObservationOutcome.Accepted,
+            firstSubmission.Result?.Data?.Items.Single().Outcome);
+        Assert.Equal(HttpStatusCode.OK, deletion.StatusCode);
+        Assert.Equal(PlaytimeObservationOutcome.Duplicate,
+            replayResult.Result?.Data?.Items.Single().Outcome);
+        Assert.True(context.PlaytimeObservations.Single().IdentifiersRedacted);
+        var resolvedRosterJson = context.PlaytimeObservations.Single().ResolvedRosterJson!;
+        Assert.Contains("guid-retained", resolvedRosterJson, StringComparison.Ordinal);
+        Assert.Contains(retainedPlayerId.ToString(), resolvedRosterJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("guid-1", resolvedRosterJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(deletedPlayerId.ToString(), resolvedRosterJson, StringComparison.Ordinal);
+        var retainedSession = Assert.Single(await context.PlayerSessions.ToListAsync());
+        Assert.Equal(retainedPlayerId, retainedSession.PlayerId);
     }
 
     private static void AddPlayerAndServer(PortalDbContext context, Guid playerId, Guid serverId)
