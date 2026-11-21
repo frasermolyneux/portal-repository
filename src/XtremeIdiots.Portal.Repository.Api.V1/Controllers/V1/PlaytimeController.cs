@@ -1047,14 +1047,39 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         if (session is null)
         {
             var openSessions = context.PlayerSessions
-                .Where(x => x.PlayerId == playerId && x.ServerId == serverId && x.EndUtc == null);
+                .Where(x => x.PlayerId == playerId &&
+                            x.ServerId == serverId &&
+                            x.EndUtc == null &&
+                            x.StartUtc <= eventUtc);
             if (connectionCorrelationId is not null)
             {
                 openSessions = openSessions.Where(x =>
                     x.ConnectionCorrelationId == null ||
                     x.ConnectionCorrelationId == connectionCorrelationId);
             }
-            session = await openSessions.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+            session = await openSessions
+                .OrderByDescending(x => x.StartUtc)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        if (session is null && connectionCorrelationId is null)
+        {
+            var correctionStartUtc = eventUtc.Subtract(LateEventThreshold);
+            var latestSession = await context.PlayerSessions
+                .Where(x => x.PlayerId == playerId &&
+                            x.ServerId == serverId &&
+                            x.StartUtc <= eventUtc)
+                .OrderByDescending(x => x.StartUtc)
+                .ThenByDescending(x => x.SessionId)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (latestSession?.EndUtc is not null &&
+                latestSession.LastConfirmedUtc >= correctionStartUtc &&
+                !latestSession.IsFinal &&
+                latestSession.ClosureReason is 2 or 3)
+            {
+                session = latestSession;
+            }
         }
         if (session is null)
         {
@@ -1150,7 +1175,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             }
         }
 
-        var identityIncomplete = observation.Roster?.Any(x => x.CanonicalPlayerId is null) == true;
+        var identityIncomplete = observation.Roster?.Any(x => x.CanonicalPlayerId is null && x.IsBot != true) == true;
         if (stale ||
             observation.RosterCompleteness != PlaytimeRosterCompleteness.Complete ||
             identityIncomplete)
