@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Extensions.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
@@ -52,6 +53,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         {
             return new ApiResult<PlaytimeObservationBatchResultDto>(HttpStatusCode.BadRequest);
         }
+        if (dto.Observations.Any(x => x is null))
+        {
+            return new ApiResult<PlaytimeObservationBatchResultDto>(HttpStatusCode.BadRequest);
+        }
 
         var items = new List<PlaytimeObservationItemResultDto>(dto.Observations.Count);
         var strategy = context.Database.CreateExecutionStrategy();
@@ -71,6 +76,18 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
             foreach (var observation in dto.Observations)
             {
+                if (observation.Roster is not null &&
+                    (observation.Roster.Any(x => x is null ||
+                                                 string.IsNullOrWhiteSpace(x.GamePlayerId) ||
+                                                 x.GamePlayerId.Length > 50) ||
+                     observation.Roster.GroupBy(x => (x.GamePlayerId, x.SlotId)).Any(x => x.Count() > 1)))
+                {
+                    items.Add(Rejected(
+                        observation.ObservationId,
+                        "Roster entries must have unique game-player/slot identities with supported lengths."));
+                    continue;
+                }
+
                 var now = DateTime.UtcNow;
                 var hash = ComputeHash(observation);
                 var existing = await context.PlaytimeObservations
@@ -107,6 +124,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         items[^1] = Rejected(
                             observation.ObservationId,
                             "Canonical player is unknown or belongs to another game.");
+                        continue;
+                    }
+                    if (outcome == PlaytimeObservationOutcome.Duplicate && existing.IdentifiersRedacted)
+                    {
                         continue;
                     }
                     if (outcome == PlaytimeObservationOutcome.Duplicate)
@@ -241,12 +262,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     items.Add(Rejected(observation.ObservationId, "Canonical player is unknown or belongs to another game."));
                     continue;
                 }
-                if ((observation.Roster ?? []).Any(x => x.GamePlayerId?.Length > 50))
-                {
-                    items.Add(Rejected(observation.ObservationId, "Roster GamePlayerId exceeds the supported length."));
-                    continue;
-                }
-
                 if (observation.ProducerEpoch is not null && observation.ProducerSequence is not null)
                 {
                     var sequenceExists = await context.PlaytimeObservations
@@ -358,13 +373,38 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .ToListAsync()
             .ConfigureAwait(false);
 
+        var knownSegments = new List<(Guid SessionId, DateTime StartUtc, DateTime EndUtc)>();
+        if (sessions.Count > 0)
+        {
+            var segmentRows = await context.PlayerSessionMapSegments
+                .AsNoTracking()
+                .Where(x => !x.UnknownMap && sessions.Select(s => s.SessionId).Contains(x.SessionId))
+                .Select(x => new { x.SessionId, x.StartUtc, x.EndUtc })
+                .ToListAsync()
+                .ConfigureAwait(false);
+            knownSegments.AddRange(segmentRows.Select(x => (x.SessionId, x.StartUtc, x.EndUtc)));
+        }
+
+        var sessionsById = sessions.ToDictionary(x => x.SessionId);
+        var measuredBySession = knownSegments
+            .GroupBy(x => x.SessionId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Sum(segment =>
+                {
+                    var session = sessionsById[group.Key];
+                    var start = segment.StartUtc > session.StartUtc ? segment.StartUtc : session.StartUtc;
+                    var sessionEnd = session.EndUtc ?? session.LastConfirmedUtc;
+                    var end = segment.EndUtc < sessionEnd ? segment.EndUtc : sessionEnd;
+                    return end > start ? (long)Math.Floor((end - start).TotalSeconds) : 0;
+                }));
+
         var dto = new List<PlayerSessionDto>(sessions.Count);
         foreach (var session in sessions)
         {
-            var end = session.EndUtc ?? session.LastConfirmedUtc;
             var measured = session.IsBot == true
                 ? 0
-                : await GetSessionMeasuredSeconds(session.SessionId, session.StartUtc, end).ConfigureAwait(false);
+                : measuredBySession.GetValueOrDefault(session.SessionId);
             dto.Add(new PlayerSessionDto
             {
                 SessionId = session.SessionId,
@@ -425,7 +465,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         {
             var normalizedMapName = NormalizeMapKey(mapName);
             segments = segments.Where(x => !x.UnknownMap &&
-                ((x.MapRun!.Map != null && x.MapRun.Map.MapName == mapName) ||
+                ((x.MapRun!.Map != null &&
+                  (x.MapRun.Map.MapName == mapName || x.MapRun.Map.DisplayName == mapName)) ||
                  x.MapRun!.NormalizedMapKey == normalizedMapName));
         }
 
@@ -477,7 +518,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .MaxAsync()
             .ConfigureAwait(false);
 
-        var coverageFacts = await context.PlaytimeObservations
+        var coverageReports = await context.PlaytimeObservations
             .AsNoTracking()
             .Where(x => x.ProducerEpoch != null &&
                         (x.DroppedCapacityMax != null ||
@@ -485,27 +526,26 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                          x.DroppedAgeMax != null))
             .Where(x => (!serverId.HasValue || x.ServerId == serverId) &&
                         (!gameType.HasValue || x.GameType == (int)gameType))
+            .GroupBy(x => new { x.ServerId, ProducerEpoch = x.ProducerEpoch!.Value })
+            .Select(group => new PlaytimeCoverageReportDto
+            {
+                ServerId = group.Key.ServerId,
+                ProducerEpoch = group.Key.ProducerEpoch,
+                ProducerStartedUtc = group
+                        .OrderByDescending(x => x.EventUtc)
+                        .ThenByDescending(x => x.ObservationId)
+                        .Select(x => x.ProducerStartedUtc)
+                        .FirstOrDefault(),
+                ReportedUtc = group.Max(x => x.EventUtc),
+                DroppedCapacityMax = group.Max(x => x.DroppedCapacityMax ?? 0),
+                DroppedAttemptsMax = group.Max(x => x.DroppedAttemptsMax ?? 0),
+                DroppedAgeMax = group.Max(x => x.DroppedAgeMax ?? 0)
+            })
             .ToListAsync()
             .ConfigureAwait(false);
-        var coverageReports = coverageFacts
-            .GroupBy(x => x.ProducerEpoch!.Value)
-            .Select(group =>
-            {
-                var latest = group
-                    .OrderByDescending(x => x.EventUtc)
-                    .ThenByDescending(x => x.ObservationId)
-                    .First();
-                return new PlaytimeCoverageCountersDto
-                {
-                    ProducerEpoch = group.Key,
-                    ProducerStartedUtc = latest.ProducerStartedUtc,
-                    ReportedUtc = latest.EventUtc,
-                    DroppedCapacityMax = group.Max(x => x.DroppedCapacityMax ?? 0),
-                    DroppedAttemptsMax = group.Max(x => x.DroppedAttemptsMax ?? 0),
-                    DroppedAgeMax = group.Max(x => x.DroppedAgeMax ?? 0)
-                };
-            })
+        coverageReports = coverageReports
             .OrderBy(x => x.ReportedUtc)
+            .ThenBy(x => x.ServerId)
             .ThenBy(x => x.ProducerEpoch)
             .ToList();
 
@@ -560,7 +600,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
     }
 
-    private async Task EnsureSession(Guid playerId, PlaytimeObservationDto observation, DateTime eventUtc)
+    private async Task EnsureSession(
+        Guid playerId,
+        PlaytimeObservationDto observation,
+        DateTime eventUtc,
+        bool allowCreate = true)
     {
         PlayerSession? correlated = null;
         if (observation.ConnectionCorrelationId is Guid correlationId)
@@ -583,13 +627,22 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
         if (correlated is null && !string.IsNullOrWhiteSpace(observation.GamePlayerId))
         {
-            correlated = await context.PlayerSessions
+            var matchingGamePlayerSessions = context.PlayerSessions
                 .Where(x => x.PlayerId == playerId &&
                             x.ServerId == observation.ServerId &&
-                            x.GamePlayerId == observation.GamePlayerId &&
-                            x.StartUtc <= eventUtc &&
-                            (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc)
+                            x.GamePlayerId == observation.GamePlayerId);
+            correlated = await matchingGamePlayerSessions
+                .Where(x => x.StartUtc <= eventUtc &&
+                            (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc &&
+                            (observation.ConnectionCorrelationId == null ||
+                             x.ConnectionCorrelationId == null ||
+                             x.ConnectionCorrelationId == observation.ConnectionCorrelationId))
                 .OrderByDescending(x => x.StartUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+            correlated ??= await matchingGamePlayerSessions
+                .Where(x => x.StartUtc > eventUtc && x.StartUtc <= eventUtc.Add(LateEventThreshold))
+                .OrderBy(x => x.StartUtc)
                 .FirstOrDefaultAsync()
                 .ConfigureAwait(false);
         }
@@ -608,12 +661,74 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 ? correlated.LastConfirmedUtc
                 : eventUtc;
             await RebuildSegments(correlated).ConfigureAwait(false);
+            await ApplyRetainedLeave(playerId, observation, correlated).ConfigureAwait(false);
+            return;
+        }
+
+        if (!allowCreate)
+        {
+            if (correlated is not null)
+            {
+                if (eventUtc < correlated.StartUtc)
+                {
+                    correlated.StartUtc = eventUtc;
+                    correlated.StartQuality = (byte)observation.TimestampQuality;
+                }
+                if (observation.IsBot is not null && correlated.IsBot is null)
+                {
+                    correlated.IsBot = observation.IsBot;
+                }
+                await RebuildSegments(correlated).ConfigureAwait(false);
+            }
             return;
         }
 
         var open = await context.PlayerSessions
             .FirstOrDefaultAsync(x => x.PlayerId == playerId && x.ServerId == observation.ServerId && x.EndUtc == null)
             .ConfigureAwait(false);
+        if (open is null)
+        {
+            var inferredQuery = context.PlayerSessions
+                .Where(x => x.PlayerId == playerId &&
+                            x.ServerId == observation.ServerId &&
+                            x.EndUtc != null &&
+                            x.ClosureReason == 3 &&
+                            !x.IsFinal &&
+                            x.EndUtc < eventUtc &&
+                            x.EndUtc >= eventUtc.Subtract(ReconnectGapThreshold));
+            if (observation.ConnectionCorrelationId is Guid inferredCorrelationId)
+            {
+                inferredQuery = inferredQuery.Where(x => x.ConnectionCorrelationId == inferredCorrelationId);
+            }
+            else if (!string.IsNullOrWhiteSpace(observation.GamePlayerId))
+            {
+                inferredQuery = inferredQuery.Where(x =>
+                    x.ConnectionCorrelationId == null && x.GamePlayerId == observation.GamePlayerId);
+            }
+            else
+            {
+                inferredQuery = inferredQuery.Where(_ => false);
+            }
+
+            var inferred = await inferredQuery
+                .OrderByDescending(x => x.EndUtc)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+            if (inferred is not null)
+            {
+                inferred.EndUtc = null;
+                inferred.EndQuality = null;
+                inferred.ClosureReason = null;
+                inferred.IsFinal = false;
+                inferred.LastConfirmedUtc = eventUtc;
+                inferred.IsBot ??= observation.IsBot;
+                inferred.GamePlayerId ??= observation.GamePlayerId;
+                await RebuildSegments(inferred).ConfigureAwait(false);
+                await ApplyRetainedLeave(playerId, observation, inferred).ConfigureAwait(false);
+                return;
+            }
+        }
+
         if (open is not null)
         {
             if (observation.IsBot is not null && open.IsBot is null)
@@ -621,9 +736,18 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 open.IsBot = observation.IsBot;
             }
 
-            var sustainedGap = eventUtc - open.LastConfirmedUtc > ReconnectGapThreshold;
-            if (sustainedGap)
+            var changedKnownConnection = observation.ConnectionCorrelationId is not null &&
+                                         open.ConnectionCorrelationId is not null &&
+                                         observation.ConnectionCorrelationId != open.ConnectionCorrelationId;
+            if (changedKnownConnection)
             {
+                if (eventUtc < open.StartUtc)
+                {
+                    await CreateHistoricalSession(playerId, observation, eventUtc, open.StartUtc)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
                 open.EndUtc = open.LastConfirmedUtc;
                 open.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
                 open.ClosureReason = 3;
@@ -632,14 +756,29 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             }
             else
             {
-                if (eventUtc < open.StartUtc)
+                var sustainedGap = eventUtc - open.LastConfirmedUtc > ReconnectGapThreshold;
+                if (sustainedGap)
                 {
-                    open.StartUtc = eventUtc;
-                    open.StartQuality = (byte)observation.TimestampQuality;
+                    open.EndUtc = open.LastConfirmedUtc;
+                    open.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
+                    open.ClosureReason = 3;
+                    open.IsFinal = false;
+                    await RebuildSegments(open).ConfigureAwait(false);
                 }
-                open.LastConfirmedUtc = open.LastConfirmedUtc > eventUtc ? open.LastConfirmedUtc : eventUtc;
-                await RebuildSegments(open).ConfigureAwait(false);
-                return;
+                else
+                {
+                    if (eventUtc < open.StartUtc)
+                    {
+                        open.StartUtc = eventUtc;
+                        open.StartQuality = (byte)observation.TimestampQuality;
+                    }
+                    open.LastConfirmedUtc = open.LastConfirmedUtc > eventUtc ? open.LastConfirmedUtc : eventUtc;
+                    open.ConnectionCorrelationId ??= observation.ConnectionCorrelationId;
+                    open.GamePlayerId ??= observation.GamePlayerId;
+                    await RebuildSegments(open).ConfigureAwait(false);
+                    await ApplyRetainedLeave(playerId, observation, open).ConfigureAwait(false);
+                    return;
+                }
             }
         }
 
@@ -659,6 +798,72 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         };
         context.PlayerSessions.Add(session);
         await context.SaveChangesAsync().ConfigureAwait(false);
+        await RebuildSegments(session).ConfigureAwait(false);
+        await ApplyRetainedLeave(playerId, observation, session).ConfigureAwait(false);
+    }
+
+    private async Task CreateHistoricalSession(
+        Guid playerId,
+        PlaytimeObservationDto observation,
+        DateTime startUtc,
+        DateTime endUtc)
+    {
+        var session = new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            ServerId = observation.ServerId,
+            ConnectionCorrelationId = observation.ConnectionCorrelationId,
+            GameType = (int)observation.GameType,
+            GamePlayerId = observation.GamePlayerId,
+            IsBot = observation.IsBot,
+            StartUtc = startUtc,
+            LastConfirmedUtc = startUtc,
+            EndUtc = endUtc,
+            StartQuality = (byte)observation.TimestampQuality,
+            EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp,
+            ClosureReason = 3,
+            IsFinal = false
+        };
+        context.PlayerSessions.Add(session);
+        await context.SaveChangesAsync().ConfigureAwait(false);
+        await RebuildSegments(session).ConfigureAwait(false);
+        await ApplyRetainedLeave(playerId, observation, session).ConfigureAwait(false);
+    }
+
+    private async Task ApplyRetainedLeave(
+        Guid playerId,
+        PlaytimeObservationDto join,
+        PlayerSession session)
+    {
+        var leaves = context.PlaytimeObservations
+            .AsNoTracking()
+            .Where(x => x.ServerId == session.ServerId &&
+                        x.Kind == (byte)PlaytimeObservationKind.PlayerLeft &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        x.EventUtc > session.StartUtc &&
+                        x.EventUtc <= session.StartUtc.Add(LateEventThreshold) &&
+                        x.ConnectionCorrelationId == session.ConnectionCorrelationId &&
+                        (x.CanonicalPlayerId == playerId ||
+                         (x.CanonicalPlayerId == null && x.GamePlayerId == join.GamePlayerId)));
+        var leave = await leaves
+            .OrderBy(x => x.EventUtc)
+            .ThenBy(x => x.ObservationId)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+        if (leave is null)
+        {
+            return;
+        }
+
+        var endUtc = leave.EventUtc > session.LastConfirmedUtc
+            ? leave.EventUtc
+            : session.LastConfirmedUtc;
+        session.EndUtc = endUtc;
+        session.EndQuality = leave.TimestampQuality;
+        session.ClosureReason = 1;
+        session.IsFinal = true;
+        session.IsBot ??= leave.IsBot;
         await RebuildSegments(session).ConfigureAwait(false);
     }
 
@@ -681,9 +886,18 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .FirstOrDefaultAsync()
                 .ConfigureAwait(false)
             : null;
-        session ??= await context.PlayerSessions
-            .FirstOrDefaultAsync(x => x.PlayerId == playerId && x.ServerId == serverId && x.EndUtc == null)
-            .ConfigureAwait(false);
+        if (session is null)
+        {
+            var openSessions = context.PlayerSessions
+                .Where(x => x.PlayerId == playerId && x.ServerId == serverId && x.EndUtc == null);
+            if (connectionCorrelationId is not null)
+            {
+                openSessions = openSessions.Where(x =>
+                    x.ConnectionCorrelationId == null ||
+                    x.ConnectionCorrelationId == connectionCorrelationId);
+            }
+            session = await openSessions.FirstOrDefaultAsync().ConfigureAwait(false);
+        }
         if (session is null)
         {
             return;
@@ -747,10 +961,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return;
         }
 
-        if (await IsStaleRosterObservation(observation, eventUtc).ConfigureAwait(false))
-        {
-            return;
-        }
+        var stale = await IsStaleRosterObservation(observation, eventUtc).ConfigureAwait(false);
 
         var ids = observation.Roster?
             .Where(x => x.CanonicalPlayerId is not null)
@@ -769,12 +980,15 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         SlotId = player.SlotId,
                         IsBot = player.IsBot
                     },
-                    eventUtc).ConfigureAwait(false);
+                    eventUtc,
+                    allowCreate: !stale).ConfigureAwait(false);
             }
         }
 
         var identityIncomplete = observation.Roster?.Any(x => x.CanonicalPlayerId is null) == true;
-        if (observation.RosterCompleteness != PlaytimeRosterCompleteness.Complete || identityIncomplete)
+        if (stale ||
+            observation.RosterCompleteness != PlaytimeRosterCompleteness.Complete ||
+            identityIncomplete)
         {
             return;
         }
@@ -809,6 +1023,22 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return;
         }
 
+        if (observation.ProducerEpoch is Guid producerEpoch &&
+            observation.ProducerSequence is long producerSequence &&
+            await context.PlaytimeObservations
+                .AsNoTracking()
+                .AnyAsync(x => x.ServerId == observation.ServerId &&
+                               x.EventUtc == eventUtc &&
+                               x.ProducerEpoch == producerEpoch &&
+                               x.ProducerSequence > producerSequence &&
+                               x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                               (x.Kind == (byte)PlaytimeObservationKind.MapChanged ||
+                                x.Kind == (byte)PlaytimeObservationKind.ServerRoster))
+                .ConfigureAwait(false))
+        {
+            return;
+        }
+
         var normalized = NormalizeMapKey(observation.MapName);
         var activeRun = await context.ServerMapRuns
             .Where(x => x.ServerId == observation.ServerId &&
@@ -823,9 +1053,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return;
         }
 
+        var mapGameType = (int)observation.GameType.GetMapGameType();
         var map = await context.Maps
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.GameType == (int)observation.GameType &&
+            .FirstOrDefaultAsync(x => x.GameType == mapGameType &&
                                       (x.MapName == observation.MapName || x.DisplayName == observation.MapName))
             .ConfigureAwait(false);
 
@@ -976,25 +1207,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
     }
 
-    private async Task<long> GetSessionMeasuredSeconds(Guid sessionId, DateTime start, DateTime end)
-    {
-        var segments = await context.PlayerSessionMapSegments
-            .AsNoTracking()
-            .Where(x => x.SessionId == sessionId && !x.UnknownMap)
-            .ToListAsync().ConfigureAwait(false);
-        long seconds = 0;
-        foreach (var segment in segments)
-        {
-            var from = segment.StartUtc > start ? segment.StartUtc : start;
-            var to = segment.EndUtc < end ? segment.EndUtc : end;
-            if (to > from)
-            {
-                seconds += (long)Math.Floor((to - from).TotalSeconds);
-            }
-        }
-        return seconds;
-    }
-
     private static PlaytimeObservationItemResultDto Rejected(Guid id, string reason) => new()
     {
         ObservationId = id,
@@ -1049,9 +1261,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         IReadOnlyCollection<RosterResolution> previous,
         IReadOnlyCollection<PlaytimeRosterPlayerDto> incoming)
     {
-        var merged = previous.ToDictionary(
-            x => (x.GamePlayerId, x.SlotId),
-            x => x);
+        var merged = previous
+            .GroupBy(x => (x.GamePlayerId, x.SlotId))
+            .ToDictionary(x => x.Key, x => x.Last());
 
         foreach (var player in incoming)
         {
@@ -1091,7 +1303,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return false;
         }
 
-        var prior = previous.ToDictionary(x => (x.GamePlayerId, x.SlotId), x => x);
+        var prior = previous
+            .GroupBy(x => (x.GamePlayerId, x.SlotId))
+            .ToDictionary(x => x.Key, x => x.Last());
         foreach (var resolution in merged)
         {
             if (!prior.TryGetValue((resolution.GamePlayerId, resolution.SlotId), out var existing))
@@ -1121,7 +1335,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return true;
         }
 
-        var previous = previousRoster.ToDictionary(x => (x.GamePlayerId, x.SlotId));
+        var previous = previousRoster
+            .GroupBy(x => (x.GamePlayerId, x.SlotId))
+            .ToDictionary(x => x.Key, x => x.Last());
         return incoming.Roster?.Any(player =>
             previous.TryGetValue((player.GamePlayerId, player.SlotId), out var resolved) &&
             ((resolved.CanonicalPlayerId is not null &&

@@ -8,6 +8,7 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using System.Text;
+using System.Text.Json;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -96,6 +97,13 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 .Where(s => playtimeSessionIds.Contains(s.SessionId))
                 .ToListAsync(operationCancellationToken)
                 .ConfigureAwait(false);
+            var playtimeObservations = await context.PlaytimeObservations
+                .Where(o => o.CanonicalPlayerId == playerId ||
+                            (player.Guid != null && o.GamePlayerId == player.Guid) ||
+                            (o.ResolvedRosterJson != null &&
+                             o.ResolvedRosterJson.Contains(playerId.ToString())))
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -110,6 +118,41 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
             context.PlayerSessionMapSegments.RemoveRange(playtimeSegments);
             context.PlayerSessions.RemoveRange(playtimeSessions);
+            foreach (var observation in playtimeObservations)
+            {
+                var redactCanonicalPlayer = observation.CanonicalPlayerId == playerId;
+                var redactObservationGamePlayer = player.Guid != null &&
+                                                  string.Equals(
+                                                      observation.GamePlayerId,
+                                                      player.Guid,
+                                                      StringComparison.OrdinalIgnoreCase);
+                var redactRosterIdentity = false;
+                var roster = string.IsNullOrWhiteSpace(observation.ResolvedRosterJson)
+                    ? []
+                    : JsonSerializer.Deserialize<List<PlaytimeRosterResolution>>(observation.ResolvedRosterJson) ?? [];
+                var redactedRoster = roster
+                    .Where(x => x.CanonicalPlayerId != playerId &&
+                                (player.Guid == null ||
+                                 !string.Equals(x.GamePlayerId, player.Guid, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                if (redactedRoster.Count != roster.Count)
+                {
+                    observation.ResolvedRosterJson = JsonSerializer.Serialize(redactedRoster);
+                    redactRosterIdentity = true;
+                }
+                if (redactCanonicalPlayer)
+                {
+                    observation.CanonicalPlayerId = null;
+                }
+                if (redactCanonicalPlayer || redactObservationGamePlayer)
+                {
+                    observation.GamePlayerId = null;
+                }
+                if (redactCanonicalPlayer || redactObservationGamePlayer || redactRosterIdentity)
+                {
+                    observation.IdentifiersRedacted = true;
+                }
+            }
             context.AdminActions.RemoveRange(adminActions);
             context.AutomationActionStates.RemoveRange(automationActionStates);
             context.ChatMessages.RemoveRange(chatMessages);
@@ -129,6 +172,14 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }, async operationCancellationToken => !await context.Players
             .AnyAsync(p => p.PlayerId == playerId, operationCancellationToken)
             .ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed class PlaytimeRosterResolution
+    {
+        public string GamePlayerId { get; set; } = string.Empty;
+        public int SlotId { get; set; }
+        public Guid? CanonicalPlayerId { get; set; }
+        public bool? IsBot { get; set; }
     }
 
     /// <summary>

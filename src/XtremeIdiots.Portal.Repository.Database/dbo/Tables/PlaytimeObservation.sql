@@ -22,6 +22,7 @@ CREATE TABLE [dbo].[PlaytimeObservation]
     [ResolvedRosterJson] NVARCHAR(MAX) NULL,
     [ResolutionDeadlineUtc] DATETIME2 NULL,
     [RosterCompleteness] TINYINT NULL,
+    [IdentifiersRedacted] BIT NOT NULL CONSTRAINT [DF_PlaytimeObservation_IdentifiersRedacted] DEFAULT (0),
     [PayloadHash] VARBINARY(32) NOT NULL,
     [Outcome] TINYINT NOT NULL,
     [RejectionReason] NVARCHAR(512) NULL,

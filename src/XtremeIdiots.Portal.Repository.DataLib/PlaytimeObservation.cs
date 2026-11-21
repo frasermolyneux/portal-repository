@@ -59,6 +59,8 @@ public partial class PlaytimeObservation
 
     public byte? RosterCompleteness { get; set; }
 
+    public bool IdentifiersRedacted { get; set; }
+
     [MaxLength(32)]
     public byte[] PayloadHash { get; set; } = null!;
 

@@ -69,6 +69,17 @@ public record PlaytimeCoverageCountersDto
     [JsonProperty] public long DroppedAgeMax { get; init; }
 }
 
+public record PlaytimeCoverageReportDto
+{
+    [JsonProperty] public Guid ServerId { get; init; }
+    [JsonProperty] public Guid ProducerEpoch { get; init; }
+    [JsonProperty] public DateTime? ProducerStartedUtc { get; init; }
+    [JsonProperty] public DateTime ReportedUtc { get; init; }
+    [JsonProperty] public long DroppedCapacityMax { get; init; }
+    [JsonProperty] public long DroppedAttemptsMax { get; init; }
+    [JsonProperty] public long DroppedAgeMax { get; init; }
+}
+
 public record PlaytimeObservationBatchDto
 {
     [JsonProperty] public required IReadOnlyList<PlaytimeObservationDto> Observations { get; init; }
@@ -119,5 +130,5 @@ public record PlaytimeTotalsDto
     [JsonProperty] public Guid? ServerId { get; init; }
     [JsonProperty] public GameType? GameType { get; init; }
     [JsonProperty] public string? MapName { get; init; }
-    [JsonProperty] public IReadOnlyList<PlaytimeCoverageCountersDto> CoverageReports { get; init; } = [];
+    [JsonProperty] public IReadOnlyList<PlaytimeCoverageReportDto> CoverageReports { get; init; } = [];
 }

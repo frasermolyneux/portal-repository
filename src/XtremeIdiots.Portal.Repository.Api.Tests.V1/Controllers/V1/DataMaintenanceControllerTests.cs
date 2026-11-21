@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -119,6 +120,7 @@ public class DataMaintenanceControllerTests
             PlayerId = playerId,
             GameType = (int)GameType.CallOfDuty4,
             Username = "PlayerToDelete",
+            Guid = "deleted-game-id",
             FirstSeen = DateTime.UtcNow.AddMonths(-1),
             LastSeen = DateTime.UtcNow,
         });
@@ -128,6 +130,7 @@ public class DataMaintenanceControllerTests
             PlayerId = controlPlayerId,
             GameType = (int)GameType.CallOfDuty4,
             Username = "PlayerToKeep",
+            Guid = "control-game-id",
             FirstSeen = DateTime.UtcNow.AddMonths(-1),
             LastSeen = DateTime.UtcNow,
         });
@@ -270,6 +273,117 @@ public class DataMaintenanceControllerTests
             Closed = false,
         });
 
+        var playtimeSessionId = Guid.NewGuid();
+        context.PlayerSessions.Add(new PlayerSession
+        {
+            SessionId = playtimeSessionId,
+            PlayerId = playerId,
+            ServerId = gameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            ConnectionCorrelationId = Guid.NewGuid(),
+            GamePlayerId = "deleted-game-id",
+            StartUtc = DateTime.UtcNow.AddMinutes(-10),
+            LastConfirmedUtc = DateTime.UtcNow,
+            StartQuality = 2,
+            IsFinal = false
+        });
+        context.PlayerSessionMapSegments.Add(new PlayerSessionMapSegment
+        {
+            SegmentId = Guid.NewGuid(),
+            SessionId = playtimeSessionId,
+            StartUtc = DateTime.UtcNow.AddMinutes(-10),
+            EndUtc = DateTime.UtcNow,
+            UnknownMap = true
+        });
+        var redactedObservationId = Guid.NewGuid();
+        var unresolvedObservationId = Guid.NewGuid();
+        context.PlaytimeObservations.AddRange(
+            new PlaytimeObservation
+            {
+                ObservationId = redactedObservationId,
+                ServerId = gameServerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Kind = 4,
+                EventUtc = DateTime.UtcNow,
+                ReceivedUtc = DateTime.UtcNow,
+                TimestampQuality = 2,
+                CanonicalPlayerId = (Guid?)playerId,
+                GamePlayerId = "deleted-game-id",
+                ResolvedRosterJson = JsonSerializer.Serialize(new[]
+                {
+                    new
+                    {
+                        GamePlayerId = "deleted-game-id",
+                        SlotId = 1,
+                        CanonicalPlayerId = (Guid?)playerId,
+                        IsBot = false
+                    },
+                    new
+                    {
+                        GamePlayerId = "control-game-id",
+                        SlotId = 2,
+                        CanonicalPlayerId = (Guid?)controlPlayerId,
+                        IsBot = false
+                    }
+                }),
+                PayloadHash = new byte[32],
+                Outcome = 1
+            },
+            new PlaytimeObservation
+            {
+                ObservationId = unresolvedObservationId,
+                ServerId = gameServerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Kind = 1,
+                EventUtc = DateTime.UtcNow,
+                ReceivedUtc = DateTime.UtcNow,
+                TimestampQuality = 2,
+                GamePlayerId = "deleted-game-id",
+                ResolvedRosterJson = JsonSerializer.Serialize(new[]
+                {
+                    new
+                    {
+                        GamePlayerId = "deleted-game-id",
+                        SlotId = 1,
+                        CanonicalPlayerId = (Guid?)null,
+                        IsBot = false
+                    },
+                    new
+                    {
+                        GamePlayerId = "control-game-id",
+                        SlotId = 2,
+                        CanonicalPlayerId = (Guid?)controlPlayerId,
+                        IsBot = false
+                    }
+                }),
+                PayloadHash = new byte[32],
+                Outcome = 1
+            },
+            new PlaytimeObservation
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = gameServerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Kind = 4,
+                EventUtc = DateTime.UtcNow,
+                ReceivedUtc = DateTime.UtcNow,
+                TimestampQuality = 2,
+                CanonicalPlayerId = controlPlayerId,
+                GamePlayerId = "control-game-id",
+                ResolvedRosterJson = JsonSerializer.Serialize(new[]
+                {
+                    new
+                    {
+                        GamePlayerId = "control-game-id",
+                        SlotId = 2,
+                        CanonicalPlayerId = (Guid?)controlPlayerId,
+                        IsBot = false
+                    }
+                }),
+                PayloadHash = new byte[32],
+                Outcome = 1
+            });
+
         await context.SaveChangesAsync();
 
         var controller = CreateController(context);
@@ -290,6 +404,23 @@ public class DataMaintenanceControllerTests
         Assert.False(context.ProtectedNames.Any(n => n.PlayerId == playerId));
         Assert.False(context.RecentPlayers.Any(r => r.PlayerId == playerId));
         Assert.False(context.Reports.Any(r => r.PlayerId == playerId));
+        Assert.Empty(context.PlayerSessions);
+        Assert.Empty(context.PlayerSessionMapSegments);
+
+        var redactedObservation = context.PlaytimeObservations.Single(o => o.ObservationId == redactedObservationId);
+        Assert.Null(redactedObservation.GamePlayerId);
+        var redactedRoster = JsonSerializer.Deserialize<List<JsonElement>>(redactedObservation.ResolvedRosterJson!);
+        var retainedRosterEntry = Assert.Single(redactedRoster!);
+        Assert.Equal(controlPlayerId, retainedRosterEntry.GetProperty("CanonicalPlayerId").GetGuid());
+        var unresolvedObservation = context.PlaytimeObservations.Single(o => o.ObservationId == unresolvedObservationId);
+        Assert.True(unresolvedObservation.IdentifiersRedacted);
+        Assert.Null(unresolvedObservation.GamePlayerId);
+        var unresolvedRoster = JsonSerializer.Deserialize<List<JsonElement>>(unresolvedObservation.ResolvedRosterJson!);
+        var retainedUnresolvedRosterEntry = Assert.Single(unresolvedRoster!);
+        Assert.Equal("control-game-id", retainedUnresolvedRosterEntry.GetProperty("GamePlayerId").GetString());
+        var preservedObservation = context.PlaytimeObservations.Single(o => o.CanonicalPlayerId == controlPlayerId);
+        Assert.False(preservedObservation.IdentifiersRedacted);
+        Assert.Equal("control-game-id", preservedObservation.GamePlayerId);
 
         Assert.True(context.Players.Any(p => p.PlayerId == controlPlayerId));
         Assert.True(context.PlayerAliases.Any(a => a.PlayerId == controlPlayerId));

@@ -16,7 +16,7 @@ internal static class PlaytimeServerLock
         }
 
         var resource = $"playtime:{serverId:N}";
-        var result = await context.Database.SqlQuery<int>(
+        var results = await context.Database.SqlQuery<int>(
                 $"""
                  DECLARE @result int;
                  EXEC @result = sys.sp_getapplock
@@ -26,8 +26,9 @@ internal static class PlaytimeServerLock
                      @LockTimeout = 10000;
                  SELECT @result AS [Value];
                  """)
-            .SingleAsync(cancellationToken)
+            .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+        var result = results.Single();
 
         if (result < 0)
         {
