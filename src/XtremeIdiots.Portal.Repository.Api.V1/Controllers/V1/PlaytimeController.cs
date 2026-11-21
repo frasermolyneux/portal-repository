@@ -79,37 +79,28 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 {
                     var identityResolved = observation.CanonicalPlayerId is not null &&
                                            existing.CanonicalPlayerId is null;
-                    Guid? rosterResolution = null;
-                    if (observation.CanonicalPlayerId is null && existing.CanonicalPlayerId is null)
-                    {
-                        rosterResolution = observation.Roster?
-                            .Where(x => x.CanonicalPlayerId is not null)
-                            .Select(x => x.CanonicalPlayerId)
-                            .FirstOrDefault();
-                    }
-                    if (rosterResolution is not null)
-                    {
-                        identityResolved = true;
-                        existing.CanonicalPlayerId = rosterResolution;
-                    }
                     var botResolved = observation.IsBot is not null &&
                                       existing.IsBot is null;
+                    var rosterResolutionsChanged = false;
+                    if (observation.Roster is not null)
+                    {
+                        var previous = DeserializeRosterResolutions(existing.ResolvedRosterJson);
+                        var merged = MergeRosterResolutions(previous, observation.Roster);
+                        rosterResolutionsChanged = !AreRosterResolutionsEqual(previous, merged);
+                        existing.ResolvedRosterJson = SerializeRosterResolutions(merged);
+                    }
                     if (identityResolved)
                     {
                         if (observation.CanonicalPlayerId is not null)
                         {
                             existing.CanonicalPlayerId = observation.CanonicalPlayerId;
                         }
-                        else if (rosterResolution is not null)
-                        {
-                            existing.CanonicalPlayerId = rosterResolution;
-                        }
                     }
                     if (botResolved)
                     {
                         existing.IsBot = observation.IsBot;
                     }
-                    if (identityResolved || botResolved)
+                    if (identityResolved || botResolved || rosterResolutionsChanged)
                     {
                         await ReconcileObservation(observation, now).ConfigureAwait(false);
                         await context.SaveChangesAsync().ConfigureAwait(false);
@@ -214,6 +205,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 DroppedAttemptsMax = observation.Coverage?.DroppedAttemptsMax,
                 DroppedAgeMax = observation.Coverage?.DroppedAgeMax,
                 RosterCompleteness = (byte)observation.RosterCompleteness,
+                ResolvedRosterJson = SerializeRosterResolutions(
+                    observation.Roster?.Select(x => new RosterResolution
+                    {
+                        GamePlayerId = x.GamePlayerId,
+                        SlotId = x.SlotId,
+                        CanonicalPlayerId = x.CanonicalPlayerId,
+                        IsBot = x.IsBot
+                    }).ToList() ?? []),
                 PayloadHash = hash,
                 Outcome = (byte)PlaytimeObservationOutcome.Accepted
             };
@@ -796,6 +795,90 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     private static string NormalizeMapKey(string mapName) =>
         mapName.Trim().ToLowerInvariant().Replace(' ', '_');
 
+    private sealed record RosterResolution
+    {
+        public required string GamePlayerId { get; init; }
+        public int SlotId { get; init; }
+        public Guid? CanonicalPlayerId { get; init; }
+        public bool? IsBot { get; init; }
+    }
+
+    private static List<RosterResolution> DeserializeRosterResolutions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize<List<RosterResolution>>(json) ?? [];
+    }
+
+    private static List<RosterResolution> MergeRosterResolutions(
+        IReadOnlyCollection<RosterResolution> previous,
+        IReadOnlyCollection<PlaytimeRosterPlayerDto> incoming)
+    {
+        var merged = previous.ToDictionary(
+            x => (x.GamePlayerId, x.SlotId),
+            x => x);
+
+        foreach (var player in incoming)
+        {
+            var key = (player.GamePlayerId, player.SlotId);
+            if (merged.TryGetValue(key, out var existing))
+            {
+                merged[key] = existing with
+                {
+                    CanonicalPlayerId = existing.CanonicalPlayerId ?? player.CanonicalPlayerId,
+                    IsBot = existing.IsBot ?? player.IsBot
+                };
+            }
+            else
+            {
+                merged[key] = new RosterResolution
+                {
+                    GamePlayerId = player.GamePlayerId,
+                    SlotId = player.SlotId,
+                    CanonicalPlayerId = player.CanonicalPlayerId,
+                    IsBot = player.IsBot
+                };
+            }
+        }
+
+        return merged.Values
+            .OrderBy(x => x.SlotId)
+            .ThenBy(x => x.GamePlayerId)
+            .ToList();
+    }
+
+    private static bool AreRosterResolutionsEqual(
+        IReadOnlyCollection<RosterResolution> previous,
+        IReadOnlyCollection<RosterResolution> merged)
+    {
+        if (previous.Count != merged.Count)
+        {
+            return false;
+        }
+
+        var prior = previous.ToDictionary(x => (x.GamePlayerId, x.SlotId), x => x);
+        foreach (var resolution in merged)
+        {
+            if (!prior.TryGetValue((resolution.GamePlayerId, resolution.SlotId), out var existing))
+            {
+                return false;
+            }
+            if (existing.CanonicalPlayerId != resolution.CanonicalPlayerId ||
+                existing.IsBot != resolution.IsBot)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string SerializeRosterResolutions(IReadOnlyCollection<RosterResolution> resolutions) =>
+        JsonSerializer.Serialize(resolutions);
+
     private static byte[] ComputeHash(PlaytimeObservationDto observation)
     {
         var roster = observation.Roster is null
@@ -803,13 +886,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             : JsonSerializer.Serialize(observation.Roster.Select(x => new
             {
                 x.GamePlayerId,
-                x.SlotId,
-                x.IsBot
+                x.SlotId
             }));
         var coverage = observation.Coverage is null
             ? ""
             : $"{observation.Coverage.ProducerStartedUtc:O}|{observation.Coverage.DroppedCapacityMax}|{observation.Coverage.DroppedAttemptsMax}|{observation.Coverage.DroppedAgeMax}";
-        var payload = $"{observation.ObservationId}|{observation.ServerId}|{observation.GameType}|{observation.Kind}|{NormalizeUtc(observation.EventUtc):O}|{observation.TimestampQuality}|{observation.ProducerEpoch}|{observation.ProducerSequence}|{observation.ConnectionCorrelationId}|{observation.GamePlayerId}|{observation.SlotId}|{observation.MapName}|{observation.IsBot}|{observation.RosterCompleteness}|{roster}|{coverage}";
+        var payload = $"{observation.ObservationId}|{observation.ServerId}|{observation.GameType}|{observation.Kind}|{NormalizeUtc(observation.EventUtc):O}|{observation.TimestampQuality}|{observation.ProducerEpoch}|{observation.ProducerSequence}|{observation.ConnectionCorrelationId}|{observation.GamePlayerId}|{observation.SlotId}|{observation.MapName}|{observation.RosterCompleteness}|{roster}|{coverage}";
         return SHA256.HashData(Encoding.UTF8.GetBytes(payload));
     }
 }

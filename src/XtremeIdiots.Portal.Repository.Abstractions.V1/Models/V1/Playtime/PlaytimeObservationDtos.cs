@@ -14,11 +14,12 @@ public enum PlaytimeObservationKind
 public enum PlaytimeTimestampQuality
 {
     Unknown = 0,
-    ProducerTimestamp = 1,
-    RosterSnapshotTimestamp = 2,
-    InferredTimestamp = 3,
+    ParsedLogTimestamp = 1,
+    ProducerTimestamp = 2,
+    RosterSnapshotTimestamp = 3,
     /// <summary>Wall-clock time at which the agent parsed or observed a log event; not a gameplay timestamp.</summary>
-    ParseTime = 4
+    ParseTime = 4,
+    InferredTimestamp = 5
 }
 
 public enum PlaytimeRosterCompleteness

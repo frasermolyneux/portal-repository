@@ -53,6 +53,8 @@ public partial class PlaytimeObservation
 
     public long? DroppedAgeMax { get; set; }
 
+    public string? ResolvedRosterJson { get; set; }
+
     public byte? RosterCompleteness { get; set; }
 
     [MaxLength(32)]

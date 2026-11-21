@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 using XtremeIdiots.Portal.Repository.DataLib;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Services;
@@ -57,7 +58,7 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
         foreach (var session in stale)
         {
             session.EndUtc = session.LastConfirmedUtc;
-            session.EndQuality = 3;
+            session.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
             session.ClosureReason = 3;
             session.IsFinal = false;
             await RebuildSegments(context, session, cancellationToken).ConfigureAwait(false);

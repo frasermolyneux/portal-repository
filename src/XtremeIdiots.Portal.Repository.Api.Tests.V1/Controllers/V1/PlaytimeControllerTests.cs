@@ -449,6 +449,70 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task TwoRosterIdentityRetriesResolveSeparatelyWithoutRemint()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var player1 = Guid.NewGuid();
+        var player2 = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, player1, serverId);
+        context.Players.Add(new Player
+        {
+            PlayerId = player2,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Test 2",
+            Guid = "guid-2",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        context.SaveChanges();
+
+        var observationId = Guid.NewGuid();
+        var start = DateTime.UtcNow.AddMinutes(-5);
+        var unresolved = new PlaytimeObservationDto
+        {
+            ObservationId = observationId,
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = start,
+            TimestampQuality = PlaytimeTimestampQuality.ParseTime,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto { CanonicalPlayerId = null, GamePlayerId = "guid-1", SlotId = 1 },
+                new PlaytimeRosterPlayerDto { CanonicalPlayerId = null, GamePlayerId = "guid-2", SlotId = 2 }
+            ]
+        };
+        var controller = new PlaytimeController(context);
+        var api = (IPlaytimeApi)controller;
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [unresolved] });
+
+        var firstResolved = unresolved with
+        {
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto { CanonicalPlayerId = player1, GamePlayerId = "guid-1", SlotId = 1 },
+                new PlaytimeRosterPlayerDto { CanonicalPlayerId = null, GamePlayerId = "guid-2", SlotId = 2 }
+            ]
+        };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [firstResolved] });
+
+        var secondResolved = unresolved with
+        {
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto { CanonicalPlayerId = player1, GamePlayerId = "guid-1", SlotId = 1 },
+                new PlaytimeRosterPlayerDto { CanonicalPlayerId = player2, GamePlayerId = "guid-2", SlotId = 2 }
+            ]
+        };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [secondResolved] });
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [secondResolved] });
+
+        Assert.Equal(2, await context.PlayerSessions.CountAsync());
+    }
+
+    [Fact]
     public async Task ReplayAfterIdentityResolutionDoesNotConflictAndCreatesSession()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
