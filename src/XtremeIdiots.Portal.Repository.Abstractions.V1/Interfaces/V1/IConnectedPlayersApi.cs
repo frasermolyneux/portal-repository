@@ -13,6 +13,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
             ActivateConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken = default);
 
+        Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueConnectedPlayerClaimCode(
+            ActivateConnectedPlayerActivationCodeDto dto,
+            CancellationToken cancellationToken = default);
+
         Task<ApiResult<ConnectedPlayerActivationCodeDto>> GetActiveConnectedPlayerActivationCode(
             Guid userProfileId,
             CancellationToken cancellationToken = default);
@@ -20,6 +24,21 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
         Task<ApiResult<ConnectedPlayerDto>> ConsumeConnectedPlayerActivationCode(
             ConsumeConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken = default);
+
+        Task<ApiResult<ConnectedPlayerClaimDto>> SubmitConnectedPlayerClaim(
+            SubmitConnectedPlayerClaimDto dto, CancellationToken cancellationToken = default);
+
+        Task<ApiResult<CollectionModel<ConnectedPlayerClaimDto>>> GetPendingConnectedPlayerClaims(
+            Guid userProfileId, CancellationToken cancellationToken = default);
+
+        Task<ApiResult<ConnectedPlayerClaimDto>> ApproveConnectedPlayerClaim(
+            Guid userProfileId, Guid claimId, CancellationToken cancellationToken = default);
+
+        Task<ApiResult<ConnectedPlayerClaimDto>> DeclineConnectedPlayerClaim(
+            Guid userProfileId, Guid claimId, CancellationToken cancellationToken = default);
+
+        Task<ApiResult> UnlinkOwnConnectedPlayer(
+            Guid userProfileId, Guid connectedPlayerProfileId, CancellationToken cancellationToken = default);
 
         Task<ApiResult<CollectionModel<ConnectedPlayerDto>>> GetConnectedPlayersByUserProfile(
             Guid userProfileId,
