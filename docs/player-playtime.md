@@ -18,3 +18,11 @@ Expired retained roster payloads are cleared in batches of up to 250 per server 
 Coverage counters require a nonempty `Coverage.ProducerEpoch` matching the observation's `ProducerEpoch`, a `Coverage.ReportedUtc`, and nonnegative counters. The epoch and report timestamp are immutable on replay. Reports expose the latest producer-provided report or publish timestamp, which is not necessarily the counter capture time or repository receipt time.
 
 Player deletion coordinates with concurrent playtime ingestion for the player's game, including servers created during deletion. It redacts retained observations; it does not prevent later unresolved events from carrying the same game-player identifier.
+
+## Current sessions
+
+The service-account-only `POST v1/servers/{serverId}/playtime/current-sessions:batch` accepts `playerIds`, a nonempty list of up to 100 distinct canonical player IDs. It returns one entry per requested ID, in request order. Each entry has `playerId`, a string `status` (`Found`, `Unavailable`, or `Ambiguous`), and `session` only for a single valid open session that is not a known bot. An unknown server returns 404; invalid requests return 400.
+
+The session includes its ID, server, game, optional connection correlation ID, start and last-confirmed UTC timestamps, observed seconds, nullable bot classification, and start timestamp quality. Observed seconds run only from the start to the last confirmed presence, including unknown-map time; they do not advance with wall-clock time. This interval interpolates between observations, and a missed disconnect and reconnect can go undetected. An open session or recent confirmation does not by itself prove a roster entry belongs to that connection. Consumers must independently establish freshness and connection continuity, and treat missing, ambiguous, stale or otherwise unverified matches as unavailable.
+
+The per-player session endpoint retains its existing `MeasuredSeconds` meaning (known-map time); its additive `ObservedSeconds` and `LastConfirmedUtc` describe the full observed interval, including unknown-map time. Session list date filters select overlapping sessions; these fields are not clipped to the filter range. Known-bot durations remain excluded.

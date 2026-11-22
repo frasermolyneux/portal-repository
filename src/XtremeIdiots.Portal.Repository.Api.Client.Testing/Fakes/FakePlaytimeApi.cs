@@ -1,4 +1,5 @@
 using System.Net;
+using System.Collections.Concurrent;
 using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -8,6 +9,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 
 public class FakePlaytimeApi : IPlaytimeApi
 {
+    private readonly ConcurrentDictionary<(Guid ServerId, Guid PlayerId), CurrentPlayerSessionResultDto> currentSessions = new();
+
+    public FakePlaytimeApi SetCurrentSession(Guid serverId, CurrentPlayerSessionResultDto result)
+    {
+        currentSessions[(serverId, result.PlayerId)] = result;
+        return this;
+    }
+
+    public FakePlaytimeApi Reset()
+    {
+        currentSessions.Clear();
+        return this;
+    }
+
     public Task<ApiResult<PlaytimeObservationBatchResultDto>> BatchObservations(
         PlaytimeObservationBatchDto dto,
         CancellationToken cancellationToken = default)
@@ -60,5 +75,26 @@ public class FakePlaytimeApi : IPlaytimeApi
                 GameType = gameType,
                 MapName = mapName
             })));
+    }
+
+    public Task<ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>> GetCurrentSessions(
+        Guid serverId,
+        CurrentPlayerSessionsRequestDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (serverId == Guid.Empty || dto?.PlayerIds is null || dto.PlayerIds.Count is < 1 or > 100 ||
+            dto.PlayerIds.Any(x => x == Guid.Empty) || dto.PlayerIds.Distinct().Count() != dto.PlayerIds.Count)
+        {
+            return Task.FromResult(new ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>(HttpStatusCode.BadRequest));
+        }
+
+        IReadOnlyList<CurrentPlayerSessionResultDto> results = dto.PlayerIds
+            .Select(id => currentSessions.TryGetValue((serverId, id), out var result)
+                ? result
+                : new CurrentPlayerSessionResultDto { PlayerId = id, Status = CurrentPlayerSessionStatus.Unavailable })
+            .ToList();
+        return Task.FromResult(new ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>(
+            HttpStatusCode.OK, new ApiResponse<IReadOnlyList<CurrentPlayerSessionResultDto>>(results)));
     }
 }
