@@ -33,6 +33,9 @@ public partial class ConnectedPlayerProfile
 
     public bool IsActive { get; set; }
 
+    [InverseProperty("ConnectedPlayerProfile")]
+    public virtual ICollection<ConnectedPlayerClaim> ConnectedPlayerClaims { get; set; } = new List<ConnectedPlayerClaim>();
+
     [ForeignKey("LinkedByUserProfileId")]
     [InverseProperty("ConnectedPlayerProfileLinkedByUserProfiles")]
     public virtual UserProfile? LinkedByUserProfile { get; set; }

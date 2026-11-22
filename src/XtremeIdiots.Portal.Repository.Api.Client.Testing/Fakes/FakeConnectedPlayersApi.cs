@@ -13,6 +13,9 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
 {
     private readonly ConcurrentDictionary<Guid, ConnectedPlayerDto> _connectedPlayers = new();
     private readonly ConcurrentDictionary<Guid, ConnectedPlayerActivationCodeDto> _activationCodes = new();
+    private readonly ConcurrentDictionary<Guid, bool> _approvalCodes = new();
+    private readonly Dictionary<Guid, (ConnectedPlayerClaimDto Claim, string Code)> _claims = new();
+    private readonly object _claimLock = new();
 
     public FakeConnectedPlayersApi AddConnectedPlayer(ConnectedPlayerDto dto)
     {
@@ -24,6 +27,12 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
     {
         _connectedPlayers.Clear();
         _activationCodes.Clear();
+        _approvalCodes.Clear();
+        lock (_claimLock)
+        {
+            _claims.Clear();
+        }
+
         return this;
     }
 
@@ -54,29 +63,50 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
     public Task<ApiResult<ConnectedPlayerActivationCodeDto>> ActivateConnectedPlayerActivationCode(
         ActivateConnectedPlayerActivationCodeDto dto,
         CancellationToken cancellationToken = default)
+        => IssueCode(dto, false);
+
+    public Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueConnectedPlayerClaimCode(
+        ActivateConnectedPlayerActivationCodeDto dto, CancellationToken cancellationToken = default)
+        => IssueCode(dto, true);
+
+    private Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueCode(ActivateConnectedPlayerActivationCodeDto dto, bool approvalRequired)
     {
-        foreach (var existing in _activationCodes.Values.Where(x => x.UserProfileId == dto.UserProfileId && x.IsActive).ToList())
+        lock (_claimLock)
         {
-            _activationCodes[existing.ConnectedPlayerActivationCodeId] = existing with { IsActive = false };
+            var current = approvalRequired
+                ? _activationCodes.Values.FirstOrDefault(x => x.UserProfileId == dto.UserProfileId && x.IsActive && x.ExpiresAtUtc > DateTime.UtcNow
+                    && _approvalCodes.GetValueOrDefault(x.ConnectedPlayerActivationCodeId))
+                : null;
+            if (current is not null)
+            {
+                return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.OK, new ApiResponse<ConnectedPlayerActivationCodeDto>(current)));
+            }
+
+            foreach (var existing in _activationCodes.Values.Where(x => x.UserProfileId == dto.UserProfileId && x.IsActive).ToList())
+            {
+                _activationCodes[existing.ConnectedPlayerActivationCodeId] = existing with { IsActive = false };
+            }
+
+            var now = DateTime.UtcNow;
+            var result = new ConnectedPlayerActivationCodeDto
+            {
+                ConnectedPlayerActivationCodeId = Guid.NewGuid(),
+                UserProfileId = dto.UserProfileId,
+                Code = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant(),
+                ExpiresAtUtc = now.AddMinutes(approvalRequired ? 60 : 5),
+                AttemptCount = 0,
+                MaxAttempts = 5,
+                IsActive = true,
+                ActivatedAtUtc = now
+            };
+
+            _activationCodes[result.ConnectedPlayerActivationCodeId] = result;
+            _approvalCodes[result.ConnectedPlayerActivationCodeId] = approvalRequired;
+
+            return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(
+                HttpStatusCode.OK,
+                new ApiResponse<ConnectedPlayerActivationCodeDto>(result)));
         }
-
-        var result = new ConnectedPlayerActivationCodeDto
-        {
-            ConnectedPlayerActivationCodeId = Guid.NewGuid(),
-            UserProfileId = dto.UserProfileId,
-            Code = "ABC123",
-            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5),
-            AttemptCount = 0,
-            MaxAttempts = 5,
-            IsActive = true,
-            ActivatedAtUtc = DateTime.UtcNow
-        };
-
-        _activationCodes[result.ConnectedPlayerActivationCodeId] = result;
-
-        return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(
-            HttpStatusCode.OK,
-            new ApiResponse<ConnectedPlayerActivationCodeDto>(result)));
     }
 
     public Task<ApiResult<ConnectedPlayerActivationCodeDto>> GetActiveConnectedPlayerActivationCode(
@@ -104,65 +134,181 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
         ConsumeConnectedPlayerActivationCodeDto dto,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(dto.Code))
+        if (dto is null || string.IsNullOrWhiteSpace(dto.Code))
         {
-            return Task.FromResult(new ApiResult<ConnectedPlayerDto>(
-                HttpStatusCode.BadRequest,
+            return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
                 new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.InvalidRequest, ApiErrorMessages.InvalidRequestBodyMessage))));
         }
-
-        var normalizedCode = dto.Code.Trim().ToUpperInvariant();
-        var activationCode = _activationCodes.Values
-            .Where(code => string.Equals(code.Code, normalizedCode, StringComparison.Ordinal))
-            .OrderByDescending(code => code.ActivatedAtUtc)
-            .FirstOrDefault();
-
-        if (activationCode == null)
+        lock (_claimLock)
         {
-            return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeInvalid, ApiErrorMessages.ConnectedPlayerActivationCodeInvalidMessage))));
-        }
-
-        if (!activationCode.IsActive)
-        {
-            return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest,
-                new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeInactive, ApiErrorMessages.ConnectedPlayerActivationCodeInactiveMessage))));
-        }
-
-        var existingLink = _connectedPlayers.Values.FirstOrDefault(cp => cp.PlayerId == dto.PlayerId && cp.IsActive);
-        if (existingLink is not null)
-        {
-            if (existingLink.UserProfileId == activationCode.UserProfileId)
+            var code = _activationCodes.Values.FirstOrDefault(c => c.Code == dto.Code.Trim().ToUpperInvariant() && c.IsActive);
+            if (code is null || code.ExpiresAtUtc <= DateTime.UtcNow)
             {
-                _activationCodes[activationCode.ConnectedPlayerActivationCodeId] = activationCode with { IsActive = false };
+                return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.BadRequest));
+            }
+            if (_approvalCodes.GetValueOrDefault(code.ConnectedPlayerActivationCodeId))
+            {
+                return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.Conflict));
+            }
+            var existing = _connectedPlayers.Values.FirstOrDefault(p => p.PlayerId == dto.PlayerId && p.IsActive);
+            if (existing is not null && existing.UserProfileId != code.UserProfileId)
+            {
+                return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.Conflict));
+            }
+            var created = existing is null;
+            var link = existing ?? new ConnectedPlayerDto
+            {
+                ConnectedPlayerProfileId = Guid.NewGuid(),
+                PlayerId = dto.PlayerId,
+                UserProfileId = code.UserProfileId,
+                LinkedByUserProfileId = code.UserProfileId,
+                LinkMethod = ConnectedPlayerLinkMethod.ActivationCode,
+                IsActive = true,
+                LinkedAtUtc = DateTime.UtcNow
+            };
+            _connectedPlayers[link.ConnectedPlayerProfileId] = link;
+            _activationCodes[code.ConnectedPlayerActivationCodeId] = code with { IsActive = false };
+            return Task.FromResult(new ApiResult<ConnectedPlayerDto>(created ? HttpStatusCode.Created : HttpStatusCode.OK, new ApiResponse<ConnectedPlayerDto>(link)));
+        }
+    }
 
-                return Task.FromResult(new ApiResult<ConnectedPlayerDto>(
-                    HttpStatusCode.OK,
-                    new ApiResponse<ConnectedPlayerDto>(existingLink)));
+    public Task<ApiResult<ConnectedPlayerClaimDto>> SubmitConnectedPlayerClaim(SubmitConnectedPlayerClaimDto dto, CancellationToken cancellationToken = default)
+    {
+        if (dto is null || dto.RequestId == Guid.Empty || dto.PlayerId == Guid.Empty || dto.GameServerId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Code))
+        {
+            return Task.FromResult(ClaimError(HttpStatusCode.BadRequest));
+        }
+        lock (_claimLock)
+        {
+            var code = dto.Code.Trim().ToUpperInvariant();
+            if (_claims.TryGetValue(dto.RequestId, out var existing))
+            {
+                return Task.FromResult(existing.Claim.PlayerId == dto.PlayerId && existing.Claim.GameServerId == dto.GameServerId && existing.Code == code
+                        ? ClaimResult(existing.Claim) : ClaimError(HttpStatusCode.Conflict));
             }
 
-            return Task.FromResult(new ApiResult<ConnectedPlayerDto>(HttpStatusCode.Conflict,
-                new ApiResponse<ConnectedPlayerDto>(new ApiError(ApiErrorCodes.ConnectedPlayerAlreadyLinked, ApiErrorMessages.ConnectedPlayerAlreadyLinkedMessage))));
+            var activation = _activationCodes.Values.FirstOrDefault(c => c.IsActive && c.ExpiresAtUtc > DateTime.UtcNow && c.Code == code
+                && _approvalCodes.GetValueOrDefault(c.ConnectedPlayerActivationCodeId));
+            if (activation is null)
+            {
+                return Task.FromResult(ClaimError(HttpStatusCode.BadRequest));
+            }
+
+            if (_connectedPlayers.Values.Any(c => c.PlayerId == dto.PlayerId && c.IsActive))
+            {
+                return Task.FromResult(ClaimError(HttpStatusCode.Conflict));
+            }
+
+            var now = DateTime.UtcNow;
+            var claim = new ConnectedPlayerClaimDto
+            {
+                ClaimId = dto.RequestId,
+                PlayerId = dto.PlayerId,
+                GameServerId = dto.GameServerId,
+                UserProfileId = activation.UserProfileId,
+                Status = "Pending",
+                CreatedAtUtc = now,
+                ExpiresAtUtc = now.AddHours(24)
+            };
+            _activationCodes[activation.ConnectedPlayerActivationCodeId] = activation with { IsActive = false };
+            _claims.Add(dto.RequestId, (claim, code));
+            return Task.FromResult(ClaimResult(claim, HttpStatusCode.Created));
         }
-
-        var result = new ConnectedPlayerDto
-        {
-            ConnectedPlayerProfileId = Guid.NewGuid(),
-            PlayerId = dto.PlayerId,
-            UserProfileId = activationCode.UserProfileId,
-            LinkMethod = ConnectedPlayerLinkMethod.ActivationCode,
-            LinkedAtUtc = DateTime.UtcNow,
-            LinkedByUserProfileId = activationCode.UserProfileId,
-            IsActive = true
-        };
-
-        _connectedPlayers[result.ConnectedPlayerProfileId] = result;
-        _activationCodes[activationCode.ConnectedPlayerActivationCodeId] = activationCode with { IsActive = false };
-
-        return Task.FromResult(new ApiResult<ConnectedPlayerDto>(
-            HttpStatusCode.Created,
-            new ApiResponse<ConnectedPlayerDto>(result)));
     }
+
+    public Task<ApiResult<CollectionModel<ConnectedPlayerClaimDto>>> GetPendingConnectedPlayerClaims(Guid userProfileId, CancellationToken cancellationToken = default)
+    {
+        lock (_claimLock)
+        {
+            var claims = _claims.Values.Select(c => c.Claim)
+                .Where(c => c.UserProfileId == userProfileId && c.Status == "Pending" && c.ExpiresAtUtc > DateTime.UtcNow).ToList();
+            return Task.FromResult(new ApiResult<CollectionModel<ConnectedPlayerClaimDto>>(HttpStatusCode.OK,
+                new ApiResponse<CollectionModel<ConnectedPlayerClaimDto>>(new CollectionModel<ConnectedPlayerClaimDto>(claims))));
+        }
+    }
+
+    public Task<ApiResult<ConnectedPlayerClaimDto>> ApproveConnectedPlayerClaim(Guid userProfileId, Guid claimId, CancellationToken cancellationToken = default)
+        => ResolveClaim(userProfileId, claimId, true);
+
+    public Task<ApiResult<ConnectedPlayerClaimDto>> DeclineConnectedPlayerClaim(Guid userProfileId, Guid claimId, CancellationToken cancellationToken = default)
+        => ResolveClaim(userProfileId, claimId, false);
+
+    private Task<ApiResult<ConnectedPlayerClaimDto>> ResolveClaim(Guid userProfileId, Guid claimId, bool approve)
+    {
+        lock (_claimLock)
+        {
+            if (!_claims.TryGetValue(claimId, out var entry) || entry.Claim.UserProfileId != userProfileId)
+            {
+                return Task.FromResult(ClaimError(HttpStatusCode.NotFound));
+            }
+
+            var claim = entry.Claim;
+            var target = approve ? "Approved" : "Declined";
+            if (claim.Status == target)
+            {
+                return Task.FromResult(ClaimResult(claim));
+            }
+
+            if (claim.Status != "Pending")
+            {
+                return Task.FromResult(ClaimError(HttpStatusCode.Conflict));
+            }
+            if (claim.ExpiresAtUtc <= DateTime.UtcNow)
+            {
+                claim = claim with { Status = "Expired", ResolvedAtUtc = DateTime.UtcNow };
+                _claims[claimId] = (claim, entry.Code);
+                return Task.FromResult(ClaimError(HttpStatusCode.Conflict));
+            }
+
+            Guid? linkId = null;
+            if (approve)
+            {
+                if (_connectedPlayers.Values.Any(p => p.PlayerId == claim.PlayerId && p.IsActive))
+                {
+                    return Task.FromResult(ClaimError(HttpStatusCode.Conflict));
+                }
+
+                linkId = Guid.NewGuid();
+                _connectedPlayers[linkId.Value] = new ConnectedPlayerDto
+                {
+                    ConnectedPlayerProfileId = linkId.Value,
+                    PlayerId = claim.PlayerId,
+                    UserProfileId = userProfileId,
+                    LinkMethod = ConnectedPlayerLinkMethod.ActivationCode,
+                    LinkedAtUtc = DateTime.UtcNow,
+                    LinkedByUserProfileId = userProfileId,
+                    IsActive = true
+                };
+            }
+            claim = claim with { Status = target, ResolvedAtUtc = DateTime.UtcNow, ConnectedPlayerProfileId = linkId };
+            _claims[claimId] = (claim, entry.Code);
+            return Task.FromResult(ClaimResult(claim));
+        }
+    }
+
+    public Task<ApiResult> UnlinkOwnConnectedPlayer(Guid userProfileId, Guid connectedPlayerProfileId, CancellationToken cancellationToken = default)
+    {
+        lock (_claimLock)
+        {
+            if (!_connectedPlayers.TryGetValue(connectedPlayerProfileId, out var link) || link.UserProfileId != userProfileId)
+            {
+                return Task.FromResult(new ApiResult(HttpStatusCode.NotFound));
+            }
+
+            if (link.IsActive)
+            {
+                _connectedPlayers[connectedPlayerProfileId] = link with { IsActive = false, UnlinkedAtUtc = DateTime.UtcNow, UnlinkedByUserProfileId = userProfileId };
+            }
+
+            return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+        }
+    }
+
+    private static ApiResult<ConnectedPlayerClaimDto> ClaimResult(ConnectedPlayerClaimDto claim, HttpStatusCode status = HttpStatusCode.OK)
+        => new(status, new ApiResponse<ConnectedPlayerClaimDto>(claim));
+
+    private static ApiResult<ConnectedPlayerClaimDto> ClaimError(HttpStatusCode status)
+        => new(status, new ApiResponse<ConnectedPlayerClaimDto>(new ApiError(ApiErrorCodes.EntityConflict, "Claim request failed.")));
 
     public Task<ApiResult<CollectionModel<ConnectedPlayerDto>>> GetConnectedPlayersByUserProfile(
         Guid userProfileId,
