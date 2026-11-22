@@ -471,6 +471,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 StartUtc = session.StartUtc,
                 EndUtc = session.EndUtc,
                 MeasuredSeconds = measured,
+                ObservedSeconds = session.IsBot == true ? 0 : ObservedSeconds(session),
+                LastConfirmedUtc = session.LastConfirmedUtc,
                 IsOpen = session.EndUtc is null,
                 IsBot = session.IsBot,
                 StartQuality = (PlaytimeTimestampQuality)session.StartQuality,
@@ -480,6 +482,94 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         return new ApiResponse<IReadOnlyList<PlayerSessionDto>>(dto).ToApiResult();
     }
+
+    [HttpPost("servers/{serverId:guid}/playtime/current-sessions:batch")]
+    [ProducesResponseType<IReadOnlyList<CurrentPlayerSessionResultDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCurrentSessions(
+        Guid serverId,
+        [FromBody] CurrentPlayerSessionsRequestDto dto,
+        CancellationToken cancellationToken)
+    {
+        var response = await ((IPlaytimeApi)this).GetCurrentSessions(serverId, dto, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>> IPlaytimeApi.GetCurrentSessions(
+        Guid serverId,
+        CurrentPlayerSessionsRequestDto dto,
+        CancellationToken cancellationToken)
+    {
+        if (serverId == Guid.Empty || dto?.PlayerIds is null || dto.PlayerIds.Count is < 1 or > 100 ||
+            dto.PlayerIds.Any(x => x == Guid.Empty) || dto.PlayerIds.Distinct().Count() != dto.PlayerIds.Count)
+        {
+            return new ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>(HttpStatusCode.BadRequest);
+        }
+
+        if (!await context.GameServers.AsNoTracking().AnyAsync(x => x.GameServerId == serverId, cancellationToken).ConfigureAwait(false))
+        {
+            return new ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>(HttpStatusCode.NotFound);
+        }
+
+        var playerIds = dto.PlayerIds.ToArray();
+        var groups = await context.PlayerSessions.AsNoTracking()
+            .Where(x => x.ServerId == serverId && x.EndUtc == null && playerIds.Contains(x.PlayerId))
+            .GroupBy(x => x.PlayerId)
+            .Select(group => new
+            {
+                PlayerId = group.Key,
+                Count = group.Count(),
+                Session = group.OrderBy(x => x.SessionId).First()
+            })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var byPlayer = groups.ToDictionary(x => x.PlayerId);
+        var results = new List<CurrentPlayerSessionResultDto>(playerIds.Length);
+        foreach (var playerId in playerIds)
+        {
+            if (!byPlayer.TryGetValue(playerId, out var group))
+            {
+                results.Add(new CurrentPlayerSessionResultDto { PlayerId = playerId, Status = CurrentPlayerSessionStatus.Unavailable });
+            }
+            else if (group.Count != 1)
+            {
+                results.Add(new CurrentPlayerSessionResultDto { PlayerId = playerId, Status = CurrentPlayerSessionStatus.Ambiguous });
+            }
+            else if (group.Session.IsBot == true || group.Session.LastConfirmedUtc < group.Session.StartUtc)
+            {
+                results.Add(new CurrentPlayerSessionResultDto { PlayerId = playerId, Status = CurrentPlayerSessionStatus.Unavailable });
+            }
+            else
+            {
+                var session = group.Session;
+                results.Add(new CurrentPlayerSessionResultDto
+                {
+                    PlayerId = playerId,
+                    Status = CurrentPlayerSessionStatus.Found,
+                    Session = new CurrentPlayerSessionDto
+                    {
+                        SessionId = session.SessionId,
+                        ServerId = session.ServerId,
+                        GameType = (GameType)session.GameType,
+                        ConnectionCorrelationId = session.ConnectionCorrelationId,
+                        StartUtc = session.StartUtc,
+                        LastConfirmedUtc = session.LastConfirmedUtc,
+                        ObservedSeconds = ObservedSeconds(session),
+                        IsBot = session.IsBot,
+                        StartQuality = (PlaytimeTimestampQuality)session.StartQuality
+                    }
+                });
+            }
+        }
+
+        return new ApiResponse<IReadOnlyList<CurrentPlayerSessionResultDto>>(results).ToApiResult();
+    }
+
+    private static long ObservedSeconds(PlayerSession session) =>
+        session.LastConfirmedUtc > session.StartUtc
+            ? (session.LastConfirmedUtc - session.StartUtc).Ticks / TimeSpan.TicksPerSecond
+            : 0;
 
     [HttpGet("playtime/totals")]
     [ProducesResponseType<PlaytimeTotalsDto>(StatusCodes.Status200OK)]

@@ -18,6 +18,12 @@ public interface IPlaytimeApi
         int takeEntries,
         CancellationToken cancellationToken = default);
 
+    Task<ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>> GetCurrentSessions(
+        Guid serverId,
+        CurrentPlayerSessionsRequestDto dto,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This playtime API implementation does not provide current sessions.");
+
     Task<ApiResult<PlaytimeTotalsDto>> GetTotals(
         DateTime fromUtc,
         DateTime toUtc,
