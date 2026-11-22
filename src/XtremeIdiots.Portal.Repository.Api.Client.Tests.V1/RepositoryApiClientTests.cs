@@ -40,6 +40,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedDashboardAnalyticsApi> _dashboardAnalytics = new();
         private readonly Mock<IVersionedMapAnalyticsApi> _mapAnalytics = new();
         private readonly Mock<IVersionedPlayerAnalyticsV2Api> _playerAnalyticsV2 = new();
+        private readonly Mock<IVersionedPlaytimeApi> _playtime = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -76,7 +77,30 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _serverAnalytics.Object,
             _dashboardAnalytics.Object,
             _mapAnalytics.Object,
-            _playerAnalyticsV2.Object);
+            _playerAnalyticsV2.Object,
+            _playtime.Object);
+
+        [Fact]
+        public void LegacyConstructorRemainsAvailableAndReportsUnconfiguredPlaytime()
+        {
+            var client = new RepositoryApiClient(
+                _adminActions.Object, _banFileMonitors.Object, _centralBanFileStatus.Object, _chatMessages.Object,
+                _dataMaintenance.Object, _demos.Object, _gameServers.Object, _gameServersEvents.Object,
+                _gameServersStats.Object, _gameTrackerBanner.Object, _maps.Object, _connectedPlayers.Object,
+                _playerAnalytics.Object, _players.Object, _recentPlayers.Object, _reports.Object, _userProfiles.Object,
+                _tags.Object, _apiHealth.Object, _apiInfo.Object, _notificationTypes.Object,
+                _notificationPreferences.Object, _notifications.Object, _mapRotations.Object, _dashboard.Object,
+                _globalConfigurations.Object, _gameServerConfigurations.Object, _liveStatus.Object, _globalAnalytics.Object,
+                _gameAnalytics.Object, _serverAnalytics.Object, _dashboardAnalytics.Object, _mapAnalytics.Object,
+                _playerAnalyticsV2.Object);
+
+            Assert.Same(_players.Object, client.Players);
+            Assert.Throws<NotSupportedException>(() => client.Playtime);
+            var extendedSignature = typeof(RepositoryApiClient).GetConstructors()
+                .Single(c => c.GetParameters().Last().ParameterType == typeof(IVersionedPlaytimeApi))
+                .GetParameters().SkipLast(1).Select(p => p.ParameterType).ToArray();
+            Assert.NotNull(typeof(RepositoryApiClient).GetConstructor(extendedSignature));
+        }
 
         [Fact]
         public void Constructor_StoresAllProperties()
@@ -118,6 +142,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_dashboardAnalytics.Object, client.DashboardAnalytics);
             Assert.Same(_mapAnalytics.Object, client.MapAnalytics);
             Assert.Same(_playerAnalyticsV2.Object, client.PlayerAnalyticsV2);
+            Assert.Same(_playtime.Object, client.Playtime);
         }
 
         [Fact]

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Maps;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.Api.V1.Services.Caching;
@@ -19,6 +20,113 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class MapCatalogueConcurrencyTests
 {
+    [Theory]
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty4x)]
+    public Task DeleteMapCoordinatesIngestionOnServerCreatedDuringDeletion(GameType gameType)
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var map = new Map { GameType = (int)GameType.CallOfDuty4, MapName = "mp_concurrent" };
+            setup.Maps.Add(map);
+            await setup.SaveChangesAsync();
+
+            var gate = new ServerListGate();
+            await using var deletionDb = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString).AddInterceptors(gate).Options);
+            await using var ingestionDb = new PortalDbContext(options);
+            var deletion = CreateApi(deletionDb).DeleteMap(map.MapId);
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            await using var serverDb = new PortalDbContext(options);
+            var server = new GameServer { GameType = (int)gameType, Title = "New", Hostname = "new", BanFileRootPath = "" };
+            serverDb.GameServers.Add(server);
+            await serverDb.SaveChangesAsync();
+            var ingestion = ((IPlaytimeApi)new PlaytimeController(ingestionDb))
+                .BatchObservations(new PlaytimeObservationBatchDto
+                {
+                    Observations =
+                    [
+                        new PlaytimeObservationDto
+                        {
+                            ObservationId = Guid.NewGuid(), ServerId = server.GameServerId, GameType = gameType,
+                            Kind = PlaytimeObservationKind.MapChanged, EventUtc = DateTime.UtcNow,
+                            TimestampQuality = PlaytimeTimestampQuality.ProducerTimestamp, MapName = "mp_concurrent"
+                        }
+                    ]
+                });
+            try
+            {
+                Assert.NotSame(ingestion, await Task.WhenAny(ingestion, Task.Delay(300)));
+            }
+            finally
+            {
+                gate.Release.TrySetResult();
+            }
+
+            Assert.Equal(HttpStatusCode.OK, (await deletion).StatusCode);
+            Assert.Equal(PlaytimeObservationOutcome.Accepted, (await ingestion).Result?.Data?.Items.Single().Outcome);
+            await using var verify = new PortalDbContext(options);
+            Assert.False(await verify.Maps.AnyAsync(x => x.MapId == map.MapId));
+            var run = await verify.ServerMapRuns.SingleAsync();
+            Assert.Null(run.MapId);
+            Assert.Equal("mp_concurrent", run.NormalizedMapKey);
+        });
+
+    private sealed class ServerListGate : DbCommandInterceptor
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("FROM [GameServers]", StringComparison.Ordinal))
+            {
+                Entered.TrySetResult();
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+            return result;
+        }
+    }
+
+    [Fact]
+    public Task DeleteMap_RetriesAfterRolledBackMapRunUpdate()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var map = new Map { GameType = 2, MapName = "mp_retry" };
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            setup.AddRange(map, server);
+            await setup.SaveChangesAsync();
+            var run = new ServerMapRun
+            {
+                RunId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = 2,
+                MapId = map.MapId,
+                NormalizedMapKey = "mp_retry",
+                StartUtc = DateTime.UtcNow,
+                AttributionQuality = 2
+            };
+            setup.Add(run);
+            await setup.SaveChangesAsync();
+
+            var fault = new CommitFault(false);
+            await using var context = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(2, TimeSpan.Zero, null))
+                .AddInterceptors(fault).Options);
+            var result = await CreateApi(context).DeleteMap(map.MapId);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(1, fault.Failures);
+            await using var verify = new PortalDbContext(options);
+            Assert.False(await verify.Maps.AnyAsync(x => x.MapId == map.MapId));
+            Assert.Null((await verify.ServerMapRuns.SingleAsync(x => x.RunId == run.RunId)).MapId);
+        });
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

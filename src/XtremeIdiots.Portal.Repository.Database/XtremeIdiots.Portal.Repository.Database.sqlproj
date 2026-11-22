@@ -93,6 +93,10 @@
     <Build Include="dbo\Tables\ConnectedPlayerActivationCodes.sql" />
     <Build Include="dbo\Tables\ConnectedPlayerClaims.sql" />
     <Build Include="dbo\Tables\UserProfileLifecycleOperations.sql" />
+    <Build Include="dbo\Tables\PlaytimeObservation.sql" />
+    <Build Include="dbo\Tables\PlayerSession.sql" />
+    <Build Include="dbo\Tables\ServerMapRun.sql" />
+    <Build Include="dbo\Tables\PlayerSessionMapSegment.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Script.PreDeployment.sql" />
