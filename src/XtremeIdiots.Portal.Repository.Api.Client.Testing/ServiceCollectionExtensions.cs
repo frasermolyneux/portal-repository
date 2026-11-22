@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IVersionedDashboardAnalyticsApi>();
         services.RemoveAll<IVersionedMapAnalyticsApi>();
         services.RemoveAll<IVersionedPlayerAnalyticsV2Api>();
+        services.RemoveAll<IVersionedPlaytimeApi>();
 
         // Remove all actual API implementations
         services.RemoveAll<IAdminActionsApi>();
@@ -98,6 +99,7 @@ public static class ServiceCollectionExtensions
         services.RemoveAll<IDashboardAnalyticsApi>();
         services.RemoveAll<IMapAnalyticsApi>();
         services.RemoveAll<IPlayerAnalyticsV2Api>();
+        services.RemoveAll<IPlaytimeApi>();
 
         // Register fakes as singletons
         services.AddSingleton<IRepositoryApiClient>(fakeClient);
@@ -137,6 +139,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(fakeClient.DashboardAnalytics);
         services.AddSingleton(fakeClient.MapAnalytics);
         services.AddSingleton(fakeClient.PlayerAnalyticsV2);
+        services.AddSingleton(fakeClient.Playtime);
         services.AddSingleton<IApiHealthApi>(fakeClient.HealthApi);
         services.AddSingleton<IApiInfoApi>(fakeClient.InfoApi);
 
@@ -174,6 +177,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDashboardAnalyticsApi>(fakeClient.DashboardAnalyticsApi);
         services.AddSingleton<IMapAnalyticsApi>(fakeClient.MapAnalyticsApi);
         services.AddSingleton<IPlayerAnalyticsV2Api>(fakeClient.PlayerAnalyticsV2Api);
+        services.AddSingleton<IPlaytimeApi>(fakeClient.PlaytimeApi);
 
         return services;
     }

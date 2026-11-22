@@ -169,6 +169,11 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IMapAnalyticsApi V1 { get; }
     }
 
+    public interface IVersionedPlaytimeApi
+    {
+        IPlaytimeApi V1 { get; }
+    }
+
     public interface IVersionedPlayerAnalyticsV2Api
     {
         IPlayerAnalyticsV2Api V1 { get; }

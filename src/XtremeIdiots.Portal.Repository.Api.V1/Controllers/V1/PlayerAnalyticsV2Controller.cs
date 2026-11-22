@@ -404,6 +404,23 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             .AsNoTracking()
             .CountAsync(rp => rp.PlayerId == playerId && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc, cancellationToken).ConfigureAwait(false);
 
+        var measuredSegments = await context.PlayerSessionMapSegments
+            .AsNoTracking()
+            .Where(segment => !segment.UnknownMap &&
+                              segment.Session.IsBot != true &&
+                              segment.Session.PlayerId == playerId &&
+                              segment.StartUtc < toUtc &&
+                              segment.EndUtc > fromUtc)
+            .Select(segment => new { segment.StartUtc, segment.EndUtc })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var measuredTicks = measuredSegments.Sum(segment =>
+        {
+            var start = segment.StartUtc > fromUtc ? segment.StartUtc : fromUtc;
+            var end = segment.EndUtc < toUtc ? segment.EndUtc : toUtc;
+            return end > start ? (decimal)(end - start).Ticks : 0;
+        });
+        var measuredSeconds = measuredTicks / TimeSpan.TicksPerSecond;
+
         var actionCounts = await context.AdminActions
             .AsNoTracking()
             .Where(a => a.PlayerId == playerId && a.Created >= fromUtc && a.Created < toUtc)
@@ -461,8 +478,9 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             FirstSeenUtc = player.FirstSeen,
             LastSeenUtc = player.LastSeen,
             SessionsCount = sessionsCount,
-            // Approximate playtime from observed recent-player session snapshots.
-            TotalPlayTimeMinutes = sessionsCount,
+            // Measured playtime: half-open intersections of observed sessions and map runs, clipped to the window.
+            // Unknown-map time is deliberately excluded; it is not an unverified attribution.
+            TotalPlayTimeMinutes = (int)Math.Min(int.MaxValue, (Math.Floor(measuredSeconds) + 59) / 60),
             Moderation = new PlayerModerationSummaryDto
             {
                 Window = CreateWindow(fromUtc, toUtc),
