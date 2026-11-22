@@ -1005,6 +1005,108 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task RetainedLeaveFromLaterSessionDoesNotOverrideEarlierRosterAbsence()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var processingUtc = DateTimeOffset.UtcNow;
+        var start = processingUtc.UtcDateTime.AddSeconds(-50);
+        var api = (IPlaytimeApi)new PlaytimeController(context, timeProvider: new MutableTimeProvider(processingUtc));
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                new PlaytimeObservationDto
+                {
+                    ObservationId = Guid.NewGuid(),
+                    ServerId = serverId,
+                    GameType = GameType.CallOfDuty4,
+                    Kind = PlaytimeObservationKind.ServerRoster,
+                    EventUtc = start.AddSeconds(5),
+                    TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                    RosterCompleteness = PlaytimeRosterCompleteness.Complete,
+                    Roster = []
+                }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddSeconds(10), "guid-1"),
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddSeconds(20), "guid-1")
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1")
+            ]
+        });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(start, sessions[0].StartUtc);
+        Assert.Equal(start.AddSeconds(5), sessions[0].EndUtc);
+        Assert.Equal((byte)2, sessions[0].ClosureReason);
+        Assert.Equal(start.AddSeconds(10), sessions[1].StartUtc);
+        Assert.Equal(start.AddSeconds(20), sessions[1].EndUtc);
+        Assert.True(sessions[1].IsFinal);
+    }
+
+    [Fact]
+    public async Task ForwardPresenceAfterRetainedUnresolvedLeaveStartsNewSession()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddSeconds(-30);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1")
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+                    start.AddSeconds(5), "guid-1") with { CanonicalPlayerId = null }
+            ]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddSeconds(10), "guid-1")
+            ]
+        });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(start, sessions[0].StartUtc);
+        Assert.Equal(start.AddSeconds(5), sessions[0].EndUtc);
+        Assert.Equal((byte)1, sessions[0].ClosureReason);
+        Assert.True(sessions[0].IsFinal);
+        Assert.Equal(start.AddSeconds(10), sessions[1].StartUtc);
+        Assert.Null(sessions[1].EndUtc);
+    }
+
+    [Fact]
     public async Task UnresolvedLeaveWithoutGamePlayerIdDoesNotCloseNewSession()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -1997,6 +2099,109 @@ public class PlaytimeControllerTests
         Assert.Equal(sessionId, session.SessionId);
         Assert.Null(session.EndUtc);
         Assert.Equal(start.AddMinutes(10), session.LastConfirmedUtc);
+    }
+
+    [Fact]
+    public async Task PresenceAfterInferredClosureAndRosterAbsenceStartsNewSession()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var processingUtc = DateTimeOffset.UtcNow;
+        var start = processingUtc.UtcDateTime.AddSeconds(-40);
+        var api = (IPlaytimeApi)new PlaytimeController(context, timeProvider: new MutableTimeProvider(processingUtc));
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start, "guid-1") with { ConnectionCorrelationId = correlationId }
+            ]
+        });
+        var originalSessionId = (await context.PlayerSessions.SingleAsync()).SessionId;
+        await PlaytimeSweeperHostedService.SweepAsync(context, start.AddSeconds(1), CancellationToken.None);
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                new PlaytimeObservationDto
+                {
+                    ObservationId = Guid.NewGuid(),
+                    ServerId = serverId,
+                    GameType = GameType.CallOfDuty4,
+                    Kind = PlaytimeObservationKind.ServerRoster,
+                    EventUtc = start.AddSeconds(5),
+                    TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                    RosterCompleteness = PlaytimeRosterCompleteness.Complete,
+                    Roster = []
+                }
+            ]
+        });
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    start.AddSeconds(10), "guid-1") with { ConnectionCorrelationId = correlationId }
+            ]
+        });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(originalSessionId, sessions[0].SessionId);
+        Assert.Equal(start.AddSeconds(5), sessions[0].EndUtc);
+        Assert.Equal((byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp, sessions[0].EndQuality);
+        Assert.Equal((byte)2, sessions[0].ClosureReason);
+        Assert.Equal(start.AddSeconds(10), sessions[1].StartUtc);
+        Assert.Null(sessions[1].EndUtc);
+        Assert.NotEqual(sessions[0].SessionId, sessions[1].SessionId);
+    }
+
+    [Fact]
+    public async Task StaleRetainedRosterDoesNotCloseDelayedJoin()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var processingUtc = DateTimeOffset.UtcNow;
+        var timeProvider = new MutableTimeProvider(processingUtc);
+        var api = (IPlaytimeApi)new PlaytimeController(context, timeProvider: timeProvider);
+        var rosterUtc = processingUtc.UtcDateTime.AddSeconds(-30);
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                new PlaytimeObservationDto
+                {
+                    ObservationId = Guid.NewGuid(),
+                    ServerId = serverId,
+                    GameType = GameType.CallOfDuty4,
+                    Kind = PlaytimeObservationKind.ServerRoster,
+                    EventUtc = rosterUtc,
+                    TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                    RosterCompleteness = PlaytimeRosterCompleteness.Complete,
+                    Roster = []
+                }
+            ]
+        });
+        timeProvider.Advance(TimeSpan.FromSeconds(121));
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    rosterUtc.AddSeconds(-10), "guid-1")
+            ]
+        });
+
+        var session = Assert.Single(await context.PlayerSessions.AsNoTracking().ToListAsync());
+        Assert.Equal(rosterUtc.AddSeconds(-10), session.StartUtc);
+        Assert.Null(session.EndUtc);
     }
 
     [Fact]

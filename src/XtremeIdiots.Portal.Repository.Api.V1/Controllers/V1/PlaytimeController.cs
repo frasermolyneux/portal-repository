@@ -934,16 +934,46 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .ConfigureAwait(false);
             if (inferred is not null)
             {
-                inferred.EndUtc = null;
-                inferred.EndQuality = null;
-                inferred.ClosureReason = null;
-                inferred.IsFinal = false;
-                inferred.LastConfirmedUtc = eventUtc;
-                inferred.GamePlayerId ??= observation.GamePlayerId;
-                inferred.IsBot ??= observation.IsBot;
-                await ApplyRetainedLeave(playerId, observation, inferred, cancellationToken).ConfigureAwait(false);
+                var boundary = await FindAcceptedSessionBoundaryBetween(
+                    playerId,
+                    observation,
+                    inferred.EndUtc!.Value,
+                    eventUtc,
+                    inferred.ConnectionCorrelationId,
+                    cancellationToken).ConfigureAwait(false);
+                if (boundary is null)
+                {
+                    inferred.EndUtc = null;
+                    inferred.EndQuality = null;
+                    inferred.ClosureReason = null;
+                    inferred.IsFinal = false;
+                    inferred.LastConfirmedUtc = eventUtc;
+                    inferred.GamePlayerId ??= observation.GamePlayerId;
+                    inferred.IsBot ??= observation.IsBot;
+                    await ApplyRetainedLeave(playerId, observation, inferred, cancellationToken).ConfigureAwait(false);
+                    await RebuildSegments(inferred, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                CloseSessionAtBoundary(inferred, boundary);
                 await RebuildSegments(inferred, cancellationToken).ConfigureAwait(false);
-                return;
+            }
+        }
+
+        if (open is not null && eventUtc > open.LastConfirmedUtc)
+        {
+            var boundary = await FindAcceptedSessionBoundaryBetween(
+                playerId,
+                observation,
+                open.LastConfirmedUtc,
+                eventUtc,
+                open.ConnectionCorrelationId,
+                cancellationToken).ConfigureAwait(false);
+            if (boundary is not null)
+            {
+                CloseSessionAtBoundary(open, boundary);
+                await RebuildSegments(open, cancellationToken).ConfigureAwait(false);
+                open = null;
             }
         }
 
@@ -1064,6 +1094,15 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             ? join.GamePlayerId
             : session.GamePlayerId;
         var hasGamePlayerId = !string.IsNullOrWhiteSpace(gamePlayerId);
+        var nextSessionStartUtc = await context.PlayerSessions
+            .Where(x => x.PlayerId == playerId &&
+                        x.ServerId == session.ServerId &&
+                        x.SessionId != session.SessionId &&
+                        x.StartUtc > session.StartUtc)
+            .OrderBy(x => x.StartUtc)
+            .Select(x => (DateTime?)x.StartUtc)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
         var leaves = context.PlaytimeObservations
             .AsNoTracking()
             .Where(x => x.ServerId == session.ServerId &&
@@ -1071,6 +1110,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
                         x.EventUtc > session.StartUtc &&
                         x.EventUtc <= session.StartUtc.Add(LateEventThreshold) &&
+                        (!nextSessionStartUtc.HasValue || x.EventUtc < nextSessionStartUtc.Value) &&
                         (x.ConnectionCorrelationId == null ||
                          join.ConnectionCorrelationId == null ||
                          x.ConnectionCorrelationId == join.ConnectionCorrelationId) &&
@@ -1107,7 +1147,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             join,
             session.StartUtc,
             session.StartUtc.Add(LateEventThreshold),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            nextSessionStartUtc).ConfigureAwait(false);
         if (rosterAbsence is null ||
             session.LastConfirmedUtc > rosterAbsence.EventUtc ||
             (session.EndUtc is DateTime currentEndUtc && currentEndUtc < rosterAbsence.EventUtc))
@@ -1134,26 +1175,47 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return false;
         }
 
-        if (await HasAcceptedLeaveBetween(
-                playerId,
-                join,
-                startUtc,
-                endUtc,
-                sessionCorrelationId,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return true;
-        }
-
-        return await FindAcceptedCompleteRosterAbsence(
+        return await FindAcceptedSessionBoundaryBetween(
             playerId,
             join,
             startUtc,
             endUtc,
+            sessionCorrelationId,
             cancellationToken).ConfigureAwait(false) is not null;
     }
 
-    private async Task<bool> HasAcceptedLeaveBetween(
+    private async Task<PlaytimeObservation?> FindAcceptedSessionBoundaryBetween(
+        Guid playerId,
+        PlaytimeObservationDto join,
+        DateTime startUtc,
+        DateTime endUtc,
+        Guid? sessionCorrelationId,
+        CancellationToken cancellationToken)
+    {
+        var leave = await FindAcceptedLeaveBetween(
+            playerId,
+            join,
+            startUtc,
+            endUtc,
+            sessionCorrelationId,
+            cancellationToken).ConfigureAwait(false);
+        var rosterAbsence = await FindAcceptedCompleteRosterAbsence(
+            playerId,
+            join,
+            startUtc,
+            endUtc,
+            cancellationToken).ConfigureAwait(false);
+        if (leave is null)
+        {
+            return rosterAbsence;
+        }
+
+        return rosterAbsence is null || leave.EventUtc <= rosterAbsence.EventUtc
+            ? leave
+            : rosterAbsence;
+    }
+
+    private async Task<PlaytimeObservation?> FindAcceptedLeaveBetween(
         Guid playerId,
         PlaytimeObservationDto join,
         DateTime startUtc,
@@ -1164,7 +1226,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var hasGamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId);
         return await context.PlaytimeObservations
             .AsNoTracking()
-            .AnyAsync(
+            .Where(
                 x => x.ServerId == join.ServerId &&
                      x.Kind == (byte)PlaytimeObservationKind.PlayerLeft &&
                      x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
@@ -1182,8 +1244,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                      (x.CanonicalPlayerId == playerId ||
                       (hasGamePlayerId &&
                        x.CanonicalPlayerId == null &&
-                       x.GamePlayerId == join.GamePlayerId)),
-                cancellationToken)
+                       x.GamePlayerId == join.GamePlayerId)))
+            .OrderBy(x => x.EventUtc)
+            .ThenBy(x => x.ObservationId)
+            .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -1192,13 +1256,16 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         PlaytimeObservationDto join,
         DateTime startUtc,
         DateTime endUtc,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTime? exclusiveEndUtc = null)
     {
         if (endUtc <= startUtc)
         {
             return null;
         }
 
+        var processingUtc = timeProvider.GetUtcNow().UtcDateTime;
+        var earliestFreshUtc = processingUtc.Subtract(CompleteRosterFreshnessThreshold);
         var boundedEndUtc = endUtc < startUtc.Add(LateEventThreshold)
             ? endUtc
             : startUtc.Add(LateEventThreshold);
@@ -1208,10 +1275,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
                         x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
                         x.RosterCompleteness == (byte)PlaytimeRosterCompleteness.Complete &&
+                        x.TimestampQuality == (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp &&
                         !x.IdentifiersRedacted &&
                         x.ResolvedRosterJson != null &&
+                        x.EventUtc >= earliestFreshUtc &&
+                        x.EventUtc <= processingUtc &&
                         x.EventUtc > startUtc &&
-                        x.EventUtc <= boundedEndUtc)
+                        x.EventUtc <= boundedEndUtc &&
+                        (!exclusiveEndUtc.HasValue || x.EventUtc < exclusiveEndUtc.Value))
             .OrderBy(x => x.EventUtc)
             .ThenBy(x => x.ObservationId)
             .ToListAsync(cancellationToken)
@@ -1255,6 +1326,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         return null;
+    }
+
+    private static void CloseSessionAtBoundary(PlayerSession session, PlaytimeObservation boundary)
+    {
+        session.EndUtc = boundary.EventUtc;
+        session.EndQuality = boundary.TimestampQuality;
+        session.ClosureReason = boundary.Kind == (byte)PlaytimeObservationKind.PlayerLeft ? (byte)1 : (byte)2;
+        session.IsFinal = boundary.Kind == (byte)PlaytimeObservationKind.PlayerLeft;
     }
 
     private async Task CloseSession(
