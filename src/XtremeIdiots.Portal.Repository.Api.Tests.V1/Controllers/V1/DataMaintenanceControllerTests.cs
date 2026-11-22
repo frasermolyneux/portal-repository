@@ -542,6 +542,110 @@ public class DataMaintenanceControllerTests
         Assert.Null(directObservation.GamePlayerId);
     }
 
+    [Fact]
+    public async Task DeletePlayer_RedactsMultipleObservationBatchesWithoutChangingOtherPlayers()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Deleted",
+            Guid = "deleted-id",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        for (var i = 0; i < 300; i++)
+        {
+            context.PlaytimeObservations.Add(new PlaytimeObservation
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = serverId,
+                GameType = (int)GameType.CallOfDuty4,
+                Kind = (byte)PlaytimeObservationKind.ServerRoster,
+                EventUtc = DateTime.UtcNow,
+                ReceivedUtc = DateTime.UtcNow,
+                TimestampQuality = (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                GamePlayerId = i % 2 == 0 ? "DELETED-ID" : null,
+                ResolvedRosterJson = i % 2 == 0
+                    ? "[]"
+                    : JsonSerializer.Serialize(new[]
+                    {
+                        new { GamePlayerId = "deleted-id", SlotId = 1, CanonicalPlayerId = (Guid?)null }
+                    }),
+                PayloadHash = new byte[32],
+                Outcome = (byte)PlaytimeObservationOutcome.Accepted
+            });
+            context.PlaytimeObservations.Add(new PlaytimeObservation
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = serverId,
+                GameType = (int)GameType.CallOfDuty4,
+                EventUtc = DateTime.UtcNow,
+                ReceivedUtc = DateTime.UtcNow,
+                GamePlayerId = "other-id",
+                ResolvedRosterJson = "[]",
+                PayloadHash = new byte[32],
+                Outcome = (byte)PlaytimeObservationOutcome.Accepted
+            });
+        }
+        var unrelatedId = Guid.NewGuid();
+        context.PlaytimeObservations.Add(new PlaytimeObservation
+        {
+            ObservationId = unrelatedId,
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            EventUtc = DateTime.UtcNow,
+            ReceivedUtc = DateTime.UtcNow,
+            GamePlayerId = "other-id",
+            ResolvedRosterJson = "[]",
+            PayloadHash = new byte[32],
+            Outcome = (byte)PlaytimeObservationOutcome.Accepted
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var maximumTrackedObservations = 0;
+        context.ChangeTracker.Tracked += (_, _) =>
+            maximumTrackedObservations = Math.Max(maximumTrackedObservations,
+                context.ChangeTracker.Entries<PlaytimeObservation>().Count());
+
+        var result = await ((IDataMaintenanceApi)CreateController(context)).DeletePlayer(playerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.InRange(maximumTrackedObservations, 1, 128);
+        var observations = await context.PlaytimeObservations.AsNoTracking().ToListAsync();
+        Assert.Equal(300, observations.Count(x => x.IdentifiersRedacted));
+        Assert.All(observations.Where(x => x.IdentifiersRedacted), x =>
+        {
+            Assert.Null(x.GamePlayerId);
+            Assert.Equal("[]", x.ResolvedRosterJson);
+        });
+        Assert.Equal(301, observations.Count(x => !x.IdentifiersRedacted && x.GamePlayerId == "other-id"));
+        var unrelated = Assert.Single(observations, x => x.ObservationId == unrelatedId);
+        Assert.False(unrelated.IdentifiersRedacted);
+        Assert.Equal("other-id", unrelated.GamePlayerId);
+    }
+
+    [Fact]
+    public void PlaytimeRedactionKeysetAndCaseFilterTranslateForSqlServer()
+    {
+        using var context = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+            .UseSqlServer("Server=localhost;Database=Synthetic;Integrated Security=true;TrustServerCertificate=true")
+            .Options);
+        var lastId = Guid.NewGuid();
+        var query = context.PlaytimeObservations
+            .Where(x => x.ObservationId.CompareTo(lastId) > 0 &&
+                        x.GamePlayerId != null &&
+                        EF.Functions.Collate(x.GamePlayerId, "Latin1_General_100_CI_AS_SC") == "deleted-id")
+            .OrderBy(x => x.ObservationId)
+            .Take(128)
+            .ToQueryString();
+
+        Assert.Contains("COLLATE Latin1_General_100_CI_AS_SC", query, StringComparison.Ordinal);
+    }
+
     [Fact(Skip = "Uses ExecuteSqlInterpolatedAsync which is not supported by the InMemory provider")]
     public async Task PruneChatMessages_RemovesOldUnlockedMessages_PreservesLockedAndRecent()
     {
