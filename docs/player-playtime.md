@@ -21,7 +21,7 @@ Player deletion coordinates with concurrent playtime ingestion for the player's 
 
 ## Current sessions
 
-The service-account-only `POST v1/servers/{serverId}/playtime/current-sessions:batch` accepts `playerIds`, a nonempty list of up to 100 distinct canonical player IDs. It returns one entry per requested ID, in request order. Each entry has `playerId`, `status` (`Found` = 1, `Unavailable` = 2, `Ambiguous` = 3), and `session` only for a single valid open session that is not a known bot. An unknown server returns 404; invalid requests return 400.
+The service-account-only `POST v1/servers/{serverId}/playtime/current-sessions:batch` accepts `playerIds`, a nonempty list of up to 100 distinct canonical player IDs. It returns one entry per requested ID, in request order. Each entry has `playerId`, a string `status` (`Found`, `Unavailable`, or `Ambiguous`), and `session` only for a single valid open session that is not a known bot. An unknown server returns 404; invalid requests return 400.
 
 The session includes its ID, server, game, optional connection correlation ID, start and last-confirmed UTC timestamps, observed seconds, nullable bot classification, and start timestamp quality. Observed seconds run only from the start to the last confirmed presence, including unknown-map time; they do not advance with wall-clock time. This interval interpolates between observations, and a missed disconnect and reconnect can go undetected. An open session or recent confirmation does not by itself prove a roster entry belongs to that connection. Consumers must independently establish freshness and connection continuity, and treat missing, ambiguous, stale or otherwise unverified matches as unavailable.
 

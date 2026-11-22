@@ -484,7 +484,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     }
 
     [HttpPost("servers/{serverId:guid}/playtime/current-sessions:batch")]
-    [ProducesResponseType<IReadOnlyList<CurrentPlayerSessionResultDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<CurrentPlayerSessionResultDto>>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCurrentSessions(

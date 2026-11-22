@@ -136,6 +136,7 @@ public enum CurrentPlayerSessionStatus
 public record CurrentPlayerSessionResultDto
 {
     [JsonProperty] public Guid PlayerId { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<CurrentPlayerSessionStatus>))]
     [JsonProperty] public CurrentPlayerSessionStatus Status { get; init; }
     [JsonProperty] public CurrentPlayerSessionDto? Session { get; init; }
 }
@@ -144,12 +145,14 @@ public record CurrentPlayerSessionDto
 {
     [JsonProperty] public Guid SessionId { get; init; }
     [JsonProperty] public Guid ServerId { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GameType>))]
     [JsonProperty] public GameType GameType { get; init; }
     [JsonProperty] public Guid? ConnectionCorrelationId { get; init; }
     [JsonProperty] public DateTime StartUtc { get; init; }
     [JsonProperty] public DateTime LastConfirmedUtc { get; init; }
     [JsonProperty] public long ObservedSeconds { get; init; }
     [JsonProperty] public bool? IsBot { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PlaytimeTimestampQuality>))]
     [JsonProperty] public PlaytimeTimestampQuality StartQuality { get; init; }
 }
 
