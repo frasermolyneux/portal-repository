@@ -19,6 +19,12 @@ Coverage counters require a nonempty `Coverage.ProducerEpoch` matching the obser
 
 Player deletion coordinates with concurrent playtime ingestion for the player's game, including servers created during deletion. It redacts retained observations; it does not prevent later unresolved events from carrying the same game-player identifier.
 
+## Log and roster observations
+
+`ParseTime` means the agent's wall-clock parse or read time, not a verified gameplay timestamp or proof that a log line was fresh. The repository uses that time as the practical join, leave or map boundary and retains its quality; buffered lines and clock differences can shift the result. Producers must retain the observation ID and immutable source fields, including read time, across retries. Events more than 24 hours late or over five minutes in the future are rejected.
+
+Partial RCON rosters provide positive presence only. Repeated joins without a leave normally extend the existing session, including map re-entry; a leave followed by a join starts a new session. For CoD2, CoD4 and CoD5, the repository can split an open, uncorrelated read-time session when a delayed leave falls before an already accepted read-time join. A gap over 15 minutes without presence can instead create a new inferred session. Missing log events, delayed lines, roster gaps and uncorrelated reconnects can still lead to incorrect or incomplete durations; sequence values are not proof that the source was complete.
+
 ## Current sessions
 
 The service-account-only `POST v1/servers/{serverId}/playtime/current-sessions:batch` accepts `playerIds`, a nonempty list of up to 100 distinct canonical player IDs. It returns one entry per requested ID, in request order. Each entry has `playerId`, a string `status` (`Found`, `Unavailable`, or `Ambiguous`), and `session` only for a single valid open session that is not a known bot. An unknown server returns 404; invalid requests return 400.

@@ -15,6 +15,119 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 [Trait("Category", "Unit")]
 public class PlaytimeControllerTests
 {
+    [Theory]
+    [InlineData(GameType.CallOfDuty2)]
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty5)]
+    public async Task ReadTimeLogAndPartialRosterKeepMapReentryInCurrentSession(GameType gameType)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        context.Players.Single().GameType = (int)gameType;
+        context.GameServers.Single().GameType = (int)gameType;
+        await context.SaveChangesAsync();
+        var start = DateTime.UtcNow.AddMinutes(-12);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        PlaytimeObservationDto Log(PlaytimeObservationKind kind, DateTime time, string? map = null) =>
+            Observation(serverId, playerId, Guid.NewGuid(), kind, time,
+                kind == PlaytimeObservationKind.PlayerJoined ? "guid-1" : null, map) with
+            { GameType = gameType, TimestampQuality = PlaytimeTimestampQuality.ParseTime };
+        var join = Log(PlaytimeObservationKind.PlayerJoined, start);
+        var reentry = Log(PlaytimeObservationKind.PlayerJoined, start.AddMinutes(5));
+        var roster = new PlaytimeObservationDto
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = gameType,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = start.AddMinutes(10),
+            TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Roster = [new PlaytimeRosterPlayerDto { GamePlayerId = "guid-1", SlotId = 1, CanonicalPlayerId = playerId }]
+        };
+        var observations = new[]
+        {
+            join, Log(PlaytimeObservationKind.MapChanged, start, "mp_a"),
+            Log(PlaytimeObservationKind.MapChanged, start.AddMinutes(5), "mp_b"), reentry, roster
+        };
+
+        var accepted = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = observations });
+        var duplicate = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [reentry] });
+
+        Assert.All(accepted.Result!.Data!.Items, item => Assert.Equal(PlaytimeObservationOutcome.Accepted, item.Outcome));
+        Assert.Equal(PlaytimeObservationOutcome.Duplicate, duplicate.Result!.Data!.Items.Single().Outcome);
+        var session = Assert.Single(await context.PlayerSessions.ToListAsync());
+        Assert.Equal(start, session.StartUtc);
+        Assert.Equal(start.AddMinutes(10), session.LastConfirmedUtc);
+        Assert.Null(session.EndUtc);
+        Assert.Equal((byte)PlaytimeTimestampQuality.ParseTime, session.StartQuality);
+        var current = await api.GetCurrentSessions(serverId, new CurrentPlayerSessionsRequestDto { PlayerIds = [playerId] });
+        Assert.Equal(600, current.Result!.Data!.Single().Session!.ObservedSeconds);
+        var runs = await context.ServerMapRuns.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(new[] { "mp_a", "mp_b" }, runs.Select(x => x.NormalizedMapKey));
+    }
+
+    [Theory]
+    [InlineData(GameType.CallOfDuty2, true)]
+    [InlineData(GameType.CallOfDuty4, true)]
+    [InlineData(GameType.CallOfDuty5, true)]
+    [InlineData(GameType.CallOfDuty4x, false)]
+    public async Task ReadTimeDelayedLeaveSplitsReconnectAndDuplicateDoesNotChangeSessions(GameType gameType, bool split)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        context.Players.Single().GameType = (int)gameType;
+        context.GameServers.Single().GameType = (int)gameType;
+        await context.SaveChangesAsync();
+        var start = DateTime.UtcNow.AddMinutes(-12);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        PlaytimeObservationDto Log(PlaytimeObservationKind kind, DateTime time) =>
+            Observation(serverId, playerId, Guid.NewGuid(), kind, time, "guid-1") with
+            { GameType = gameType, TimestampQuality = PlaytimeTimestampQuality.ParseTime };
+        var join = Log(PlaytimeObservationKind.PlayerJoined, start);
+        var leave = Log(PlaytimeObservationKind.PlayerLeft, start.AddMinutes(4));
+        var reconnect = Log(PlaytimeObservationKind.PlayerJoined, start.AddMinutes(6));
+        PlaytimeObservationDto Roster(DateTime time) => new()
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = gameType,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = time,
+            TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Roster = [new PlaytimeRosterPlayerDto { GamePlayerId = "guid-1", SlotId = 1, CanonicalPlayerId = playerId }]
+        };
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [join, Roster(start.AddMinutes(3)), reconnect, Roster(start.AddMinutes(8))]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [reconnect] });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        if (!split)
+        {
+            var original = Assert.Single(sessions);
+            Assert.Equal(start, original.StartUtc);
+            Assert.Equal(start.AddMinutes(8), original.EndUtc);
+            return;
+        }
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(start, sessions[0].StartUtc);
+        Assert.Equal(start.AddMinutes(3), sessions[0].LastConfirmedUtc);
+        Assert.Equal(start.AddMinutes(4), sessions[0].EndUtc);
+        Assert.Equal((byte)PlaytimeTimestampQuality.ParseTime, sessions[0].EndQuality);
+        Assert.Equal(start.AddMinutes(6), sessions[1].StartUtc);
+        Assert.Equal(start.AddMinutes(8), sessions[1].LastConfirmedUtc);
+        Assert.Null(sessions[1].EndUtc);
+    }
+
     [Fact]
     public async Task CurrentSessions_ReturnsOnlyUnambiguousNonBotSessionsForRequestedServer()
     {

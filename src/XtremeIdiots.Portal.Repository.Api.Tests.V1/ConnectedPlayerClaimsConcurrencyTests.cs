@@ -22,6 +22,57 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 public class ConnectedPlayerClaimsConcurrencyTests
 {
     [Fact]
+    public Task DelayedReadTimeLeaveSplitsMergedReconnect()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            var player = new Player { GameType = 2, Guid = "guid-1", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.AddRange(server, player);
+            await context.SaveChangesAsync();
+            var start = DateTime.UtcNow.AddMinutes(-12);
+            var join = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                CanonicalPlayerId = player.PlayerId,
+                GamePlayerId = "guid-1",
+                Kind = PlaytimeObservationKind.PlayerJoined,
+                EventUtc = start,
+                TimestampQuality = PlaytimeTimestampQuality.ParseTime
+            };
+            var reconnect = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(6) };
+            var roster = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                Kind = PlaytimeObservationKind.ServerRoster,
+                EventUtc = start.AddMinutes(3),
+                TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+                Roster = [new PlaytimeRosterPlayerDto { GamePlayerId = "guid-1", SlotId = 1, CanonicalPlayerId = player.PlayerId }]
+            };
+            var leave = join with
+            {
+                ObservationId = Guid.NewGuid(),
+                Kind = PlaytimeObservationKind.PlayerLeft,
+                EventUtc = start.AddMinutes(4)
+            };
+            var api = (IPlaytimeApi)new PlaytimeController(context);
+            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, roster, reconnect] });
+            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+            var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+            Assert.Equal(2, sessions.Count);
+            Assert.Equal(roster.EventUtc, sessions[0].LastConfirmedUtc);
+            Assert.Equal(leave.EventUtc, sessions[0].EndUtc);
+            Assert.Equal(reconnect.EventUtc, sessions[1].StartUtc);
+            Assert.Null(sessions[1].EndUtc);
+        });
+
+    [Fact]
     public Task CurrentSessions_UsesSqlServerGrouping()
         => SqlServerTestDatabase.RunAsync(async connectionString =>
         {

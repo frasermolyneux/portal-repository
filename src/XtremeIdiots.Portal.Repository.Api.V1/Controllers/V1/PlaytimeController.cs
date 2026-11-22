@@ -1606,6 +1606,17 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return;
         }
 
+        if (session.GameType is (int)GameType.CallOfDuty2 or (int)GameType.CallOfDuty4 or (int)GameType.CallOfDuty5 &&
+            endQuality == (byte)PlaytimeTimestampQuality.ParseTime &&
+            connectionCorrelationId is null &&
+            session.ConnectionCorrelationId is null &&
+            session.EndUtc is null &&
+            session.LastConfirmedUtc > eventUtc &&
+            await SplitReadTimeReconnect(session, eventUtc, isBot, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         var endUtc = session.LastConfirmedUtc > eventUtc ? session.LastConfirmedUtc : eventUtc;
         var nextSessionStart = await context.PlayerSessions
             .AsNoTracking()
@@ -1629,6 +1640,108 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         session.ClosureReason = closureReason;
         session.IsFinal = closureReason != 3;
         await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> SplitReadTimeReconnect(
+        PlayerSession session,
+        DateTime leaveUtc,
+        bool? isBot,
+        CancellationToken cancellationToken)
+    {
+        var reconnect = await context.PlaytimeObservations.AsNoTracking()
+            .Where(x => x.ServerId == session.ServerId &&
+                        x.CanonicalPlayerId == session.PlayerId &&
+                        x.Kind == (byte)PlaytimeObservationKind.PlayerJoined &&
+                        x.TimestampQuality == (byte)PlaytimeTimestampQuality.ParseTime &&
+                        x.ConnectionCorrelationId == null &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        x.EventUtc > leaveUtc && x.EventUtc <= session.LastConfirmedUtc)
+            .OrderBy(x => x.EventUtc)
+            .ThenBy(x => x.ObservationId)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (reconnect is null)
+        {
+            return false;
+        }
+
+        var nextSessionExists = await context.PlayerSessions.AsNoTracking()
+            .AnyAsync(x => x.SessionId != session.SessionId &&
+                           x.ServerId == session.ServerId &&
+                           x.PlayerId == session.PlayerId &&
+                           x.StartUtc > session.StartUtc && x.StartUtc <= session.LastConfirmedUtc,
+                cancellationToken).ConfigureAwait(false);
+        if (nextSessionExists)
+        {
+            return false;
+        }
+
+        var previousJoin = await context.PlaytimeObservations.AsNoTracking()
+            .Where(x => x.ServerId == session.ServerId &&
+                        x.CanonicalPlayerId == session.PlayerId &&
+                        x.Kind == (byte)PlaytimeObservationKind.PlayerJoined &&
+                        x.ConnectionCorrelationId == null &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        x.EventUtc >= session.StartUtc && x.EventUtc <= leaveUtc)
+            .MaxAsync(x => (DateTime?)x.EventUtc, cancellationToken).ConfigureAwait(false);
+        var priorConfirmation = previousJoin ?? session.StartUtc;
+        var previousRosters = context.PlaytimeObservations.AsNoTracking()
+            .Where(x => x.ServerId == session.ServerId &&
+                        x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        x.RosterCompleteness != (byte)PlaytimeRosterCompleteness.Failed &&
+                        x.RosterCompleteness != (byte)PlaytimeRosterCompleteness.NotApplicable &&
+                        x.ResolvedRosterJson != null &&
+                        x.EventUtc > priorConfirmation && x.EventUtc <= leaveUtc)
+            .OrderByDescending(x => x.EventUtc)
+            .Select(x => new { x.EventUtc, x.ResolvedRosterJson })
+            .AsAsyncEnumerable();
+        await foreach (var roster in previousRosters.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (DeserializeRosterResolutions(roster.ResolvedRosterJson)
+                .Any(player => player.CanonicalPlayerId == session.PlayerId))
+            {
+                priorConfirmation = roster.EventUtc;
+                break;
+            }
+        }
+        var lastConfirmed = session.LastConfirmedUtc;
+        session.LastConfirmedUtc = priorConfirmation;
+        session.EndUtc = leaveUtc;
+        session.EndQuality = (byte)PlaytimeTimestampQuality.ParseTime;
+        session.ClosureReason = 1;
+        session.IsFinal = true;
+        session.IsBot ??= isBot;
+        await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        var next = new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            PlayerId = session.PlayerId,
+            ServerId = session.ServerId,
+            GameType = session.GameType,
+            GamePlayerId = reconnect.GamePlayerId,
+            IsBot = reconnect.IsBot ?? session.IsBot,
+            StartUtc = reconnect.EventUtc,
+            LastConfirmedUtc = lastConfirmed,
+            StartQuality = reconnect.TimestampQuality,
+            IsFinal = false
+        };
+        context.PlayerSessions.Add(next);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await ApplyRetainedLeave(session.PlayerId, new PlaytimeObservationDto
+        {
+            ObservationId = reconnect.ObservationId,
+            ServerId = reconnect.ServerId,
+            GameType = (GameType)reconnect.GameType,
+            Kind = PlaytimeObservationKind.PlayerJoined,
+            EventUtc = reconnect.EventUtc,
+            TimestampQuality = (PlaytimeTimestampQuality)reconnect.TimestampQuality,
+            GamePlayerId = reconnect.GamePlayerId
+        }, next, cancellationToken).ConfigureAwait(false);
+        await RebuildSegments(next, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     private async Task<bool> IsStaleRosterObservation(
