@@ -1135,6 +1135,68 @@ public class PlaytimeControllerTests
         Assert.Null(sessions[1].EndUtc);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DelayedCorrelatedLeaveCorrectsUncorrelatedInferredSession(bool reconnect)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-30);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1");
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join] });
+        await PlaytimeSweeperHostedService.SweepAsync(context, start.AddMinutes(1), CancellationToken.None);
+        if (reconnect)
+        {
+            await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(20) }]
+            });
+        }
+
+        var leave = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+            start.AddMinutes(10), "guid-1") with
+        { ConnectionCorrelationId = Guid.NewGuid() };
+        var result = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+
+        Assert.Equal(PlaytimeObservationOutcome.Accepted, result.Result?.Data?.Items.Single().Outcome);
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(reconnect ? 2 : 1, sessions.Count);
+        Assert.Equal(leave.EventUtc, sessions[0].EndUtc);
+        Assert.True(sessions[0].IsFinal);
+        if (reconnect)
+        {
+            Assert.Null(sessions[1].EndUtc);
+        }
+    }
+
+    [Fact]
+    public async Task DelayedLeaveWithDifferentCorrelationDoesNotCorrectInferredSession()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1")
+            with
+        { ConnectionCorrelationId = Guid.NewGuid() };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join] });
+        await PlaytimeSweeperHostedService.SweepAsync(context, start.AddMinutes(1), CancellationToken.None);
+        var leave = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+            start.AddMinutes(5), "guid-1") with
+        { ConnectionCorrelationId = Guid.NewGuid() };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+
+        var session = Assert.Single(await context.PlayerSessions.ToListAsync());
+        Assert.Equal(start, session.EndUtc);
+        Assert.False(session.IsFinal);
+    }
+
     [Fact]
     public async Task DelayedUncorrelatedLeaveDoesNotRewriteFinalClosure()
     {

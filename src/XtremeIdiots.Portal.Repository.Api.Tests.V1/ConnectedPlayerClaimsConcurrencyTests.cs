@@ -21,6 +21,51 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class ConnectedPlayerClaimsConcurrencyTests
 {
+    [Fact]
+    public Task DelayedCorrelatedLeaveCorrectsUncorrelatedInferredSession()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            var player = new Player { GameType = 2, Guid = "guid-1", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.AddRange(server, player);
+            await context.SaveChangesAsync();
+            var start = DateTime.UtcNow.AddMinutes(-30);
+            var join = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                CanonicalPlayerId = player.PlayerId,
+                GamePlayerId = "guid-1",
+                Kind = PlaytimeObservationKind.PlayerJoined,
+                EventUtc = start,
+                TimestampQuality = PlaytimeTimestampQuality.ProducerTimestamp
+            };
+            var api = (IPlaytimeApi)new PlaytimeController(context);
+            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join] });
+            await PlaytimeSweeperHostedService.SweepAsync(context, start.AddMinutes(1), CancellationToken.None);
+            await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(20) }]
+            });
+            var leave = join with
+            {
+                ObservationId = Guid.NewGuid(),
+                EventUtc = start.AddMinutes(10),
+                Kind = PlaytimeObservationKind.PlayerLeft,
+                ConnectionCorrelationId = Guid.NewGuid()
+            };
+            var result = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+            Assert.Equal(PlaytimeObservationOutcome.Accepted, result.Result?.Data?.Items.Single().Outcome);
+            var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+            Assert.Equal(2, sessions.Count);
+            Assert.Equal(leave.EventUtc, sessions[0].EndUtc);
+            Assert.True(sessions[0].IsFinal);
+            Assert.Null(sessions[1].EndUtc);
+        });
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]

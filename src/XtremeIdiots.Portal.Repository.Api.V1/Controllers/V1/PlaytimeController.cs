@@ -1475,7 +1475,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
-        if (session is null && connectionCorrelationId is null)
+        if (session is null)
         {
             var correctionStartUtc = eventUtc.Subtract(LateEventThreshold);
             var latestSession = await context.PlayerSessions
@@ -1489,6 +1489,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             if (latestSession?.EndUtc is not null &&
                 latestSession.LastConfirmedUtc >= correctionStartUtc &&
                 !latestSession.IsFinal &&
+                (connectionCorrelationId == null ||
+                 latestSession.ConnectionCorrelationId == null ||
+                 latestSession.ConnectionCorrelationId == connectionCorrelationId) &&
                 latestSession.ClosureReason is 2 or 3)
             {
                 session = latestSession;
