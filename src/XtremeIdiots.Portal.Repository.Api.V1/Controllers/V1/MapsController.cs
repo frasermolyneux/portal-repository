@@ -473,7 +473,13 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 var compatibleServerGameTypes = Enum.GetValues<GameType>()
                     .Where(gameType => gameType.GetMapGameType() == (GameType)map.GameType)
                     .Select(gameType => (int)gameType)
+                    .OrderBy(gameType => gameType)
                     .ToArray();
+                foreach (var gameType in compatibleServerGameTypes)
+                {
+                    await PlaytimeServerLock.AcquireGameAsync(context, gameType, exclusive: true, operationCancellationToken)
+                        .ConfigureAwait(false);
+                }
                 var serverIds = await context.GameServers
                     .Where(x => compatibleServerGameTypes.Contains(x.GameType))
                     .Select(x => x.GameServerId)
