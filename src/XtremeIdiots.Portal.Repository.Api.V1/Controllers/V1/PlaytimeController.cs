@@ -8,6 +8,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -27,12 +28,20 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 {
     private static readonly TimeSpan LateEventThreshold = TimeSpan.FromHours(24);
     private static readonly TimeSpan FutureEventThreshold = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan CompleteRosterFreshnessThreshold = TimeSpan.FromSeconds(120);
     private static readonly TimeSpan ReconnectGapThreshold = TimeSpan.FromMinutes(15);
     private readonly PortalDbContext context;
+    private readonly ILogger<PlaytimeController>? logger;
+    private readonly TimeProvider timeProvider;
 
-    public PlaytimeController(PortalDbContext context)
+    public PlaytimeController(
+        PortalDbContext context,
+        ILogger<PlaytimeController>? logger = null,
+        TimeProvider? timeProvider = null)
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
+        this.logger = logger;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     [HttpPost("playtime/observations:batch")]
@@ -93,7 +102,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     continue;
                 }
 
-                var now = DateTime.UtcNow;
+                var now = timeProvider.GetUtcNow().UtcDateTime;
                 var hash = ComputeHash(observation);
                 var existing = await context.PlaytimeObservations
                     .FirstOrDefaultAsync(x => x.ObservationId == observation.ObservationId, cancellationToken)
@@ -718,7 +727,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
         else if (observation.Kind == PlaytimeObservationKind.ServerRoster)
         {
-            await ReconcileRoster(observation, eventUtc, cancellationToken).ConfigureAwait(false);
+            await ReconcileRoster(observation, eventUtc, receivedUtc, cancellationToken).ConfigureAwait(false);
             await ChangeMapRun(observation, eventUtc, cancellationToken).ConfigureAwait(false);
         }
     }
@@ -1372,6 +1381,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     private async Task ReconcileRoster(
         PlaytimeObservationDto observation,
         DateTime eventUtc,
+        DateTime processingUtc,
         CancellationToken cancellationToken)
     {
         if (observation.RosterCompleteness is PlaytimeRosterCompleteness.Failed or PlaytimeRosterCompleteness.NotApplicable)
@@ -1380,6 +1390,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         var stale = await IsStaleRosterObservation(observation, eventUtc, cancellationToken).ConfigureAwait(false);
+        var processingAge = processingUtc - eventUtc;
+        var hasTrustedCaptureTime = observation.TimestampQuality == PlaytimeTimestampQuality.RosterSnapshotTimestamp;
+        var freshAtProcessing = hasTrustedCaptureTime &&
+                                processingAge >= TimeSpan.Zero &&
+                                processingAge <= CompleteRosterFreshnessThreshold;
 
         var ids = observation.Roster?
             .Where(x => x.CanonicalPlayerId is not null)
@@ -1406,9 +1421,24 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         var identityIncomplete = observation.Roster?.Any(x => x.CanonicalPlayerId is null && x.IsBot != true) == true;
         if (stale ||
+            !freshAtProcessing ||
             observation.RosterCompleteness != PlaytimeRosterCompleteness.Complete ||
             identityIncomplete)
         {
+            if (observation.RosterCompleteness == PlaytimeRosterCompleteness.Complete &&
+                (stale || !freshAtProcessing || identityIncomplete))
+            {
+                logger?.LogWarning(
+                    "Complete roster {ObservationId} from server {ServerId} was applied positive-only: superseded {Superseded}, identity incomplete {IdentityIncomplete}, timestamp quality {TimestampQuality}, processing age {ProcessingAgeSeconds} seconds; absence reconciliation requires a roster snapshot timestamp and age between 0 and {MaximumAgeSeconds} seconds.",
+                    observation.ObservationId,
+                    observation.ServerId,
+                    stale,
+                    identityIncomplete,
+                    observation.TimestampQuality,
+                    processingAge.TotalSeconds,
+                    CompleteRosterFreshnessThreshold.TotalSeconds);
+            }
+
             return;
         }
 
