@@ -2362,6 +2362,79 @@ public class PlaytimeControllerTests
         Assert.Equal(start.AddMinutes(10), session.LastConfirmedUtc);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RetainedLeaveAtLastConfirmationSeparatesSubsequentPresence(bool sweepFirst)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1")
+            with
+        { ConnectionCorrelationId = correlationId };
+        var confirmation = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(5) };
+        var unresolvedLeave = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+            confirmation.EventUtc, "guid-1") with
+        { CanonicalPlayerId = null, ConnectionCorrelationId = correlationId };
+        var nextPresence = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(10) };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, confirmation] });
+        if (sweepFirst)
+        {
+            await PlaytimeSweeperHostedService.SweepAsync(context, start.AddMinutes(6), CancellationToken.None);
+        }
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [unresolvedLeave, nextPresence] });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(confirmation.EventUtc, sessions[0].EndUtc);
+        Assert.True(sessions[0].IsFinal);
+        Assert.Equal(nextPresence.EventUtc, sessions[1].StartUtc);
+        Assert.Null(sessions[1].EndUtc);
+    }
+
+    [Fact]
+    public async Task RetainedRosterAbsenceAtLastConfirmationPreventsReopeningInferredSession()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var now = DateTimeOffset.UtcNow;
+        var start = now.UtcDateTime.AddSeconds(-40);
+        var api = (IPlaytimeApi)new PlaytimeController(context, timeProvider: new MutableTimeProvider(now));
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1")
+            with
+        { ConnectionCorrelationId = Guid.NewGuid() };
+        var confirmation = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddSeconds(10) };
+        var absence = new PlaytimeObservationDto
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = confirmation.EventUtc,
+            TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+            RosterCompleteness = PlaytimeRosterCompleteness.Complete,
+            Roster = []
+        };
+        var nextPresence = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddSeconds(20) };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, confirmation] });
+        await PlaytimeSweeperHostedService.SweepAsync(context, start.AddSeconds(11), CancellationToken.None);
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [absence, nextPresence] });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(confirmation.EventUtc, sessions[0].EndUtc);
+        Assert.Equal((byte)2, sessions[0].ClosureReason);
+        Assert.Equal(nextPresence.EventUtc, sessions[1].StartUtc);
+        Assert.Null(sessions[1].EndUtc);
+    }
+
     [Fact]
     public async Task PresenceAfterInferredClosureAndRosterAbsenceStartsNewSession()
     {

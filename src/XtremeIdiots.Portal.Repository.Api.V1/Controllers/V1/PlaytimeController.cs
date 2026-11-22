@@ -1030,7 +1030,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     inferred.EndUtc!.Value,
                     eventUtc,
                     inferred.ConnectionCorrelationId,
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken,
+                    includeStartBoundary: inferred.EndUtc > inferred.StartUtc).ConfigureAwait(false);
                 if (boundary is null)
                 {
                     inferred.EndUtc = null;
@@ -1058,7 +1059,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 open.LastConfirmedUtc,
                 eventUtc,
                 open.ConnectionCorrelationId,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                includeStartBoundary: open.LastConfirmedUtc > open.StartUtc).ConfigureAwait(false);
             if (boundary is not null)
             {
                 CloseSessionAtBoundary(open, boundary);
@@ -1280,7 +1282,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         DateTime startUtc,
         DateTime endUtc,
         Guid? sessionCorrelationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeStartBoundary = false)
     {
         var leave = await FindAcceptedLeaveBetween(
             playerId,
@@ -1288,13 +1291,15 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             startUtc,
             endUtc,
             sessionCorrelationId,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            includeStartBoundary).ConfigureAwait(false);
         var rosterAbsence = await FindAcceptedCompleteRosterAbsence(
             playerId,
             join,
             startUtc,
             endUtc,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            includeStart: includeStartBoundary).ConfigureAwait(false);
         if (leave is null)
         {
             return rosterAbsence;
@@ -1311,7 +1316,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         DateTime startUtc,
         DateTime endUtc,
         Guid? sessionCorrelationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeStartLeave = false)
     {
         var hasGamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId);
         return await context.PlaytimeObservations
@@ -1320,7 +1326,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 x => x.ServerId == join.ServerId &&
                      x.Kind == (byte)PlaytimeObservationKind.PlayerLeft &&
                      x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
-                     x.EventUtc > startUtc &&
+                     (x.EventUtc > startUtc || (includeStartLeave && x.EventUtc == startUtc)) &&
                      x.EventUtc <= endUtc &&
                      (x.ConnectionCorrelationId == null ||
                       join.ConnectionCorrelationId == null ||
@@ -1347,7 +1353,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         DateTime startUtc,
         DateTime endUtc,
         CancellationToken cancellationToken,
-        DateTime? exclusiveEndUtc = null)
+        DateTime? exclusiveEndUtc = null,
+        bool includeStart = false)
     {
         if (endUtc <= startUtc)
         {
@@ -1368,7 +1375,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         !x.IdentifiersRedacted &&
                         x.ResolvedRosterJson != null &&
                         x.EventUtc <= processingUtc &&
-                        x.EventUtc > startUtc &&
+                        (x.EventUtc > startUtc || (includeStart && x.EventUtc == startUtc)) &&
                         x.EventUtc <= boundedEndUtc &&
                         (!exclusiveEndUtc.HasValue || x.EventUtc < exclusiveEndUtc.Value))
             .OrderBy(x => x.EventUtc)

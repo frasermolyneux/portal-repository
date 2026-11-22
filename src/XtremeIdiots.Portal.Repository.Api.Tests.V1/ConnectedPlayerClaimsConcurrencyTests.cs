@@ -10,6 +10,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 using Xunit;
@@ -20,6 +21,68 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class ConnectedPlayerClaimsConcurrencyTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public Task RetainedBoundaryAtLastConfirmationSeparatesSubsequentPresence(bool sweepFirst, bool rosterAbsence)
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            var player = new Player { GameType = 2, Guid = "guid-1", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.AddRange(server, player);
+            await context.SaveChangesAsync();
+            var start = DateTime.UtcNow.AddSeconds(-40);
+            var join = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                CanonicalPlayerId = player.PlayerId,
+                GamePlayerId = "guid-1",
+                ConnectionCorrelationId = Guid.NewGuid(),
+                Kind = PlaytimeObservationKind.PlayerJoined,
+                EventUtc = start,
+                TimestampQuality = PlaytimeTimestampQuality.ProducerTimestamp
+            };
+            var confirmation = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddSeconds(10) };
+            var boundary = rosterAbsence
+                ? new PlaytimeObservationDto
+                {
+                    ObservationId = Guid.NewGuid(),
+                    ServerId = server.GameServerId,
+                    GameType = GameType.CallOfDuty4,
+                    Kind = PlaytimeObservationKind.ServerRoster,
+                    EventUtc = confirmation.EventUtc,
+                    TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                    RosterCompleteness = PlaytimeRosterCompleteness.Complete,
+                    Roster = []
+                }
+                : confirmation with
+                {
+                    ObservationId = Guid.NewGuid(),
+                    Kind = PlaytimeObservationKind.PlayerLeft,
+                    CanonicalPlayerId = null
+                };
+            var nextPresence = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddSeconds(20) };
+            var api = (IPlaytimeApi)new PlaytimeController(context);
+            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, confirmation] });
+            if (sweepFirst)
+            {
+                await PlaytimeSweeperHostedService.SweepAsync(context, start.AddSeconds(11), CancellationToken.None);
+            }
+            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [boundary, nextPresence] });
+            var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+            Assert.Equal(2, sessions.Count);
+            Assert.Equal(confirmation.EventUtc, sessions[0].EndUtc);
+            Assert.Equal(!rosterAbsence, sessions[0].IsFinal);
+            Assert.Equal(rosterAbsence ? (byte)2 : (byte)1, sessions[0].ClosureReason);
+            Assert.Equal(nextPresence.EventUtc, sessions[1].StartUtc);
+            Assert.Null(sessions[1].EndUtc);
+        });
+
     [Fact]
     public Task PlayerDeletionCoordinatesIngestionOnServerCreatedDuringDeletion()
         => SqlServerTestDatabase.RunAsync(async connectionString =>
