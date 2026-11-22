@@ -1136,6 +1136,55 @@ public class PlaytimeControllerTests
     }
 
     [Theory]
+    [InlineData(9, false)]
+    [InlineData(10, false)]
+    [InlineData(15, true)]
+    public async Task DelayedCorrelatedLeaveDoesNotExtendAcrossNewConnection(int leaveMinute, bool clipped)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-30);
+        var firstCorrelation = Guid.NewGuid();
+        var secondCorrelation = Guid.NewGuid();
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var firstJoin = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1")
+            with
+        { ConnectionCorrelationId = firstCorrelation };
+        var secondJoin = firstJoin with
+        {
+            ObservationId = Guid.NewGuid(),
+            EventUtc = start.AddMinutes(10),
+            ConnectionCorrelationId = secondCorrelation
+        };
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                firstJoin,
+                firstJoin with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(5) },
+                secondJoin,
+                secondJoin with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(20) }
+            ]
+        });
+        var leave = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft,
+            start.AddMinutes(leaveMinute), "guid-1") with
+        { ConnectionCorrelationId = firstCorrelation };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(start.AddMinutes(Math.Min(leaveMinute, 10)), sessions[0].EndUtc);
+        Assert.Equal(clipped ? (byte)PlaytimeTimestampQuality.InferredTimestamp : (byte)leave.TimestampQuality,
+            sessions[0].EndQuality);
+        Assert.Equal(clipped ? (byte)3 : (byte)1, sessions[0].ClosureReason);
+        Assert.Equal(!clipped, sessions[0].IsFinal);
+        Assert.Null(sessions[1].EndUtc);
+        Assert.Equal(start.AddMinutes(20), sessions[1].LastConfirmedUtc);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task DelayedCorrelatedLeaveCorrectsUncorrelatedInferredSession(bool reconnect)

@@ -1517,6 +1517,23 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         var endUtc = session.LastConfirmedUtc > eventUtc ? session.LastConfirmedUtc : eventUtc;
+        var nextSessionStart = await context.PlayerSessions
+            .AsNoTracking()
+            .Where(x => x.PlayerId == playerId && x.ServerId == serverId &&
+                        x.SessionId != session.SessionId && x.StartUtc > session.StartUtc)
+            .OrderBy(x => x.StartUtc)
+            .Select(x => (DateTime?)x.StartUtc)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (nextSessionStart is DateTime nextStart && endUtc > nextStart)
+        {
+            session.EndUtc = nextStart;
+            session.EndQuality = (byte)PlaytimeTimestampQuality.InferredTimestamp;
+            session.ClosureReason = 3;
+            session.IsFinal = false;
+            await RebuildSegments(session, cancellationToken).ConfigureAwait(false);
+            return;
+        }
         session.EndUtc = endUtc;
         session.EndQuality = endQuality;
         session.ClosureReason = closureReason;
