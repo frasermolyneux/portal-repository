@@ -140,6 +140,19 @@
     },
     {
       "name": "[dbo].[UserProfileLifecycleOperations]"
+    },
+    {
+      "excludedColumns": [],
+      "name": "[dbo].[PlaytimeObservation]"
+    },
+    {
+      "name": "[dbo].[PlayerSession]"
+    },
+    {
+      "name": "[dbo].[ServerMapRun]"
+    },
+    {
+      "name": "[dbo].[PlayerSessionMapSegment]"
     }
   ]
 }

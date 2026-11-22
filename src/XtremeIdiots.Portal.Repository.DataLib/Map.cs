@@ -45,4 +45,7 @@ public partial class Map
 
     [InverseProperty("Map")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
+
+    [InverseProperty("Map")]
+    public virtual ICollection<ServerMapRun> ServerMapRuns { get; set; } = new List<ServerMapRun>();
 }
