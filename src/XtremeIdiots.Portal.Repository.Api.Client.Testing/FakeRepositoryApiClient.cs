@@ -413,6 +413,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         DashboardAnalyticsApi.Reset();
         MapAnalyticsApi.Reset();
         PlayerAnalyticsV2Api.Reset();
+        PlaytimeApi.Reset();
         return this;
     }
 }

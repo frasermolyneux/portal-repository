@@ -22,6 +22,45 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 public class ConnectedPlayerClaimsConcurrencyTests
 {
     [Fact]
+    public Task CurrentSessions_UsesSqlServerGrouping()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            var player = new Player { GameType = 2, Guid = "guid-1", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            var other = new Player { GameType = 2, Guid = "guid-2", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.AddRange(server, player, other);
+            await context.SaveChangesAsync();
+            var start = DateTime.UtcNow.AddMinutes(-5);
+            context.PlayerSessions.AddRange(
+                new PlayerSession
+                {
+                    SessionId = Guid.NewGuid(),
+                    PlayerId = player.PlayerId,
+                    ServerId = server.GameServerId,
+                    GameType = 2,
+                    StartUtc = start,
+                    LastConfirmedUtc = start.AddSeconds(42)
+                },
+                new PlayerSession
+                {
+                    SessionId = Guid.NewGuid(),
+                    PlayerId = other.PlayerId,
+                    ServerId = server.GameServerId,
+                    GameType = 2,
+                    StartUtc = start,
+                    LastConfirmedUtc = start
+                });
+            await context.SaveChangesAsync();
+
+            var result = await ((IPlaytimeApi)new PlaytimeController(context)).GetCurrentSessions(
+                server.GameServerId, new CurrentPlayerSessionsRequestDto { PlayerIds = [player.PlayerId, other.PlayerId] });
+            Assert.Equal(42, result.Result!.Data![0].Session!.ObservedSeconds);
+            Assert.Equal(CurrentPlayerSessionStatus.Found, result.Result!.Data![1].Status);
+        });
+
+    [Fact]
     public Task DelayedCorrelatedLeaveDoesNotOverlapLaterSession()
         => SqlServerTestDatabase.RunAsync(async connectionString =>
         {

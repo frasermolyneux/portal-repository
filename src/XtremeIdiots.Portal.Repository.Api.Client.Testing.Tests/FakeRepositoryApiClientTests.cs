@@ -5,6 +5,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 
@@ -382,6 +383,15 @@ public class FakeRepositoryApiClientTests
         client.PlayersApi.AddPlayer(player);
         var gameServer = RepositoryDtoFactory.CreateGameServer();
         client.GameServersApi.AddGameServer(gameServer);
+        var request = new CurrentPlayerSessionsRequestDto { PlayerIds = [player.PlayerId] };
+        client.PlaytimeApi.SetCurrentSession(gameServer.GameServerId, new CurrentPlayerSessionResultDto
+        {
+            PlayerId = player.PlayerId,
+            Status = CurrentPlayerSessionStatus.Found,
+            Session = new CurrentPlayerSessionDto { ServerId = gameServer.GameServerId }
+        });
+        Assert.Equal(CurrentPlayerSessionStatus.Found,
+            Assert.Single((await client.Playtime.V1.GetCurrentSessions(gameServer.GameServerId, request)).Result!.Data!).Status);
 
         client.Reset();
 
@@ -390,6 +400,8 @@ public class FakeRepositoryApiClientTests
 
         var gsResult = await client.GameServers.V1.GetGameServer(gameServer.GameServerId);
         Assert.Equal(System.Net.HttpStatusCode.NotFound, gsResult.StatusCode);
+        Assert.Equal(CurrentPlayerSessionStatus.Unavailable,
+            Assert.Single((await client.Playtime.V1.GetCurrentSessions(gameServer.GameServerId, request)).Result!.Data!).Status);
     }
 
     [Fact]
