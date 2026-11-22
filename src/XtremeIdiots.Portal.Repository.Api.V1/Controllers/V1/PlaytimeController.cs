@@ -1648,6 +1648,44 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         bool? isBot,
         CancellationToken cancellationToken)
     {
+        var split = await TrySplitReadTimeReconnect(session, leaveUtc, isBot, cancellationToken).ConfigureAwait(false);
+        if (split is null)
+        {
+            return false;
+        }
+
+        while (true)
+        {
+            var (current, join) = split.Value;
+            var leave = await FindAcceptedLeaveBetween(
+                current.PlayerId, join, current.StartUtc, current.LastConfirmedUtc, null, cancellationToken)
+                .ConfigureAwait(false);
+            if (leave is not null &&
+                leave.TimestampQuality == (byte)PlaytimeTimestampQuality.ParseTime &&
+                leave.ConnectionCorrelationId is null &&
+                leave.EventUtc < current.LastConfirmedUtc)
+            {
+                var next = await TrySplitReadTimeReconnect(current, leave.EventUtc, leave.IsBot, cancellationToken)
+                    .ConfigureAwait(false);
+                if (next is not null)
+                {
+                    split = next;
+                    continue;
+                }
+            }
+
+            await ApplyRetainedLeave(current.PlayerId, join, current, cancellationToken).ConfigureAwait(false);
+            await RebuildSegments(current, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+    }
+
+    private async Task<(PlayerSession Session, PlaytimeObservationDto Join)?> TrySplitReadTimeReconnect(
+        PlayerSession session,
+        DateTime leaveUtc,
+        bool? isBot,
+        CancellationToken cancellationToken)
+    {
         var reconnect = await context.PlaytimeObservations.AsNoTracking()
             .Where(x => x.ServerId == session.ServerId &&
                         x.CanonicalPlayerId == session.PlayerId &&
@@ -1662,7 +1700,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .ConfigureAwait(false);
         if (reconnect is null)
         {
-            return false;
+            return null;
         }
 
         var nextSessionExists = await context.PlayerSessions.AsNoTracking()
@@ -1673,7 +1711,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 cancellationToken).ConfigureAwait(false);
         if (nextSessionExists)
         {
-            return false;
+            return null;
         }
 
         var previousJoin = await context.PlaytimeObservations.AsNoTracking()
@@ -1705,6 +1743,53 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 break;
             }
         }
+        var missingRosterEvidence = await context.PlaytimeObservations.AsNoTracking()
+            .AnyAsync(x => x.ServerId == session.ServerId &&
+                           x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                           x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                           x.RosterCompleteness != (byte)PlaytimeRosterCompleteness.Failed &&
+                           x.RosterCompleteness != (byte)PlaytimeRosterCompleteness.NotApplicable &&
+                           x.ResolvedRosterJson == null &&
+                           x.EventUtc > priorConfirmation && x.EventUtc <= leaveUtc,
+                cancellationToken).ConfigureAwait(false);
+        if (missingRosterEvidence)
+        {
+            logger?.LogWarning(
+                "Cannot split read-time session {SessionId} at {LeaveUtc} because preceding roster evidence has expired.",
+                session.SessionId, leaveUtc);
+            return null;
+        }
+
+        var reconnectStart = reconnect.EventUtc;
+        var reconnectQuality = reconnect.TimestampQuality;
+        var laterRosters = context.PlaytimeObservations.AsNoTracking()
+            .Where(x => x.ServerId == session.ServerId &&
+                        x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        x.RosterCompleteness != (byte)PlaytimeRosterCompleteness.Failed &&
+                        x.RosterCompleteness != (byte)PlaytimeRosterCompleteness.NotApplicable &&
+                        x.EventUtc > leaveUtc && x.EventUtc < reconnect.EventUtc)
+            .OrderBy(x => x.EventUtc)
+            .Select(x => new { x.EventUtc, x.TimestampQuality, x.ResolvedRosterJson })
+            .AsAsyncEnumerable();
+        await foreach (var roster in laterRosters.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (roster.ResolvedRosterJson is null)
+            {
+                logger?.LogWarning(
+                    "Cannot split read-time session {SessionId} at {LeaveUtc} because subsequent roster evidence has expired.",
+                    session.SessionId, leaveUtc);
+                return null;
+            }
+            if (DeserializeRosterResolutions(roster.ResolvedRosterJson)
+                .Any(player => player.CanonicalPlayerId == session.PlayerId))
+            {
+                reconnectStart = roster.EventUtc;
+                reconnectQuality = roster.TimestampQuality;
+                break;
+            }
+        }
+
         var lastConfirmed = session.LastConfirmedUtc;
         session.LastConfirmedUtc = priorConfirmation;
         session.EndUtc = leaveUtc;
@@ -1721,16 +1806,16 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             PlayerId = session.PlayerId,
             ServerId = session.ServerId,
             GameType = session.GameType,
-            GamePlayerId = reconnect.GamePlayerId,
+            GamePlayerId = reconnect.GamePlayerId ?? session.GamePlayerId,
             IsBot = reconnect.IsBot ?? session.IsBot,
-            StartUtc = reconnect.EventUtc,
+            StartUtc = reconnectStart,
             LastConfirmedUtc = lastConfirmed,
-            StartQuality = reconnect.TimestampQuality,
+            StartQuality = reconnectQuality,
             IsFinal = false
         };
         context.PlayerSessions.Add(next);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        await ApplyRetainedLeave(session.PlayerId, new PlaytimeObservationDto
+        var join = new PlaytimeObservationDto
         {
             ObservationId = reconnect.ObservationId,
             ServerId = reconnect.ServerId,
@@ -1738,10 +1823,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             Kind = PlaytimeObservationKind.PlayerJoined,
             EventUtc = reconnect.EventUtc,
             TimestampQuality = (PlaytimeTimestampQuality)reconnect.TimestampQuality,
-            GamePlayerId = reconnect.GamePlayerId
-        }, next, cancellationToken).ConfigureAwait(false);
-        await RebuildSegments(next, cancellationToken).ConfigureAwait(false);
-        return true;
+            GamePlayerId = next.GamePlayerId
+        };
+        return (next, join);
     }
 
     private async Task<bool> IsStaleRosterObservation(

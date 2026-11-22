@@ -105,7 +105,7 @@ public class PlaytimeControllerTests
 
         await api.BatchObservations(new PlaytimeObservationBatchDto
         {
-            Observations = [join, Roster(start.AddMinutes(3)), reconnect, Roster(start.AddMinutes(8))]
+            Observations = [join, Roster(start.AddMinutes(3)), Roster(start.AddMinutes(5)), reconnect, Roster(start.AddMinutes(8))]
         });
         await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
         await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [reconnect] });
@@ -123,9 +123,90 @@ public class PlaytimeControllerTests
         Assert.Equal(start.AddMinutes(3), sessions[0].LastConfirmedUtc);
         Assert.Equal(start.AddMinutes(4), sessions[0].EndUtc);
         Assert.Equal((byte)PlaytimeTimestampQuality.ParseTime, sessions[0].EndQuality);
-        Assert.Equal(start.AddMinutes(6), sessions[1].StartUtc);
+        Assert.Equal(start.AddMinutes(5), sessions[1].StartUtc);
+        Assert.Equal((byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp, sessions[1].StartQuality);
         Assert.Equal(start.AddMinutes(8), sessions[1].LastConfirmedUtc);
         Assert.Null(sessions[1].EndUtc);
+    }
+
+    [Fact]
+    public async Task ReadTimeSplitDoesNotDiscardConfirmationWhenRosterEvidenceExpired()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-12);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1")
+            with
+        { TimestampQuality = PlaytimeTimestampQuality.ParseTime };
+        var roster = new PlaytimeObservationDto
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = start.AddMinutes(3),
+            TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Roster = [new PlaytimeRosterPlayerDto { GamePlayerId = "guid-1", SlotId = 1, CanonicalPlayerId = playerId }]
+        };
+        var reconnect = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(6) };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, roster, reconnect] });
+        var retainedRoster = await context.PlaytimeObservations.SingleAsync(x => x.ObservationId == roster.ObservationId);
+        retainedRoster.ResolvedRosterJson = null;
+        await context.SaveChangesAsync();
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [join with { ObservationId = Guid.NewGuid(), Kind = PlaytimeObservationKind.PlayerLeft, EventUtc = start.AddMinutes(4) }]
+        });
+
+        var session = Assert.Single(await context.PlayerSessions.ToListAsync());
+        Assert.Equal(reconnect.EventUtc, session.LastConfirmedUtc);
+        Assert.Equal(reconnect.EventUtc, session.EndUtc);
+    }
+
+    [Fact]
+    public async Task ReadTimeSplitReconcilesLaterRetainedLeaveAndReconnect()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-20);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var join = Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, "guid-1")
+            with
+        { TimestampQuality = PlaytimeTimestampQuality.ParseTime };
+        var second = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(6), GamePlayerId = null };
+        var third = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(12) };
+        var unresolvedLeave = join with
+        {
+            ObservationId = Guid.NewGuid(),
+            Kind = PlaytimeObservationKind.PlayerLeft,
+            EventUtc = start.AddMinutes(10),
+            CanonicalPlayerId = null
+        };
+        var earlierLeave = join with
+        {
+            ObservationId = Guid.NewGuid(),
+            Kind = PlaytimeObservationKind.PlayerLeft,
+            EventUtc = start.AddMinutes(4)
+        };
+
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, second, third, unresolvedLeave] });
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [earlierLeave] });
+
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        Assert.Equal(3, sessions.Count);
+        Assert.Equal(earlierLeave.EventUtc, sessions[0].EndUtc);
+        Assert.Equal(second.EventUtc, sessions[1].StartUtc);
+        Assert.Equal("guid-1", sessions[1].GamePlayerId);
+        Assert.Equal(unresolvedLeave.EventUtc, sessions[1].EndUtc);
+        Assert.Equal(third.EventUtc, sessions[2].StartUtc);
+        Assert.Null(sessions[2].EndUtc);
     }
 
     [Fact]

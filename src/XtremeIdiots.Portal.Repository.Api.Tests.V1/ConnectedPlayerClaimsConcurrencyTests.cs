@@ -31,7 +31,7 @@ public class ConnectedPlayerClaimsConcurrencyTests
             var player = new Player { GameType = 2, Guid = "guid-1", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             context.AddRange(server, player);
             await context.SaveChangesAsync();
-            var start = DateTime.UtcNow.AddMinutes(-12);
+            var start = DateTime.UtcNow.AddMinutes(-20);
             var join = new PlaytimeObservationDto
             {
                 ObservationId = Guid.NewGuid(),
@@ -44,6 +44,7 @@ public class ConnectedPlayerClaimsConcurrencyTests
                 TimestampQuality = PlaytimeTimestampQuality.ParseTime
             };
             var reconnect = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(6) };
+            var thirdJoin = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(12) };
             var roster = new PlaytimeObservationDto
             {
                 ObservationId = Guid.NewGuid(),
@@ -61,15 +62,28 @@ public class ConnectedPlayerClaimsConcurrencyTests
                 Kind = PlaytimeObservationKind.PlayerLeft,
                 EventUtc = start.AddMinutes(4)
             };
+            var laterLeave = join with
+            {
+                ObservationId = Guid.NewGuid(),
+                CanonicalPlayerId = null,
+                Kind = PlaytimeObservationKind.PlayerLeft,
+                EventUtc = start.AddMinutes(10)
+            };
             var api = (IPlaytimeApi)new PlaytimeController(context);
-            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, roster, reconnect] });
+            await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [join, roster, roster with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(5) },
+                    reconnect, thirdJoin, laterLeave]
+            });
             await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
             var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
-            Assert.Equal(2, sessions.Count);
+            Assert.Equal(3, sessions.Count);
             Assert.Equal(roster.EventUtc, sessions[0].LastConfirmedUtc);
             Assert.Equal(leave.EventUtc, sessions[0].EndUtc);
-            Assert.Equal(reconnect.EventUtc, sessions[1].StartUtc);
-            Assert.Null(sessions[1].EndUtc);
+            Assert.Equal(start.AddMinutes(5), sessions[1].StartUtc);
+            Assert.Equal(laterLeave.EventUtc, sessions[1].EndUtc);
+            Assert.Equal(thirdJoin.EventUtc, sessions[2].StartUtc);
+            Assert.Null(sessions[2].EndUtc);
         });
 
     [Fact]
