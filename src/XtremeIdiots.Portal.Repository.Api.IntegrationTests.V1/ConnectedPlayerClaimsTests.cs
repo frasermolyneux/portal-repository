@@ -11,6 +11,32 @@ namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1;
 public class ConnectedPlayerClaimsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
     [Fact]
+    public async Task Replacement_HttpRequestReturnsNewCodeAndRejectsStaleId()
+    {
+        var user = Guid.NewGuid();
+        var oldId = Guid.NewGuid();
+        factory.SeedDatabase(db =>
+        {
+            db.UserProfiles.Add(new UserProfile { UserProfileId = user });
+            db.ConnectedPlayerActivationCodes.Add(new ConnectedPlayerActivationCode
+            {
+                ConnectedPlayerActivationCodeId = oldId, UserProfileId = user, Code = "OLD123", CodeHash = "old",
+                ActivatedBy = "ApprovalRequired", IsActive = true, ActivatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1), MaxAttempts = 5
+            });
+            db.SaveChanges();
+        });
+        using var client = factory.CreateClient();
+        var path = $"/v1.0/user-profiles/{user}/connected-player-claim-codes/{oldId}/replace";
+        var response = await client.PostAsync(path, null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var code = JsonConvert.DeserializeObject<ApiResponse<ConnectedPlayerActivationCodeDto>>(await response.Content.ReadAsStringAsync())!.Data!;
+        Assert.NotEqual("OLD123", code.Code);
+        Assert.Equal(TimeSpan.FromHours(1), code.ExpiresAtUtc - code.ActivatedAtUtc);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync(path, null)).StatusCode);
+    }
+
+    [Fact]
     public async Task Submit_HttpResponseIncludesServerAndDoesNotLink()
     {
         var user = Guid.NewGuid();

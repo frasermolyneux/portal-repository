@@ -465,6 +465,21 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
+    public async Task ConnectedPlayers_ReplacementInvalidatesOnlyExpectedApprovalCode()
+    {
+        var client = new FakeRepositoryApiClient();
+        var user = Guid.NewGuid();
+        var code = (await client.ConnectedPlayers.V1.IssueConnectedPlayerClaimCode(new() { UserProfileId = user })).Result!.Data!;
+        Assert.Equal(System.Net.HttpStatusCode.Conflict,
+            (await client.ConnectedPlayers.V1.ReplaceConnectedPlayerClaimCode(Guid.NewGuid(), code.ConnectedPlayerActivationCodeId)).StatusCode);
+        var replacement = (await client.ConnectedPlayers.V1.ReplaceConnectedPlayerClaimCode(user, code.ConnectedPlayerActivationCodeId)).Result!.Data!;
+        Assert.NotEqual(code.Code, replacement.Code);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict,
+            (await client.ConnectedPlayers.V1.ReplaceConnectedPlayerClaimCode(user, code.ConnectedPlayerActivationCodeId)).StatusCode);
+        Assert.Equal(replacement.Code, (await client.ConnectedPlayers.V1.IssueConnectedPlayerClaimCode(new() { UserProfileId = user })).Result!.Data!.Code);
+    }
+
+    [Fact]
     public async Task GlobalAnalytics_V1_GetTimeseriesComparisonOverload_ReturnsConfiguredResponse()
     {
         var client = new FakeRepositoryApiClient();

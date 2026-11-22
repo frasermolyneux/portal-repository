@@ -69,10 +69,29 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
         ActivateConnectedPlayerActivationCodeDto dto, CancellationToken cancellationToken = default)
         => IssueCode(dto, true);
 
-    private Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueCode(ActivateConnectedPlayerActivationCodeDto dto, bool approvalRequired)
+    public Task<ApiResult<ConnectedPlayerActivationCodeDto>> ReplaceConnectedPlayerClaimCode(
+        Guid userProfileId, Guid claimCodeId, CancellationToken cancellationToken = default)
+        => IssueCode(new ActivateConnectedPlayerActivationCodeDto { UserProfileId = userProfileId }, true, claimCodeId);
+
+    private Task<ApiResult<ConnectedPlayerActivationCodeDto>> IssueCode(ActivateConnectedPlayerActivationCodeDto dto, bool approvalRequired, Guid? replaceClaimCodeId = null)
     {
         lock (_claimLock)
         {
+            if (approvalRequired && replaceClaimCodeId is Guid replaceId)
+            {
+                if (dto.UserProfileId == Guid.Empty || replaceId == Guid.Empty)
+                {
+                    return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.BadRequest));
+                }
+
+                if (!_activationCodes.TryGetValue(replaceId, out var previous) || previous.UserProfileId != dto.UserProfileId
+                    || !previous.IsActive || !_approvalCodes.GetValueOrDefault(replaceId))
+                {
+                    return Task.FromResult(new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.Conflict));
+                }
+                _activationCodes[replaceId] = previous with { IsActive = false };
+            }
+
             var current = approvalRequired
                 ? _activationCodes.Values.FirstOrDefault(x => x.UserProfileId == dto.UserProfileId && x.IsActive && x.ExpiresAtUtc > DateTime.UtcNow
                     && _approvalCodes.GetValueOrDefault(x.ConnectedPlayerActivationCodeId))
@@ -88,11 +107,16 @@ public class FakeConnectedPlayersApi : IConnectedPlayersApi
             }
 
             var now = DateTime.UtcNow;
+            string code;
+            do
+            {
+                code = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+            } while (_activationCodes.Values.Any(existing => existing.Code == code));
             var result = new ConnectedPlayerActivationCodeDto
             {
                 ConnectedPlayerActivationCodeId = Guid.NewGuid(),
                 UserProfileId = dto.UserProfileId,
-                Code = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant(),
+                Code = code,
                 ExpiresAtUtc = now.AddMinutes(approvalRequired ? 60 : 5),
                 AttemptCount = 0,
                 MaxAttempts = 5,

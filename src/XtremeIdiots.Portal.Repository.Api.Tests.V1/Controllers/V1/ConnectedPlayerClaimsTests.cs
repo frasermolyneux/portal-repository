@@ -14,6 +14,57 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public class ConnectedPlayerClaimsTests
 {
     [Fact]
+    public async Task Replacement_IsScopedAndPreservesClaimsAndIssueRetries()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var user = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var player = Guid.NewGuid();
+        var server = Guid.NewGuid();
+        db.UserProfiles.AddRange(new UserProfile { UserProfileId = user }, new UserProfile { UserProfileId = other });
+        db.Players.Add(new Player { PlayerId = player });
+        foreach (var name in new[] { "verified-player", "senior-admin", "head-admin", "game-admin", "moderator", "clan-member" })
+        {
+            db.Tags.Add(new Tag { TagId = Guid.NewGuid(), Name = name });
+        }
+        await db.SaveChangesAsync();
+        var api = (IConnectedPlayersApi)new ConnectedPlayersController(db, Mock.Of<IAuditLogger>());
+        var first = (await api.IssueConnectedPlayerClaimCode(new() { UserProfileId = user })).Result!.Data!;
+        var request = new SubmitConnectedPlayerClaimDto { RequestId = Guid.NewGuid(), PlayerId = player, GameServerId = server, Code = first.Code };
+        Assert.Equal(HttpStatusCode.Created, (await api.SubmitConnectedPlayerClaim(request)).StatusCode);
+        var current = (await api.IssueConnectedPlayerClaimCode(new() { UserProfileId = user })).Result!.Data!;
+        Assert.Equal(HttpStatusCode.Conflict, (await api.ReplaceConnectedPlayerClaimCode(other, current.ConnectedPlayerActivationCodeId)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.ReplaceConnectedPlayerClaimCode(user, first.ConnectedPlayerActivationCodeId)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ReplaceConnectedPlayerClaimCode(user, Guid.Empty)).StatusCode);
+        var replacement = (await api.ReplaceConnectedPlayerClaimCode(user, current.ConnectedPlayerActivationCodeId)).Result!.Data!;
+        Assert.NotEqual(current.Code, replacement.Code);
+        Assert.Equal(TimeSpan.FromHours(1), replacement.ExpiresAtUtc - replacement.ActivatedAtUtc);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.ReplaceConnectedPlayerClaimCode(user, current.ConnectedPlayerActivationCodeId)).StatusCode);
+        Assert.Equal(replacement.Code, (await api.IssueConnectedPlayerClaimCode(new() { UserProfileId = user })).Result!.Data!.Code);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SubmitConnectedPlayerClaim(request with { RequestId = Guid.NewGuid(), Code = current.Code })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await api.SubmitConnectedPlayerClaim(request)).StatusCode);
+        Assert.Equal("Pending", db.ConnectedPlayerClaims.Single().Status);
+        Assert.Equal(HttpStatusCode.OK, (await api.ApproveConnectedPlayerClaim(user, request.RequestId)).StatusCode);
+        Assert.NotNull(db.ConnectedPlayerActivationCodes.Single(c => c.ConnectedPlayerActivationCodeId == current.ConnectedPlayerActivationCodeId).InvalidatedAtUtc);
+    }
+
+    [Fact]
+    public async Task Replacement_DoesNotInvalidateLegacyOrOtherProfilesCodes()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var user = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        db.UserProfiles.AddRange(new UserProfile { UserProfileId = user }, new UserProfile { UserProfileId = other });
+        await db.SaveChangesAsync();
+        var api = (IConnectedPlayersApi)new ConnectedPlayersController(db, Mock.Of<IAuditLogger>());
+        var legacy = (await api.ActivateConnectedPlayerActivationCode(new() { UserProfileId = user })).Result!.Data!;
+        var otherCode = (await api.IssueConnectedPlayerClaimCode(new() { UserProfileId = other })).Result!.Data!;
+        Assert.Equal(HttpStatusCode.Conflict, (await api.ReplaceConnectedPlayerClaimCode(user, legacy.ConnectedPlayerActivationCodeId)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.ReplaceConnectedPlayerClaimCode(user, otherCode.ConnectedPlayerActivationCodeId)).StatusCode);
+        Assert.All(db.ConnectedPlayerActivationCodes, c => Assert.True(c.IsActive));
+    }
+
+    [Fact]
     public async Task ApprovalCodes_AreOneHourAndCannotBeConsumedByLegacyEndpoint()
     {
         using var db = DbContextHelper.CreateInMemoryContext();

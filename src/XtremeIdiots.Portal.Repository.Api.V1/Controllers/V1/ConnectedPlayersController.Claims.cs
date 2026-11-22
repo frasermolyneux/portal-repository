@@ -3,9 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
+using MX.Observability.ApplicationInsights.Auditing;
+using MX.Observability.ApplicationInsights.Auditing.Models;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
+using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 
@@ -20,6 +23,74 @@ public partial class ConnectedPlayersController
     Task<ApiResult<ConnectedPlayerActivationCodeDto>> IConnectedPlayersApi.IssueConnectedPlayerClaimCode(
         ActivateConnectedPlayerActivationCodeDto dto, CancellationToken cancellationToken)
         => IssueActivationCode(dto, ClaimActivationSource, 60, cancellationToken);
+
+    [HttpPost("user-profiles/{userProfileId:guid}/connected-player-claim-codes/{claimCodeId:guid}/replace")]
+    public async Task<IActionResult> ReplaceConnectedPlayerClaimCode(Guid userProfileId, Guid claimCodeId, CancellationToken cancellationToken = default)
+        => (await ((IConnectedPlayersApi)this).ReplaceConnectedPlayerClaimCode(userProfileId, claimCodeId, cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+    async Task<ApiResult<ConnectedPlayerActivationCodeDto>> IConnectedPlayersApi.ReplaceConnectedPlayerClaimCode(
+        Guid userProfileId, Guid claimCodeId, CancellationToken cancellationToken)
+    {
+        if (userProfileId == Guid.Empty || claimCodeId == Guid.Empty)
+        {
+            return new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.BadRequest,
+                new ApiResponse<ConnectedPlayerActivationCodeDto>(new ApiError(ApiErrorCodes.InvalidRequest, ApiErrorMessages.InvalidRequestBodyMessage)));
+        }
+
+        var result = await UserProfileLifecycle.ExecuteAsync(context, async () =>
+        {
+            if (!await context.UserProfiles.AnyAsync(u => u.UserProfileId == userProfileId && u.ArchivedAtUtc == null, cancellationToken).ConfigureAwait(false))
+            {
+                return (Response: new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.BadRequest,
+                    new ApiResponse<ConnectedPlayerActivationCodeDto>(new ApiError(ApiErrorCodes.EntityNotFound, ApiErrorMessages.UserProfileNotFoundMessage))), Replaced: false);
+            }
+
+            var oldCode = await context.ConnectedPlayerActivationCodes.FirstOrDefaultAsync(c =>
+                c.ConnectedPlayerActivationCodeId == claimCodeId && c.UserProfileId == userProfileId
+                && c.IsActive && c.ActivatedBy == ClaimActivationSource, cancellationToken).ConfigureAwait(false);
+            if (oldCode is null)
+            {
+                return (Response: new ApiResult<ConnectedPlayerActivationCodeDto>(HttpStatusCode.Conflict,
+                    new ApiResponse<ConnectedPlayerActivationCodeDto>(new ApiError(ApiErrorCodes.ConnectedPlayerActivationCodeConflict,
+                        ApiErrorMessages.ConnectedPlayerActivationCodeConflictMessage))), Replaced: false);
+            }
+
+            var now = DateTime.UtcNow;
+            oldCode.IsActive = false;
+            oldCode.InvalidatedAtUtc = now;
+            var codeValue = await GenerateUniqueActivationCode(cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            var replacement = new ConnectedPlayerActivationCode
+            {
+                UserProfileId = userProfileId,
+                Code = codeValue,
+                CodeHash = HashToken(codeValue),
+                ExpiresAtUtc = now.AddHours(1),
+                AttemptCount = 0,
+                MaxAttempts = ActivationCodeMaxAttempts,
+                IsActive = true,
+                ActivatedAtUtc = now,
+                ActivatedBy = ClaimActivationSource
+            };
+            context.ConnectedPlayerActivationCodes.Add(replacement);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return (Response: new ApiResponse<ConnectedPlayerActivationCodeDto>(replacement.ToDto()).ToApiResult(), Replaced: true);
+        }, cancellationToken).ConfigureAwait(false);
+
+        if (result.Replaced)
+        {
+            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerActivationCodeInvalidated", AuditAction.Update)
+                .WithActor(userProfileId.ToString(), "ConnectedPlayersController")
+                .WithTarget(claimCodeId.ToString(), "ConnectedPlayerActivationCode")
+                .WithSource("ConnectedPlayersController").Build());
+            auditLogger.LogAudit(AuditEvent.SystemAction("ConnectedPlayerActivationCodeActivated", AuditAction.Create)
+                .WithActor(userProfileId.ToString(), "ConnectedPlayersController")
+                .WithTarget(userProfileId.ToString(), "UserProfile")
+                .WithSource("ConnectedPlayersController").Build());
+        }
+
+        return result.Response;
+    }
 
     [HttpPost("connected-players/claims")]
     public async Task<IActionResult> SubmitConnectedPlayerClaim([FromBody] SubmitConnectedPlayerClaimDto dto, CancellationToken cancellationToken = default)

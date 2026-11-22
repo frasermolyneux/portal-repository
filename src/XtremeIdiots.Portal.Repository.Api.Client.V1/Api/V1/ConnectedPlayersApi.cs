@@ -62,6 +62,13 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<ConnectedPlayerActivationCodeDto>();
         }
 
+        public async Task<ApiResult<ConnectedPlayerActivationCodeDto>> ReplaceConnectedPlayerClaimCode(
+            Guid userProfileId, Guid claimCodeId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/user-profiles/{userProfileId}/connected-player-claim-codes/{claimCodeId}/replace", Method.Post, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<ConnectedPlayerActivationCodeDto>();
+        }
+
         public async Task<ApiResult<ConnectedPlayerDto>> ConsumeConnectedPlayerActivationCode(
             ConsumeConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken = default)

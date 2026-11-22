@@ -17,6 +17,10 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
             ActivateConnectedPlayerActivationCodeDto dto,
             CancellationToken cancellationToken = default);
 
+        Task<ApiResult<ConnectedPlayerActivationCodeDto>> ReplaceConnectedPlayerClaimCode(
+            Guid userProfileId, Guid claimCodeId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("This connected-player API does not support claim-code replacement.");
+
         Task<ApiResult<ConnectedPlayerActivationCodeDto>> GetActiveConnectedPlayerActivationCode(
             Guid userProfileId,
             CancellationToken cancellationToken = default);

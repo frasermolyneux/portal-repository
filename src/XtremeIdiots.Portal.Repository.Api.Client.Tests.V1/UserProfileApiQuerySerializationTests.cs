@@ -17,6 +17,22 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public class UserProfileApiQuerySerializationTests
 {
     [Fact]
+    public async Task ReplaceClaimCode_UsesScopedRouteAndSurfacesMissingEndpoint()
+    {
+        var rest = new CapturingRestClientService { ResponseStatus = HttpStatusCode.NotFound };
+        var api = new ConnectedPlayersApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance, new FakeTokenProvider(), rest, CreateOptions());
+        var user = Guid.NewGuid();
+        var code = Guid.NewGuid();
+        using var cancellation = new CancellationTokenSource();
+        var result = await api.ReplaceConnectedPlayerClaimCode(user, code, cancellation.Token);
+        Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+        Assert.Equal($"v1/user-profiles/{user}/connected-player-claim-codes/{code}/replace", rest.LastResource);
+        Assert.Equal(Method.Post, rest.LastRequest!.Method);
+        Assert.DoesNotContain(rest.LastRequest.Parameters, parameter => parameter.Type == ParameterType.RequestBody);
+        Assert.Equal(cancellation.Token, rest.LastCancellationToken);
+    }
+
+    [Fact]
     public async Task ArchiveAndHistoryRead_UseExpectedRoutesBodyAndCancellation()
     {
         var rest = new CapturingRestClientService();

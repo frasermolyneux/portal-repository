@@ -16,6 +16,67 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class ConnectedPlayerClaimsConcurrencyTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public Task Replacement_SerializesWithClaimOrAnotherReplacement(bool raceClaim)
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var user = new UserProfile();
+            var player = new Player { FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            setup.AddRange(user, player);
+            await setup.SaveChangesAsync();
+            var old = new ConnectedPlayerActivationCode
+            {
+                UserProfileId = user.UserProfileId, Code = "ABC123", CodeHash = "A",
+                ActivatedBy = "ApprovalRequired", IsActive = true, ActivatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1), MaxAttempts = 5
+            };
+            setup.Add(old);
+            await setup.SaveChangesAsync();
+            await using var firstDb = new PortalDbContext(options);
+            await using var secondDb = new PortalDbContext(options);
+            IConnectedPlayersApi first = new ConnectedPlayersController(firstDb, Mock.Of<IAuditLogger>());
+            IConnectedPlayersApi second = new ConnectedPlayersController(secondDb, Mock.Of<IAuditLogger>());
+            var replace = first.ReplaceConnectedPlayerClaimCode(user.UserProfileId, old.ConnectedPlayerActivationCodeId);
+            var request = new SubmitConnectedPlayerClaimDto
+            {
+                RequestId = Guid.NewGuid(), PlayerId = player.PlayerId, GameServerId = Guid.NewGuid(), Code = old.Code
+            };
+            var competing = raceClaim
+                ? (Task)second.SubmitConnectedPlayerClaim(request)
+                : second.ReplaceConnectedPlayerClaimCode(user.UserProfileId, old.ConnectedPlayerActivationCodeId);
+            await Task.WhenAll(replace, competing);
+            await using var verify = new PortalDbContext(options);
+            var claims = await verify.ConnectedPlayerClaims.ToListAsync();
+            var active = await verify.ConnectedPlayerActivationCodes.Where(c => c.UserProfileId == user.UserProfileId && c.IsActive).ToListAsync();
+            if (raceClaim && claims.Count == 1)
+            {
+                Assert.Equal(HttpStatusCode.Conflict, replace.Result.StatusCode);
+                Assert.Equal(HttpStatusCode.Created, ((Task<MX.Api.Abstractions.ApiResult<ConnectedPlayerClaimDto>>)competing).Result.StatusCode);
+                Assert.Empty(active);
+                Assert.Equal(HttpStatusCode.OK, (await second.SubmitConnectedPlayerClaim(request)).StatusCode);
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.OK, replace.Result.StatusCode);
+                Assert.Single(active);
+                Assert.NotEqual(old.Code, active[0].Code);
+                Assert.Empty(claims);
+                if (raceClaim)
+                {
+                    Assert.Equal(HttpStatusCode.BadRequest, ((Task<MX.Api.Abstractions.ApiResult<ConnectedPlayerClaimDto>>)competing).Result.StatusCode);
+                }
+                else
+                {
+                    Assert.Equal(HttpStatusCode.Conflict,
+                        ((Task<MX.Api.Abstractions.ApiResult<ConnectedPlayerActivationCodeDto>>)competing).Result.StatusCode);
+                }
+            }
+        });
+
     [Fact]
     public Task DeletePlayer_WaitsForInFlightClaimBeforeReadingDependents()
         => SqlServerTestDatabase.RunAsync(async connectionString =>

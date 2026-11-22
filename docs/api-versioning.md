@@ -203,7 +203,22 @@ role and trust that supplied scope; other ServiceAccount callers are not
 independently distinguished. Browser-supplied profile IDs must not be trusted.
 
 `POST /v1.0/connected-players/claim-code` takes `{ userProfileId }` and returns
-a one-hour code. `POST /v1.0/connected-players/claims` takes `{ requestId,
+the current unexpired approval code or a new one valid for one hour. To replace
+the displayed approval code on explicit member request, send
+`POST /v1.0/user-profiles/{userProfileId}/connected-player-claim-codes/{claimCodeId}/replace`
+with no request body, where `claimCodeId` is its `connectedPlayerActivationCodeId`; the V1 client
+offers `ReplaceConnectedPlayerClaimCode(userProfileId, claimCodeId)`. Only the
+specified active approval code for that profile is replaced; a stale, consumed,
+legacy or other profile's code returns 409 and leaves the current code intact.
+After a lost replacement response or a 409, issue normally to retrieve the
+current code, rather than automatically replacing it again. A claim that won
+the race with replacement remains pending and replayable. Replacement does not
+alter pending claims. The Portal BFF must derive the profile ID from the
+authenticated member and must not expose replacement until the Repository and
+client package are deployed. Codes are public correlation identifiers, not
+proof of ownership; a member must still approve each claim.
+
+`POST /v1.0/connected-players/claims` takes `{ requestId,
 playerId, gameServerId, code }`; the event processor must keep the same UUID
 for retries of the same event. A successful submission consumes the code and
 creates a pending claim for 24 hours, not an active link. A claim snapshots the
