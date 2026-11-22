@@ -181,6 +181,7 @@ builder.Services.AddSingleton<IHybridCacheSerializerFactory, NewtonsoftHybridCac
 
 // Repository read-service seams + optional cache-aside decorators.
 builder.Services.AddRepositoryReadServices(enableCaching: mxCachingConfigured);
+builder.Services.AddHostedService<PlaytimeSweeperHostedService>();
 if (builder.Environment.IsProduction())
 {
     builder.Services.AddHostedService<DemoMetadataBackfillHostedService>();
