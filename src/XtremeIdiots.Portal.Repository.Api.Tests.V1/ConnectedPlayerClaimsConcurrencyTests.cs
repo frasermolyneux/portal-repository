@@ -21,6 +21,72 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 public class ConnectedPlayerClaimsConcurrencyTests
 {
     [Fact]
+    public Task PlayerDeletionCoordinatesIngestionOnServerCreatedDuringDeletion()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var player = new Player { GameType = 2, Guid = "deleted-id", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            setup.Players.Add(player);
+            await setup.SaveChangesAsync();
+
+            var gate = new ServerListGate();
+            await using var deletionDb = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString).AddInterceptors(gate).Options);
+            await using var ingestionDb = new PortalDbContext(options);
+            var deletion = ((IDataMaintenanceApi)new DataMaintenanceController(deletionDb, new ConfigurationBuilder().Build()))
+                .DeletePlayer(player.PlayerId);
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            var server = new GameServer { GameType = 2, Title = "New", Hostname = "new", BanFileRootPath = "" };
+            await using var serverDb = new PortalDbContext(options);
+            serverDb.GameServers.Add(server);
+            await serverDb.SaveChangesAsync();
+            var ingestion = ((IPlaytimeApi)new PlaytimeController(ingestionDb))
+                .BatchObservations(new PlaytimeObservationBatchDto
+                {
+                    Observations =
+                    [
+                        new PlaytimeObservationDto
+                        {
+                            ObservationId = Guid.NewGuid(), ServerId = server.GameServerId,
+                            GameType = GameType.CallOfDuty4, Kind = PlaytimeObservationKind.PlayerJoined,
+                            EventUtc = DateTime.UtcNow, TimestampQuality = PlaytimeTimestampQuality.ProducerTimestamp,
+                            CanonicalPlayerId = player.PlayerId, GamePlayerId = "deleted-id"
+                        }
+                    ]
+                });
+            try
+            {
+                Assert.NotSame(ingestion, await Task.WhenAny(ingestion, Task.Delay(300)));
+            }
+            finally
+            {
+                gate.Release.TrySetResult();
+            }
+            Assert.Equal(HttpStatusCode.OK, (await deletion).StatusCode);
+            Assert.Equal(PlaytimeObservationOutcome.Rejected, (await ingestion).Result?.Data?.Items.Single().Outcome);
+            Assert.Empty(await setup.PlaytimeObservations.AsNoTracking().ToListAsync());
+        });
+
+    private sealed class ServerListGate : DbCommandInterceptor
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("FROM [GameServers]", StringComparison.Ordinal))
+            {
+                Entered.TrySetResult();
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+            return result;
+        }
+    }
+
+    [Fact]
     public Task JoinReplayAndFinalizedBoundaryReconcileAgainstSqlServer()
         => SqlServerTestDatabase.RunAsync(async connectionString =>
         {
@@ -52,7 +118,7 @@ public class ConnectedPlayerClaimsConcurrencyTests
             var api = (IPlaytimeApi)new PlaytimeController(context);
             var batch = await api.BatchObservations(new PlaytimeObservationBatchDto
             {
-                Observations = [laterJoin, earlierJoin, leave, reconnect]
+                Observations = [laterJoin, leave, earlierJoin, reconnect]
             });
             var replay = await api.BatchObservations(new PlaytimeObservationBatchDto
             {

@@ -91,6 +91,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            await PlaytimeServerLock.AcquireGameAsync(context, player.GameType, exclusive: true, operationCancellationToken)
+                .ConfigureAwait(false);
             var playtimeServerIds = await context.GameServers
                 .Where(x => x.GameType == player.GameType)
                 .Select(x => x.GameServerId)

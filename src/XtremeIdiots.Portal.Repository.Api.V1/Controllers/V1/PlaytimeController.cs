@@ -79,6 +79,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             context.ChangeTracker.Clear();
             items.Clear();
             await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var gameType in dto.Observations.Select(x => (int)x.GameType).Distinct().OrderBy(x => x))
+            {
+                await PlaytimeServerLock.AcquireGameAsync(context, gameType, exclusive: false, cancellationToken)
+                    .ConfigureAwait(false);
+            }
             foreach (var serverId in dto.Observations
                          .Select(x => x.ServerId)
                          .Distinct()
@@ -841,7 +846,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .Where(x => x.PlayerId == playerId &&
                             x.ServerId == observation.ServerId &&
                             (x.StartUtc == eventUtc ||
-                             (isReplay && x.StartUtc < eventUtc &&
+                             (x.StartUtc < eventUtc &&
                               (x.EndUtc == null ? x.LastConfirmedUtc >= eventUtc : x.EndUtc > eventUtc))) &&
                             (x.EndUtc == null || x.EndUtc > eventUtc ||
                              (x.EndUtc == eventUtc &&
@@ -854,6 +859,35 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             if (matchingSessions.Count == 1)
             {
                 correlated = matchingSessions[0];
+            }
+            if (matchingSessions.Count == 0)
+            {
+                var nextSessions = await context.PlayerSessions
+                    .Where(x => x.PlayerId == playerId && x.ServerId == observation.ServerId &&
+                                x.StartUtc > eventUtc)
+                    .OrderBy(x => x.StartUtc)
+                    .ThenBy(x => x.SessionId)
+                    .Take(2)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                if (nextSessions.Count > 0 &&
+                    (nextSessions.Count == 1 || nextSessions[0].StartUtc < nextSessions[1].StartUtc))
+                {
+                    var next = nextSessions[0];
+                    var boundary = await HasAcceptedSessionBoundaryBetween(
+                        playerId, observation, eventUtc, next.StartUtc, next.ConnectionCorrelationId, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!boundary && next.StartUtc - eventUtc <= ReconnectGapThreshold)
+                    {
+                        correlated = next;
+                    }
+                    else if (allowCreate)
+                    {
+                        await CreateHistoricalSession(playerId, observation, eventUtc, next.StartUtc, cancellationToken)
+                            .ConfigureAwait(false);
+                        return;
+                    }
+                }
             }
         }
         if (correlated is not null &&

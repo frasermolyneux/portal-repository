@@ -219,6 +219,42 @@ public class PlaytimeControllerTests
     }
 
     [Theory]
+    [InlineData(5)]
+    [InlineData(20)]
+    public async Task EarlierCanonicalOnlyJoinDoesNotOverlapClosedLaterSession(int minutesBefore)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-40);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var laterStart = start.AddMinutes(minutesBefore);
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, laterStart, null),
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerLeft, laterStart.AddMinutes(5), null),
+                Observation(serverId, playerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined, start, null)
+            ]
+        });
+        var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+        if (minutesBefore == 5)
+        {
+            var session = Assert.Single(sessions);
+            Assert.Equal(start, session.StartUtc);
+            Assert.Equal(laterStart.AddMinutes(5), session.EndUtc);
+        }
+        else
+        {
+            Assert.Equal(2, sessions.Count);
+            Assert.Equal(laterStart, sessions[0].EndUtc);
+            Assert.Equal(laterStart, sessions[1].StartUtc);
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task JoinAtFinalizedEndOpensNewSessionAndReplayEnrichesIt(bool useCorrelation)

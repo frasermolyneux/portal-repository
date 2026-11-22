@@ -6,6 +6,52 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     /// </summary>
     public class RepositoryApiClient : IRepositoryApiClient
     {
+        private readonly IVersionedPlaytimeApi? playtime;
+
+        public RepositoryApiClient(
+            IVersionedAdminActionsApi adminActions,
+            IVersionedBanFileMonitorsApi banFileMonitors,
+            IVersionedCentralBanFileStatusApi centralBanFileStatus,
+            IVersionedChatMessagesApi chatMessages,
+            IVersionedDataMaintenanceApi dataMaintenance,
+            IVersionedDemosApi demos,
+            IVersionedGameServersApi gameServers,
+            IVersionedGameServersEventsApi gameServersEvents,
+            IVersionedGameServersStatsApi gameServersStats,
+            IVersionedGameTrackerBannerApi gameTrackerBanner,
+            IVersionedMapsApi maps,
+            IVersionedConnectedPlayersApi connectedPlayers,
+            IVersionedPlayerAnalyticsApi playerAnalytics,
+            IVersionedPlayersApi players,
+            IVersionedRecentPlayersApi recentPlayers,
+            IVersionedReportsApi reports,
+            IVersionedUserProfileApi userProfiles,
+            IVersionedTagsApi tags,
+            IVersionedApiHealthApi apiHealth,
+            IVersionedApiInfoApi apiInfo,
+            IVersionedNotificationTypesApi notificationTypes,
+            IVersionedNotificationPreferencesApi notificationPreferences,
+            IVersionedNotificationsApi notifications,
+            IVersionedMapRotationsApi mapRotations,
+            IVersionedDashboardApi dashboard,
+            IVersionedGlobalConfigurationsApi globalConfigurations,
+            IVersionedGameServerConfigurationsApi gameServerConfigurations,
+            IVersionedLiveStatusApi liveStatus,
+            IVersionedGlobalAnalyticsApi globalAnalytics,
+            IVersionedGameAnalyticsApi gameAnalytics,
+            IVersionedServerAnalyticsApi serverAnalytics,
+            IVersionedDashboardAnalyticsApi dashboardAnalytics,
+            IVersionedMapAnalyticsApi mapAnalytics,
+            IVersionedPlayerAnalyticsV2Api playerAnalyticsV2)
+            : this(adminActions, banFileMonitors, centralBanFileStatus, chatMessages, dataMaintenance, demos,
+                gameServers, gameServersEvents, gameServersStats, gameTrackerBanner, maps, connectedPlayers,
+                playerAnalytics, players, recentPlayers, reports, userProfiles, tags, apiHealth, apiInfo,
+                notificationTypes, notificationPreferences, notifications, mapRotations, dashboard,
+                globalConfigurations, gameServerConfigurations, liveStatus, globalAnalytics, gameAnalytics,
+                serverAnalytics, dashboardAnalytics, mapAnalytics, playerAnalyticsV2, null)
+        {
+        }
+
         public RepositoryApiClient(
             IVersionedAdminActionsApi adminActions,
             IVersionedBanFileMonitorsApi banFileMonitors,
@@ -42,7 +88,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedDashboardAnalyticsApi dashboardAnalytics,
             IVersionedMapAnalyticsApi mapAnalytics,
             IVersionedPlayerAnalyticsV2Api playerAnalyticsV2,
-            IVersionedPlaytimeApi playtime)
+            IVersionedPlaytimeApi? playtime)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -79,7 +125,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             DashboardAnalytics = dashboardAnalytics;
             MapAnalytics = mapAnalytics;
             PlayerAnalyticsV2 = playerAnalyticsV2;
-            Playtime = playtime;
+            this.playtime = playtime;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -117,6 +163,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedDashboardAnalyticsApi DashboardAnalytics { get; }
         public IVersionedMapAnalyticsApi MapAnalytics { get; }
         public IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 { get; }
-        public IVersionedPlaytimeApi Playtime { get; }
+        public IVersionedPlaytimeApi Playtime => playtime
+            ?? throw new NotSupportedException("The legacy constructor does not configure the playtime API.");
     }
 }
