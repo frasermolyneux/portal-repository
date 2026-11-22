@@ -1870,6 +1870,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             CanonicalPlayerId = existing.CanonicalPlayerId,
             GamePlayerId = existing.GamePlayerId,
             IsBot = existing.IsBot ?? replay.IsBot,
+            RosterCompleteness = replay.Kind == PlaytimeObservationKind.ServerRoster &&
+                                 replay.RosterCompleteness == PlaytimeRosterCompleteness.Complete
+                ? PlaytimeRosterCompleteness.Partial
+                : replay.RosterCompleteness,
             Roster = retainedRoster?.Select(x => x with
             {
                 CanonicalPlayerId = x.CanonicalPlayerId is Guid rosterPlayerId &&

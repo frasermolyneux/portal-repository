@@ -2570,6 +2570,89 @@ public class PlaytimeControllerTests
         Assert.Equal(retainedPlayerId, retainedSession.PlayerId);
     }
 
+    [Fact]
+    public async Task RedactedCompleteRosterReplayDoesNotCloseReplacementPlayer()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var deletedPlayerId = Guid.NewGuid();
+        var retainedPlayerId = Guid.NewGuid();
+        var replacementPlayerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, deletedPlayerId, serverId);
+        context.Players.Add(new Player
+        {
+            PlayerId = retainedPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Retained",
+            Guid = "guid-retained",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var processingUtc = DateTimeOffset.UtcNow;
+        var api = (IPlaytimeApi)new PlaytimeController(context, timeProvider: new MutableTimeProvider(processingUtc));
+        var roster = new PlaytimeObservationDto
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = processingUtc.UtcDateTime.AddSeconds(-30),
+            TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+            RosterCompleteness = PlaytimeRosterCompleteness.Complete,
+            Roster =
+            [
+                new PlaytimeRosterPlayerDto { GamePlayerId = "guid-1", SlotId = 1, CanonicalPlayerId = deletedPlayerId },
+                new PlaytimeRosterPlayerDto { GamePlayerId = "guid-retained", SlotId = 2 }
+            ]
+        };
+        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [roster] });
+        var deletion = await ((IDataMaintenanceApi)new DataMaintenanceController(context, new ConfigurationBuilder().Build()))
+            .DeletePlayer(deletedPlayerId);
+        context.Players.Add(new Player
+        {
+            PlayerId = replacementPlayerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Replacement",
+            Guid = "guid-1",
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                Observation(serverId, replacementPlayerId, Guid.NewGuid(), PlaytimeObservationKind.PlayerJoined,
+                    processingUtc.UtcDateTime.AddSeconds(-40), "guid-1")
+            ]
+        });
+        var sourceRoster = roster.Roster!;
+        var replay = await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations =
+            [
+                roster with
+                {
+                    Roster = [sourceRoster[0], sourceRoster[1] with { CanonicalPlayerId = retainedPlayerId }]
+                }
+            ]
+        });
+
+        Assert.Equal(HttpStatusCode.OK, deletion.StatusCode);
+        Assert.Equal(PlaytimeObservationOutcome.Duplicate, replay.Result?.Data?.Items.Single().Outcome);
+        var replacementSession = await context.PlayerSessions.AsNoTracking()
+            .SingleAsync(x => x.PlayerId == replacementPlayerId);
+        Assert.Null(replacementSession.EndUtc);
+        Assert.Single(await context.PlayerSessions.AsNoTracking().ToListAsync(), x => x.PlayerId == retainedPlayerId);
+        var storedRoster = await context.PlaytimeObservations.AsNoTracking()
+            .SingleAsync(x => x.ObservationId == roster.ObservationId);
+        Assert.True(storedRoster.IdentifiersRedacted);
+        Assert.Equal((byte)PlaytimeRosterCompleteness.Complete, storedRoster.RosterCompleteness);
+        Assert.DoesNotContain("guid-1", storedRoster.ResolvedRosterJson!, StringComparison.Ordinal);
+    }
+
     private static void AddPlayerAndServer(PortalDbContext context, Guid playerId, Guid serverId)
     {
         context.Players.Add(new Player

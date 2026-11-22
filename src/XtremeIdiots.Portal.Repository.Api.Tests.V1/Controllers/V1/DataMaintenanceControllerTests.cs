@@ -478,8 +478,10 @@ public class DataMaintenanceControllerTests
         Assert.True(context.Reports.Any(r => r.PlayerId == controlPlayerId));
     }
 
-    [Fact]
-    public async Task DeletePlayer_RedactsRosterOnlyIdentityWithJsonEscapedCharacters()
+    [Theory]
+    [InlineData("Deleted\\\\game-id")]
+    [InlineData("deleted\\\\game-\\u0069d")]
+    public async Task DeletePlayer_RedactsRosterOnlyIdentityWithAlternateJsonEncoding(string encodedIdentity)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var playerId = Guid.NewGuid();
@@ -505,16 +507,22 @@ public class DataMaintenanceControllerTests
             ReceivedUtc = DateTime.UtcNow,
             TimestampQuality = (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp,
             RosterCompleteness = (byte)PlaytimeRosterCompleteness.Partial,
-            ResolvedRosterJson = JsonSerializer.Serialize(new[]
-            {
-                new
-                {
-                    GamePlayerId = gamePlayerId,
-                    SlotId = 1,
-                    CanonicalPlayerId = (Guid?)null,
-                    IsBot = false
-                }
-            }),
+            ResolvedRosterJson = "[{\"GamePlayerId\":\"" + encodedIdentity +
+                                 "\",\"SlotId\":1,\"CanonicalPlayerId\":null,\"IsBot\":false}]",
+            PayloadHash = new byte[32],
+            Outcome = (byte)PlaytimeObservationOutcome.Accepted
+        });
+        var directObservationId = Guid.NewGuid();
+        context.PlaytimeObservations.Add(new PlaytimeObservation
+        {
+            ObservationId = directObservationId,
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            Kind = (byte)PlaytimeObservationKind.PlayerLeft,
+            EventUtc = DateTime.UtcNow,
+            ReceivedUtc = DateTime.UtcNow,
+            TimestampQuality = (byte)PlaytimeTimestampQuality.ProducerTimestamp,
+            GamePlayerId = @"Deleted\game-id",
             PayloadHash = new byte[32],
             Outcome = (byte)PlaytimeObservationOutcome.Accepted
         });
@@ -528,6 +536,10 @@ public class DataMaintenanceControllerTests
             .SingleAsync(x => x.ObservationId == observationId);
         Assert.True(observation.IdentifiersRedacted);
         Assert.Equal("[]", observation.ResolvedRosterJson);
+        var directObservation = await context.PlaytimeObservations.AsNoTracking()
+            .SingleAsync(x => x.ObservationId == directObservationId);
+        Assert.True(directObservation.IdentifiersRedacted);
+        Assert.Null(directObservation.GamePlayerId);
     }
 
     [Fact(Skip = "Uses ExecuteSqlInterpolatedAsync which is not supported by the InMemory provider")]
