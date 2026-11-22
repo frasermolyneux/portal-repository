@@ -60,6 +60,9 @@ public partial class UserProfile
     [InverseProperty("UserProfile")]
     public virtual ConnectedPlayerActivationCode? ConnectedPlayerActivationCode { get; set; }
 
+    [InverseProperty("UserProfile")]
+    public virtual ICollection<ConnectedPlayerClaim> ConnectedPlayerClaims { get; set; } = new List<ConnectedPlayerClaim>();
+
     [InverseProperty("LinkedByUserProfile")]
     public virtual ICollection<ConnectedPlayerProfile> ConnectedPlayerProfileLinkedByUserProfiles { get; set; } = new List<ConnectedPlayerProfile>();
 

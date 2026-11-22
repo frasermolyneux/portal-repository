@@ -118,6 +118,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 code.InvalidatedAtUtc = now;
             }
 
+            var pendingClaims = await context.ConnectedPlayerClaims
+                .Where(claim => claim.UserProfileId == dto.UserProfileId && claim.Status == "Pending")
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var claim in pendingClaims)
+            {
+                claim.Status = "Cancelled";
+                claim.ResolvedAtUtc = now;
+            }
+
             var links = await context.ConnectedPlayerProfiles
                 .Where(link => link.UserProfileId == dto.UserProfileId && link.IsActive)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);

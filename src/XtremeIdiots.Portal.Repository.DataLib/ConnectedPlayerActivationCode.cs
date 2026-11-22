@@ -45,6 +45,9 @@ public partial class ConnectedPlayerActivationCode
     [Precision(3)]
     public DateTime? ConsumedAtUtc { get; set; }
 
+    [InverseProperty("ConnectedPlayerActivationCode")]
+    public virtual ConnectedPlayerClaim? ConnectedPlayerClaim { get; set; }
+
     [ForeignKey("UserProfileId")]
     [InverseProperty("ConnectedPlayerActivationCode")]
     public virtual UserProfile UserProfile { get; set; } = null!;
