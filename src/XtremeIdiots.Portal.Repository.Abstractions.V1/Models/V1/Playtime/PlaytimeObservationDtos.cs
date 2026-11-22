@@ -112,10 +112,48 @@ public record PlayerSessionDto
     [JsonProperty] public DateTime StartUtc { get; init; }
     [JsonProperty] public DateTime? EndUtc { get; init; }
     [JsonProperty] public long MeasuredSeconds { get; init; }
+    /// <summary>Time from the session start to its last confirmed presence, including unknown-map time.</summary>
+    [JsonProperty] public long ObservedSeconds { get; init; }
+    [JsonProperty] public DateTime LastConfirmedUtc { get; init; }
     [JsonProperty] public bool IsOpen { get; init; }
     [JsonProperty] public bool? IsBot { get; init; }
     [JsonProperty] public PlaytimeTimestampQuality StartQuality { get; init; }
     [JsonProperty] public PlaytimeTimestampQuality? EndQuality { get; init; }
+}
+
+public record CurrentPlayerSessionsRequestDto
+{
+    [JsonProperty] public required IReadOnlyList<Guid> PlayerIds { get; init; }
+}
+
+public enum CurrentPlayerSessionStatus
+{
+    Found = 1,
+    Unavailable = 2,
+    Ambiguous = 3
+}
+
+public record CurrentPlayerSessionResultDto
+{
+    [JsonProperty] public Guid PlayerId { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<CurrentPlayerSessionStatus>))]
+    [JsonProperty] public CurrentPlayerSessionStatus Status { get; init; }
+    [JsonProperty] public CurrentPlayerSessionDto? Session { get; init; }
+}
+
+public record CurrentPlayerSessionDto
+{
+    [JsonProperty] public Guid SessionId { get; init; }
+    [JsonProperty] public Guid ServerId { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GameType>))]
+    [JsonProperty] public GameType GameType { get; init; }
+    [JsonProperty] public Guid? ConnectionCorrelationId { get; init; }
+    [JsonProperty] public DateTime StartUtc { get; init; }
+    [JsonProperty] public DateTime LastConfirmedUtc { get; init; }
+    [JsonProperty] public long ObservedSeconds { get; init; }
+    [JsonProperty] public bool? IsBot { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PlaytimeTimestampQuality>))]
+    [JsonProperty] public PlaytimeTimestampQuality StartQuality { get; init; }
 }
 
 public record PlaytimeTotalsDto
