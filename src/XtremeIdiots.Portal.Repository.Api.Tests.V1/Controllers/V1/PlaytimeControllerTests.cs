@@ -16,6 +16,119 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public class PlaytimeControllerTests
 {
     [Fact]
+    public async Task CurrentSessions_ReturnsOnlyUnambiguousNonBotSessionsForRequestedServer()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = Guid.NewGuid();
+        var otherServerId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var ambiguousId = Guid.NewGuid();
+        var botId = Guid.NewGuid();
+        var missingId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-60);
+        var correlationId = Guid.NewGuid();
+        PlayerSession Session(Guid player, Guid server, bool? isBot = null) => new()
+        {
+            SessionId = Guid.NewGuid(),
+            ServerId = server,
+            PlayerId = player,
+            GameType = (int)GameType.CallOfDuty4,
+            StartUtc = start,
+            LastConfirmedUtc = start.AddSeconds(90.8),
+            IsBot = isBot,
+            StartQuality = (byte)PlaytimeTimestampQuality.ParseTime
+        };
+        var current = Session(playerId, serverId);
+        current.ConnectionCorrelationId = correlationId;
+        var closed = Session(playerId, serverId);
+        closed.EndUtc = start.AddSeconds(1);
+        context.PlayerSessions.AddRange(current, closed, Session(playerId, otherServerId),
+            Session(ambiguousId, serverId), Session(ambiguousId, serverId),
+            Session(botId, serverId, true), Session(missingId, otherServerId));
+        await context.SaveChangesAsync();
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        var response = await api.GetCurrentSessions(serverId, new CurrentPlayerSessionsRequestDto
+        {
+            PlayerIds = [missingId, playerId, botId, ambiguousId]
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var results = response.Result!.Data!;
+        Assert.Equal(new[] { missingId, playerId, botId, ambiguousId }, results.Select(x => x.PlayerId));
+        Assert.Equal(CurrentPlayerSessionStatus.Unavailable, results[0].Status);
+        Assert.Equal(CurrentPlayerSessionStatus.Found, results[1].Status);
+        Assert.Equal(90, results[1].Session!.ObservedSeconds);
+        Assert.Equal(current.LastConfirmedUtc, results[1].Session!.LastConfirmedUtc);
+        Assert.Equal(correlationId, results[1].Session!.ConnectionCorrelationId);
+        Assert.Null(results[1].Session!.IsBot);
+        Assert.Equal(PlaytimeTimestampQuality.ParseTime, results[1].Session!.StartQuality);
+        Assert.Equal(CurrentPlayerSessionStatus.Unavailable, results[2].Status);
+        Assert.Equal(CurrentPlayerSessionStatus.Ambiguous, results[3].Status);
+        Assert.All(new[] { results[0], results[2], results[3] }, result => Assert.Null(result.Session));
+    }
+
+    [Fact]
+    public async Task CurrentSessions_ValidatesRequestAndMissingServer()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        foreach (var ids in new[] { Array.Empty<Guid>(), new[] { Guid.Empty }, new[] { playerId, playerId },
+                     Enumerable.Range(0, 101).Select(_ => Guid.NewGuid()).ToArray() })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest,
+                (await api.GetCurrentSessions(serverId, new CurrentPlayerSessionsRequestDto { PlayerIds = ids })).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await api.GetCurrentSessions(Guid.Empty, new CurrentPlayerSessionsRequestDto { PlayerIds = [playerId] })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await api.GetCurrentSessions(Guid.NewGuid(), new CurrentPlayerSessionsRequestDto { PlayerIds = [playerId] })).StatusCode);
+    }
+
+    [Fact]
+    public async Task SessionObservedSecondsIncludesUnknownMapWithoutChangingMeasuredSeconds()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-10);
+        var session = new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            StartUtc = start,
+            LastConfirmedUtc = start.AddMinutes(5),
+            IsBot = false
+        };
+        context.PlayerSessions.Add(session);
+        context.PlayerSessionMapSegments.Add(new PlayerSessionMapSegment
+        {
+            SegmentId = Guid.NewGuid(),
+            SessionId = session.SessionId,
+            StartUtc = start.AddMinutes(2),
+            EndUtc = start.AddMinutes(5),
+            UnknownMap = false
+        });
+        await context.SaveChangesAsync();
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+
+        var list = await api.GetPlayerSessions(playerId, start.AddMinutes(3), start.AddMinutes(4), 0, 10);
+        var dto = Assert.Single(list.Result!.Data!);
+        Assert.Equal(180, dto.MeasuredSeconds);
+        Assert.Equal(300, dto.ObservedSeconds);
+        Assert.Equal(session.LastConfirmedUtc, dto.LastConfirmedUtc);
+        var current = await api.GetCurrentSessions(serverId, new CurrentPlayerSessionsRequestDto { PlayerIds = [playerId] });
+        Assert.Equal(300, Assert.Single(current.Result!.Data!).Session!.ObservedSeconds);
+    }
+
+    [Fact]
     public async Task BatchObservations_ReconcilesMapSegmentsAndReturnsDuplicate()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -128,6 +241,10 @@ public class PlaytimeControllerTests
         Assert.Equal(start, sessions[0].EndUtc);
         Assert.Equal(start.AddMinutes(20), sessions[1].StartUtc);
         Assert.Null(sessions[1].EndUtc);
+        var current = await api.GetCurrentSessions(serverId, new CurrentPlayerSessionsRequestDto { PlayerIds = [playerId] });
+        var currentSession = Assert.Single(current.Result!.Data!).Session!;
+        Assert.Equal(sessions[1].SessionId, currentSession.SessionId);
+        Assert.Equal(0, currentSession.ObservedSeconds);
     }
 
     [Fact]

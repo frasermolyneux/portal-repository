@@ -9,6 +9,7 @@ using MX.Api.Client.Configuration;
 using RestSharp;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.UserProfiles;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
@@ -16,6 +17,24 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 
 public class UserProfileApiQuerySerializationTests
 {
+    [Fact]
+    public async Task CurrentSessions_UsesServerScopedPostAndForwardsCancellation()
+    {
+        var rest = new CapturingRestClientService();
+        var api = new PlaytimeApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, CreateOptions());
+        var serverId = Guid.NewGuid();
+        var dto = new CurrentPlayerSessionsRequestDto { PlayerIds = [Guid.NewGuid()] };
+        using var cancellation = new CancellationTokenSource();
+
+        await api.GetCurrentSessions(serverId, dto, cancellation.Token);
+
+        Assert.Equal($"v1/servers/{serverId}/playtime/current-sessions:batch", rest.LastResource);
+        Assert.Equal(Method.Post, rest.LastRequest!.Method);
+        Assert.Same(dto, rest.LastRequest.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
+        Assert.Equal(cancellation.Token, rest.LastCancellationToken);
+    }
+
     [Fact]
     public async Task ArchiveAndHistoryRead_UseExpectedRoutesBodyAndCancellation()
     {

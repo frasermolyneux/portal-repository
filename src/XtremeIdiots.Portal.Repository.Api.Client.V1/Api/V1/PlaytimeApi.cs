@@ -52,6 +52,17 @@ public class PlaytimeApi : BaseApi<RepositoryApiClientOptions>, IPlaytimeApi
         return response.ToApiResult<IReadOnlyList<PlayerSessionDto>>();
     }
 
+    public async Task<ApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>> GetCurrentSessions(
+        Guid serverId,
+        CurrentPlayerSessionsRequestDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/servers/{serverId}/playtime/current-sessions:batch", Method.Post, cancellationToken).ConfigureAwait(false);
+        request.AddJsonBody(dto);
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.ToApiResult<IReadOnlyList<CurrentPlayerSessionResultDto>>();
+    }
+
     public async Task<ApiResult<PlaytimeTotalsDto>> GetTotals(
         DateTime fromUtc,
         DateTime toUtc,
