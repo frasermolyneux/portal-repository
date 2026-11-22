@@ -8,6 +8,7 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using System.Text;
+using System.Text.Json;
 
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
@@ -36,6 +37,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     private const string GameAdminTagName = "game-admin";
     private const string ModeratorTagName = "moderator";
     private const string ClanMemberTagName = "clan-member";
+    private const int PlaytimeRedactionBatchSize = 128;
 
     private readonly PortalDbContext context;
     private readonly IConfiguration configuration;
@@ -78,6 +80,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var executionStrategy = context.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteInTransactionAsync(async operationCancellationToken =>
         {
+            context.ChangeTracker.Clear();
             await UserProfileLifecycle.LockAsync(context, operationCancellationToken).ConfigureAwait(false);
             var player = await context.Players
                 .FirstOrDefaultAsync(p => p.PlayerId == playerId, operationCancellationToken)
@@ -88,6 +91,30 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            await PlaytimeServerLock.AcquireGameAsync(context, player.GameType, exclusive: true, operationCancellationToken)
+                .ConfigureAwait(false);
+            var playtimeServerIds = await context.GameServers
+                .Where(x => x.GameType == player.GameType)
+                .Select(x => x.GameServerId)
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
+            foreach (var serverId in playtimeServerIds.OrderBy(x => x))
+            {
+                await PlaytimeServerLock.AcquireAsync(context, serverId, operationCancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            var playtimeSessions = await context.PlayerSessions
+                .Where(s => s.PlayerId == playerId)
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
+            var playtimeSessionIds = playtimeSessions.Select(s => s.SessionId).ToList();
+            var playtimeSegments = await context.PlayerSessionMapSegments
+                .Where(s => playtimeSessionIds.Contains(s.SessionId))
+                .ToListAsync(operationCancellationToken)
+                .ConfigureAwait(false);
+            await RedactPlaytimeObservations(playerId, player.GameType, player.Guid, operationCancellationToken)
+                .ConfigureAwait(false);
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -101,6 +128,8 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             var recentPlayers = await context.RecentPlayers.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var reports = await context.Reports.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
 
+            context.PlayerSessionMapSegments.RemoveRange(playtimeSegments);
+            context.PlayerSessions.RemoveRange(playtimeSessions);
             context.AdminActions.RemoveRange(adminActions);
             context.AutomationActionStates.RemoveRange(automationActionStates);
             context.ChatMessages.RemoveRange(chatMessages);
@@ -121,6 +150,108 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }, async operationCancellationToken => !await context.Players
             .AnyAsync(p => p.PlayerId == playerId, operationCancellationToken)
             .ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RedactPlaytimeObservations(
+        Guid playerId,
+        int gameType,
+        string? gamePlayerId,
+        CancellationToken cancellationToken)
+    {
+        var candidates = context.PlaytimeObservations.AsQueryable();
+        if (gamePlayerId is null)
+        {
+            candidates = candidates.Where(o => o.CanonicalPlayerId == playerId ||
+                (o.ResolvedRosterJson != null && o.ResolvedRosterJson != "[]"));
+        }
+        else if (gamePlayerId.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'))
+        {
+            if (context.Database.IsSqlServer())
+            {
+                candidates = candidates.Where(o => o.CanonicalPlayerId == playerId ||
+                    (o.ResolvedRosterJson != null && o.ResolvedRosterJson != "[]") ||
+                    (o.GameType == gameType && o.GamePlayerId != null &&
+                     EF.Functions.Collate(o.GamePlayerId, "Latin1_General_100_CI_AS_SC") == gamePlayerId));
+            }
+            else
+            {
+                candidates = candidates.Where(o => o.CanonicalPlayerId == playerId ||
+                    (o.ResolvedRosterJson != null && o.ResolvedRosterJson != "[]") ||
+                    (o.GameType == gameType &&
+                     string.Equals(o.GamePlayerId, gamePlayerId, StringComparison.OrdinalIgnoreCase)));
+            }
+        }
+        else
+        {
+            candidates = candidates.Where(o => o.CanonicalPlayerId == playerId ||
+                (o.ResolvedRosterJson != null && o.ResolvedRosterJson != "[]") ||
+                (o.GameType == gameType && o.GamePlayerId != null));
+        }
+
+        Guid? lastId = null;
+        while (true)
+        {
+            var batchQuery = lastId is null
+                ? candidates
+                : candidates.Where(o => o.ObservationId.CompareTo(lastId.Value) > 0);
+            var batch = await batchQuery.OrderBy(o => o.ObservationId)
+                .Take(PlaytimeRedactionBatchSize)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            lastId = batch[^1].ObservationId;
+            foreach (var observation in batch)
+            {
+                var redactCanonicalPlayer = observation.CanonicalPlayerId == playerId;
+                var redactObservationGamePlayer = gamePlayerId != null &&
+                                                  observation.GameType == gameType &&
+                                                  string.Equals(observation.GamePlayerId, gamePlayerId, StringComparison.OrdinalIgnoreCase);
+                var roster = string.IsNullOrWhiteSpace(observation.ResolvedRosterJson)
+                    ? []
+                    : JsonSerializer.Deserialize<List<PlaytimeRosterResolution>>(observation.ResolvedRosterJson) ?? [];
+                var redactedRoster = roster
+                    .Where(x => x.CanonicalPlayerId != playerId &&
+                                (gamePlayerId == null ||
+                                 observation.GameType != gameType ||
+                                 !string.Equals(x.GamePlayerId, gamePlayerId, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                var redactRosterIdentity = redactedRoster.Count != roster.Count;
+                if (redactRosterIdentity)
+                {
+                    observation.ResolvedRosterJson = JsonSerializer.Serialize(redactedRoster);
+                }
+                if (redactCanonicalPlayer)
+                {
+                    observation.CanonicalPlayerId = null;
+                }
+                if (redactCanonicalPlayer || redactObservationGamePlayer)
+                {
+                    observation.GamePlayerId = null;
+                }
+                if (redactCanonicalPlayer || redactObservationGamePlayer || redactRosterIdentity)
+                {
+                    observation.IdentifiersRedacted = true;
+                }
+            }
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var observation in batch)
+            {
+                context.Entry(observation).State = EntityState.Detached;
+            }
+        }
+    }
+
+    private sealed class PlaytimeRosterResolution
+    {
+        public string GamePlayerId { get; set; } = string.Empty;
+        public int SlotId { get; set; }
+        public Guid? CanonicalPlayerId { get; set; }
+        public bool? IsBot { get; set; }
     }
 
     /// <summary>

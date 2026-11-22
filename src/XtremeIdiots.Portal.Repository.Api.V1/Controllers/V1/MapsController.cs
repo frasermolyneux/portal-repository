@@ -458,17 +458,65 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result indicating the map was deleted if successful; otherwise, a 404 Not Found response.</returns>
         async Task<ApiResult> IMapsApi.DeleteMap(Guid mapId, CancellationToken cancellationToken)
         {
-            var map = await context.Maps
-                .FirstOrDefaultAsync(m => m.MapId == mapId, cancellationToken).ConfigureAwait(false);
+            var executionStrategy = context.Database.CreateExecutionStrategy();
+            var deleted = await executionStrategy.ExecuteInTransactionAsync(async operationCancellationToken =>
+            {
+                context.ChangeTracker.Clear();
+                var map = await context.Maps
+                    .FirstOrDefaultAsync(m => m.MapId == mapId, operationCancellationToken)
+                    .ConfigureAwait(false);
+                if (map == null)
+                {
+                    return false;
+                }
 
-            if (map == null)
+                var compatibleServerGameTypes = Enum.GetValues<GameType>()
+                    .Where(gameType => gameType.GetMapGameType() == (GameType)map.GameType)
+                    .Select(gameType => (int)gameType)
+                    .OrderBy(gameType => gameType)
+                    .ToArray();
+                foreach (var gameType in compatibleServerGameTypes)
+                {
+                    await PlaytimeServerLock.AcquireGameAsync(context, gameType, exclusive: true, operationCancellationToken)
+                        .ConfigureAwait(false);
+                }
+                var serverIds = await context.GameServers
+                    .Where(x => compatibleServerGameTypes.Contains(x.GameType))
+                    .Select(x => x.GameServerId)
+                    .ToListAsync(operationCancellationToken)
+                    .ConfigureAwait(false);
+                foreach (var serverId in serverIds.OrderBy(x => x))
+                {
+                    await PlaytimeServerLock.AcquireAsync(context, serverId, operationCancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                await context.Entry(map).ReloadAsync(operationCancellationToken).ConfigureAwait(false);
+                if (context.Entry(map).State == EntityState.Detached)
+                {
+                    return false;
+                }
+
+                var mapRuns = await context.ServerMapRuns
+                    .Where(x => x.MapId == mapId)
+                    .ToListAsync(operationCancellationToken)
+                    .ConfigureAwait(false);
+                foreach (var mapRun in mapRuns)
+                {
+                    mapRun.MapId = null;
+                }
+                context.Remove(map);
+
+                await context.SaveChangesAsync(operationCancellationToken).ConfigureAwait(false);
+                return true;
+            }, async operationCancellationToken => !await context.Maps
+                .AnyAsync(m => m.MapId == mapId, operationCancellationToken)
+                .ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (!deleted)
             {
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
-            context.Remove(map);
-
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             await cacheInvalidator.InvalidateMapAsync(mapId, cancellationToken).ConfigureAwait(false);
 
             return new ApiResponse().ToApiResult();

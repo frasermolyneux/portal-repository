@@ -67,9 +67,18 @@ public partial class GameServer
     [InverseProperty("GameServer")]
     public virtual ICollection<MapVote> MapVotes { get; set; } = new List<MapVote>();
 
+    [InverseProperty("Server")]
+    public virtual ICollection<PlayerSession> PlayerSessions { get; set; } = new List<PlayerSession>();
+
+    [InverseProperty("Server")]
+    public virtual ICollection<PlaytimeObservation> PlaytimeObservations { get; set; } = new List<PlaytimeObservation>();
+
     [InverseProperty("GameServer")]
     public virtual ICollection<RecentPlayer> RecentPlayers { get; set; } = new List<RecentPlayer>();
 
     [InverseProperty("GameServer")]
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
+
+    [InverseProperty("Server")]
+    public virtual ICollection<ServerMapRun> ServerMapRuns { get; set; } = new List<ServerMapRun>();
 }

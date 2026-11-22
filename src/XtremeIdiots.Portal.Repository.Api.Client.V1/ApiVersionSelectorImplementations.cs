@@ -343,4 +343,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IPlayerAnalyticsV2Api V1 { get; }
     }
+
+    public class VersionedPlaytimeApi : IVersionedPlaytimeApi
+    {
+        public VersionedPlaytimeApi(IPlaytimeApi v1Api)
+        {
+            V1 = v1Api;
+        }
+
+        public IPlaytimeApi V1 { get; }
+    }
 }

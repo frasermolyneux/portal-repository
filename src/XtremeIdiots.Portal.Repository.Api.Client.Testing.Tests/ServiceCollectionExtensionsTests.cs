@@ -43,6 +43,7 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IVersionedDashboardAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedMapAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IVersionedPlayerAnalyticsV2Api>());
+        Assert.NotNull(provider.GetRequiredService<IVersionedPlaytimeApi>());
     }
 
     [Fact]
@@ -67,6 +68,7 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<IDashboardAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IMapAnalyticsApi>());
         Assert.NotNull(provider.GetRequiredService<IPlayerAnalyticsV2Api>());
+        Assert.NotNull(provider.GetRequiredService<IPlaytimeApi>());
     }
 
     [Fact]
