@@ -47,6 +47,8 @@ public partial class PlaytimeObservation
 
     public DateTime? ProducerStartedUtc { get; set; }
 
+    public DateTime? CoverageReportedUtc { get; set; }
+
     public long? DroppedCapacityMax { get; set; }
 
     public long? DroppedAttemptsMax { get; set; }

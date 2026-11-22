@@ -9,13 +9,24 @@ internal static class PlaytimeServerLock
         PortalDbContext context,
         Guid serverId,
         CancellationToken cancellationToken)
+        => await AcquireResourceAsync(context, $"playtime:{serverId:N}", cancellationToken).ConfigureAwait(false);
+
+    public static async Task AcquireObservationAsync(
+        PortalDbContext context,
+        Guid observationId,
+        CancellationToken cancellationToken)
+        => await AcquireResourceAsync(context, $"playtime-observation:{observationId:N}", cancellationToken).ConfigureAwait(false);
+
+    private static async Task AcquireResourceAsync(
+        PortalDbContext context,
+        string resource,
+        CancellationToken cancellationToken)
     {
         if (!context.Database.IsSqlServer())
         {
             return;
         }
 
-        var resource = $"playtime:{serverId:N}";
         var results = await context.Database.SqlQuery<int>(
                 $"""
                  DECLARE @result int;
@@ -33,7 +44,7 @@ internal static class PlaytimeServerLock
         if (result < 0)
         {
             throw new InvalidOperationException(
-                $"Could not acquire the playtime reconciliation lock for server {serverId} (result {result}).");
+                $"Could not acquire the playtime reconciliation lock for {resource} (result {result}).");
         }
     }
 }

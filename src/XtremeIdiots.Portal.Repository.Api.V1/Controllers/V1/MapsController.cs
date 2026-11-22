@@ -461,6 +461,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var executionStrategy = context.Database.CreateExecutionStrategy();
             var deleted = await executionStrategy.ExecuteInTransactionAsync(async operationCancellationToken =>
             {
+                context.ChangeTracker.Clear();
                 var map = await context.Maps
                     .FirstOrDefaultAsync(m => m.MapId == mapId, operationCancellationToken)
                     .ConfigureAwait(false);

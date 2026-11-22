@@ -142,6 +142,7 @@
       "name": "[dbo].[UserProfileLifecycleOperations]"
     },
     {
+      "excludedColumns": [],
       "name": "[dbo].[PlaytimeObservation]"
     },
     {

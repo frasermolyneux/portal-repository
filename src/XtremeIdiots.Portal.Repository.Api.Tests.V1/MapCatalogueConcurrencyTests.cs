@@ -19,6 +19,42 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class MapCatalogueConcurrencyTests
 {
+    [Fact]
+    public Task DeleteMap_RetriesAfterRolledBackMapRunUpdate()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var map = new Map { GameType = 2, MapName = "mp_retry" };
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            setup.AddRange(map, server);
+            await setup.SaveChangesAsync();
+            var run = new ServerMapRun
+            {
+                RunId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = 2,
+                MapId = map.MapId,
+                NormalizedMapKey = "mp_retry",
+                StartUtc = DateTime.UtcNow,
+                AttributionQuality = 2
+            };
+            setup.Add(run);
+            await setup.SaveChangesAsync();
+
+            var fault = new CommitFault(false);
+            await using var context = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(2, TimeSpan.Zero, null))
+                .AddInterceptors(fault).Options);
+            var result = await CreateApi(context).DeleteMap(map.MapId);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(1, fault.Failures);
+            await using var verify = new PortalDbContext(options);
+            Assert.False(await verify.Maps.AnyAsync(x => x.MapId == map.MapId));
+            Assert.Null((await verify.ServerMapRuns.SingleAsync(x => x.RunId == run.RunId)).MapId);
+        });
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

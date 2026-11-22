@@ -87,6 +87,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 await PlaytimeServerLock.AcquireAsync(context, serverId, cancellationToken)
                     .ConfigureAwait(false);
             }
+            foreach (var observationId in dto.Observations.Select(x => x.ObservationId).Distinct().OrderBy(x => x))
+            {
+                await PlaytimeServerLock.AcquireObservationAsync(context, observationId, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             foreach (var observation in dto.Observations)
             {
@@ -263,6 +268,17 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     items.Add(Rejected(observation.ObservationId, "A complete roster requires Roster entries."));
                     continue;
                 }
+                if (observation.Coverage is { } coverage &&
+                    (coverage.ProducerEpoch == Guid.Empty ||
+                     coverage.ProducerEpoch != observation.ProducerEpoch ||
+                     coverage.ReportedUtc == default ||
+                     coverage.DroppedCapacityMax < 0 ||
+                     coverage.DroppedAttemptsMax < 0 ||
+                     coverage.DroppedAgeMax < 0))
+                {
+                    items.Add(Rejected(observation.ObservationId, "Coverage requires a matching producer epoch, report timestamp, and nonnegative counters."));
+                    continue;
+                }
 
                 var eventUtc = NormalizeUtc(observation.EventUtc);
                 if (now - eventUtc > LateEventThreshold)
@@ -319,6 +335,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     MapName = observation.MapName,
                     IsBot = observation.IsBot,
                     ProducerStartedUtc = observation.Coverage?.ProducerStartedUtc,
+                    CoverageReportedUtc = observation.Coverage is null ? null : NormalizeUtc(observation.Coverage.ReportedUtc),
                     DroppedCapacityMax = observation.Coverage?.DroppedCapacityMax,
                     DroppedAttemptsMax = observation.Coverage?.DroppedAttemptsMax,
                     DroppedAgeMax = observation.Coverage?.DroppedAgeMax,
@@ -522,6 +539,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         long knownBotSeconds = 0;
         long unclassifiedSeconds = 0;
         bool hasKnownNonBot;
+        bool hasUnclassified;
         if (context.Database.IsSqlServer())
         {
             var aggregates = await context.Database.SqlQueryRaw<PlaytimeTotalsAggregate>(
@@ -551,19 +569,29 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         SELECT IsBot,
                                UnknownMap,
                                CASE WHEN ClippedEndUtc > ClippedStartUtc
-                                    THEN DATEDIFF_BIG(NANOSECOND, ClippedStartUtc, ClippedEndUtc) / 1000000000
-                                    ELSE 0 END AS Seconds
+                                    THEN CONVERT(decimal(38, 0), DATEDIFF_BIG(NANOSECOND, ClippedStartUtc, ClippedEndUtc))
+                                    ELSE CONVERT(decimal(38, 0), 0) END AS Nanoseconds
                         FROM clipped
                     )
-                    SELECT COALESCE(SUM(CASE WHEN IsBot = 1 THEN Seconds ELSE 0 END), 0) AS KnownBotSeconds,
-                           COALESCE(SUM(CASE WHEN IsBot IS NULL THEN Seconds ELSE 0 END), 0) AS UnclassifiedSeconds,
-                           COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 1
-                                             THEN Seconds ELSE 0 END), 0) AS UnknownMapSeconds,
-                           COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 0
-                                             THEN Seconds ELSE 0 END), 0) AS KnownSeconds,
-                           CAST(CASE WHEN MAX(CASE WHEN IsBot = 0 AND Seconds > 0 THEN 1 ELSE 0 END) = 1
-                                     THEN 1 ELSE 0 END AS bit) AS HasKnownNonBot
-                    FROM durations
+                    , totals AS
+                    (
+                        SELECT COALESCE(SUM(CASE WHEN IsBot = 1 THEN Nanoseconds ELSE 0 END), 0) AS BotNs,
+                               COALESCE(SUM(CASE WHEN IsBot IS NULL THEN Nanoseconds ELSE 0 END), 0) AS UnclassifiedNs,
+                               COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 1
+                                                 THEN Nanoseconds ELSE 0 END), 0) AS UnknownNs,
+                               COALESCE(SUM(CASE WHEN (IsBot = 0 OR IsBot IS NULL) AND UnknownMap = 0
+                                                 THEN Nanoseconds ELSE 0 END), 0) AS KnownNs,
+                               CAST(CASE WHEN MAX(CASE WHEN IsBot = 0 AND Nanoseconds > 0 THEN 1 ELSE 0 END) = 1
+                                         THEN 1 ELSE 0 END AS bit) AS HasKnownNonBot
+                        FROM durations
+                    )
+                    SELECT CONVERT(bigint, (BotNs - BotNs % 1000000000) / 1000000000) AS KnownBotSeconds,
+                           CONVERT(bigint, (UnclassifiedNs - UnclassifiedNs % 1000000000) / 1000000000) AS UnclassifiedSeconds,
+                           CONVERT(bigint, (UnknownNs - UnknownNs % 1000000000) / 1000000000) AS UnknownMapSeconds,
+                           CONVERT(bigint, (KnownNs - KnownNs % 1000000000) / 1000000000) AS KnownSeconds,
+                           HasKnownNonBot,
+                           CAST(CASE WHEN UnclassifiedNs > 0 THEN 1 ELSE 0 END AS bit) AS HasUnclassified
+                    FROM totals
                     """,
                     new SqlParameter("@FromUtc", SqlDbType.DateTime2) { Value = fromUtc },
                     new SqlParameter("@ToUtc", SqlDbType.DateTime2) { Value = toUtc },
@@ -589,9 +617,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             knownBotSeconds = aggregate.KnownBotSeconds;
             unclassifiedSeconds = aggregate.UnclassifiedSeconds;
             hasKnownNonBot = aggregate.HasKnownNonBot;
+            hasUnclassified = aggregate.HasUnclassified;
         }
         else
         {
+            decimal knownTicks = 0;
+            decimal unknownTicks = 0;
+            decimal knownBotTicks = 0;
+            decimal unclassifiedTicks = 0;
             var list = await segments
                 .Include(x => x.Session)
                 .Include(x => x.MapRun)
@@ -608,15 +641,15 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     continue;
                 }
 
-                var seconds = (long)Math.Floor((end - start).TotalSeconds);
+                var ticks = (end - start).Ticks;
                 if (segment.Session.IsBot == true)
                 {
-                    knownBotSeconds += seconds;
+                    knownBotTicks += ticks;
                     continue;
                 }
                 if (segment.Session.IsBot is null)
                 {
-                    unclassifiedSeconds += seconds;
+                    unclassifiedTicks += ticks;
                 }
                 else
                 {
@@ -624,13 +657,18 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 }
                 if (segment.UnknownMap)
                 {
-                    unknownSeconds += seconds;
+                    unknownTicks += ticks;
                 }
                 else
                 {
-                    knownSeconds += seconds;
+                    knownTicks += ticks;
                 }
             }
+            knownSeconds = (long)(knownTicks / TimeSpan.TicksPerSecond);
+            unknownSeconds = (long)(unknownTicks / TimeSpan.TicksPerSecond);
+            knownBotSeconds = (long)(knownBotTicks / TimeSpan.TicksPerSecond);
+            unclassifiedSeconds = (long)(unclassifiedTicks / TimeSpan.TicksPerSecond);
+            hasUnclassified = unclassifiedTicks > 0;
         }
 
         var dataThrough = await context.PlaytimeObservations
@@ -644,7 +682,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         var coverageReports = await context.PlaytimeObservations
             .AsNoTracking()
-            .Where(x => x.ProducerEpoch != null &&
+            .Where(x => x.ProducerEpoch != null && x.CoverageReportedUtc != null &&
                         (x.DroppedCapacityMax != null ||
                          x.DroppedAttemptsMax != null ||
                          x.DroppedAgeMax != null))
@@ -656,11 +694,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 ServerId = group.Key.ServerId,
                 ProducerEpoch = group.Key.ProducerEpoch,
                 ProducerStartedUtc = group
-                        .OrderByDescending(x => x.EventUtc)
+                        .OrderByDescending(x => x.CoverageReportedUtc)
                         .ThenByDescending(x => x.ObservationId)
                         .Select(x => x.ProducerStartedUtc)
                         .FirstOrDefault(),
-                ReportedUtc = group.Max(x => x.EventUtc),
+                ReportedUtc = group.Max(x => x.CoverageReportedUtc)!.Value,
                 DroppedCapacityMax = group.Max(x => x.DroppedCapacityMax ?? 0),
                 DroppedAttemptsMax = group.Max(x => x.DroppedAttemptsMax ?? 0),
                 DroppedAgeMax = group.Max(x => x.DroppedAgeMax ?? 0)
@@ -679,7 +717,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             UnknownMapSeconds = unknownSeconds,
             KnownBotSeconds = knownBotSeconds,
             UnclassifiedPlayerSeconds = unclassifiedSeconds,
-            HumanOnlyCoverage = hasKnownNonBot && unclassifiedSeconds == 0,
+            HumanOnlyCoverage = hasKnownNonBot && !hasUnclassified,
             DataThroughUtc = dataThrough ?? DateTime.UnixEpoch,
             PlayerId = playerId,
             ServerId = serverId,
@@ -1905,6 +1943,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         public long KnownBotSeconds { get; set; }
         public long UnclassifiedSeconds { get; set; }
         public bool HasKnownNonBot { get; set; }
+        public bool HasUnclassified { get; set; }
     }
 
     private static List<RosterResolution> DeserializeRosterResolutions(string? json)
@@ -2035,7 +2074,9 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 ? null
                 : new
                 {
+                    observation.Coverage.ProducerEpoch,
                     observation.Coverage.ProducerStartedUtc,
+                    observation.Coverage.ReportedUtc,
                     observation.Coverage.DroppedCapacityMax,
                     observation.Coverage.DroppedAttemptsMax,
                     observation.Coverage.DroppedAgeMax

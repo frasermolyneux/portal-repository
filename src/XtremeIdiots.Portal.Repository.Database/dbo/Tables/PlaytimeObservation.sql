@@ -16,6 +16,7 @@ CREATE TABLE [dbo].[PlaytimeObservation]
     [MapName] NVARCHAR(256) NULL,
     [IsBot] BIT NULL,
     [ProducerStartedUtc] DATETIME2 NULL,
+    [CoverageReportedUtc] DATETIME2 NULL,
     [DroppedCapacityMax] BIGINT NULL,
     [DroppedAttemptsMax] BIGINT NULL,
     [DroppedAgeMax] BIGINT NULL,

@@ -789,6 +789,72 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task TotalsSumSubsecondSegmentsBeforeConvertingAndPreserveUnclassifiedCoverage()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        AddPlayerAndServer(context, playerId, serverId);
+        var start = DateTime.UtcNow.AddMinutes(-1);
+        var humanSession = new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            IsBot = false,
+            StartUtc = start,
+            LastConfirmedUtc = start.AddSeconds(2),
+            StartQuality = 2
+        };
+        var unknownSession = new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            PlayerId = playerId,
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            IsBot = null,
+            StartUtc = start,
+            LastConfirmedUtc = start.AddSeconds(1),
+            StartQuality = 2
+        };
+        context.PlayerSessions.AddRange(humanSession, unknownSession);
+        context.PlayerSessionMapSegments.AddRange(
+            new PlayerSessionMapSegment
+            {
+                SegmentId = Guid.NewGuid(),
+                SessionId = humanSession.SessionId,
+                StartUtc = start,
+                EndUtc = start.AddMilliseconds(600),
+                UnknownMap = true
+            },
+            new PlayerSessionMapSegment
+            {
+                SegmentId = Guid.NewGuid(),
+                SessionId = humanSession.SessionId,
+                StartUtc = start.AddSeconds(1),
+                EndUtc = start.AddMilliseconds(1600),
+                UnknownMap = true
+            },
+            new PlayerSessionMapSegment
+            {
+                SegmentId = Guid.NewGuid(),
+                SessionId = unknownSession.SessionId,
+                StartUtc = start,
+                EndUtc = start.AddMilliseconds(100),
+                UnknownMap = true
+            });
+        await context.SaveChangesAsync();
+
+        var result = await ((IPlaytimeApi)new PlaytimeController(context))
+            .GetTotals(start, start.AddSeconds(3), playerId, serverId, null, null);
+
+        Assert.Equal(1, result.Result?.Data?.UnknownMapSeconds);
+        Assert.Equal(0, result.Result?.Data?.UnclassifiedPlayerSeconds);
+        Assert.False(result.Result?.Data?.HumanOnlyCoverage);
+    }
+
+    [Fact]
     public async Task RepeatedJoinsAcrossMapChangesKeepOneSession()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -1559,7 +1625,7 @@ public class PlaytimeControllerTests
                     {
                         ProducerEpoch = epoch,
                         ProducerStartedUtc = start.AddMinutes(-10),
-                        ReportedUtc = start,
+                        ReportedUtc = start.AddSeconds(12),
                         DroppedCapacityMax = 2,
                         DroppedAttemptsMax = 3,
                         DroppedAgeMax = 4
@@ -1603,11 +1669,53 @@ public class PlaytimeControllerTests
         var report = Assert.Single(data.CoverageReports, x => x.ServerId == serverId);
         Assert.Equal(serverId, report.ServerId);
         Assert.Equal(epoch, report.ProducerEpoch);
+        Assert.Equal(start.AddSeconds(12), report.ReportedUtc);
         Assert.Equal(2, report.DroppedCapacityMax);
         Assert.Equal(3, report.DroppedAttemptsMax);
         Assert.Equal(4, report.DroppedAgeMax);
         var secondReport = Assert.Single(data.CoverageReports, x => x.ServerId == secondServerId);
         Assert.Equal(5, secondReport.DroppedCapacityMax);
+    }
+
+    [Fact]
+    public async Task CoverageRejectsMismatchedEpochAndChangedReportTimeOnReplay()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = serverId,
+            Title = "Test",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "127.0.0.1",
+            QueryPort = 28960
+        });
+        context.SaveChanges();
+
+        var epoch = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        var observation = new PlaytimeObservationDto
+        {
+            ObservationId = Guid.NewGuid(),
+            ServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            Kind = PlaytimeObservationKind.ServerRoster,
+            EventUtc = now,
+            TimestampQuality = PlaytimeTimestampQuality.ParseTime,
+            ProducerEpoch = epoch,
+            RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+            Coverage = new PlaytimeCoverageCountersDto { ProducerEpoch = epoch, ReportedUtc = now.AddSeconds(3) }
+        };
+        var api = (IPlaytimeApi)new PlaytimeController(context);
+        var mismatch = observation with { Coverage = observation.Coverage with { ProducerEpoch = Guid.NewGuid() } };
+        var invalid = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [mismatch] });
+        var accepted = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [observation] });
+        var replay = observation with { Coverage = observation.Coverage with { ReportedUtc = now.AddSeconds(4) } };
+        var conflict = await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [replay] });
+
+        Assert.Equal(PlaytimeObservationOutcome.Rejected, invalid.Result?.Data?.Items.Single().Outcome);
+        Assert.Equal(PlaytimeObservationOutcome.Accepted, accepted.Result?.Data?.Items.Single().Outcome);
+        Assert.Equal(PlaytimeObservationOutcome.Rejected, conflict.Result?.Data?.Items.Single().Outcome);
     }
 
     [Fact]
