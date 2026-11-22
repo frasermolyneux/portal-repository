@@ -209,7 +209,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                                         IsBot = x.IsBot
                                     }).ToList()
                             };
-                            await ReconcileObservation(resolvedObservation, now, cancellationToken).ConfigureAwait(false);
+                            await ReconcileObservation(resolvedObservation, now, cancellationToken, isReplay: true).ConfigureAwait(false);
                             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                         }
                     }
@@ -443,14 +443,14 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .GroupBy(x => x.SessionId)
             .ToDictionary(
                 group => group.Key,
-                group => group.Sum(segment =>
+                group => (long)(group.Sum(segment =>
                 {
                     var session = sessionsById[group.Key];
                     var start = segment.StartUtc > session.StartUtc ? segment.StartUtc : session.StartUtc;
                     var sessionEnd = session.EndUtc ?? session.LastConfirmedUtc;
                     var end = segment.EndUtc < sessionEnd ? segment.EndUtc : sessionEnd;
-                    return end > start ? (long)Math.Floor((end - start).TotalSeconds) : 0;
-                }));
+                    return end > start ? (decimal)(end - start).Ticks : 0;
+                }) / TimeSpan.TicksPerSecond));
 
         var dto = new List<PlayerSessionDto>(sessions.Count);
         foreach (var session in sessions)
@@ -731,7 +731,8 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
     private async Task ReconcileObservation(
         PlaytimeObservationDto observation,
         DateTime receivedUtc,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool isReplay = false)
     {
         var eventUtc = NormalizeUtc(observation.EventUtc);
         if (observation.Kind == PlaytimeObservationKind.PlayerJoined)
@@ -741,7 +742,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 return;
             }
 
-            await EnsureSession(observation.CanonicalPlayerId.Value, observation, eventUtc, cancellationToken: cancellationToken)
+            await EnsureSession(observation.CanonicalPlayerId.Value, observation, eventUtc, isReplay: isReplay, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
         else if (observation.Kind == PlaytimeObservationKind.PlayerLeft)
@@ -775,6 +776,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         PlaytimeObservationDto observation,
         DateTime eventUtc,
         bool allowCreate = true,
+        bool isReplay = false,
         CancellationToken cancellationToken = default)
     {
         PlayerSession? correlated = null;
@@ -786,7 +788,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                             x.ServerId == observation.ServerId);
             correlated = await correlatedSessions
                 .Where(x => x.StartUtc <= eventUtc &&
-                            (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc)
+                            (x.EndUtc == null
+                                ? x.LastConfirmedUtc >= eventUtc
+                                : x.EndUtc > eventUtc ||
+                                  (x.EndUtc == eventUtc &&
+                                   (observation.Kind != PlaytimeObservationKind.PlayerJoined ||
+                                    (isReplay && x.StartUtc == eventUtc)))))
                 .OrderByDescending(x => x.StartUtc)
                 .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -804,7 +811,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                             x.GamePlayerId == observation.GamePlayerId);
             correlated = await matchingGamePlayerSessions
                 .Where(x => x.StartUtc <= eventUtc &&
-                            (x.EndUtc ?? x.LastConfirmedUtc) >= eventUtc &&
+                            (x.EndUtc == null
+                                ? x.LastConfirmedUtc >= eventUtc
+                                : x.EndUtc > eventUtc ||
+                                  (x.EndUtc == eventUtc &&
+                                   (observation.Kind != PlaytimeObservationKind.PlayerJoined ||
+                                    (isReplay && x.StartUtc == eventUtc)))) &&
                             (observation.ConnectionCorrelationId == null ||
                              x.ConnectionCorrelationId == null ||
                              x.ConnectionCorrelationId == observation.ConnectionCorrelationId))
@@ -825,17 +837,23 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             observation.ConnectionCorrelationId is null &&
             string.IsNullOrWhiteSpace(observation.GamePlayerId))
         {
-            var exactStartSessions = await context.PlayerSessions
+            var matchingSessions = await context.PlayerSessions
                 .Where(x => x.PlayerId == playerId &&
                             x.ServerId == observation.ServerId &&
-                            x.StartUtc == eventUtc)
+                            (x.StartUtc == eventUtc ||
+                             (isReplay && x.StartUtc < eventUtc &&
+                              (x.EndUtc == null ? x.LastConfirmedUtc >= eventUtc : x.EndUtc > eventUtc))) &&
+                            (x.EndUtc == null || x.EndUtc > eventUtc ||
+                             (x.EndUtc == eventUtc &&
+                              (observation.Kind != PlaytimeObservationKind.PlayerJoined ||
+                               (isReplay && x.StartUtc == eventUtc)))))
                 .OrderByDescending(x => x.SessionId)
                 .Take(2)
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
-            if (exactStartSessions.Count == 1)
+            if (matchingSessions.Count == 1)
             {
-                correlated = exactStartSessions[0];
+                correlated = matchingSessions[0];
             }
         }
         if (correlated is not null &&

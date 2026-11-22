@@ -413,12 +413,13 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
                               segment.EndUtc > fromUtc)
             .Select(segment => new { segment.StartUtc, segment.EndUtc })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-        var measuredSeconds = measuredSegments.Sum(segment =>
+        var measuredTicks = measuredSegments.Sum(segment =>
         {
             var start = segment.StartUtc > fromUtc ? segment.StartUtc : fromUtc;
             var end = segment.EndUtc < toUtc ? segment.EndUtc : toUtc;
-            return end > start ? (long)Math.Floor((end - start).TotalSeconds) : 0L;
+            return end > start ? (decimal)(end - start).Ticks : 0;
         });
+        var measuredSeconds = measuredTicks / TimeSpan.TicksPerSecond;
 
         var actionCounts = await context.AdminActions
             .AsNoTracking()
@@ -479,7 +480,7 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             SessionsCount = sessionsCount,
             // Measured playtime: half-open intersections of observed sessions and map runs, clipped to the window.
             // Unknown-map time is deliberately excluded; it is not an unverified attribution.
-            TotalPlayTimeMinutes = (int)Math.Min(int.MaxValue, (measuredSeconds + 59) / 60),
+            TotalPlayTimeMinutes = (int)Math.Min(int.MaxValue, (Math.Floor(measuredSeconds) + 59) / 60),
             Moderation = new PlayerModerationSummaryDto
             {
                 Window = CreateWindow(fromUtc, toUtc),

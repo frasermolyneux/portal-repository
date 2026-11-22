@@ -21,6 +21,55 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 public class ConnectedPlayerClaimsConcurrencyTests
 {
     [Fact]
+    public Task JoinReplayAndFinalizedBoundaryReconcileAgainstSqlServer()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            var player = new Player { GameType = 2, FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.AddRange(server, player);
+            await context.SaveChangesAsync();
+            var start = DateTime.UtcNow.AddMinutes(-30);
+            var laterJoin = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                CanonicalPlayerId = player.PlayerId,
+                Kind = PlaytimeObservationKind.PlayerJoined,
+                EventUtc = start.AddMinutes(10),
+                TimestampQuality = PlaytimeTimestampQuality.ProducerTimestamp
+            };
+            var earlierJoin = laterJoin with { ObservationId = Guid.NewGuid(), EventUtc = start };
+            var leave = laterJoin with
+            {
+                ObservationId = Guid.NewGuid(),
+                EventUtc = start.AddMinutes(20),
+                Kind = PlaytimeObservationKind.PlayerLeft
+            };
+            var reconnect = laterJoin with { ObservationId = Guid.NewGuid(), EventUtc = leave.EventUtc };
+            var api = (IPlaytimeApi)new PlaytimeController(context);
+            var batch = await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [laterJoin, earlierJoin, leave, reconnect]
+            });
+            var replay = await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [laterJoin with { IsBot = false }]
+            });
+            Assert.All(batch.Result!.Data!.Items, item => Assert.Equal(PlaytimeObservationOutcome.Accepted, item.Outcome));
+            Assert.Equal(PlaytimeObservationOutcome.Duplicate, replay.Result?.Data?.Items.Single().Outcome);
+            var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+            Assert.Equal(2, sessions.Count);
+            Assert.Equal(start, sessions[0].StartUtc);
+            Assert.Equal(leave.EventUtc, sessions[0].EndUtc);
+            Assert.False(sessions[0].IsBot);
+            Assert.Equal(reconnect.EventUtc, sessions[1].StartUtc);
+            Assert.Null(sessions[1].EndUtc);
+        });
+
+    [Fact]
     public Task ConcurrentDifferentServersReusingObservationIdReturnConflict()
         => SqlServerTestDatabase.RunAsync(async connectionString =>
         {
