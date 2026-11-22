@@ -2260,6 +2260,58 @@ public class PlaytimeControllerTests
     }
 
     [Fact]
+    public async Task SweepClearsExpiredRostersInBoundedPerServerBatches()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = Guid.NewGuid();
+        var otherServerId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        var oldestId = Guid.NewGuid();
+        var newestId = Guid.NewGuid();
+        var futureId = Guid.NewGuid();
+        var otherId = Guid.NewGuid();
+
+        PlaytimeObservation Roster(Guid id, Guid server, DateTime deadline) => new()
+        {
+            ObservationId = id,
+            ServerId = server,
+            GameType = (int)GameType.CallOfDuty4,
+            Kind = (byte)PlaytimeObservationKind.ServerRoster,
+            EventUtc = now.AddDays(-2),
+            ReceivedUtc = now.AddDays(-2),
+            ResolutionDeadlineUtc = deadline,
+            ResolvedRosterJson = "[]",
+            PayloadHash = new byte[32]
+        };
+
+        context.PlaytimeObservations.Add(Roster(oldestId, serverId, now.AddHours(-2)));
+        for (var i = 0; i < 249; i++)
+        {
+            context.PlaytimeObservations.Add(Roster(Guid.NewGuid(), serverId, now.AddHours(-1)));
+        }
+        context.PlaytimeObservations.AddRange(
+            Roster(newestId, serverId, now.AddMinutes(-1)),
+            Roster(futureId, serverId, now.AddHours(1)),
+            Roster(otherId, otherServerId, now.AddMinutes(-1)));
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        await PlaytimeSweeperHostedService.SweepAsync(context, now.AddMinutes(-15), CancellationToken.None);
+
+        var observations = await context.PlaytimeObservations.AsNoTracking().ToListAsync();
+        Assert.Null(observations.Single(x => x.ObservationId == oldestId).ResolvedRosterJson);
+        Assert.Null(observations.Single(x => x.ObservationId == otherId).ResolvedRosterJson);
+        Assert.NotNull(observations.Single(x => x.ObservationId == newestId).ResolvedRosterJson);
+        Assert.NotNull(observations.Single(x => x.ObservationId == futureId).ResolvedRosterJson);
+        Assert.Equal(250, observations.Count(x => x.ServerId == serverId && x.ResolvedRosterJson == null));
+
+        await PlaytimeSweeperHostedService.SweepAsync(context, now.AddMinutes(-15), CancellationToken.None);
+        observations = await context.PlaytimeObservations.AsNoTracking().ToListAsync();
+        Assert.Null(observations.Single(x => x.ObservationId == newestId).ResolvedRosterJson);
+        Assert.NotNull(observations.Single(x => x.ObservationId == futureId).ResolvedRosterJson);
+    }
+
+    [Fact]
     public async Task LateIdentityReplayIsRejectedAfterCorrectionWindow()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

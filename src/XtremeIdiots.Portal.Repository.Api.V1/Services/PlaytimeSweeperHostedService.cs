@@ -8,6 +8,7 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
 {
     private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan MissingDisconnectThreshold = TimeSpan.FromMinutes(15);
+    private const int ExpiredRosterBatchSize = 250;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly ILogger<PlaytimeSweeperHostedService> logger;
 
@@ -98,6 +99,9 @@ public sealed class PlaytimeSweeperHostedService : BackgroundService
                                 x.ResolutionDeadlineUtc != null &&
                                 x.ResolutionDeadlineUtc < DateTime.UtcNow &&
                                 x.ResolvedRosterJson != null)
+                    .OrderBy(x => x.ResolutionDeadlineUtc)
+                    .ThenBy(x => x.ObservationId)
+                    .Take(ExpiredRosterBatchSize)
                     .ToListAsync(cancellationToken)
                     .ConfigureAwait(false);
                 foreach (var observation in expiredResolutions)
