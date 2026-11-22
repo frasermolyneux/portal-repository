@@ -1648,6 +1648,24 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         bool? isBot,
         CancellationToken cancellationToken)
     {
+        var identity = new PlaytimeObservationDto
+        {
+            ServerId = session.ServerId,
+            GamePlayerId = session.GamePlayerId
+        };
+        var earlierLeave = await FindAcceptedLeaveBetween(
+            session.PlayerId, identity, session.StartUtc, leaveUtc, null, cancellationToken).ConfigureAwait(false);
+        if (earlierLeave is not null && earlierLeave.EventUtc < leaveUtc)
+        {
+            if (earlierLeave.TimestampQuality != (byte)PlaytimeTimestampQuality.ParseTime ||
+                earlierLeave.ConnectionCorrelationId is not null)
+            {
+                return false;
+            }
+            leaveUtc = earlierLeave.EventUtc;
+            isBot = earlierLeave.IsBot;
+        }
+
         var split = await TrySplitReadTimeReconnect(session, leaveUtc, isBot, cancellationToken).ConfigureAwait(false);
         if (split is null)
         {

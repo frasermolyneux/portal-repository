@@ -21,8 +21,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class ConnectedPlayerClaimsConcurrencyTests
 {
-    [Fact]
-    public Task DelayedReadTimeLeaveSplitsMergedReconnect()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task DelayedReadTimeLeaveSplitsMergedReconnect(bool earlierLeaveIsRetained)
         => SqlServerTestDatabase.RunAsync(async connectionString =>
         {
             var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
@@ -59,13 +61,14 @@ public class ConnectedPlayerClaimsConcurrencyTests
             var leave = join with
             {
                 ObservationId = Guid.NewGuid(),
+                CanonicalPlayerId = earlierLeaveIsRetained ? null : player.PlayerId,
                 Kind = PlaytimeObservationKind.PlayerLeft,
                 EventUtc = start.AddMinutes(4)
             };
             var laterLeave = join with
             {
                 ObservationId = Guid.NewGuid(),
-                CanonicalPlayerId = null,
+                CanonicalPlayerId = earlierLeaveIsRetained ? player.PlayerId : null,
                 Kind = PlaytimeObservationKind.PlayerLeft,
                 EventUtc = start.AddMinutes(10)
             };
@@ -73,9 +76,12 @@ public class ConnectedPlayerClaimsConcurrencyTests
             await api.BatchObservations(new PlaytimeObservationBatchDto
             {
                 Observations = [join, roster, roster with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(5) },
-                    reconnect, thirdJoin, laterLeave]
+                    reconnect, thirdJoin, earlierLeaveIsRetained ? leave : laterLeave]
             });
-            await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [leave] });
+            await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [earlierLeaveIsRetained ? laterLeave : leave]
+            });
             var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
             Assert.Equal(3, sessions.Count);
             Assert.Equal(roster.EventUtc, sessions[0].LastConfirmedUtc);

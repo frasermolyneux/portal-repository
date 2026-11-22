@@ -168,8 +168,10 @@ public class PlaytimeControllerTests
         Assert.Equal(reconnect.EventUtc, session.EndUtc);
     }
 
-    [Fact]
-    public async Task ReadTimeSplitReconcilesLaterRetainedLeaveAndReconnect()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReadTimeSplitReconcilesRetainedLeavesAndReconnects(bool earlierLeaveIsRetained)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var playerId = Guid.NewGuid();
@@ -182,29 +184,36 @@ public class PlaytimeControllerTests
         { TimestampQuality = PlaytimeTimestampQuality.ParseTime };
         var second = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(6), GamePlayerId = null };
         var third = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(12) };
-        var unresolvedLeave = join with
+        var laterLeave = join with
         {
             ObservationId = Guid.NewGuid(),
             Kind = PlaytimeObservationKind.PlayerLeft,
             EventUtc = start.AddMinutes(10),
-            CanonicalPlayerId = null
+            CanonicalPlayerId = earlierLeaveIsRetained ? playerId : null
         };
         var earlierLeave = join with
         {
             ObservationId = Guid.NewGuid(),
             Kind = PlaytimeObservationKind.PlayerLeft,
-            EventUtc = start.AddMinutes(4)
+            EventUtc = start.AddMinutes(4),
+            CanonicalPlayerId = earlierLeaveIsRetained ? null : playerId
         };
 
-        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [join, second, third, unresolvedLeave] });
-        await api.BatchObservations(new PlaytimeObservationBatchDto { Observations = [earlierLeave] });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [join, second, third, earlierLeaveIsRetained ? earlierLeave : laterLeave]
+        });
+        await api.BatchObservations(new PlaytimeObservationBatchDto
+        {
+            Observations = [earlierLeaveIsRetained ? laterLeave : earlierLeave]
+        });
 
         var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
         Assert.Equal(3, sessions.Count);
         Assert.Equal(earlierLeave.EventUtc, sessions[0].EndUtc);
         Assert.Equal(second.EventUtc, sessions[1].StartUtc);
         Assert.Equal("guid-1", sessions[1].GamePlayerId);
-        Assert.Equal(unresolvedLeave.EventUtc, sessions[1].EndUtc);
+        Assert.Equal(laterLeave.EventUtc, sessions[1].EndUtc);
         Assert.Equal(third.EventUtc, sessions[2].StartUtc);
         Assert.Null(sessions[2].EndUtc);
     }
