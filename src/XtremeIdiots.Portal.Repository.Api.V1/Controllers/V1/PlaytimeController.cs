@@ -1265,7 +1265,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         }
 
         var processingUtc = timeProvider.GetUtcNow().UtcDateTime;
-        var earliestFreshUtc = processingUtc.Subtract(CompleteRosterFreshnessThreshold);
         var boundedEndUtc = endUtc < startUtc.Add(LateEventThreshold)
             ? endUtc
             : startUtc.Add(LateEventThreshold);
@@ -1278,7 +1277,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.TimestampQuality == (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp &&
                         !x.IdentifiersRedacted &&
                         x.ResolvedRosterJson != null &&
-                        x.EventUtc >= earliestFreshUtc &&
                         x.EventUtc <= processingUtc &&
                         x.EventUtc > startUtc &&
                         x.EventUtc <= boundedEndUtc &&
@@ -1306,6 +1304,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                     cancellationToken)
                 .ConfigureAwait(false);
             if (supersededAtReceipt)
+            {
+                continue;
+            }
+
+            var processingAge = processingUtc - snapshot.EventUtc;
+            if (processingAge < TimeSpan.Zero || processingAge > CompleteRosterFreshnessThreshold)
             {
                 continue;
             }

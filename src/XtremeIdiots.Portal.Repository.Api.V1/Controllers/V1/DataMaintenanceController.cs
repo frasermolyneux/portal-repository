@@ -89,6 +89,10 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            var serializedPlayerId = JsonSerializer.Serialize(playerId);
+            var serializedGamePlayerId = player.Guid is null
+                ? null
+                : JsonSerializer.Serialize(player.Guid);
             var playtimeServerIds = await context.GameServers
                 .Where(x => x.GameType == player.GameType)
                 .Select(x => x.GameServerId)
@@ -115,10 +119,10 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                              o.GameType == player.GameType &&
                              o.GamePlayerId == player.Guid) ||
                             (o.ResolvedRosterJson != null &&
-                             (o.ResolvedRosterJson.Contains(playerId.ToString()) ||
+                             (o.ResolvedRosterJson.Contains(serializedPlayerId) ||
                               (player.Guid != null &&
                                o.GameType == player.GameType &&
-                               o.ResolvedRosterJson.Contains(player.Guid)))))
+                               o.ResolvedRosterJson.Contains(serializedGamePlayerId!)))))
                 .ToListAsync(operationCancellationToken)
                 .ConfigureAwait(false);
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);

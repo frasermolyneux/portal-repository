@@ -1,10 +1,12 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -474,6 +476,58 @@ public class DataMaintenanceControllerTests
         Assert.True(context.PlayerAliases.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.PlayerIpAddresses.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.Reports.Any(r => r.PlayerId == controlPlayerId));
+    }
+
+    [Fact]
+    public async Task DeletePlayer_RedactsRosterOnlyIdentityWithJsonEscapedCharacters()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        const string gamePlayerId = @"deleted\game-id";
+        context.Players.Add(new Player
+        {
+            PlayerId = playerId,
+            GameType = (int)GameType.CallOfDuty4,
+            Username = "Deleted player",
+            Guid = gamePlayerId,
+            FirstSeen = DateTime.UtcNow,
+            LastSeen = DateTime.UtcNow
+        });
+        var observationId = Guid.NewGuid();
+        context.PlaytimeObservations.Add(new PlaytimeObservation
+        {
+            ObservationId = observationId,
+            ServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
+            Kind = (byte)PlaytimeObservationKind.ServerRoster,
+            EventUtc = DateTime.UtcNow,
+            ReceivedUtc = DateTime.UtcNow,
+            TimestampQuality = (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+            RosterCompleteness = (byte)PlaytimeRosterCompleteness.Partial,
+            ResolvedRosterJson = JsonSerializer.Serialize(new[]
+            {
+                new
+                {
+                    GamePlayerId = gamePlayerId,
+                    SlotId = 1,
+                    CanonicalPlayerId = (Guid?)null,
+                    IsBot = false
+                }
+            }),
+            PayloadHash = new byte[32],
+            Outcome = (byte)PlaytimeObservationOutcome.Accepted
+        });
+        await context.SaveChangesAsync();
+
+        var result = await ((IDataMaintenanceApi)CreateController(context)).DeletePlayer(playerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(await context.Players.AnyAsync(x => x.PlayerId == playerId));
+        var observation = await context.PlaytimeObservations.AsNoTracking()
+            .SingleAsync(x => x.ObservationId == observationId);
+        Assert.True(observation.IdentifiersRedacted);
+        Assert.Equal("[]", observation.ResolvedRosterJson);
     }
 
     [Fact(Skip = "Uses ExecuteSqlInterpolatedAsync which is not supported by the InMemory provider")]
