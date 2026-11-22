@@ -91,11 +91,10 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
 
             var playtimeServerIds = await context.GameServers
                 .Where(x => x.GameType == player.GameType)
-                .OrderBy(x => x.GameServerId)
                 .Select(x => x.GameServerId)
                 .ToListAsync(operationCancellationToken)
                 .ConfigureAwait(false);
-            foreach (var serverId in playtimeServerIds)
+            foreach (var serverId in playtimeServerIds.OrderBy(x => x))
             {
                 await PlaytimeServerLock.AcquireAsync(context, serverId, operationCancellationToken)
                     .ConfigureAwait(false);

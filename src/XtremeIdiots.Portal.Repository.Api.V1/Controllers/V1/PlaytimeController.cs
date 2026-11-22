@@ -774,13 +774,31 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                 .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
+        if (correlated is null &&
+            observation.ConnectionCorrelationId is null &&
+            string.IsNullOrWhiteSpace(observation.GamePlayerId))
+        {
+            var exactStartSessions = await context.PlayerSessions
+                .Where(x => x.PlayerId == playerId &&
+                            x.ServerId == observation.ServerId &&
+                            x.StartUtc == eventUtc)
+                .OrderByDescending(x => x.SessionId)
+                .Take(2)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (exactStartSessions.Count == 1)
+            {
+                correlated = exactStartSessions[0];
+            }
+        }
         if (correlated is not null &&
             correlated.StartUtc > eventUtc &&
-            await HasAcceptedLeaveBetween(
+            await HasAcceptedSessionBoundaryBetween(
                 playerId,
                 observation,
                 eventUtc,
                 correlated.StartUtc,
+                correlated.ConnectionCorrelationId,
                 cancellationToken).ConfigureAwait(false))
         {
             correlated = null;
@@ -865,11 +883,12 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             .ConfigureAwait(false);
         if (open is not null &&
             open.StartUtc > eventUtc &&
-            await HasAcceptedLeaveBetween(
+            await HasAcceptedSessionBoundaryBetween(
                 playerId,
                 observation,
                 eventUtc,
                 open.StartUtc,
+                open.ConnectionCorrelationId,
                 cancellationToken).ConfigureAwait(false))
         {
             await CreateHistoricalSession(playerId, observation, eventUtc, open.StartUtc, cancellationToken)
@@ -1032,7 +1051,10 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return;
         }
 
-        var hasGamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId);
+        var gamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId)
+            ? join.GamePlayerId
+            : session.GamePlayerId;
+        var hasGamePlayerId = !string.IsNullOrWhiteSpace(gamePlayerId);
         var leaves = context.PlaytimeObservations
             .AsNoTracking()
             .Where(x => x.ServerId == session.ServerId &&
@@ -1040,36 +1062,62 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                         x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
                         x.EventUtc > session.StartUtc &&
                         x.EventUtc <= session.StartUtc.Add(LateEventThreshold) &&
-                        x.ConnectionCorrelationId == session.ConnectionCorrelationId &&
+                        (x.ConnectionCorrelationId == null ||
+                         join.ConnectionCorrelationId == null ||
+                         x.ConnectionCorrelationId == join.ConnectionCorrelationId) &&
+                        (x.ConnectionCorrelationId == null ||
+                         session.ConnectionCorrelationId == null ||
+                         x.ConnectionCorrelationId == session.ConnectionCorrelationId) &&
+                        (join.ConnectionCorrelationId == null ||
+                         session.ConnectionCorrelationId == null ||
+                         join.ConnectionCorrelationId == session.ConnectionCorrelationId) &&
                         (x.CanonicalPlayerId == playerId ||
                          (hasGamePlayerId &&
                           x.CanonicalPlayerId == null &&
-                          x.GamePlayerId == join.GamePlayerId)));
+                          x.GamePlayerId == gamePlayerId)));
         var leave = await leaves
             .OrderBy(x => x.EventUtc)
             .ThenBy(x => x.ObservationId)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (leave is null)
+        if (leave is not null)
+        {
+            var endUtc = leave.EventUtc > session.LastConfirmedUtc
+                ? leave.EventUtc
+                : session.LastConfirmedUtc;
+            session.EndUtc = endUtc;
+            session.EndQuality = leave.TimestampQuality;
+            session.ClosureReason = 1;
+            session.IsFinal = true;
+            session.IsBot ??= leave.IsBot;
+            return;
+        }
+
+        var rosterAbsence = await FindAcceptedCompleteRosterAbsence(
+            playerId,
+            join,
+            session.StartUtc,
+            session.StartUtc.Add(LateEventThreshold),
+            cancellationToken).ConfigureAwait(false);
+        if (rosterAbsence is null ||
+            session.LastConfirmedUtc > rosterAbsence.EventUtc ||
+            (session.EndUtc is DateTime currentEndUtc && currentEndUtc < rosterAbsence.EventUtc))
         {
             return;
         }
 
-        var endUtc = leave.EventUtc > session.LastConfirmedUtc
-            ? leave.EventUtc
-            : session.LastConfirmedUtc;
-        session.EndUtc = endUtc;
-        session.EndQuality = leave.TimestampQuality;
-        session.ClosureReason = 1;
-        session.IsFinal = true;
-        session.IsBot ??= leave.IsBot;
+        session.EndUtc = rosterAbsence.EventUtc;
+        session.EndQuality = (byte)PlaytimeTimestampQuality.RosterSnapshotTimestamp;
+        session.ClosureReason = 2;
+        session.IsFinal = false;
     }
 
-    private async Task<bool> HasAcceptedLeaveBetween(
+    private async Task<bool> HasAcceptedSessionBoundaryBetween(
         Guid playerId,
         PlaytimeObservationDto join,
         DateTime startUtc,
         DateTime endUtc,
+        Guid? sessionCorrelationId,
         CancellationToken cancellationToken)
     {
         if (endUtc <= startUtc)
@@ -1077,6 +1125,33 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
             return false;
         }
 
+        if (await HasAcceptedLeaveBetween(
+                playerId,
+                join,
+                startUtc,
+                endUtc,
+                sessionCorrelationId,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        return await FindAcceptedCompleteRosterAbsence(
+            playerId,
+            join,
+            startUtc,
+            endUtc,
+            cancellationToken).ConfigureAwait(false) is not null;
+    }
+
+    private async Task<bool> HasAcceptedLeaveBetween(
+        Guid playerId,
+        PlaytimeObservationDto join,
+        DateTime startUtc,
+        DateTime endUtc,
+        Guid? sessionCorrelationId,
+        CancellationToken cancellationToken)
+    {
         var hasGamePlayerId = !string.IsNullOrWhiteSpace(join.GamePlayerId);
         return await context.PlaytimeObservations
             .AsNoTracking()
@@ -1086,13 +1161,91 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
                      x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
                      x.EventUtc > startUtc &&
                      x.EventUtc <= endUtc &&
-                     x.ConnectionCorrelationId == join.ConnectionCorrelationId &&
+                     (x.ConnectionCorrelationId == null ||
+                      join.ConnectionCorrelationId == null ||
+                      x.ConnectionCorrelationId == join.ConnectionCorrelationId) &&
+                     (x.ConnectionCorrelationId == null ||
+                      sessionCorrelationId == null ||
+                      x.ConnectionCorrelationId == sessionCorrelationId) &&
+                     (join.ConnectionCorrelationId == null ||
+                      sessionCorrelationId == null ||
+                      join.ConnectionCorrelationId == sessionCorrelationId) &&
                      (x.CanonicalPlayerId == playerId ||
                       (hasGamePlayerId &&
                        x.CanonicalPlayerId == null &&
                        x.GamePlayerId == join.GamePlayerId)),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task<PlaytimeObservation?> FindAcceptedCompleteRosterAbsence(
+        Guid playerId,
+        PlaytimeObservationDto join,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken cancellationToken)
+    {
+        if (endUtc <= startUtc)
+        {
+            return null;
+        }
+
+        var boundedEndUtc = endUtc < startUtc.Add(LateEventThreshold)
+            ? endUtc
+            : startUtc.Add(LateEventThreshold);
+        var snapshots = await context.PlaytimeObservations
+            .AsNoTracking()
+            .Where(x => x.ServerId == join.ServerId &&
+                        x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                        x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                        x.RosterCompleteness == (byte)PlaytimeRosterCompleteness.Complete &&
+                        !x.IdentifiersRedacted &&
+                        x.ResolvedRosterJson != null &&
+                        x.EventUtc > startUtc &&
+                        x.EventUtc <= boundedEndUtc)
+            .OrderBy(x => x.EventUtc)
+            .ThenBy(x => x.ObservationId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var snapshot in snapshots)
+        {
+            var supersededAtReceipt = await context.PlaytimeObservations
+                .AsNoTracking()
+                .AnyAsync(x => x.ObservationId != snapshot.ObservationId &&
+                               x.ServerId == snapshot.ServerId &&
+                               x.Kind == (byte)PlaytimeObservationKind.ServerRoster &&
+                               x.Outcome == (byte)PlaytimeObservationOutcome.Accepted &&
+                               x.ReceivedUtc <= snapshot.ReceivedUtc &&
+                               (x.EventUtc > snapshot.EventUtc ||
+                                (x.EventUtc == snapshot.EventUtc &&
+                                 (x.ProducerEpoch != snapshot.ProducerEpoch ||
+                                  x.ProducerSequence == null ||
+                                  snapshot.ProducerSequence == null ||
+                                  x.ProducerSequence > snapshot.ProducerSequence))),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (supersededAtReceipt)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshot.ResolvedRosterJson))
+            {
+                continue;
+            }
+
+            var roster = DeserializeRosterResolutions(snapshot.ResolvedRosterJson);
+            if (roster.Any(x => x.CanonicalPlayerId is null && x.IsBot != true) ||
+                roster.Any(x => x.CanonicalPlayerId == playerId))
+            {
+                continue;
+            }
+
+            return snapshot;
+        }
+
+        return null;
     }
 
     private async Task CloseSession(
@@ -1166,6 +1319,11 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         {
             session.IsBot = isBot;
         }
+        if (session.IsFinal)
+        {
+            return;
+        }
+
         var endUtc = session.LastConfirmedUtc > eventUtc ? session.LastConfirmedUtc : eventUtc;
         session.EndUtc = endUtc;
         session.EndQuality = endQuality;
@@ -1580,7 +1738,6 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
         var candidatePlayerIds = (retainedRoster ?? [])
             .Where(x => x.CanonicalPlayerId is not null)
             .Select(x => x.CanonicalPlayerId!.Value)
-            .Concat(replay.CanonicalPlayerId is Guid playerId ? [playerId] : [])
             .Where(x => x != Guid.Empty)
             .Distinct()
             .ToList();
@@ -1597,10 +1754,7 @@ public sealed class PlaytimeController : ControllerBase, IPlaytimeApi
 
         return replay with
         {
-            CanonicalPlayerId = replay.CanonicalPlayerId is Guid canonicalPlayerId &&
-                                validPlayerIds.Contains(canonicalPlayerId)
-                ? canonicalPlayerId
-                : existing.CanonicalPlayerId,
+            CanonicalPlayerId = existing.CanonicalPlayerId,
             GamePlayerId = existing.GamePlayerId,
             IsBot = existing.IsBot ?? replay.IsBot,
             Roster = retainedRoster?.Select(x => x with
