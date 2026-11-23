@@ -34,6 +34,8 @@ public class FakeRepositoryApiClientTests
             observation with { ObservedAtUtc = observation.ObservedAtUtc!.Value.AddSeconds(1) })).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.Players.V1.RecordPlayerIpObservation(playerId,
             observation with { MessageId = " " })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.Players.V1.RecordPlayerIpObservation(playerId,
+            observation with { MessageId = "out-of-range", ObservedAtUtc = DateTimeOffset.MaxValue })).StatusCode);
     }
 
     [Fact]

@@ -91,6 +91,8 @@ reuse it on redelivery. History uses observation time, while the current IP
 advances only for a strictly newer observation; ties retain the current IP.
 Historical rows can still expire under existing retention rules. Older callers
 that omit the timestamp use processing time and cannot provide event ordering.
+For a timestamp-less first write when the existing current-IP history is
+missing, processing-time behavior updates the current IP.
 For existing players, the current-IP watermark is initialized from retained
 current-IP history; if that history is absent, it conservatively starts at the
 first write's processing time. Coarse or inaccurate source timestamps limit

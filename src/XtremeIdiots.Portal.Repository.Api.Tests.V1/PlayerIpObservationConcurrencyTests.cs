@@ -1,4 +1,5 @@
 using System.Net;
+using System.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
@@ -197,5 +198,85 @@ public sealed class PlayerIpObservationConcurrencyTests
             var current = await context.Players.SingleAsync();
             Assert.Equal("192.0.2.2", current.IpAddress);
             Assert.NotNull(current.IpAddressObservedAtUtc);
+        });
+
+    [Fact]
+    public Task TimestampLessObservation_UpdatesCurrentIpWhenHistoryIsMissing() =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var player = new Player { GameType = 1, Guid = "guid", IpAddress = "192.0.2.2", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.Players.Add(player);
+            await context.SaveChangesAsync();
+            using var cache = new MemoryCache(new MemoryCacheOptions());
+            var api = (IPlayersApi)new PlayersController(context, cache, Mock.Of<IAuditLogger>());
+            var request = new RecordPlayerIpObservationDto { MessageId = "legacy", IpAddress = "192.0.2.1" };
+            Assert.Equal(HttpStatusCode.OK, (await api.RecordPlayerIpObservation(player.PlayerId, request)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await api.RecordPlayerIpObservation(player.PlayerId, request)).StatusCode);
+            context.ChangeTracker.Clear();
+            Assert.Equal("192.0.2.1", (await context.Players.SingleAsync()).IpAddress);
+            Assert.Equal(1, (await context.PlayerIpAddresses.SingleAsync()).ConfidenceScore);
+        });
+
+    [Fact]
+    public Task Observation_RejectsTimestampsOutsideSqlDateTimeRange() =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var player = new Player { GameType = 1, Guid = "guid", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.Players.Add(player);
+            await context.SaveChangesAsync();
+            using var cache = new MemoryCache(new MemoryCacheOptions());
+            var api = (IPlayersApi)new PlayersController(context, cache, Mock.Of<IAuditLogger>());
+            var request = new RecordPlayerIpObservationDto { MessageId = "max", IpAddress = "192.0.2.1", ObservedAtUtc = DateTimeOffset.MaxValue };
+            Assert.Equal(HttpStatusCode.BadRequest, (await api.RecordPlayerIpObservation(player.PlayerId, request)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await api.RecordPlayerIpObservation(player.PlayerId,
+                request with { ObservedAtUtc = new DateTimeOffset(DateTime.SpecifyKind(SqlDateTime.MaxValue.Value, DateTimeKind.Utc)) })).StatusCode);
+        });
+
+    [Fact]
+    public Task LegacyPatch_SerializesWithObservationsAndPreservesNewerWatermark() =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var player = new Player { GameType = 1, Guid = "guid", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            setup.Players.Add(player);
+            await setup.SaveChangesAsync();
+            await using var holder = new PortalDbContext(options);
+            await using var transaction = await holder.Database.BeginTransactionAsync();
+            var resource = $"ip-observation-player:{player.PlayerId:N}";
+            await holder.Database.ExecuteSqlInterpolatedAsync($"""
+                DECLARE @result int;
+                EXEC @result = sys.sp_getapplock @Resource = {resource},
+                    @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000;
+                IF @result < 0 THROW 50000, 'Could not acquire test lock', 1;
+                """);
+            async Task<HttpStatusCode> Patch()
+            {
+                await using var context = new PortalDbContext(options);
+                using var cache = new MemoryCache(new MemoryCacheOptions());
+                return (await ((IPlayersApi)new PlayersController(context, cache, Mock.Of<IAuditLogger>()))
+                    .UpdatePlayerIpAddress(new UpdatePlayerIpAddressDto(player.PlayerId, "192.0.2.1"))).StatusCode;
+            }
+            var patch = Patch();
+            try
+            {
+                Assert.NotSame(patch, await Task.WhenAny(patch, Task.Delay(500)));
+                var newer = await holder.Players.SingleAsync();
+                newer.IpAddress = "192.0.2.2";
+                newer.IpAddressObservedAtUtc = DateTime.UtcNow.AddMinutes(1);
+                await holder.SaveChangesAsync();
+            }
+            finally
+            {
+                await transaction.CommitAsync();
+            }
+            Assert.Equal(HttpStatusCode.OK, await patch);
+            setup.ChangeTracker.Clear();
+            Assert.Equal("192.0.2.2", (await setup.Players.SingleAsync()).IpAddress);
+            Assert.Single(await setup.PlayerIpAddresses.ToListAsync());
         });
 }

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Data.SqlTypes;
 using System.Net;
 using MX.Api.Abstractions;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
@@ -55,7 +56,8 @@ public class FakePlayersApi : IPlayersApi
         cancellationToken.ThrowIfCancellationRequested();
         if (playerId == Guid.Empty || dto is null || string.IsNullOrWhiteSpace(dto.MessageId) ||
             dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address) ||
-            (dto.ObservedAtUtc is { } observed && (observed.Offset != TimeSpan.Zero || observed.Year < 1753)))
+            (dto.ObservedAtUtc is { } observed && (observed.Offset != TimeSpan.Zero ||
+                observed.UtcDateTime < SqlDateTime.MinValue.Value || observed.UtcDateTime > SqlDateTime.MaxValue.Value)))
         {
             return Task.FromResult(new ApiResult(HttpStatusCode.BadRequest));
         }
