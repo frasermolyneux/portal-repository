@@ -747,6 +747,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         if (IPAddress.TryParse(createPlayerDto.IpAddress, out var ip))
         {
             player.IpAddress = ip.ToString();
+            player.IpAddressObservedAtUtc = DateTime.UtcNow;
 
             player.PlayerIpAddresses =
             [
@@ -801,6 +802,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             if (IPAddress.TryParse(createPlayerDto.IpAddress, out var ip))
             {
                 player.IpAddress = ip.ToString();
+                player.IpAddressObservedAtUtc = DateTime.UtcNow;
 
                 player.PlayerIpAddresses =
                 [
@@ -878,6 +880,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         }
 
         player.IpAddress = normalizedIp;
+        player.IpAddressObservedAtUtc = DateTime.UtcNow;
 
         var existing = player.PlayerIpAddresses.FirstOrDefault(a => a.Address == normalizedIp);
         if (existing != null)
@@ -914,7 +917,8 @@ public class PlayersController : ControllerBase, IPlayersApi
     async Task<ApiResult> IPlayersApi.RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken)
     {
         if (playerId == Guid.Empty || dto is null || string.IsNullOrWhiteSpace(dto.MessageId) ||
-            dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address))
+            dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address) ||
+            (dto.ObservedAtUtc is { } observed && (observed.Offset != TimeSpan.Zero || observed.Year < 1753)))
         {
             return new ApiResult(HttpStatusCode.BadRequest);
         }
@@ -925,7 +929,7 @@ public class PlayersController : ControllerBase, IPlayersApi
             context.ChangeTracker.Clear();
             if (!context.Database.IsRelational())
             {
-                return await RecordPlayerIpObservationCore(playerId, dto.MessageId, messageKey, address.ToString(), cancellationToken).ConfigureAwait(false);
+                return await RecordPlayerIpObservationCore(playerId, dto.MessageId, messageKey, address.ToString(), dto.ObservedAtUtc?.UtcDateTime, cancellationToken).ConfigureAwait(false);
             }
             await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
             if (context.Database.IsSqlServer())
@@ -934,13 +938,13 @@ public class PlayersController : ControllerBase, IPlayersApi
                 await AcquireIpObservationLock($"ip-observation:{messageHash}", cancellationToken).ConfigureAwait(false);
                 await AcquireIpObservationLock($"ip-observation-player:{playerId:N}", cancellationToken).ConfigureAwait(false);
             }
-            var result = await RecordPlayerIpObservationCore(playerId, dto.MessageId, messageKey, address.ToString(), cancellationToken).ConfigureAwait(false);
+            var result = await RecordPlayerIpObservationCore(playerId, dto.MessageId, messageKey, address.ToString(), dto.ObservedAtUtc?.UtcDateTime, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return result;
         }).ConfigureAwait(false);
     }
 
-    private async Task<ApiResult> RecordPlayerIpObservationCore(Guid playerId, string messageId, byte[] messageKey, string address, CancellationToken cancellationToken)
+    private async Task<ApiResult> RecordPlayerIpObservationCore(Guid playerId, string messageId, byte[] messageKey, string address, DateTime? observedAtUtc, CancellationToken cancellationToken)
     {
         var operation = await context.PlayerIpObservationOperations.FindAsync([messageKey], cancellationToken).ConfigureAwait(false);
         if (operation is not null)
@@ -949,7 +953,8 @@ public class PlayersController : ControllerBase, IPlayersApi
                 .Where(ip => ip.PlayerIpAddressId == operation.PlayerIpAddressId && ip.PlayerId == operation.PlayerId)
                 .Select(ip => ip.Address).SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
             return string.Equals(operation.MessageId, messageId, StringComparison.Ordinal) &&
-                operation.PlayerId == playerId && storedAddress == address
+                operation.PlayerId == playerId && storedAddress == address &&
+                (operation.ObservedAtUtc is null || operation.ObservedAtUtc == observedAtUtc)
                 ? new ApiResponse().ToApiResult()
                 : new ApiResult(HttpStatusCode.Conflict);
         }
@@ -961,7 +966,19 @@ public class PlayersController : ControllerBase, IPlayersApi
             return new ApiResult(HttpStatusCode.NotFound);
         }
         var now = DateTime.UtcNow;
-        player.IpAddress = address;
+        var observedAt = observedAtUtc ?? now;
+        var currentAt = player.IpAddressObservedAtUtc;
+        if (currentAt is null && !string.IsNullOrEmpty(player.IpAddress))
+        {
+            currentAt = player.PlayerIpAddresses.Where(ip => ip.Address == player.IpAddress)
+                .Max(ip => (DateTime?)ip.LastUsed) ?? now;
+            player.IpAddressObservedAtUtc = currentAt;
+        }
+        if (currentAt is null || observedAt > currentAt)
+        {
+            player.IpAddress = address;
+            player.IpAddressObservedAtUtc = observedAt;
+        }
         var history = player.PlayerIpAddresses.FirstOrDefault(ip => ip.Address == address);
         if (history is null)
         {
@@ -970,15 +987,22 @@ public class PlayersController : ControllerBase, IPlayersApi
                 PlayerIpAddressId = Guid.NewGuid(),
                 PlayerId = playerId,
                 Address = address,
-                Added = now,
-                LastUsed = now,
+                Added = observedAt,
+                LastUsed = observedAt,
                 ConfidenceScore = 1
             };
             context.PlayerIpAddresses.Add(history);
         }
         else
         {
-            history.LastUsed = now;
+            if (observedAt < history.Added)
+            {
+                history.Added = observedAt;
+            }
+            if (observedAt > history.LastUsed)
+            {
+                history.LastUsed = observedAt;
+            }
             history.ConfidenceScore++;
         }
         context.PlayerIpObservationOperations.Add(new PlayerIpObservationOperation
@@ -987,7 +1011,8 @@ public class PlayersController : ControllerBase, IPlayersApi
             MessageId = messageId,
             PlayerId = playerId,
             PlayerIpAddressId = history.PlayerIpAddressId,
-            RecordedAtUtc = now
+            RecordedAtUtc = now,
+            ObservedAtUtc = observedAtUtc
         });
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult();

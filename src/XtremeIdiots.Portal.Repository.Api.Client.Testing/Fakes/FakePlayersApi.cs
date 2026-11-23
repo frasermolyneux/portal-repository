@@ -19,7 +19,7 @@ public class FakePlayersApi : IPlayersApi
     private readonly ConcurrentDictionary<Guid, List<PlayerTagDto>> _playerTags = new();
     private readonly ConcurrentDictionary<Guid, PlayerTagDto> _playerTagsById = new();
     private readonly ConcurrentDictionary<Guid, VpnDetectedTagReconciliationCandidateDto> _vpnDetectedTagReconciliationCandidates = new();
-    private readonly ConcurrentDictionary<string, (Guid PlayerId, string Address)> _ipObservations = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (Guid PlayerId, string Address, DateTimeOffset? ObservedAtUtc)> _ipObservations = new(StringComparer.Ordinal);
 
     public FakePlayersApi AddPlayer(PlayerDto player) { _players[player.PlayerId] = player; return this; }
     public FakePlayersApi AddPlayerAliases(Guid playerId, List<PlayerAliasDto> aliases) { _playerAliases[playerId] = aliases; return this; }
@@ -54,21 +54,24 @@ public class FakePlayersApi : IPlayersApi
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (playerId == Guid.Empty || dto is null || string.IsNullOrWhiteSpace(dto.MessageId) ||
-            dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address))
+            dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address) ||
+            (dto.ObservedAtUtc is { } observed && (observed.Offset != TimeSpan.Zero || observed.Year < 1753)))
         {
             return Task.FromResult(new ApiResult(HttpStatusCode.BadRequest));
         }
-        var observation = (playerId, address.ToString());
+        var observation = (PlayerId: playerId, Address: address.ToString(), dto.ObservedAtUtc);
         if (_ipObservations.TryGetValue(dto.MessageId, out var existing))
         {
-            return Task.FromResult(new ApiResult(existing == observation ? HttpStatusCode.OK : HttpStatusCode.Conflict));
+            return Task.FromResult(new ApiResult(existing.PlayerId == observation.PlayerId && existing.Address == observation.Address &&
+                (existing.ObservedAtUtc is null || existing.ObservedAtUtc == observation.ObservedAtUtc) ? HttpStatusCode.OK : HttpStatusCode.Conflict));
         }
         if (!_players.ContainsKey(playerId))
         {
             return Task.FromResult(new ApiResult(HttpStatusCode.NotFound));
         }
         existing = _ipObservations.GetOrAdd(dto.MessageId, observation);
-        return Task.FromResult(new ApiResult(existing == observation ? HttpStatusCode.OK : HttpStatusCode.Conflict));
+        return Task.FromResult(new ApiResult(existing.PlayerId == observation.PlayerId && existing.Address == observation.Address &&
+            (existing.ObservedAtUtc is null || existing.ObservedAtUtc == observation.ObservedAtUtc) ? HttpStatusCode.OK : HttpStatusCode.Conflict));
     }
 
     public Task<ApiResult<PlayerDto>> GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions)
