@@ -42,6 +42,8 @@ public partial class Player
     [StringLength(60)]
     public string? IpAddress { get; set; }
 
+    public DateTime? IpAddressObservedAtUtc { get; set; }
+
     [InverseProperty("Player")]
     public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
 

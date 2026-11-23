@@ -86,6 +86,18 @@ different player or address returns 409. If the original IP history row has
 already been pruned, a replay also returns 409 rather than recreating it; the
 idempotency record does not retain the raw address.
 
+New observation callers should supply the original UTC `observedAtUtc` and
+reuse it on redelivery. History uses observation time, while the current IP
+advances only for a strictly newer observation; ties retain the current IP.
+Historical rows can still expire under existing retention rules. Older callers
+that omit the timestamp use processing time and cannot provide event ordering.
+For a timestamp-less first write when the existing current-IP history is
+missing, processing-time behavior updates the current IP.
+For existing players, the current-IP watermark is initialized from retained
+current-IP history; if that history is absent, it conservatively starts at the
+first write's processing time. Coarse or inaccurate source timestamps limit
+ordering accuracy. Deploy the schema and API before timestamp-aware consumers.
+
 ## Build Versioning
 
 The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for deterministic versioning:

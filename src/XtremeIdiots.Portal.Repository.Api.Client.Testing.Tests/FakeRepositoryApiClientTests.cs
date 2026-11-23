@@ -23,14 +23,19 @@ public class FakeRepositoryApiClientTests
         var observation = new Abstractions.Models.V1.Players.RecordPlayerIpObservationDto
         {
             MessageId = "message-1",
-            IpAddress = "192.0.2.1"
+            IpAddress = "192.0.2.1",
+            ObservedAtUtc = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Assert.Equal(System.Net.HttpStatusCode.OK, (await client.Players.V1.RecordPlayerIpObservation(playerId, observation)).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.OK, (await client.Players.V1.RecordPlayerIpObservation(playerId, observation)).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, (await client.Players.V1.RecordPlayerIpObservation(playerId,
             observation with { IpAddress = "192.0.2.2" })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, (await client.Players.V1.RecordPlayerIpObservation(playerId,
+            observation with { ObservedAtUtc = observation.ObservedAtUtc!.Value.AddSeconds(1) })).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.Players.V1.RecordPlayerIpObservation(playerId,
             observation with { MessageId = " " })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.Players.V1.RecordPlayerIpObservation(playerId,
+            observation with { MessageId = "out-of-range", ObservedAtUtc = DateTimeOffset.MaxValue })).StatusCode);
     }
 
     [Fact]
