@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.SiegeMode;
+using XtremeIdiots.Portal.Repository.DataLib;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -51,15 +52,7 @@ public partial class SiegeModeController
         {
             return new ApiResult<CollectionModel<SiegeActionDto>>(HttpStatusCode.BadRequest).ToHttpResult();
         }
-        var query = context.SiegeActions.AsNoTracking().Where(a => request.GameServerIds.Contains(a.Session.GameServerId));
-        if (request.FromUtc is { } from)
-        {
-            query = query.Where(a => a.ClaimedAtUtc >= from);
-        }
-        if (request.ToUtc is { } to)
-        {
-            query = query.Where(a => a.ClaimedAtUtc < to);
-        }
+        var query = ActionAuditQuery(request);
         var count = await query.CountAsync(cancellationToken).ConfigureAwait(false);
         var items = await query.Include(a => a.Session)
             .OrderByDescending(a => a.ClaimedAtUtc).ThenBy(a => a.ActionId)
@@ -69,6 +62,31 @@ public partial class SiegeModeController
         {
             Pagination = new ApiPagination(count, count, request.SkipEntries, request.TakeEntries)
         }.ToApiResult().ToHttpResult();
+    }
+
+    [HttpPost("siege-actions/summary")]
+    [ProducesResponseType<ApiResponse<SiegeActionSummaryDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SummarizeActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default)
+    {
+        if (!ValidAuditQuery(request))
+        {
+            return new ApiResult<SiegeActionSummaryDto>(HttpStatusCode.BadRequest).ToHttpResult();
+        }
+        var counts = await ActionAuditQuery(request)
+            .GroupBy(a => new { a.Session.Mode, a.Outcome })
+            .Select(g => new { g.Key.Mode, g.Key.Outcome, Count = g.Count() })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var summary = new SiegeActionSummaryDto
+        {
+            Counts = counts.Select(c => new SiegeActionOutcomeCountDto
+            {
+                Mode = Enum.Parse<SiegeSessionMode>(c.Mode),
+                Outcome = c.Outcome,
+                Count = c.Count
+            }).ToArray()
+        };
+        return new ApiResponse<SiegeActionSummaryDto>(summary).ToApiResult().ToHttpResult();
     }
 
     [HttpPost("siege-checks/search")]
@@ -184,6 +202,20 @@ public partial class SiegeModeController
     }
 
     private static bool ValidPage(int skip, int take) => skip >= 0 && take is > 0 and <= 100;
+
+    private IQueryable<SiegeAction> ActionAuditQuery(SiegeAuditQueryDto request)
+    {
+        var query = context.SiegeActions.AsNoTracking().Where(a => request.GameServerIds.Contains(a.Session.GameServerId));
+        if (request.FromUtc is { } from)
+        {
+            query = query.Where(a => a.ClaimedAtUtc >= from);
+        }
+        if (request.ToUtc is { } to)
+        {
+            query = query.Where(a => a.ClaimedAtUtc < to);
+        }
+        return query;
+    }
 
     private static bool ValidAuditQuery(SiegeAuditQueryDto? request) =>
         request is not null && request.GameServerIds is { Length: > 0 and <= 1000 } &&

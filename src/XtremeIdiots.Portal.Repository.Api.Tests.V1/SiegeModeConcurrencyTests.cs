@@ -63,6 +63,14 @@ public sealed class SiegeModeConcurrencyTests
             var claims = await Task.WhenAll(Claim(), Claim());
             Assert.Equal(mode == SiegeSessionMode.Enforce ? 1 : 0, claims.Count(c => c.ShouldDispatch));
             Assert.Single(await setup.SiegeActions.ToListAsync());
+            var summaryResult = Assert.IsAssignableFrom<ObjectResult>(await new SiegeModeController(setup).SummarizeActions(
+                new SiegeAuditQueryDto { GameServerIds = [server.GameServerId], SkipEntries = 1, TakeEntries = 1 }));
+            var summary = Assert.IsType<ApiResponse<SiegeActionSummaryDto>>(summaryResult.Value).Data!;
+            var count = Assert.Single(summary.Counts);
+            Assert.Equal(mode, count.Mode);
+            Assert.Equal(mode == SiegeSessionMode.DryRun ? SiegeActionOutcomes.WouldKick : SiegeActionOutcomes.Pending, count.Outcome);
+            Assert.Equal(1, count.Count);
+            Assert.Empty(await setup.AdminActions.ToListAsync());
         });
 
     [Fact]
@@ -199,6 +207,9 @@ public sealed class SiegeModeConcurrencyTests
                 BaselineRevision = 0
             };
             await controller.ClaimAction(server.GameServerId, sessionId, request);
+            var beforeDeletion = Assert.IsAssignableFrom<ObjectResult>(await controller.SummarizeActions(
+                new SiegeAuditQueryDto { GameServerIds = [server.GameServerId] }));
+            Assert.Equal(1, Assert.IsType<ApiResponse<SiegeActionSummaryDto>>(beforeDeletion.Value).Data!.Counts.Sum(c => c.Count));
             await controller.RecordCheck(server.GameServerId, sessionId, new RecordSiegeCheckDto
             {
                 CheckId = Guid.NewGuid(),
@@ -216,6 +227,9 @@ public sealed class SiegeModeConcurrencyTests
             context.ChangeTracker.Clear();
             Assert.Empty(await context.SiegeActions.ToListAsync());
             Assert.Empty(await context.SiegeChecks.ToListAsync());
+            var afterDeletion = Assert.IsAssignableFrom<ObjectResult>(await controller.SummarizeActions(
+                new SiegeAuditQueryDto { GameServerIds = [server.GameServerId] }));
+            Assert.Empty(Assert.IsType<ApiResponse<SiegeActionSummaryDto>>(afterDeletion.Value).Data!.Counts);
             Assert.Empty(await context.SiegeBaselineGuidOwners.Where(o => o.PlayerId == deleted.PlayerId).ToListAsync());
             Assert.Empty(await context.SiegeBaselineIpOwners.Where(o => o.PlayerId == deleted.PlayerId).ToListAsync());
 

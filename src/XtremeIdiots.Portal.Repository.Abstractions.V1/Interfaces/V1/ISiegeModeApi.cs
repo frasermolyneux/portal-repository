@@ -19,5 +19,6 @@ public interface ISiegeModeApi
     Task<ApiResult<CollectionModel<SiegeSessionEventDto>>> GetSessionEvents(Guid gameServerId, Guid sessionId, int skipEntries, int takeEntries, CancellationToken cancellationToken = default);
     Task<ApiResult<CollectionModel<SiegeSessionDto>>> SearchSessions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<CollectionModel<SiegeActionDto>>> SearchActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<SiegeActionSummaryDto>> SummarizeActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<CollectionModel<SiegeCheckDto>>> SearchChecks(SiegeAuditQueryDto request, CancellationToken cancellationToken = default);
 }

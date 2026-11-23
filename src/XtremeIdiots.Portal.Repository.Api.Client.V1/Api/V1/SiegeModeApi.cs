@@ -58,6 +58,9 @@ public sealed class SiegeModeApi(
     public Task<ApiResult<CollectionModel<SiegeActionDto>>> SearchActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
         Send<CollectionModel<SiegeActionDto>>("v1/siege-actions/search", Method.Post, request, cancellationToken);
 
+    public Task<ApiResult<SiegeActionSummaryDto>> SummarizeActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
+        Send<SiegeActionSummaryDto>("v1/siege-actions/summary", Method.Post, request, cancellationToken);
+
     public Task<ApiResult<CollectionModel<SiegeCheckDto>>> SearchChecks(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
         Send<CollectionModel<SiegeCheckDto>>("v1/siege-checks/search", Method.Post, request, cancellationToken);
 

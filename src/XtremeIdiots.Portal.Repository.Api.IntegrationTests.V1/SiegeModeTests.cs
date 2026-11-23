@@ -65,6 +65,14 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
         Assert.False(action["shouldDispatch"]!.Value<bool>());
         Assert.Equal("WouldKick", action["action"]!["outcome"]!.Value<string>());
         Assert.Equal("DryRun", action["action"]!["mode"]!.Value<string>());
+        var summaryResponse = await client.PostAsJsonAsync("/v1.0/siege-actions/summary",
+            new { gameServerIds = new[] { serverId }, skipEntries = 1, takeEntries = 1 });
+        Assert.Equal(HttpStatusCode.OK, summaryResponse.StatusCode);
+        var counts = JObject.Parse(await summaryResponse.Content.ReadAsStringAsync())["data"]!["counts"]!;
+        var count = Assert.Single(counts);
+        Assert.Equal("DryRun", count["mode"]!.Value<string>());
+        Assert.Equal("WouldKick", count["outcome"]!.Value<string>());
+        Assert.Equal(1, count["count"]!.Value<int>());
     }
 
     [Fact]
@@ -77,6 +85,7 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
         var paths = document["paths"]!;
         Assert.NotNull(paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]!["post"]);
         Assert.NotNull(paths["/players/{playerId}/ip-address/observations"]!["put"]);
+        Assert.NotNull(paths["/siege-actions/summary"]!["post"]);
         Assert.NotNull(paths["/data-maintenance/prune-siege-mode"]!["delete"]);
         var schema = paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]!["post"]!
             ["responses"]!["200"]!["content"]!["application/json"]!["schema"]!;

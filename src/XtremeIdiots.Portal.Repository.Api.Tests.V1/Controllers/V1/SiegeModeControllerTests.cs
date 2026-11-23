@@ -222,6 +222,83 @@ public sealed class SiegeModeControllerTests
     }
 
     [Fact]
+    public async Task ActionSummary_GroupsAllRetainedMatchesByModeAndOutcome()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = Guid.NewGuid();
+        var otherServerId = Guid.NewGuid();
+        context.GameServers.AddRange(
+            new GameServer { GameServerId = serverId, Title = "First", Hostname = "localhost" },
+            new GameServer { GameServerId = otherServerId, Title = "Other", Hostname = "localhost" });
+        await context.SaveChangesAsync();
+        var controller = new SiegeModeController(context);
+
+        async Task<Guid> Start(Guid server, SiegeSessionMode mode)
+        {
+            var id = Guid.NewGuid();
+            await controller.StartSession(server, new StartSiegeSessionDto
+            {
+                OperationId = id,
+                Actor = "admin",
+                ExpectedDurationMinutes = 240,
+                Mode = mode
+            });
+            return id;
+        }
+
+        async Task Claim(Guid server, Guid session, string? outcome = null)
+        {
+            var request = new ClaimSiegeActionDto
+            {
+                ActionId = Guid.NewGuid(),
+                ConnectionId = Guid.NewGuid(),
+                PlayerGuid = "player",
+                SlotId = 1,
+                RuleId = "new-guid",
+                BaselineRevision = 0
+            };
+            await controller.ClaimAction(server, session, request);
+            if (outcome is not null)
+            {
+                await controller.UpdateActionOutcome(server, session, request.ActionId,
+                    new UpdateSiegeActionOutcomeDto { ConnectionId = request.ConnectionId, Outcome = outcome });
+            }
+        }
+
+        var dryRun = await Start(serverId, SiegeSessionMode.DryRun);
+        await Claim(serverId, dryRun);
+        await Claim(serverId, dryRun);
+        await controller.EndSession(serverId, dryRun, new ChangeSiegeSessionDto { OperationId = Guid.NewGuid(), Actor = "admin" });
+        var enforce = await Start(serverId, SiegeSessionMode.Enforce);
+        await Claim(serverId, enforce, SiegeActionOutcomes.Applied);
+        await Claim(serverId, enforce, SiegeActionOutcomes.Failed);
+        await Claim(serverId, enforce);
+        var other = await Start(otherServerId, SiegeSessionMode.DryRun);
+        await Claim(otherServerId, other);
+
+        var oldAction = await context.SiegeActions.FirstAsync(a => a.SessionId == dryRun);
+        oldAction.ClaimedAtUtc = DateTime.UtcNow.AddDays(-2);
+        await context.SaveChangesAsync();
+        var query = new SiegeAuditQueryDto
+        {
+            GameServerIds = [serverId],
+            FromUtc = DateTime.UtcNow.AddDays(-1),
+            ToUtc = DateTime.UtcNow.AddDays(1),
+            SkipEntries = 1,
+            TakeEntries = 1
+        };
+        var summary = Payload<SiegeActionSummaryDto>(await controller.SummarizeActions(query));
+        Assert.Equal(4, summary.Counts.Sum(c => c.Count));
+        Assert.Contains(summary.Counts, c => c.Mode == SiegeSessionMode.DryRun && c.Outcome == SiegeActionOutcomes.WouldKick && c.Count == 1);
+        Assert.Contains(summary.Counts, c => c.Mode == SiegeSessionMode.Enforce && c.Outcome == SiegeActionOutcomes.Applied && c.Count == 1);
+        Assert.Contains(summary.Counts, c => c.Mode == SiegeSessionMode.Enforce && c.Outcome == SiegeActionOutcomes.Failed && c.Count == 1);
+        Assert.Contains(summary.Counts, c => c.Mode == SiegeSessionMode.Enforce && c.Outcome == SiegeActionOutcomes.Pending && c.Count == 1);
+        Assert.Empty(context.AdminActions);
+        Assert.Empty(Payload<SiegeActionSummaryDto>(await controller.SummarizeActions(
+            query with { FromUtc = DateTime.UtcNow.AddDays(2), ToUtc = DateTime.UtcNow.AddDays(3) })).Counts);
+    }
+
+    [Fact]
     public async Task UnknownConnectionCheck_IsAuditedWithoutDispatch()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

@@ -99,6 +99,18 @@ public sealed record SiegeActionClaimDto
     public bool ShouldDispatch { get; init; }
 }
 
+public sealed record SiegeActionSummaryDto
+{
+    public SiegeActionOutcomeCountDto[] Counts { get; init; } = [];
+}
+
+public sealed record SiegeActionOutcomeCountDto
+{
+    public SiegeSessionMode Mode { get; init; }
+    public string Outcome { get; init; } = string.Empty;
+    public int Count { get; init; }
+}
+
 public sealed record UpdateSiegeActionOutcomeDto
 {
     public Guid ConnectionId { get; init; }

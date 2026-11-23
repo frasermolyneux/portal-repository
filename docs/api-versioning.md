@@ -71,6 +71,13 @@ includes a revision that must accompany an action claim. Deletion changes the
 revision of affected active sessions, and a claim using an older revision
 returns 409; re-evaluate against a fresh baseline or fail open.
 
+Siege actions are recorded separately from administrative actions and do not
+create forum posts. The action summary groups all retained matching actions by
+session mode and recorded outcome, independently of audit pagination. `Pending`,
+`Queued` and `Dispatched` do not establish that a kick was applied, and
+`WouldKick` represents dry-run decisions. Player deletion removes linked audit
+records, so the corresponding summary counts decrease.
+
 The V1 player IP observation endpoint accepts a globally unique, case-sensitive
 `messageId` (1–128 characters, not blank) and an `ipAddress`. Reuse the original
 message ID for redelivery and dead-letter replay. Replaying a successful write
