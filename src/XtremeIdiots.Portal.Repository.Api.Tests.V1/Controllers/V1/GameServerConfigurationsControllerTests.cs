@@ -17,11 +17,16 @@ public class GameServerConfigurationsControllerTests
     [Theory]
     [InlineData("siegeMode")]
     [InlineData("SIEGEMODE")]
+    [InlineData("siegeMode ")]
+    [InlineData(" SIEGEMODE ")]
     public async Task UpsertConfiguration_SiegeModeIsGlobalOnly(string configurationNamespace)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        var server = CreateTestGameServer();
+        context.GameServers.Add(server);
+        await context.SaveChangesAsync();
         var result = await ((IGameServerConfigurationsApi)CreateController(context))
-            .UpsertConfiguration(Guid.NewGuid(), configurationNamespace, new UpsertConfigurationDto { Configuration = "{}" });
+            .UpsertConfiguration(server.GameServerId, configurationNamespace, new UpsertConfigurationDto { Configuration = "{}" });
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
         Assert.Empty(context.GameServerConfigurations);

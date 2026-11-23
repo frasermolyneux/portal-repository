@@ -110,7 +110,7 @@ public class GameServerConfigurationsController : ControllerBase, IGameServerCon
     async Task<ApiResult> IGameServerConfigurationsApi.UpsertConfiguration(Guid gameServerId, string ns, UpsertConfigurationDto dto, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(ns) || ns.Length > 128 ||
-            string.Equals(ns, SiegeModeSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
+            string.Equals(ns.Trim(), SiegeModeSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
         {
             return new ApiResult(HttpStatusCode.BadRequest);
         }
