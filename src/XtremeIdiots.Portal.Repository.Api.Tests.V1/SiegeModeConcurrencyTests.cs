@@ -295,6 +295,86 @@ public sealed class SiegeModeConcurrencyTests
             Assert.Empty(await setup.SiegeBaselineIpOwners.ToListAsync());
         });
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task PlayerDeletionAndBaselineRemoval_ShareHistoryLock(bool prune) =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var server = new GameServer { Title = "Test", Hostname = "test", BanFileRootPath = "/", GameType = 1 };
+            var player = new Player { PlayerId = Guid.NewGuid(), GameType = 1, Guid = "deleted", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            setup.GameServers.Add(server);
+            setup.Players.Add(player);
+            setup.PlayerIpAddresses.Add(new PlayerIpAddress
+            {
+                PlayerId = player.PlayerId,
+                Address = "192.0.2.8",
+                Added = DateTime.UtcNow,
+                LastUsed = DateTime.UtcNow
+            });
+            await setup.SaveChangesAsync();
+            var sessionId = Guid.NewGuid();
+            await new SiegeModeController(setup).StartSession(server.GameServerId, new StartSiegeSessionDto
+            {
+                OperationId = sessionId,
+                Actor = "admin",
+                ExpectedDurationMinutes = 240,
+                Mode = SiegeSessionMode.Enforce
+            });
+            if (prune)
+            {
+                var session = await setup.SiegeSessions.SingleAsync();
+                session.EndedAtUtc = DateTime.UtcNow;
+                await setup.SaveChangesAsync();
+            }
+
+            await using var lockContext = new PortalDbContext(options);
+            await using var transaction = await lockContext.Database.BeginTransactionAsync();
+            await lockContext.Database.ExecuteSqlRawAsync("""
+                DECLARE @result int;
+                EXEC @result = sys.sp_getapplock @Resource = 'siege-history-snapshot',
+                    @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000;
+                IF @result < 0 THROW 50000, 'Could not acquire test lock', 1;
+                """);
+            async Task<int?> RemoveBaseline()
+            {
+                await using var context = new PortalDbContext(options);
+                var controller = new SiegeModeController(context);
+                var result = prune
+                    ? await controller.PruneSiegeMode()
+                    : await controller.EndSession(server.GameServerId, sessionId,
+                        new ChangeSiegeSessionDto { OperationId = Guid.NewGuid(), Actor = "admin" });
+                return Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode;
+            }
+            async Task<System.Net.HttpStatusCode> Delete()
+            {
+                await using var context = new PortalDbContext(options);
+                return (await ((IDataMaintenanceApi)new DataMaintenanceController(context, new ConfigurationBuilder().Build()))
+                    .DeletePlayer(player.PlayerId)).StatusCode;
+            }
+
+            var removal = RemoveBaseline();
+            var deletion = Delete();
+            try
+            {
+                Assert.NotSame(removal, await Task.WhenAny(removal, Task.Delay(500)));
+                Assert.NotSame(deletion, await Task.WhenAny(deletion, Task.Delay(500)));
+            }
+            finally
+            {
+                await transaction.CommitAsync();
+            }
+            Assert.Equal(200, await removal);
+            Assert.Equal(System.Net.HttpStatusCode.OK, await deletion);
+            setup.ChangeTracker.Clear();
+            Assert.Empty(await setup.SiegeBaselineGuidOwners.ToListAsync());
+            Assert.Empty(await setup.SiegeBaselineIpOwners.ToListAsync());
+            Assert.Empty(await setup.SiegeBaselineGuids.ToListAsync());
+            Assert.Empty(await setup.SiegeBaselineIps.ToListAsync());
+        });
+
     [Fact]
     public Task EndAndClaim_AreSerializedAndLaterClaimsFail() =>
         SqlServerTestDatabase.RunAsync(async connectionString =>

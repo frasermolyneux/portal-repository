@@ -43,7 +43,7 @@ public partial class SiegeModeController
                 return new ApiResult<SiegeActionClaimDto>(HttpStatusCode.Conflict);
             }
             var settings = DeserializeSettings(session.SettingsJson);
-            if (!settings.Rules.Any(r => r.Enabled && string.Equals(r.Id, request.RuleId, StringComparison.OrdinalIgnoreCase)))
+            if (!settings.Rules.Any(r => r.Enabled && string.Equals(r.Id.Trim(), request.RuleId, StringComparison.OrdinalIgnoreCase)))
             {
                 return new ApiResult<SiegeActionClaimDto>(HttpStatusCode.BadRequest);
             }

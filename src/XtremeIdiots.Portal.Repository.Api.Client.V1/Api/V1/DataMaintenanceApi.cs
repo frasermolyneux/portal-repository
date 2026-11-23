@@ -57,7 +57,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public async Task<ApiResult> PruneSiegeMode(CancellationToken cancellationToken = default)
         {
-            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-siege-mode", Method.Delete), cancellationToken).ConfigureAwait(false);
+            var response = await ExecuteAsync(await CreateRequestAsync("v1/data-maintenance/prune-siege-mode", Method.Delete, cancellationToken), cancellationToken).ConfigureAwait(false);
             return response.ToApiResult();
         }
 

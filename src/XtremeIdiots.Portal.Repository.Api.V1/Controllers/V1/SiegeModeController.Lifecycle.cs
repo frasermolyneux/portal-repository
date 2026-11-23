@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.SiegeMode;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -54,6 +55,10 @@ public partial class SiegeModeController
 
         return await ExecuteMutationAsync(async () =>
         {
+            if (!extend)
+            {
+                await SiegeHistoryLock.AcquireAsync(context, cancellationToken).ConfigureAwait(false);
+            }
             await LockServerAsync(gameServerId, cancellationToken).ConfigureAwait(false);
             var session = await context.SiegeSessions.SingleOrDefaultAsync(
                 s => s.GameServerId == gameServerId && s.SessionId == sessionId, cancellationToken).ConfigureAwait(false);

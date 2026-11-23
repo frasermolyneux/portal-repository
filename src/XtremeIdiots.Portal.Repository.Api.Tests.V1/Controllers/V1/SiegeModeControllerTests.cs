@@ -64,6 +64,38 @@ public sealed class SiegeModeControllerTests
     }
 
     [Fact]
+    public async Task ClaimAction_MatchesTrimmedConfiguredRuleId()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
+        await context.SaveChangesAsync();
+        var controller = new SiegeModeController(context);
+        await controller.StartSession(serverId, new StartSiegeSessionDto
+        {
+            OperationId = sessionId,
+            Actor = "admin",
+            ExpectedDurationMinutes = 240,
+            Mode = SiegeSessionMode.DryRun
+        });
+        var session = await context.SiegeSessions.SingleAsync();
+        session.SettingsJson = session.SettingsJson.Replace("\"new-guid\"", $"\"{new string(' ', 64)}new-guid \"", StringComparison.Ordinal);
+        await context.SaveChangesAsync();
+
+        var claim = Payload<SiegeActionClaimDto>(await controller.ClaimAction(serverId, sessionId, new ClaimSiegeActionDto
+        {
+            ActionId = Guid.NewGuid(),
+            ConnectionId = Guid.NewGuid(),
+            PlayerGuid = "player",
+            SlotId = 1,
+            RuleId = "new-guid",
+            BaselineRevision = 0
+        }));
+        Assert.Equal(SiegeActionOutcomes.WouldKick, claim.Action.Outcome);
+    }
+
+    [Fact]
     public async Task LifecycleResponses_IncludeExistingActionCount()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
