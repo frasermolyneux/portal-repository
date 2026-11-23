@@ -6,6 +6,7 @@ CREATE TABLE [dbo].[PlayerIpObservationOperations]
     [PlayerIpAddressId] UNIQUEIDENTIFIER NOT NULL,
     [RecordedAtUtc] DATETIME2 NOT NULL,
     [ObservedAtUtc] DATETIME2 NULL,
+    [AppliedAsCurrent] BIT NULL,
     CONSTRAINT [PK_PlayerIpObservationOperations] PRIMARY KEY CLUSTERED ([MessageKey]),
     CONSTRAINT [FK_PlayerIpObservationOperations_Players] FOREIGN KEY ([PlayerId]) REFERENCES [dbo].[Players]([PlayerId])
 );
