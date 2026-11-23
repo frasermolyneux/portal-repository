@@ -11,7 +11,7 @@
         "precision": "build"
     },
     "cloudBuild": {
-        "setVersionVariables": true,
+        "setVersionVariables": false,
         "buildNumber": {
             "enabled": true
         }
