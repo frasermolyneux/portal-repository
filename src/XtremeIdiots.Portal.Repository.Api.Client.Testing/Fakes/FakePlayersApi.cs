@@ -99,10 +99,16 @@ public class FakePlayersApi : IPlayersApi
             var now = DateTimeOffset.UtcNow;
             var observedAt = dto.ObservedAtUtc ?? now;
             var hasCurrent = _currentIpObservations.TryGetValue(playerId, out var prior);
-            var unknownCurrentTime = !hasCurrent && !string.IsNullOrEmpty(player.IpAddress);
-            if (unknownCurrentTime)
+            var unknownCurrentTime = false;
+            if (!hasCurrent && !string.IsNullOrEmpty(player.IpAddress))
             {
-                prior = (player.IpAddress, now);
+                var lastUsed = _playerIpAddresses.TryGetValue(playerId, out var history)
+                    ? history.Where(ip => ip.Address == player.IpAddress).Max(ip => (DateTime?)ip.LastUsed)
+                    : null;
+                unknownCurrentTime = lastUsed is null;
+                prior = (player.IpAddress, lastUsed is { } time
+                    ? new DateTimeOffset(DateTime.SpecifyKind(time, DateTimeKind.Utc))
+                    : now);
                 _currentIpObservations[playerId] = prior;
                 hasCurrent = true;
             }
