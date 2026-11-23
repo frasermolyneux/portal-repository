@@ -19,7 +19,7 @@ public class GlobalConfigurationsControllerTests
         var api = (IGlobalConfigurationsApi)CreateController(context);
 
         var valid = await api.UpsertConfiguration("siegeMode", new UpsertConfigurationDto { Configuration = "{}" });
-        var invalid = await api.UpsertConfiguration("siegeMode", new UpsertConfigurationDto { Configuration = "{\"durationMinutes\":0}" });
+        var invalid = await api.UpsertConfiguration("siegeMode", new UpsertConfigurationDto { Configuration = /*lang=json,strict*/ "{\"durationMinutes\":0}" });
 
         Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
