@@ -15,6 +15,29 @@ public sealed class SiegeModeSettingsTests
         Assert.NotNull(document);
         Assert.Equal(240, document.DurationMinutes);
         Assert.Equal(2, document.Rules.Count);
+        var newGuid = document.Rules[0].Condition!;
+        Assert.Equal(SiegePlayerSignal.NewGuid, newGuid.PlayerSignal);
+        Assert.Equal(VpnProtectionComparisonOperator.Equal, newGuid.Operator);
+        Assert.Equal("true", newGuid.ExpectedValue);
+        var vpnRule = document.Rules[1].Condition!;
+        Assert.Equal(SiegeConditionGroupOperator.And, vpnRule.GroupOperator);
+        var conditions = Assert.IsType<List<SiegeModeCondition>>(vpnRule.Conditions);
+        Assert.Equal(3, conditions.Count);
+        Assert.Equal(SiegeConditionGroupOperator.Or, conditions[0].GroupOperator);
+        Assert.Equal(
+            [VpnProtectionSignal.ProxyCheckIsVpn, VpnProtectionSignal.MaxMindIsAnonymousVpn],
+            conditions[0].Conditions!.Select(c => c.Signal!.Value));
+        Assert.All(conditions[0].Conditions!, c =>
+        {
+            Assert.Equal(VpnProtectionComparisonOperator.Equal, c.Operator);
+            Assert.Equal("true", c.ExpectedValue);
+        });
+        Assert.Equal(SiegePlayerSignal.NewIp, conditions[1].PlayerSignal);
+        Assert.Equal(VpnProtectionComparisonOperator.Equal, conditions[1].Operator);
+        Assert.Equal("true", conditions[1].ExpectedValue);
+        Assert.Equal(SiegePlayerSignal.PlayerTag, conditions[2].PlayerSignal);
+        Assert.Equal(VpnProtectionComparisonOperator.NotEqual, conditions[2].Operator);
+        Assert.Equal("vpn-exempt", conditions[2].ExpectedValue);
         Assert.True(new SiegeModeSettingsValidator().Validate(document).IsValid);
     }
 
