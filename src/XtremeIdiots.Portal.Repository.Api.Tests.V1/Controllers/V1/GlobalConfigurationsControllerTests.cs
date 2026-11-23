@@ -12,6 +12,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class GlobalConfigurationsControllerTests
 {
+    [Fact]
+    public async Task UpsertConfiguration_SiegeMode_ValidatesDocument()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IGlobalConfigurationsApi)CreateController(context);
+
+        var valid = await api.UpsertConfiguration("siegeMode", new UpsertConfigurationDto { Configuration = "{}" });
+        var invalid = await api.UpsertConfiguration("siegeMode", new UpsertConfigurationDto { Configuration = "{\"durationMinutes\":0}" });
+
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Single(context.GlobalConfigurations);
+    }
+
     private GlobalConfigurationsController CreateController(PortalDbContext context)
     {
         var readService = new ConfigurationReadService(context);

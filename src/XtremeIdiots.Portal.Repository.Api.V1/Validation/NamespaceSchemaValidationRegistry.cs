@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Rcon;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Screenshots;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ServerList;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.WelcomeMessages;
 
@@ -58,6 +59,8 @@ internal static class NamespaceSchemaValidationRegistry
                 new WelcomeMessageSettingsValidator().Validate(Deserialize<WelcomeMessageSettingsDocument>(configuration)),
             [VpnProtectionSettingsConstants.Namespace] = configuration =>
                 new VpnProtectionSettingsValidator().Validate(Deserialize<VpnProtectionSettingsDocument>(configuration)),
+            [SiegeModeSettingsConstants.Namespace] = configuration =>
+                new SiegeModeSettingsValidator().Validate(Deserialize<SiegeModeSettingsDocument>(configuration)),
             [Cod4xPluginSettingsConstants.Namespace] = configuration =>
                 new Cod4xPluginSettingsValidator().Validate(Deserialize<Cod4xPluginSettingsDocument>(configuration)),
             [Cod4xPowerSettingsConstants.Namespace] = configuration =>

@@ -14,6 +14,19 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class GameServerConfigurationsControllerTests
 {
+    [Theory]
+    [InlineData("siegeMode")]
+    [InlineData("SIEGEMODE")]
+    public async Task UpsertConfiguration_SiegeModeIsGlobalOnly(string configurationNamespace)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var result = await ((IGameServerConfigurationsApi)CreateController(context))
+            .UpsertConfiguration(Guid.NewGuid(), configurationNamespace, new UpsertConfigurationDto { Configuration = "{}" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Empty(context.GameServerConfigurations);
+    }
+
     private GameServerConfigurationsController CreateController(
         PortalDbContext context,
         InMemoryGameServerSecretStore? secretStore = null)
