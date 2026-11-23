@@ -167,7 +167,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-dev
     steps:
-      - uses: frasermolyneux/actions/deploy-sql-database@977ddbedf7f5c6e2fae98ff1d6ec6a9c7669d778 # deploy-sql-database/v6.0.0
+      - uses: frasermolyneux/actions/deploy-sql-database@182b469ae6d029d287cfaf16e2453789b825284b # deploy-sql-database/v2.0.1
         with:
           sql-args: /Variables:env=dev /Variables:instance=01
           sql-server-fqdn: ${{ needs.terraform-plan-and-apply-dev.outputs.sql_server_fqdn }}
