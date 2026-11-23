@@ -307,6 +307,15 @@ public class AdminActionsTests : IClassFixture<CustomWebApplicationFactory>
 
 ## Running Tests
 
+PR Verify and the Dev/Prd deployment workflows run solution CI once, then
+publish both API hosts from that Release build without rebuilding or restoring.
+The .NET 9/.NET 10 unit results have one authoritative report; the existing
+`test-results-XtremeIdiots.Portal.Repository.Api.V1` and
+`test-results-XtremeIdiots.Portal.Repository.Api.V2` artifacts contain copies of
+that same run (PR Verify also retains `test-results-src`).
+PR Verify keeps its separate focused V1 and full V2 integration invocations and
+reports; those are not replaced by the unit run.
+
 ### Map-rotation consistency
 
 `MapRotationsControllerTests` covers versioning, activation evidence, config-target
