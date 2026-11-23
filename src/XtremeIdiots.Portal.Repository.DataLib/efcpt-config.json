@@ -17,7 +17,7 @@
     "use-inflector": true,
     "use-internal-access-modifiers-for-sprocs-and-functions": false,
     "use-legacy-inflector": false,
-    "use-many-to-many-entity": false,
+    "use-many-to-many-entity": true,
     "use-nullable-reference-types": true,
     "use-prefix-navigation-naming": false,
     "use-typed-tvp-parameters": true,
@@ -40,6 +40,30 @@
     },
     {
       "name": "[dbo].[AutomationActionStates]"
+    },
+    {
+      "name": "[dbo].[SiegeSessions]"
+    },
+    {
+      "name": "[dbo].[SiegeSessionEvents]"
+    },
+    {
+      "name": "[dbo].[SiegeBaselineGuids]"
+    },
+    {
+      "name": "[dbo].[SiegeBaselineIps]"
+    },
+    {
+      "name": "[dbo].[SiegeBaselineGuidOwners]"
+    },
+    {
+      "name": "[dbo].[SiegeBaselineIpOwners]"
+    },
+    {
+      "name": "[dbo].[SiegeActions]"
+    },
+    {
+      "name": "[dbo].[SiegeChecks]"
     },
     {
       "name": "[dbo].[BanFileMonitors]"
@@ -73,6 +97,9 @@
     },
     {
       "name": "[dbo].[PlayerIpAddresses]"
+    },
+    {
+      "name": "[dbo].[PlayerIpObservationOperations]"
     },
     {
       "name": "[dbo].[Players]"

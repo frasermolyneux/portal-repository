@@ -96,6 +96,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddTypedApiClient<IMapAnalyticsApi, MapAnalyticsApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
             serviceCollection.AddTypedApiClient<IPlayerAnalyticsV2Api, PlayerAnalyticsV2Api, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
             serviceCollection.AddTypedApiClient<IPlaytimeApi, PlaytimeApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
+            serviceCollection.AddTypedApiClient<ISiegeModeApi, SiegeModeApi, RepositoryApiClientOptions, RepositoryApiOptionsBuilder>(perClient);
 
             // Once every typed sub-API has been registered, verify every operation captured on the
             // shared cache configuration matched at least one registered typed client. Throws
@@ -140,6 +141,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             serviceCollection.AddScoped<IVersionedMapAnalyticsApi, VersionedMapAnalyticsApi>();
             serviceCollection.AddScoped<IVersionedPlayerAnalyticsV2Api, VersionedPlayerAnalyticsV2Api>();
             serviceCollection.AddScoped<IVersionedPlaytimeApi, VersionedPlaytimeApi>();
+            serviceCollection.AddScoped<IVersionedSiegeModeApi, VersionedSiegeModeApi>();
 
             // Register the unified client as scoped
             serviceCollection.AddScoped<IRepositoryApiClient, RepositoryApiClient>();

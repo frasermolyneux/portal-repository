@@ -353,4 +353,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         public IPlaytimeApi V1 { get; }
     }
+
+    public class VersionedSiegeModeApi(ISiegeModeApi v1Api) : IVersionedSiegeModeApi
+    {
+        public ISiegeModeApi V1 { get; } = v1Api;
+    }
 }

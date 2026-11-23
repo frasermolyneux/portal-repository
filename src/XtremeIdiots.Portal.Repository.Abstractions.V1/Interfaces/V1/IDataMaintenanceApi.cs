@@ -9,6 +9,8 @@ public interface IDataMaintenanceApi
     Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default);
     Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default);
     Task<ApiResult> PrunePlayerIpAddresses(CancellationToken cancellationToken = default);
+    Task<ApiResult> PruneSiegeMode(CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This implementation does not support Siege Mode maintenance.");
     Task<ApiResult> PruneRecentPlayers(CancellationToken cancellationToken = default);
     Task<ApiResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default);
     Task<ApiResult> ReconcileConnectedPlayerTags(CancellationToken cancellationToken = default);

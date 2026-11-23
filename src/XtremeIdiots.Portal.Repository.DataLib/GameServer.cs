@@ -81,4 +81,7 @@ public partial class GameServer
 
     [InverseProperty("Server")]
     public virtual ICollection<ServerMapRun> ServerMapRuns { get; set; } = new List<ServerMapRun>();
+
+    [InverseProperty("GameServer")]
+    public virtual SiegeSession? SiegeSession { get; set; }
 }
