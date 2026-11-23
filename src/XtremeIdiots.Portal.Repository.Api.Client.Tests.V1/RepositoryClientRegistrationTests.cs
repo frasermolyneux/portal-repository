@@ -39,6 +39,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
 
             var client = scope.ServiceProvider.GetRequiredService<IRepositoryApiClient>();
             Assert.NotNull(client);
+            Assert.NotNull(client.SiegeMode.V1);
         }
 
         /// <summary>

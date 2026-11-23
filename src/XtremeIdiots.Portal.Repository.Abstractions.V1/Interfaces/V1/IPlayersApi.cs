@@ -8,6 +8,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1
 {
     public interface IPlayersApi
     {
+        Task<ApiResult> RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("This implementation does not support idempotent IP observations.");
         Task<ApiResult<PlayerDto>> GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions);
         Task<ApiResult> HeadPlayerByGameType(GameType gameType, string guid);
         Task<ApiResult<PlayerDto>> GetPlayerByGameType(GameType gameType, string guid, PlayerEntityOptions playerEntityOptions);

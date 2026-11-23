@@ -7,6 +7,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     public class RepositoryApiClient : IRepositoryApiClient
     {
         private readonly IVersionedPlaytimeApi? playtime;
+        private readonly IVersionedSiegeModeApi? siegeMode;
 
         public RepositoryApiClient(
             IVersionedAdminActionsApi adminActions,
@@ -89,6 +90,52 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedMapAnalyticsApi mapAnalytics,
             IVersionedPlayerAnalyticsV2Api playerAnalyticsV2,
             IVersionedPlaytimeApi? playtime)
+            : this(adminActions, banFileMonitors, centralBanFileStatus, chatMessages, dataMaintenance, demos,
+                gameServers, gameServersEvents, gameServersStats, gameTrackerBanner, maps, connectedPlayers,
+                playerAnalytics, players, recentPlayers, reports, userProfiles, tags, apiHealth, apiInfo,
+                notificationTypes, notificationPreferences, notifications, mapRotations, dashboard,
+                globalConfigurations, gameServerConfigurations, liveStatus, globalAnalytics, gameAnalytics,
+                serverAnalytics, dashboardAnalytics, mapAnalytics, playerAnalyticsV2, playtime, null)
+        {
+        }
+
+        public RepositoryApiClient(
+            IVersionedAdminActionsApi adminActions,
+            IVersionedBanFileMonitorsApi banFileMonitors,
+            IVersionedCentralBanFileStatusApi centralBanFileStatus,
+            IVersionedChatMessagesApi chatMessages,
+            IVersionedDataMaintenanceApi dataMaintenance,
+            IVersionedDemosApi demos,
+            IVersionedGameServersApi gameServers,
+            IVersionedGameServersEventsApi gameServersEvents,
+            IVersionedGameServersStatsApi gameServersStats,
+            IVersionedGameTrackerBannerApi gameTrackerBanner,
+            IVersionedMapsApi maps,
+            IVersionedConnectedPlayersApi connectedPlayers,
+            IVersionedPlayerAnalyticsApi playerAnalytics,
+            IVersionedPlayersApi players,
+            IVersionedRecentPlayersApi recentPlayers,
+            IVersionedReportsApi reports,
+            IVersionedUserProfileApi userProfiles,
+            IVersionedTagsApi tags,
+            IVersionedApiHealthApi apiHealth,
+            IVersionedApiInfoApi apiInfo,
+            IVersionedNotificationTypesApi notificationTypes,
+            IVersionedNotificationPreferencesApi notificationPreferences,
+            IVersionedNotificationsApi notifications,
+            IVersionedMapRotationsApi mapRotations,
+            IVersionedDashboardApi dashboard,
+            IVersionedGlobalConfigurationsApi globalConfigurations,
+            IVersionedGameServerConfigurationsApi gameServerConfigurations,
+            IVersionedLiveStatusApi liveStatus,
+            IVersionedGlobalAnalyticsApi globalAnalytics,
+            IVersionedGameAnalyticsApi gameAnalytics,
+            IVersionedServerAnalyticsApi serverAnalytics,
+            IVersionedDashboardAnalyticsApi dashboardAnalytics,
+            IVersionedMapAnalyticsApi mapAnalytics,
+            IVersionedPlayerAnalyticsV2Api playerAnalyticsV2,
+            IVersionedPlaytimeApi? playtime,
+            IVersionedSiegeModeApi? siegeMode)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -126,6 +173,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             MapAnalytics = mapAnalytics;
             PlayerAnalyticsV2 = playerAnalyticsV2;
             this.playtime = playtime;
+            this.siegeMode = siegeMode;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -165,5 +213,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         public IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 { get; }
         public IVersionedPlaytimeApi Playtime => playtime
             ?? throw new NotSupportedException("The legacy constructor does not configure the playtime API.");
+        public IVersionedSiegeModeApi SiegeMode => siegeMode
+            ?? throw new NotSupportedException("The legacy constructor does not configure the Siege Mode API.");
     }
 }

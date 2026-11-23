@@ -26,11 +26,20 @@
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
     </Build>
+    <Build Include="dbo\Tables\PlayerIpObservationOperations.sql" />
     <Build Include="dbo\Tables\AdminActions.sql">
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
     </Build>
     <Build Include="dbo\Tables\AutomationActionStates.sql" />
+    <Build Include="dbo\Tables\SiegeSessions.sql" />
+    <Build Include="dbo\Tables\SiegeSessionEvents.sql" />
+    <Build Include="dbo\Tables\SiegeBaselineGuids.sql" />
+    <Build Include="dbo\Tables\SiegeBaselineIps.sql" />
+    <Build Include="dbo\Tables\SiegeBaselineGuidOwners.sql" />
+    <Build Include="dbo\Tables\SiegeBaselineIpOwners.sql" />
+    <Build Include="dbo\Tables\SiegeActions.sql" />
+    <Build Include="dbo\Tables\SiegeChecks.sql" />
     <Build Include="dbo\Tables\BanFileMonitors.sql">
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
