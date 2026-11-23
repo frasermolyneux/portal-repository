@@ -6,12 +6,38 @@ using MX.Api.Client.Auth;
 using Newtonsoft.Json;
 using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 
 public sealed class HistoryQuerySerializationTests
 {
+    [Fact]
+    public async Task IpObservationWithStatus_TransmitsRequestAndReadsStatus()
+    {
+        using var rest = new CapturingRestClientService { ResponseContent = JsonConvert.SerializeObject(new { data = new { status = "Current" } }) };
+        using var cancellation = new CancellationTokenSource();
+        var api = new PlayersApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+        var playerId = Guid.NewGuid();
+        var request = new RecordPlayerIpObservationDto
+        {
+            MessageId = "observation-1",
+            IpAddress = "192.0.2.1",
+            ObservedAtUtc = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero)
+        };
+
+        var result = await api.RecordPlayerIpObservationWithStatus(playerId, request, cancellation.Token);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PlayerIpObservationStatuses.Current, result.Result!.Data!.Status);
+        Assert.Equal($"v1/players/{playerId}/ip-address/observations/with-status", rest.Resource);
+        Assert.Equal(Method.Put, rest.Method);
+        Assert.Equal(request, rest.Body);
+        Assert.Equal(cancellation.Token, rest.Token);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -60,17 +86,22 @@ public sealed class HistoryQuerySerializationTests
         public string Resource { get; private set; } = "";
         public Dictionary<string, string> Query { get; private set; } = [];
         public CancellationToken Token { get; private set; }
+        public Method Method { get; private set; }
+        public object? Body { get; private set; }
+        public string ResponseContent { get; init; } = JsonConvert.SerializeObject(new { data = new { items = Array.Empty<object>(), hasMore = true } });
 
         public Task<RestResponse> ExecuteAsync(string baseUrl, RestRequest request, CancellationToken cancellationToken = default)
         {
             Resource = request.Resource;
             Token = cancellationToken;
+            Method = request.Method;
+            Body = request.Parameters.FirstOrDefault(x => x.Type == ParameterType.RequestBody)?.Value;
             Query = request.Parameters.Where(x => x.Type == ParameterType.QueryString)
                 .ToDictionary(x => x.Name!, x => x.Value!.ToString()!);
             return Task.FromResult(new RestResponse
             {
                 StatusCode = HttpStatusCode.OK,
-                Content = JsonConvert.SerializeObject(new { data = new { items = Array.Empty<object>(), hasMore = true } })
+                Content = ResponseContent
             });
         }
 

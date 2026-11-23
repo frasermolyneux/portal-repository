@@ -98,6 +98,18 @@ current-IP history; if that history is absent, it conservatively starts at the
 first write's processing time. Coarse or inaccurate source timestamps limit
 ordering accuracy. Deploy the schema and API before timestamp-aware consumers.
 
+For enforcement, use `PUT v1.0/players/{playerId}/ip-address/observations/with-status`
+or `IPlayersApi.RecordPlayerIpObservationWithStatus` with the same request.
+The response's `data.status` is `Current` only when this observation promoted the
+current IP and is still current at the transaction's serialization point.
+`NotCurrent` includes older, tied and subsequently superseded observations.
+`Unknown` includes timestamp-less observations and operations recorded before
+the promotion decision was persisted. Retries do not refresh history and
+recheck currentness; a conflicting or pruned operation returns 409. Consumers
+must fail open for `NotCurrent`, `Unknown`, missing data and errors. `Current`
+is not a lease: later observations can supersede it before enforcement, so
+consumers must also maintain connection ordering and recheck identity.
+
 ## Build Versioning
 
 The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for deterministic versioning:

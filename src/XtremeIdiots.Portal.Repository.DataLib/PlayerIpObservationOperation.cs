@@ -26,6 +26,8 @@ public partial class PlayerIpObservationOperation
 
     public DateTime? ObservedAtUtc { get; set; }
 
+    public bool? AppliedAsCurrent { get; set; }
+
     [ForeignKey("PlayerId")]
     [InverseProperty("PlayerIpObservationOperations")]
     public virtual Player Player { get; set; } = null!;

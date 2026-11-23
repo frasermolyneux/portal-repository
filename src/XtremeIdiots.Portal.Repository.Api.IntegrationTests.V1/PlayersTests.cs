@@ -82,6 +82,41 @@ public class PlayersTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLi
     }
 
     [Fact]
+    public async Task IpObservationsWithStatus_ReportCurrentAndSupersededReplay()
+    {
+        var playerId = Guid.NewGuid();
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.Players.Add(new Player
+            {
+                PlayerId = playerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Guid = Guid.NewGuid().ToString(),
+                FirstSeen = DateTime.UtcNow,
+                LastSeen = DateTime.UtcNow
+            });
+            ctx.SaveChanges();
+        });
+        var url = $"/v1.0/players/{playerId}/ip-address/observations/with-status";
+        var first = new RecordPlayerIpObservationDto
+        {
+            MessageId = Guid.NewGuid().ToString(),
+            IpAddress = "192.0.2.1",
+            ObservedAtUtc = new DateTimeOffset(2025, 1, 2, 0, 0, 0, TimeSpan.Zero)
+        };
+        async Task<string?> Record(RecordPlayerIpObservationDto dto)
+        {
+            var response = await _client.PutAsJsonAsync(url, dto);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return JsonConvert.DeserializeObject<ApiResponse<PlayerIpObservationResultDto>>(await response.Content.ReadAsStringAsync())?.Data?.Status;
+        }
+        Assert.Equal(PlayerIpObservationStatuses.Current, await Record(first));
+        Assert.Equal(PlayerIpObservationStatuses.NotCurrent, await Record(first with { MessageId = Guid.NewGuid().ToString() }));
+        Assert.Equal(PlayerIpObservationStatuses.Current, await Record(first with { MessageId = Guid.NewGuid().ToString(), ObservedAtUtc = first.ObservedAtUtc!.Value.AddSeconds(1) }));
+        Assert.Equal(PlayerIpObservationStatuses.NotCurrent, await Record(first));
+    }
+
+    [Fact]
     public async Task GetPlayer_ReturnsOk_WhenExists()
     {
         var playerId = Guid.NewGuid();
