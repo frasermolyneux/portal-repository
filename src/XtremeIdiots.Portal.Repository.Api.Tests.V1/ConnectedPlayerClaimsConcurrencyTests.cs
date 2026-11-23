@@ -21,6 +21,77 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public class ConnectedPlayerClaimsConcurrencyTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task DelayedReadTimeLeaveSplitsMergedReconnect(bool earlierLeaveIsRetained)
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = new GameServer { GameType = 2, Title = "Test", Hostname = "test", BanFileRootPath = "" };
+            var player = new Player { GameType = 2, Guid = "guid-1", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.AddRange(server, player);
+            await context.SaveChangesAsync();
+            var start = DateTime.UtcNow.AddMinutes(-20);
+            var join = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                CanonicalPlayerId = player.PlayerId,
+                GamePlayerId = "guid-1",
+                Kind = PlaytimeObservationKind.PlayerJoined,
+                EventUtc = start,
+                TimestampQuality = PlaytimeTimestampQuality.ParseTime
+            };
+            var reconnect = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(6) };
+            var thirdJoin = join with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(12) };
+            var roster = new PlaytimeObservationDto
+            {
+                ObservationId = Guid.NewGuid(),
+                ServerId = server.GameServerId,
+                GameType = GameType.CallOfDuty4,
+                Kind = PlaytimeObservationKind.ServerRoster,
+                EventUtc = start.AddMinutes(3),
+                TimestampQuality = PlaytimeTimestampQuality.RosterSnapshotTimestamp,
+                RosterCompleteness = PlaytimeRosterCompleteness.Partial,
+                Roster = [new PlaytimeRosterPlayerDto { GamePlayerId = "guid-1", SlotId = 1, CanonicalPlayerId = player.PlayerId }]
+            };
+            var leave = join with
+            {
+                ObservationId = Guid.NewGuid(),
+                CanonicalPlayerId = earlierLeaveIsRetained ? null : player.PlayerId,
+                Kind = PlaytimeObservationKind.PlayerLeft,
+                EventUtc = start.AddMinutes(4)
+            };
+            var laterLeave = join with
+            {
+                ObservationId = Guid.NewGuid(),
+                CanonicalPlayerId = earlierLeaveIsRetained ? player.PlayerId : null,
+                Kind = PlaytimeObservationKind.PlayerLeft,
+                EventUtc = start.AddMinutes(10)
+            };
+            var api = (IPlaytimeApi)new PlaytimeController(context);
+            await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [join, roster, roster with { ObservationId = Guid.NewGuid(), EventUtc = start.AddMinutes(5) },
+                    reconnect, thirdJoin, earlierLeaveIsRetained ? leave : laterLeave]
+            });
+            await api.BatchObservations(new PlaytimeObservationBatchDto
+            {
+                Observations = [earlierLeaveIsRetained ? laterLeave : leave]
+            });
+            var sessions = await context.PlayerSessions.OrderBy(x => x.StartUtc).ToListAsync();
+            Assert.Equal(3, sessions.Count);
+            Assert.Equal(roster.EventUtc, sessions[0].LastConfirmedUtc);
+            Assert.Equal(leave.EventUtc, sessions[0].EndUtc);
+            Assert.Equal(start.AddMinutes(5), sessions[1].StartUtc);
+            Assert.Equal(laterLeave.EventUtc, sessions[1].EndUtc);
+            Assert.Equal(thirdJoin.EventUtc, sessions[2].StartUtc);
+            Assert.Null(sessions[2].EndUtc);
+        });
+
     [Fact]
     public Task CurrentSessions_UsesSqlServerGrouping()
         => SqlServerTestDatabase.RunAsync(async connectionString =>
