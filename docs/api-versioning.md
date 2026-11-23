@@ -55,6 +55,30 @@ Callers must handle failures and resume 202 responses within their own bounded
 budget. Publish/deploy the API and import its OpenAPI before upgrading consumers
 to the additive history client methods.
 
+## Siege Mode history and observations
+
+Siege activation snapshots the retained, persisted player GUID history for the
+server's game and normalized IP history across games. A value absent from a
+successfully captured snapshot is new; a missing input or unavailable check is
+unknown and must not cause a kick. Events observed before activation but not yet
+persisted may therefore be classified as new. Snapshots are temporary and do not
+extend the retention of the underlying IP history.
+
+Explicit player deletion removes that player's snapshot provenance and
+player-linked Siege audit records. Snapshot values shared with another retained
+owner remain known; exclusively owned values are removed. A baseline response
+includes a revision that must accompany an action claim. Deletion changes the
+revision of affected active sessions, and a claim using an older revision
+returns 409; re-evaluate against a fresh baseline or fail open.
+
+The V1 player IP observation endpoint accepts a globally unique, case-sensitive
+`messageId` (1–128 characters, not blank) and an `ipAddress`. Reuse the original
+message ID for redelivery and dead-letter replay. Replaying a successful write
+does not refresh IP retention or increase confidence. Reusing an ID for a
+different player or address returns 409. If the original IP history row has
+already been pruned, a replay also returns 409 rather than recreating it; the
+idempotency record does not retain the raw address.
+
 ## Build Versioning
 
 The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for deterministic versioning:

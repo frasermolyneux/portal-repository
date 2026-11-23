@@ -16,6 +16,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 {
     public class PlayersApi : BaseApi<RepositoryApiClientOptions>, IPlayersApi
     {
+        public async Task<ApiResult> RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/players/{playerId}/ip-address/observations", Method.Put, cancellationToken).ConfigureAwait(false);
+            request.AddJsonBody(dto);
+            var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.ToApiResult();
+        }
+
         public PlayersApi(ILogger<BaseApi<RepositoryApiClientOptions>> logger, IApiTokenProvider apiTokenProvider, IRestClientService restClientService, RepositoryApiClientOptions options) : base(logger, apiTokenProvider, restClientService, options)
         {
         }

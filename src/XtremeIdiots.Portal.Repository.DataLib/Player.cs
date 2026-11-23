@@ -67,6 +67,9 @@ public partial class Player
     public virtual ICollection<PlayerIpAddress> PlayerIpAddresses { get; set; } = new List<PlayerIpAddress>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<PlayerIpObservationOperation> PlayerIpObservationOperations { get; set; } = new List<PlayerIpObservationOperation>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<PlayerSession> PlayerSessions { get; set; } = new List<PlayerSession>();
 
     [InverseProperty("Player")]
@@ -80,4 +83,10 @@ public partial class Player
 
     [InverseProperty("Player")]
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<SiegeBaselineGuidOwner> SiegeBaselineGuidOwners { get; set; } = new List<SiegeBaselineGuidOwner>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<SiegeBaselineIpOwner> SiegeBaselineIpOwners { get; set; } = new List<SiegeBaselineIpOwner>();
 }

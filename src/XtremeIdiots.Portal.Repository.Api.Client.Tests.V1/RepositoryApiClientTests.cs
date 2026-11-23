@@ -41,6 +41,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
         private readonly Mock<IVersionedMapAnalyticsApi> _mapAnalytics = new();
         private readonly Mock<IVersionedPlayerAnalyticsV2Api> _playerAnalyticsV2 = new();
         private readonly Mock<IVersionedPlaytimeApi> _playtime = new();
+        private readonly Mock<IVersionedSiegeModeApi> _siegeMode = new();
 
         private RepositoryApiClient CreateClient() => new(
             _adminActions.Object,
@@ -78,7 +79,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             _dashboardAnalytics.Object,
             _mapAnalytics.Object,
             _playerAnalyticsV2.Object,
-            _playtime.Object);
+            _playtime.Object,
+            _siegeMode.Object);
 
         [Fact]
         public void LegacyConstructorRemainsAvailableAndReportsUnconfiguredPlaytime()
@@ -96,6 +98,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
 
             Assert.Same(_players.Object, client.Players);
             Assert.Throws<NotSupportedException>(() => client.Playtime);
+            Assert.Throws<NotSupportedException>(() => client.SiegeMode);
             var extendedSignature = typeof(RepositoryApiClient).GetConstructors()
                 .Single(c => c.GetParameters().Last().ParameterType == typeof(IVersionedPlaytimeApi))
                 .GetParameters().SkipLast(1).Select(p => p.ParameterType).ToArray();
@@ -143,6 +146,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             Assert.Same(_mapAnalytics.Object, client.MapAnalytics);
             Assert.Same(_playerAnalyticsV2.Object, client.PlayerAnalyticsV2);
             Assert.Same(_playtime.Object, client.Playtime);
+            Assert.Same(_siegeMode.Object, client.SiegeMode);
         }
 
         [Fact]

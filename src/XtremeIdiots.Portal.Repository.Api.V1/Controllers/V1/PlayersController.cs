@@ -1,4 +1,7 @@
 using System.Net;
+using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using Asp.Versioning;
 
 using Microsoft.AspNetCore.Authorization;
@@ -895,6 +898,113 @@ public class PlayersController : ControllerBase, IPlayersApi
 
         await context.SaveChangesAsync().ConfigureAwait(false);
         return new ApiResponse().ToApiResult();
+    }
+
+    [HttpPut("players/{playerId:guid}/ip-address/observations")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RecordPlayerIpObservation(Guid playerId, [FromBody] RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default)
+    {
+        var result = await ((IPlayersApi)this).RecordPlayerIpObservation(playerId, dto, cancellationToken).ConfigureAwait(false);
+        return result.ToHttpResult();
+    }
+
+    async Task<ApiResult> IPlayersApi.RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken)
+    {
+        if (playerId == Guid.Empty || dto is null || string.IsNullOrWhiteSpace(dto.MessageId) ||
+            dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address))
+        {
+            return new ApiResult(HttpStatusCode.BadRequest);
+        }
+
+        var messageKey = SHA256.HashData(Encoding.UTF8.GetBytes(dto.MessageId));
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            context.ChangeTracker.Clear();
+            if (!context.Database.IsRelational())
+            {
+                return await RecordPlayerIpObservationCore(playerId, dto.MessageId, messageKey, address.ToString(), cancellationToken).ConfigureAwait(false);
+            }
+            await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+            if (context.Database.IsSqlServer())
+            {
+                var messageHash = Convert.ToHexString(messageKey);
+                await AcquireIpObservationLock($"ip-observation:{messageHash}", cancellationToken).ConfigureAwait(false);
+                await AcquireIpObservationLock($"ip-observation-player:{playerId:N}", cancellationToken).ConfigureAwait(false);
+            }
+            var result = await RecordPlayerIpObservationCore(playerId, dto.MessageId, messageKey, address.ToString(), cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return result;
+        }).ConfigureAwait(false);
+    }
+
+    private async Task<ApiResult> RecordPlayerIpObservationCore(Guid playerId, string messageId, byte[] messageKey, string address, CancellationToken cancellationToken)
+    {
+        var operation = await context.PlayerIpObservationOperations.FindAsync([messageKey], cancellationToken).ConfigureAwait(false);
+        if (operation is not null)
+        {
+            var storedAddress = await context.PlayerIpAddresses.AsNoTracking()
+                .Where(ip => ip.PlayerIpAddressId == operation.PlayerIpAddressId && ip.PlayerId == operation.PlayerId)
+                .Select(ip => ip.Address).SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+            return string.Equals(operation.MessageId, messageId, StringComparison.Ordinal) &&
+                operation.PlayerId == playerId && storedAddress == address
+                ? new ApiResponse().ToApiResult()
+                : new ApiResult(HttpStatusCode.Conflict);
+        }
+
+        var player = await context.Players.Include(p => p.PlayerIpAddresses)
+            .SingleOrDefaultAsync(p => p.PlayerId == playerId, cancellationToken).ConfigureAwait(false);
+        if (player is null)
+        {
+            return new ApiResult(HttpStatusCode.NotFound);
+        }
+        var now = DateTime.UtcNow;
+        player.IpAddress = address;
+        var history = player.PlayerIpAddresses.FirstOrDefault(ip => ip.Address == address);
+        if (history is null)
+        {
+            history = new PlayerIpAddress
+            {
+                PlayerIpAddressId = Guid.NewGuid(),
+                PlayerId = playerId,
+                Address = address,
+                Added = now,
+                LastUsed = now,
+                ConfidenceScore = 1
+            };
+            context.PlayerIpAddresses.Add(history);
+        }
+        else
+        {
+            history.LastUsed = now;
+            history.ConfidenceScore++;
+        }
+        context.PlayerIpObservationOperations.Add(new PlayerIpObservationOperation
+        {
+            MessageKey = messageKey,
+            MessageId = messageId,
+            PlayerId = playerId,
+            PlayerIpAddressId = history.PlayerIpAddressId,
+            RecordedAtUtc = now
+        });
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return new ApiResponse().ToApiResult();
+    }
+
+    private async Task AcquireIpObservationLock(string resource, CancellationToken cancellationToken)
+    {
+        var result = await context.Database.SqlQuery<int>($"""
+            DECLARE @result int;
+            EXEC @result = sys.sp_getapplock @Resource = {resource}, @LockMode = 'Exclusive',
+                @LockOwner = 'Transaction', @LockTimeout = 10000;
+            SELECT @result AS [Value];
+            """).ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (result.Single() < 0)
+        {
+            throw new InvalidOperationException("Could not acquire the IP observation lock.");
+        }
     }
 
     /// <summary>
