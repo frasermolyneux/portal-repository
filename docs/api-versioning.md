@@ -55,6 +55,49 @@ Callers must handle failures and resume 202 responses within their own bounded
 budget. Publish/deploy the API and import its OpenAPI before upgrading consumers
 to the additive history client methods.
 
+## Siege Mode history and observations
+
+Siege activation snapshots the retained, persisted player GUID history for the
+server's game and normalized IP history across games. A value absent from a
+successfully captured snapshot is new; a missing input or unavailable check is
+unknown and must not cause a kick. Events observed before activation but not yet
+persisted may therefore be classified as new. Snapshots are temporary and do not
+extend the retention of the underlying IP history.
+
+Explicit player deletion removes that player's snapshot provenance and
+player-linked Siege audit records. Snapshot values shared with another retained
+owner remain known; exclusively owned values are removed. A baseline response
+includes a revision that must accompany an action claim. Deletion changes the
+revision of affected active sessions, and a claim using an older revision
+returns 409; re-evaluate against a fresh baseline or fail open.
+
+Siege actions are recorded separately from administrative actions and do not
+create forum posts. The action summary groups all retained matching actions by
+session mode and recorded outcome, independently of audit pagination. `Pending`,
+`Queued` and `Dispatched` do not establish that a kick was applied, and
+`WouldKick` represents dry-run decisions. Player deletion removes linked audit
+records, so the corresponding summary counts decrease.
+
+The V1 player IP observation endpoint accepts a globally unique, case-sensitive
+`messageId` (1–128 characters, not blank) and an `ipAddress`. Reuse the original
+message ID for redelivery and dead-letter replay. Replaying a successful write
+does not refresh IP retention or increase confidence. Reusing an ID for a
+different player or address returns 409. If the original IP history row has
+already been pruned, a replay also returns 409 rather than recreating it; the
+idempotency record does not retain the raw address.
+
+New observation callers should supply the original UTC `observedAtUtc` and
+reuse it on redelivery. History uses observation time, while the current IP
+advances only for a strictly newer observation; ties retain the current IP.
+Historical rows can still expire under existing retention rules. Older callers
+that omit the timestamp use processing time and cannot provide event ordering.
+For a timestamp-less first write when the existing current-IP history is
+missing, processing-time behavior updates the current IP.
+For existing players, the current-IP watermark is initialized from retained
+current-IP history; if that history is absent, it conservatively starts at the
+first write's processing time. Coarse or inaccurate source timestamps limit
+ordering accuracy. Deploy the schema and API before timestamp-aware consumers.
+
 ## Build Versioning
 
 The project uses **Nerdbank.GitVersioning** (`version.json` at repo root) for deterministic versioning:

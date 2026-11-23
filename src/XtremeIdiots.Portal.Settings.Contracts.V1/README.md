@@ -17,6 +17,7 @@ This package is the canonical owner of typed settings contracts for platform set
 - `chatCommands`
 - `welcomeMessages`
 - `vpnProtection`
+- `siegeMode` (global only)
 - `cod4xPlugin`
 - `cod4xPower`
 - `cod4xCommands`
@@ -40,6 +41,15 @@ The `sftp` namespace supports password and private-key authentication through
 
 Credential persistence is owned by the Repository API. Consumers continue to receive the
 effective settings document and do not resolve backing-store references themselves.
+
+## Siege Mode
+
+The global `siegeMode` document defaults to a four-hour duration and two independent
+kick rules: a new game GUID, or a VPN connection on a new IP without the `vpn-exempt`
+tag. Conditions can combine VPN Protection signals and operators with `NewGuid`,
+`NewIp`, and `PlayerTag` using nested `And` and `Or` groups. A caller must treat
+unavailable conditions as unknown, not as matches; another independently confirmed
+rule may still match. Active sessions must use their activation-time settings snapshot.
 
 ## Compatibility Shim Transition (Chat Package Path)
 

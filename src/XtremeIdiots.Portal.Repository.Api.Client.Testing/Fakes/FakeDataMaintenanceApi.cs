@@ -13,6 +13,7 @@ public class FakeDataMaintenanceApi : IDataMaintenanceApi
     public Task<ApiResult> PruneGameServerEvents(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> PruneGameServerStats(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> PrunePlayerIpAddresses(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    public Task<ApiResult> PruneSiegeMode(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> PruneRecentPlayers(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> ResetSystemAssignedPlayerTags(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
     public Task<ApiResult> ReconcileConnectedPlayerTags(CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));

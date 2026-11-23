@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 
 using MX.Api.Abstractions;
@@ -51,6 +52,33 @@ public class PlayersTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLi
         var response = await _client.GetAsync("/v1.0/players");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task IpObservations_UseSourceTimeOverDeliveryOrder()
+    {
+        var playerId = Guid.NewGuid();
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.Players.Add(new Player
+            {
+                PlayerId = playerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Guid = Guid.NewGuid().ToString(),
+                FirstSeen = DateTime.UtcNow,
+                LastSeen = DateTime.UtcNow
+            });
+            ctx.SaveChanges();
+        });
+        var url = $"/v1.0/players/{playerId}/ip-address/observations";
+        var timestamp = new DateTimeOffset(2025, 1, 2, 0, 0, 0, TimeSpan.Zero);
+        var newest = new RecordPlayerIpObservationDto { MessageId = Guid.NewGuid().ToString(), IpAddress = "192.0.2.2", ObservedAtUtc = timestamp };
+        var older = new RecordPlayerIpObservationDto { MessageId = Guid.NewGuid().ToString(), IpAddress = "192.0.2.1", ObservedAtUtc = timestamp.AddDays(-1) };
+        Assert.Equal(HttpStatusCode.OK, (await _client.PutAsJsonAsync(url, newest)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _client.PutAsJsonAsync(url, older)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PutAsJsonAsync(url, newest with { ObservedAtUtc = timestamp.AddSeconds(1) })).StatusCode);
+        var player = await _client.GetAsync($"/v1.0/players/{playerId}");
+        Assert.Contains("192.0.2.2", await player.Content.ReadAsStringAsync());
     }
 
     [Fact]

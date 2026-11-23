@@ -67,6 +67,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<PlayerIpAddress> PlayerIpAddresses { get; set; }
 
+    public virtual DbSet<PlayerIpObservationOperation> PlayerIpObservationOperations { get; set; }
+
     public virtual DbSet<PlayerSession> PlayerSessions { get; set; }
 
     public virtual DbSet<PlayerSessionMapSegment> PlayerSessionMapSegments { get; set; }
@@ -82,6 +84,22 @@ public partial class PortalDbContext : DbContext
     public virtual DbSet<Report> Reports { get; set; }
 
     public virtual DbSet<ServerMapRun> ServerMapRuns { get; set; }
+
+    public virtual DbSet<SiegeAction> SiegeActions { get; set; }
+
+    public virtual DbSet<SiegeBaselineGuid> SiegeBaselineGuids { get; set; }
+
+    public virtual DbSet<SiegeBaselineGuidOwner> SiegeBaselineGuidOwners { get; set; }
+
+    public virtual DbSet<SiegeBaselineIp> SiegeBaselineIps { get; set; }
+
+    public virtual DbSet<SiegeBaselineIpOwner> SiegeBaselineIpOwners { get; set; }
+
+    public virtual DbSet<SiegeCheck> SiegeChecks { get; set; }
+
+    public virtual DbSet<SiegeSession> SiegeSessions { get; set; }
+
+    public virtual DbSet<SiegeSessionEvent> SiegeSessionEvents { get; set; }
 
     public virtual DbSet<Tag> Tags { get; set; }
 
@@ -432,6 +450,15 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Player).WithMany(p => p.PlayerIpAddresses).HasConstraintName("FK_dbo.PlayerIpAddresses_dbo.Players_PlayerId");
         });
 
+        modelBuilder.Entity<PlayerIpObservationOperation>(entity =>
+        {
+            entity.Property(e => e.MessageKey).IsFixedLength();
+
+            entity.HasOne(d => d.Player).WithMany(p => p.PlayerIpObservationOperations)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PlayerIpObservationOperations_Players");
+        });
+
         modelBuilder.Entity<PlayerSession>(entity =>
         {
             entity.HasKey(e => e.SessionId).HasName("PK_dbo.PlayerSession");
@@ -552,6 +579,68 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Server).WithMany(p => p.ServerMapRuns)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ServerMapRun_GameServers");
+        });
+
+        modelBuilder.Entity<SiegeAction>(entity =>
+        {
+            entity.Property(e => e.ActionId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Session).WithMany(p => p.SiegeActions).HasConstraintName("FK_SiegeActions_SiegeSessions");
+        });
+
+        modelBuilder.Entity<SiegeBaselineGuid>(entity =>
+        {
+            entity.HasOne(d => d.Session).WithMany(p => p.SiegeBaselineGuids).HasConstraintName("FK_SiegeBaselineGuids_SiegeSessions");
+        });
+
+        modelBuilder.Entity<SiegeBaselineGuidOwner>(entity =>
+        {
+            entity.HasOne(d => d.Player).WithMany(p => p.SiegeBaselineGuidOwners)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SiegeBaselineGuidOwners_Players");
+
+            entity.HasOne(d => d.SiegeBaselineGuid).WithMany(p => p.SiegeBaselineGuidOwners).HasConstraintName("FK_SiegeBaselineGuidOwners_Baseline");
+        });
+
+        modelBuilder.Entity<SiegeBaselineIp>(entity =>
+        {
+            entity.HasOne(d => d.Session).WithMany(p => p.SiegeBaselineIps).HasConstraintName("FK_SiegeBaselineIps_SiegeSessions");
+        });
+
+        modelBuilder.Entity<SiegeBaselineIpOwner>(entity =>
+        {
+            entity.HasOne(d => d.Player).WithMany(p => p.SiegeBaselineIpOwners)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SiegeBaselineIpOwners_Players");
+
+            entity.HasOne(d => d.SiegeBaselineIp).WithMany(p => p.SiegeBaselineIpOwners).HasConstraintName("FK_SiegeBaselineIpOwners_Baseline");
+        });
+
+        modelBuilder.Entity<SiegeCheck>(entity =>
+        {
+            entity.Property(e => e.CheckId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Session).WithMany(p => p.SiegeChecks).HasConstraintName("FK_SiegeChecks_SiegeSessions");
+        });
+
+        modelBuilder.Entity<SiegeSession>(entity =>
+        {
+            entity.HasIndex(e => e.GameServerId, "IX_SiegeSessions_ActiveServer")
+                .IsUnique()
+                .HasFilter("[EndedAtUtc] IS NULL");
+
+            entity.Property(e => e.SessionId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.GameServer).WithOne(p => p.SiegeSession)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SiegeSessions_GameServers");
+        });
+
+        modelBuilder.Entity<SiegeSessionEvent>(entity =>
+        {
+            entity.Property(e => e.OperationId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Session).WithMany(p => p.SiegeSessionEvents).HasConstraintName("FK_SiegeSessionEvents_SiegeSessions");
         });
 
         modelBuilder.Entity<Tag>(entity =>

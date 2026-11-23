@@ -82,6 +82,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         {
             context.ChangeTracker.Clear();
             await UserProfileLifecycle.LockAsync(context, operationCancellationToken).ConfigureAwait(false);
+            await SiegeHistoryLock.AcquireAsync(context, operationCancellationToken).ConfigureAwait(false);
             var player = await context.Players
                 .FirstOrDefaultAsync(p => p.PlayerId == playerId, operationCancellationToken)
                 .ConfigureAwait(false);
@@ -91,6 +92,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            await RemoveSiegePlayerData(player, operationCancellationToken).ConfigureAwait(false);
             await PlaytimeServerLock.AcquireGameAsync(context, player.GameType, exclusive: true, operationCancellationToken)
                 .ConfigureAwait(false);
             var playtimeServerIds = await context.GameServers
@@ -123,6 +125,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var playerAliases = await context.PlayerAliases.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var playerIpAddresses = await context.PlayerIpAddresses.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            var playerIpObservations = await context.PlayerIpObservationOperations.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var playerTags = await context.PlayerTags.Where(t => t.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var protectedNames = await context.ProtectedNames.Where(n => n.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var recentPlayers = await context.RecentPlayers.Where(r => r.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -138,6 +141,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             context.MapVotes.RemoveRange(mapVotes);
             context.PlayerAliases.RemoveRange(playerAliases);
             context.PlayerIpAddresses.RemoveRange(playerIpAddresses);
+            context.PlayerIpObservationOperations.RemoveRange(playerIpObservations);
             context.PlayerTags.RemoveRange(playerTags);
             context.ProtectedNames.RemoveRange(protectedNames);
             context.RecentPlayers.RemoveRange(recentPlayers);
@@ -150,6 +154,63 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         }, async operationCancellationToken => !await context.Players
             .AnyAsync(p => p.PlayerId == playerId, operationCancellationToken)
             .ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RemoveSiegePlayerData(Player player, CancellationToken cancellationToken)
+    {
+        var guidOwners = await context.SiegeBaselineGuidOwners.Where(o => o.PlayerId == player.PlayerId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var ipOwners = await context.SiegeBaselineIpOwners.Where(o => o.PlayerId == player.PlayerId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var affectedIds = guidOwners.Select(o => o.SessionId).Concat(ipOwners.Select(o => o.SessionId)).Distinct().ToArray();
+        var sessions = await context.SiegeSessions.Where(s => s.EndedAtUtc == null &&
+                (s.GameType == player.GameType || affectedIds.Contains(s.SessionId)))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var serverId in sessions.Select(s => s.GameServerId).Distinct().Order())
+        {
+            await SiegeModeController.LockServerAsync(context, serverId, cancellationToken).ConfigureAwait(false);
+        }
+        foreach (var session in sessions)
+        {
+            await context.Entry(session).ReloadAsync(cancellationToken).ConfigureAwait(false);
+            if (session.EndedAtUtc is null)
+            {
+                session.BaselineRevision = checked(session.BaselineRevision + 1);
+            }
+        }
+
+        context.SiegeBaselineGuidOwners.RemoveRange(guidOwners);
+        context.SiegeBaselineIpOwners.RemoveRange(ipOwners);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var owner in guidOwners)
+        {
+            var baseline = await context.SiegeBaselineGuids.SingleOrDefaultAsync(
+                b => b.SessionId == owner.SessionId && b.PlayerGuid == owner.PlayerGuid, cancellationToken).ConfigureAwait(false);
+            if (baseline is not null && !await context.SiegeBaselineGuidOwners.AnyAsync(
+                o => o.SessionId == owner.SessionId && o.PlayerGuid == owner.PlayerGuid, cancellationToken).ConfigureAwait(false))
+            {
+                context.SiegeBaselineGuids.Remove(baseline);
+            }
+        }
+        foreach (var owner in ipOwners)
+        {
+            var baseline = await context.SiegeBaselineIps.SingleOrDefaultAsync(
+                b => b.SessionId == owner.SessionId && b.Address == owner.Address, cancellationToken).ConfigureAwait(false);
+            if (baseline is not null && !baseline.HasUnownedSource && !await context.SiegeBaselineIpOwners.AnyAsync(
+                o => o.SessionId == owner.SessionId && o.Address == owner.Address, cancellationToken).ConfigureAwait(false))
+            {
+                context.SiegeBaselineIps.Remove(baseline);
+            }
+        }
+
+        var guid = player.Guid?.Trim();
+        if (!string.IsNullOrEmpty(guid))
+        {
+            context.SiegeActions.RemoveRange(await context.SiegeActions.Where(a =>
+                a.Session.GameType == player.GameType && a.PlayerGuid == guid).ToListAsync(cancellationToken).ConfigureAwait(false));
+            context.SiegeChecks.RemoveRange(await context.SiegeChecks.Where(c =>
+                c.Session.GameType == player.GameType && c.PlayerGuid == guid).ToListAsync(cancellationToken).ConfigureAwait(false));
+        }
     }
 
     private async Task RedactPlaytimeObservations(

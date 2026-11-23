@@ -8,6 +8,7 @@
     [FirstSeen] DATETIME NOT NULL,
     [LastSeen] DATETIME NOT NULL,
     [IpAddress] NVARCHAR (60) NULL,
+    [IpAddressObservedAtUtc] DATETIME2 NULL,
     CONSTRAINT [PK_dbo.Players] PRIMARY KEY CLUSTERED ([PlayerId] ASC)
 );
 

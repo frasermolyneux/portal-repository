@@ -16,5 +16,14 @@ public partial class PortalDbContext
             .HasForeignKey(code => code.UserProfileId)
             .OnDelete(DeleteBehavior.ClientSetNull)
             .HasConstraintName("FK_dbo.ConnectedPlayerActivationCodes_dbo.UserProfiles_UserProfileId");
+
+        // The filtered active-session index also permits multiple historical sessions.
+        modelBuilder.Entity<GameServer>().Ignore(server => server.SiegeSession);
+        modelBuilder.Entity<SiegeSession>()
+            .HasOne(session => session.GameServer)
+            .WithMany()
+            .HasForeignKey(session => session.GameServerId)
+            .OnDelete(DeleteBehavior.ClientSetNull)
+            .HasConstraintName("FK_SiegeSessions_GameServers");
     }
 }

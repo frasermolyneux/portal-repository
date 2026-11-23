@@ -199,7 +199,7 @@ public sealed class VpnProtectionSettingsValidator
         }
     }
 
-    private static void ValidateCondition(
+    internal static void ValidateCondition(
         VpnProtectionSignal signal,
         VpnProtectionComparisonOperator comparisonOperator,
         string? expectedValue,

@@ -215,6 +215,11 @@ public class FakeVersionedPlaytimeApi : IVersionedPlaytimeApi
     public IPlaytimeApi V1 { get; }
 }
 
+public class FakeVersionedSiegeModeApi(ISiegeModeApi v1) : IVersionedSiegeModeApi
+{
+    public ISiegeModeApi V1 { get; } = v1;
+}
+
 /// <summary>
 /// In-memory fake of <see cref="IRepositoryApiClient"/> for unit and integration tests.
 /// Eliminates the need for nested mock hierarchies.
@@ -258,6 +263,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public FakeMapAnalyticsApi MapAnalyticsApi { get; } = new();
     public FakePlayerAnalyticsV2Api PlayerAnalyticsV2Api { get; } = new();
     public FakePlaytimeApi PlaytimeApi { get; } = new();
+    public ISiegeModeApi? SiegeModeApi { get; set; }
 
     private readonly Lazy<FakeVersionedAdminActionsApi> _adminActions;
     private readonly Lazy<FakeVersionedBanFileMonitorsApi> _banFileMonitors;
@@ -372,6 +378,8 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
     public IVersionedMapAnalyticsApi MapAnalytics => _mapAnalytics.Value;
     public IVersionedPlayerAnalyticsV2Api PlayerAnalyticsV2 => _playerAnalyticsV2.Value;
     public IVersionedPlaytimeApi Playtime => _playtime.Value;
+    public IVersionedSiegeModeApi SiegeMode => new FakeVersionedSiegeModeApi(
+        SiegeModeApi ?? throw new InvalidOperationException("Configure SiegeModeApi before using it."));
 
     /// <summary>
     /// Resets all fakes to their initial state, clearing configured responses,
@@ -414,6 +422,7 @@ public class FakeRepositoryApiClient : IRepositoryApiClient
         MapAnalyticsApi.Reset();
         PlayerAnalyticsV2Api.Reset();
         PlaytimeApi.Reset();
+        SiegeModeApi = null;
         return this;
     }
 }
