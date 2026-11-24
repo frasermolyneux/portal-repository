@@ -33,3 +33,6 @@ CREATE INDEX [IX_RuleConnectionBindings_ConnectionId]
 GO
 CREATE INDEX [IX_RuleConnectionBindings_ExpiresAtUtc]
     ON [dbo].[RuleConnectionBindings] ([ExpiresAtUtc]);
+GO
+CREATE INDEX [IX_RuleConnectionBindings_Player]
+    ON [dbo].[RuleConnectionBindings] ([GameType], [PlayerGuid]);

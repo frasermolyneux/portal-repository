@@ -33,11 +33,11 @@ CREATE NONCLUSTERED INDEX [IX_UserProfileId]
     ON [dbo].[AdminActions]([UserProfileId] ASC);
 
 GO
-CREATE UNIQUE NONCLUSTERED INDEX [IX_AdminActions_Automation_NonBan]
+CREATE NONCLUSTERED INDEX [IX_AdminActions_Automation_NonBan]
     ON [dbo].[AdminActions]([PlayerId] ASC, [AutomationFeature] ASC, [AutomationRuleId] ASC, [Type] ASC)
     WHERE [Source] = 1 AND [Type] IN (0, 1, 2);
 
 GO
-CREATE UNIQUE NONCLUSTERED INDEX [IX_AdminActions_Automation_ActiveBan]
+CREATE NONCLUSTERED INDEX [IX_AdminActions_Automation_ActiveBan]
     ON [dbo].[AdminActions]([PlayerId] ASC, [AutomationFeature] ASC, [AutomationRuleId] ASC, [Type] ASC)
     WHERE [Source] = 1 AND [AutomationIsActive] = 1 AND [Type] IN (3, 4);

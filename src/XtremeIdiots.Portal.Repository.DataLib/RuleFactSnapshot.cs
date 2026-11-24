@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("BaselineSessionId", Name = "IX_RuleFactSnapshots_BaselineSession")]
+[Index("GameType", "PlayerGuid", Name = "IX_RuleFactSnapshots_Player")]
 [Index("GameServerId", "ConnectionId", Name = "UQ_RuleFactSnapshots_ServerConnection", IsUnique = true)]
 public partial class RuleFactSnapshot
 {

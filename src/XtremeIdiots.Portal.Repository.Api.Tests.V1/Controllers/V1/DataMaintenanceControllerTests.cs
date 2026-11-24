@@ -7,6 +7,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -41,6 +42,35 @@ public class DataMaintenanceControllerTests
     {
         return new DataMaintenanceController(context, EmptyConfiguration);
     }
+
+    private static RuleConnectionBinding CreateRuleBinding(
+        Guid gameServerId,
+        int slotId,
+        string playerGuid,
+        Guid connectionId,
+        DateTime now) =>
+        new()
+        {
+            GameServerId = gameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            SlotId = slotId,
+            PlayerGuid = playerGuid,
+            State = RuleConnectionState.Connected.ToString(),
+            ConnectionId = connectionId,
+            ConnectionGeneration = 1,
+            RuntimeId = "server-agent",
+            RuntimeVersion = "1.0",
+            RuntimeProtocolVersion = 1,
+            RuntimeIdentityModel = (int)RuleRuntimeIdentityModel.AgentObservedConnection,
+            RuntimeInstanceId = Guid.NewGuid(),
+            RuntimeStartedAtUtc = now.AddMinutes(-1),
+            SnapshotId = Guid.NewGuid(),
+            SequenceId = 1,
+            ObservedAtUtc = now,
+            ExpiresAtUtc = now.AddMinutes(2),
+            Version = 1,
+            UpdatedAtUtc = now
+        };
 
     [Fact]
     public void Constructor_WithNullContext_ThrowsArgumentNullException()
@@ -476,6 +506,225 @@ public class DataMaintenanceControllerTests
         Assert.True(context.PlayerAliases.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.PlayerIpAddresses.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.Reports.Any(r => r.PlayerId == controlPlayerId));
+    }
+
+    [Fact]
+    public async Task DeletePlayer_RemovesPlayerLinkedRulesDataAndRedactsConnectionSnapshot()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var now = DateTime.UtcNow;
+        var gameServerId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var controlPlayerId = Guid.NewGuid();
+        var playerConnectionId = Guid.NewGuid();
+        var controlConnectionId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer
+        {
+            GameServerId = gameServerId,
+            Title = "Rules test server",
+            GameType = (int)GameType.CallOfDuty4,
+            Hostname = "localhost",
+            QueryPort = 28960,
+            ServerListEnabled = true
+        });
+        context.Players.AddRange(
+            new Player
+            {
+                PlayerId = playerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Guid = "DELETE-ME",
+                FirstSeen = now.AddDays(-1),
+                LastSeen = now
+            },
+            new Player
+            {
+                PlayerId = controlPlayerId,
+                GameType = (int)GameType.CallOfDuty4,
+                Guid = "KEEP-ME",
+                FirstSeen = now.AddDays(-1),
+                LastSeen = now
+            });
+
+        var runtime = new RuleRuntimeDescriptor
+        {
+            Id = "server-agent",
+            Version = "1.0",
+            IdentityModel = RuleRuntimeIdentityModel.AgentObservedConnection,
+            InstanceId = Guid.NewGuid(),
+            StartedAtUtc = now.AddMinutes(-1)
+        };
+        var executionId = Guid.NewGuid();
+        var controlExecutionId = Guid.NewGuid();
+        context.RuleFeatureExecutions.AddRange(
+            new RuleFeatureExecution
+            {
+                ExecutionId = executionId,
+                GameServerId = gameServerId,
+                ConnectionId = playerConnectionId,
+                TriggerOccurrenceId = Guid.NewGuid(),
+                GameType = (int)GameType.CallOfDuty4,
+                PlayerGuid = "DELETE-ME",
+                FeatureId = "vpn-protection",
+                RuleSetRevision = "revision",
+                FrozenRulesJson = /*lang=json,strict*/ """{"rules":[]}""",
+                TriggerJson = JsonSerializer.Serialize(new RuleTriggerEnvelope
+                {
+                    GameServerId = gameServerId,
+                    GameType = GameType.CallOfDuty4,
+                    ConnectionId = playerConnectionId,
+                    PlayerGuid = "DELETE-ME",
+                    Runtime = runtime
+                }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                State = "Completed",
+                RuleIndex = 0,
+                ActionIndex = 0,
+                Version = 1,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            },
+            new RuleFeatureExecution
+            {
+                ExecutionId = controlExecutionId,
+                GameServerId = gameServerId,
+                ConnectionId = controlConnectionId,
+                TriggerOccurrenceId = Guid.NewGuid(),
+                GameType = (int)GameType.CallOfDuty4,
+                PlayerGuid = "KEEP-ME",
+                FeatureId = "vpn-protection",
+                RuleSetRevision = "revision",
+                FrozenRulesJson = /*lang=json,strict*/ """{"rules":[]}""",
+                TriggerJson = JsonSerializer.Serialize(new RuleTriggerEnvelope
+                {
+                    GameServerId = gameServerId,
+                    GameType = GameType.CallOfDuty4,
+                    ConnectionId = controlConnectionId,
+                    PlayerGuid = "KEEP-ME",
+                    Runtime = runtime
+                }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                State = "Completed",
+                RuleIndex = 0,
+                ActionIndex = 0,
+                Version = 1,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+        context.RuleActionExecutions.AddRange(
+            new RuleActionExecution
+            {
+                ActionExecutionId = Guid.NewGuid(),
+                ExecutionId = executionId,
+                GameServerId = gameServerId,
+                LogicalEffectId = "a123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                ActionId = "action",
+                ActionTypeId = "moderation.observation",
+                ParametersJson = /*lang=json,strict*/ """{}""",
+                CorrelationJson = /*lang=json,strict*/ """{}""",
+                CommandJson = /*lang=json,strict*/ """{"playerGuid":"DELETE-ME"}""",
+                Mode = "Enforce",
+                Outcome = "Applied",
+                ClaimedAtUtc = now,
+                UpdatedAtUtc = now
+            },
+            new RuleActionExecution
+            {
+                ActionExecutionId = Guid.NewGuid(),
+                ExecutionId = controlExecutionId,
+                GameServerId = gameServerId,
+                LogicalEffectId = "b123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                ActionId = "action",
+                ActionTypeId = "moderation.observation",
+                ParametersJson = /*lang=json,strict*/ """{}""",
+                CorrelationJson = /*lang=json,strict*/ """{}""",
+                CommandJson = /*lang=json,strict*/ """{"playerGuid":"KEEP-ME"}""",
+                Mode = "Enforce",
+                Outcome = "Applied",
+                ClaimedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+        context.RuleFactSnapshots.AddRange(
+            new RuleFactSnapshot
+            {
+                SnapshotId = Guid.NewGuid(),
+                ObservationId = Guid.NewGuid(),
+                GameServerId = gameServerId,
+                ConnectionId = playerConnectionId,
+                GameType = (int)GameType.CallOfDuty4,
+                PlayerGuid = "DELETE-ME",
+                PlayerIpAddress = "192.0.2.1",
+                CapturedAtUtc = now,
+                TagIdsJson = "[]",
+                GuidHistoryAvailable = true,
+                IpHistoryAvailable = true,
+                ProfileHistoryAvailable = true,
+                TagsAvailable = true
+            },
+            new RuleFactSnapshot
+            {
+                SnapshotId = Guid.NewGuid(),
+                ObservationId = Guid.NewGuid(),
+                GameServerId = gameServerId,
+                ConnectionId = controlConnectionId,
+                GameType = (int)GameType.CallOfDuty4,
+                PlayerGuid = "KEEP-ME",
+                PlayerIpAddress = "192.0.2.2",
+                CapturedAtUtc = now,
+                TagIdsJson = "[]",
+                GuidHistoryAvailable = true,
+                IpHistoryAvailable = true,
+                ProfileHistoryAvailable = true,
+                TagsAvailable = true
+            });
+        context.RuleConnectionBindings.AddRange(
+            CreateRuleBinding(gameServerId, 1, "DELETE-ME", playerConnectionId, now),
+            CreateRuleBinding(gameServerId, 2, "KEEP-ME", controlConnectionId, now));
+        context.RuleConnectionStatusSnapshots.Add(new RuleConnectionStatusSnapshot
+        {
+            GameServerId = gameServerId,
+            SnapshotId = Guid.NewGuid(),
+            GameType = (int)GameType.CallOfDuty4,
+            RuntimeId = runtime.Id,
+            RuntimeVersion = runtime.Version,
+            RuntimeProtocolVersion = runtime.ProtocolVersion,
+            RuntimeIdentityModel = (int)runtime.IdentityModel,
+            RuntimeInstanceId = runtime.InstanceId,
+            RuntimeStartedAtUtc = runtime.StartedAtUtc.UtcDateTime,
+            SequenceId = 1,
+            ObservedAtUtc = now,
+            ExpiresAtUtc = now.AddMinutes(2),
+            IntegrationCapabilitiesJson = "[]",
+            RuntimeCapabilitiesJson = "[]",
+            SnapshotJson = JsonSerializer.Serialize(new RuleConnectionStatusSnapshotDto
+            {
+                GameServerId = gameServerId,
+                GameType = GameType.CallOfDuty4,
+                SnapshotId = Guid.NewGuid(),
+                SequenceId = 1,
+                ObservedAtUtc = now,
+                Runtime = runtime,
+                Players =
+                [
+                    new() { SlotId = 1, PlayerGuid = "DELETE-ME", State = RuleConnectionState.Connected },
+                    new() { SlotId = 2, PlayerGuid = "KEEP-ME", State = RuleConnectionState.Connected }
+                ]
+            }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            UpdatedAtUtc = now
+        });
+        await context.SaveChangesAsync();
+
+        var result = await ((IDataMaintenanceApi)CreateController(context)).DeletePlayer(playerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.RuleFeatureExecutions);
+        Assert.Equal("KEEP-ME", context.RuleFeatureExecutions.Single().PlayerGuid);
+        Assert.Single(context.RuleActionExecutions);
+        Assert.Single(context.RuleFactSnapshots);
+        Assert.Equal("KEEP-ME", context.RuleFactSnapshots.Single().PlayerGuid);
+        Assert.Single(context.RuleConnectionBindings);
+        Assert.Equal("KEEP-ME", context.RuleConnectionBindings.Single().PlayerGuid);
+        var retainedPlayers = JsonSerializer.Deserialize<RuleConnectionStatusSnapshotDto>(
+            context.RuleConnectionStatusSnapshots.Single().SnapshotJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Players;
+        Assert.Equal("KEEP-ME", Assert.Single(retainedPlayers).PlayerGuid);
     }
 
     [Theory]

@@ -5,8 +5,8 @@ CREATE TABLE [dbo].[RuleActionExecutions]
     [GameServerId] UNIQUEIDENTIFIER NOT NULL,
     [SiegeSessionId] UNIQUEIDENTIFIER NULL,
     [LogicalEffectId] CHAR(64) NOT NULL,
-    [ActionId] NVARCHAR(64) NOT NULL,
-    [ActionTypeId] NVARCHAR(64) NOT NULL,
+    [ActionId] NVARCHAR(128) NOT NULL,
+    [ActionTypeId] NVARCHAR(128) NOT NULL,
     [ParametersJson] NVARCHAR(MAX) NOT NULL,
     [CorrelationJson] NVARCHAR(MAX) NOT NULL,
     [CommandJson] NVARCHAR(MAX) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE [dbo].[RuleActionExecutions]
     [NativeEvidenceJson] NVARCHAR(MAX) NULL,
     CONSTRAINT [PK_RuleActionExecutions] PRIMARY KEY CLUSTERED ([ActionExecutionId]),
     CONSTRAINT [FK_RuleActionExecutions_Executions] FOREIGN KEY ([ExecutionId]) REFERENCES [dbo].[RuleFeatureExecutions]([ExecutionId]) ON DELETE CASCADE,
-    CONSTRAINT [FK_RuleActionExecutions_AdminActions] FOREIGN KEY ([AdminActionId]) REFERENCES [dbo].[AdminActions]([AdminActionId]),
+    CONSTRAINT [FK_RuleActionExecutions_AdminActions] FOREIGN KEY ([AdminActionId]) REFERENCES [dbo].[AdminActions]([AdminActionId]) ON DELETE SET NULL,
     CONSTRAINT [CK_RuleActionExecutions_Outcome] CHECK ([Outcome] IN (N'Claimed', N'Dispatched', N'Applied', N'Failed', N'Stale', N'SkippedUnsupported', N'SkippedDependency', N'WouldExecute', N'OutcomeUnknown')),
     CONSTRAINT [CK_RuleActionExecutions_Mode] CHECK ([Mode] IN (N'Enforce', N'DryRun'))
 );

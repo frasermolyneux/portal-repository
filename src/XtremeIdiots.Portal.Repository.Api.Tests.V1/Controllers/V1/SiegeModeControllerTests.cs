@@ -489,6 +489,43 @@ public sealed class SiegeModeControllerTests
         Assert.Empty(context.SiegeSessions);
     }
 
+    [Fact]
+    public async Task StartSession_RejectsDuplicateRuleIdsInEffectiveSettings()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
+        var serverId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
+        var global = JsonSerializer.Deserialize<SiegeModeSettingsDocument>(
+            context.GlobalConfigurations.Single().Configuration,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        var serverOverride = new SiegeModeServerSettingsOverrideDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Inherit,
+            InheritGlobalRules = true,
+            Rules = [global.Rules[0]]
+        };
+        context.GameServerConfigurations.Add(new GameServerConfiguration
+        {
+            GameServerId = serverId,
+            Namespace = SiegeModeSettingsConstants.Namespace,
+            Configuration = JsonSerializer.Serialize(serverOverride, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var result = await new SiegeModeController(context).StartSession(serverId, new StartSiegeSessionDto
+        {
+            OperationId = Guid.NewGuid(),
+            Actor = "admin",
+            ExpectedDurationMinutes = 240,
+            Mode = SiegeSessionMode.DryRun
+        });
+
+        Assert.Equal(409, Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode);
+        Assert.Empty(context.SiegeSessions);
+    }
+
     private static T Payload<T>(IActionResult result)
     {
         var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);

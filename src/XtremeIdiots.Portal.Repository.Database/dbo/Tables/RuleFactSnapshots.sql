@@ -28,3 +28,6 @@ CREATE TABLE [dbo].[RuleFactSnapshots]
 GO
 CREATE INDEX [IX_RuleFactSnapshots_BaselineSession]
     ON [dbo].[RuleFactSnapshots]([BaselineSessionId]);
+GO
+CREATE INDEX [IX_RuleFactSnapshots_Player]
+    ON [dbo].[RuleFactSnapshots]([GameType], [PlayerGuid]);

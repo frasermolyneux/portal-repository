@@ -11,6 +11,7 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 [PrimaryKey("GameServerId", "SlotId", "PlayerGuid")]
 [Index("GameServerId", "ConnectionId", "ConnectionGeneration", Name = "IX_RuleConnectionBindings_ConnectionId")]
 [Index("ExpiresAtUtc", Name = "IX_RuleConnectionBindings_ExpiresAtUtc")]
+[Index("GameType", "PlayerGuid", Name = "IX_RuleConnectionBindings_Player")]
 public partial class RuleConnectionBinding
 {
     [Key]

@@ -73,28 +73,28 @@ internal static class NamespaceSchemaValidationRegistry
     {
         var normalizedNamespace = NormalizeNamespace(ns);
 
-        if (string.Equals(normalizedNamespace, VpnProtectionSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
-        {
-            var vpnValidator = new VpnProtectionSettingsValidator();
-            return serverOverride
-                ? vpnValidator.ValidateServerOverride(Deserialize<VpnProtectionServerSettingsDocument>(configuration)).IsValid
-                : vpnValidator.Validate(Deserialize<VpnProtectionSettingsDocument>(configuration)).IsValid;
-        }
-        if (string.Equals(normalizedNamespace, SiegeModeSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
-        {
-            var siegeValidator = new SiegeModeSettingsValidator();
-            return serverOverride
-                ? siegeValidator.ValidateServerOverride(Deserialize<SiegeModeServerSettingsOverrideDocument>(configuration)).IsValid
-                : siegeValidator.Validate(Deserialize<SiegeModeSettingsDocument>(configuration)).IsValid;
-        }
-
-        if (!Validators.TryGetValue(normalizedNamespace, out var validator))
-        {
-            return true;
-        }
-
         try
         {
+            if (string.Equals(normalizedNamespace, VpnProtectionSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
+            {
+                var vpnValidator = new VpnProtectionSettingsValidator();
+                return serverOverride
+                    ? vpnValidator.ValidateServerOverride(Deserialize<VpnProtectionServerSettingsDocument>(configuration)).IsValid
+                    : vpnValidator.Validate(Deserialize<VpnProtectionSettingsDocument>(configuration)).IsValid;
+            }
+            if (string.Equals(normalizedNamespace, SiegeModeSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
+            {
+                var siegeValidator = new SiegeModeSettingsValidator();
+                return serverOverride
+                    ? siegeValidator.ValidateServerOverride(Deserialize<SiegeModeServerSettingsOverrideDocument>(configuration)).IsValid
+                    : siegeValidator.Validate(Deserialize<SiegeModeSettingsDocument>(configuration)).IsValid;
+            }
+
+            if (!Validators.TryGetValue(normalizedNamespace, out var validator))
+            {
+                return true;
+            }
+
             using var document = JsonDocument.Parse(configuration);
             if (document.RootElement.ValueKind != JsonValueKind.Object)
             {

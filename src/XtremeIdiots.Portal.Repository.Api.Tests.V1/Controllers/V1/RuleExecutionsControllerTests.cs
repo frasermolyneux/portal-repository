@@ -292,6 +292,27 @@ public sealed class RuleExecutionsControllerTests
     }
 
     [Fact]
+    public async Task ClaimAction_AcceptsRuleAndActionIdsAtContractMaximumLength()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var ruleId = new string('r', 128);
+        var actionId = new string('a', 128);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var started = await api.StartExecution(serverId,
+            StartRequest(serverId, Guid.NewGuid(), ruleId: ruleId, actionId: actionId));
+        var execution = started.Result!.Data!;
+        const string logicalEffectId = "8123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+        var claimed = await api.ClaimAction(serverId, execution.ExecutionId,
+            ClaimRequest(serverId, execution, logicalEffectId, ruleId: ruleId, actionId: actionId));
+
+        Assert.Equal(HttpStatusCode.OK, claimed.StatusCode);
+        Assert.Equal(actionId, claimed.Result!.Data!.Action.ActionId);
+        Assert.Equal(ruleId, claimed.Result.Data.Action.Correlation.RuleId);
+    }
+
+    [Fact]
     public async Task ClaimAction_UsesPersistedIpContextForNextActionWithoutChangingOriginalTrigger()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -1035,7 +1056,9 @@ public sealed class RuleExecutionsControllerTests
         string revision = "revision",
         string actionTypeId = "player.kick",
         string parametersJson = /*lang=json,strict*/ """{"reason":"test"}""",
-        RuleRuntimeDescriptor? runtime = null) =>
+        RuleRuntimeDescriptor? runtime = null,
+        string ruleId = "rule-1",
+        string actionId = "kick-player") =>
         new()
         {
             Trigger = new RuleTriggerEnvelope
@@ -1059,24 +1082,25 @@ public sealed class RuleExecutionsControllerTests
             },
             FeatureId = "vpn-protection",
             RuleSetRevision = revision,
-            FrozenRulesJson = $$"""{"rules":[{"id":"rule-1","actions":[{"id":"kick-player","typeId":"{{actionTypeId}}","parameters":{{parametersJson}}}]}]}"""
+            FrozenRulesJson = $$"""{"rules":[{"id":"{{ruleId}}","actions":[{"id":"{{actionId}}","typeId":"{{actionTypeId}}","parameters":{{parametersJson}}}]}]}"""
         };
 
     private static ClaimRuleActionDto ClaimRequest(
         Guid serverId,
         RuleFeatureExecutionDto execution,
         string logicalEffectId,
-        RuleNativeEffectType effectType = RuleNativeEffectType.DropPlayer)
+        RuleNativeEffectType effectType = RuleNativeEffectType.DropPlayer,
+        string ruleId = "rule-1",
+        string actionId = "kick-player")
     {
         var trigger = execution.Trigger;
-        var actionId = "kick-player";
         var correlation = new RuleActionCorrelation
         {
             TriggerId = trigger.TriggerId,
             TriggerOccurrenceId = trigger.TriggerOccurrenceId,
             ConnectionId = trigger.ConnectionId,
             FeatureId = execution.FeatureId,
-            RuleId = "rule-1",
+            RuleId = ruleId,
             RuleSetRevision = execution.RuleSetRevision,
             ActionId = actionId
         };

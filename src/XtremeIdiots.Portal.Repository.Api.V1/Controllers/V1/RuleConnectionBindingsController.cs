@@ -145,11 +145,11 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
             var updatedBindings = 0;
             foreach (var player in request.Players)
             {
-                var playerGuid = NormalizePlayerGuid(player.PlayerGuid);
                 if (player.State == RuleConnectionState.Unknown)
                 {
                     continue;
                 }
+                var playerGuid = NormalizePlayerGuid(player.PlayerGuid);
 
                 var binding = await context.RuleConnectionBindings.SingleOrDefaultAsync(
                     b => b.GameServerId == gameServerId && b.SlotId == player.SlotId &&
@@ -161,6 +161,27 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
                     if (binding is not null && !CanAdvanceBinding(binding, request))
                     {
                         continue;
+                    }
+
+                    var previousOccupants = await context.RuleConnectionBindings
+                        .Where(b => b.GameServerId == gameServerId && b.SlotId == player.SlotId &&
+                            b.PlayerGuid != playerGuid && b.State == RuleConnectionState.Connected.ToString())
+                        .ToListAsync(cancellationToken).ConfigureAwait(false);
+                    foreach (var previousOccupant in previousOccupants)
+                    {
+                        if (!CanAdvanceBinding(previousOccupant, request))
+                        {
+                            continue;
+                        }
+
+                        previousOccupant.State = RuleConnectionState.Disconnected.ToString();
+                        previousOccupant.SnapshotId = request.SnapshotId;
+                        previousOccupant.SequenceId = request.SequenceId;
+                        previousOccupant.ObservedAtUtc = observedAt;
+                        previousOccupant.ExpiresAtUtc = expiresAt;
+                        previousOccupant.Version++;
+                        previousOccupant.UpdatedAtUtc = now.UtcDateTime;
+                        updatedBindings++;
                     }
 
                     if (binding is null)
@@ -301,7 +322,8 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
 
         var snapshot = await context.RuleConnectionStatusSnapshots.AsNoTracking().SingleOrDefaultAsync(
             s => s.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
-        var isFresh = snapshot is not null && snapshot.ExpiresAtUtc > DateTime.UtcNow;
+        var snapshotMatchesServerGame = snapshot is not null && snapshot.GameType == server.GameType;
+        var isFresh = snapshotMatchesServerGame && snapshot!.ExpiresAtUtc > DateTime.UtcNow;
         var data = new RuleServerCapabilitiesDto
         {
             GameServerId = gameServerId,
@@ -314,10 +336,10 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
                 ? DeserializeCapabilities(snapshot!.RuntimeCapabilitiesJson)
                 : [],
             Runtime = isFresh ? ToRuntime(snapshot!) : null,
-            SnapshotId = snapshot?.SnapshotId ?? Guid.Empty,
-            SequenceId = snapshot?.SequenceId ?? 0,
-            ObservedAtUtc = snapshot is null ? default : AsUtc(snapshot.ObservedAtUtc),
-            ExpiresAtUtc = snapshot is null ? default : AsUtc(snapshot.ExpiresAtUtc)
+            SnapshotId = snapshotMatchesServerGame ? snapshot!.SnapshotId : Guid.Empty,
+            SequenceId = snapshotMatchesServerGame ? snapshot!.SequenceId : 0,
+            ObservedAtUtc = snapshotMatchesServerGame ? AsUtc(snapshot!.ObservedAtUtc) : default,
+            ExpiresAtUtc = snapshotMatchesServerGame ? AsUtc(snapshot!.ExpiresAtUtc) : default
         };
         return new ApiResponse<RuleServerCapabilitiesDto>(data).ToApiResult();
     }
@@ -332,22 +354,26 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
             return await operation().ConfigureAwait(false);
         }
 
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken)
-            .ConfigureAwait(false);
-        await SiegeModeController.LockServerAsync(context, gameServerId, cancellationToken)
-            .ConfigureAwait(false);
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            context.ChangeTracker.Clear();
+            await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await SiegeModeController.LockServerAsync(context, gameServerId, cancellationToken)
+                .ConfigureAwait(false);
 
-        var result = await operation().ConfigureAwait(false);
-        var status = (int)result.StatusCode;
-        if (status is >= 200 and < 300)
-        {
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        }
-        return result;
+            var result = await operation().ConfigureAwait(false);
+            var status = (int)result.StatusCode;
+            if (status is >= 200 and < 300)
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            }
+            return result;
+        }).ConfigureAwait(false);
     }
 
     private static bool ValidSnapshot(RuleConnectionStatusSnapshotDto request, DateTimeOffset now)

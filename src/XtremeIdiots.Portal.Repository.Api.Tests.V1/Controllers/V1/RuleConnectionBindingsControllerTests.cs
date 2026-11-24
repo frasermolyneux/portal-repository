@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
@@ -41,7 +42,6 @@ public class RuleConnectionBindingsControllerTests
             [new RuleConnectionStatusPlayerDto
             {
                 SlotId = 3,
-                PlayerGuid = "ABC123",
                 State = RuleConnectionState.Unknown
             }]));
         Assert.Equal(HttpStatusCode.OK, unknown.StatusCode);
@@ -55,6 +55,50 @@ public class RuleConnectionBindingsControllerTests
         binding = await api.GetCurrentBinding(gameServerId, 3, "ABC123");
         Assert.Equal(HttpStatusCode.OK, binding.StatusCode);
         Assert.Equal(connectionId, binding.Result!.Data!.ConnectionId);
+    }
+
+    [Fact]
+    public async Task ObserveSnapshot_RetiresPreviousOccupantWhenSlotIsReused()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = await AddServer(context);
+        var runtime = CreateRuntime();
+        var api = (IRuleConnectionBindingsApi)new RuleConnectionBindingsController(context);
+        var firstConnectionId = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.OK, (await api.ObserveSnapshot(gameServerId, CreateSnapshot(
+            gameServerId,
+            runtime,
+            1,
+            [new RuleConnectionStatusPlayerDto
+            {
+                SlotId = 6,
+                PlayerGuid = "PLAYER1",
+                State = RuleConnectionState.Connected,
+                ConnectionId = firstConnectionId,
+                ConnectionGeneration = 1
+            }]))).StatusCode);
+
+        var secondConnectionId = Guid.NewGuid();
+        var replacement = await api.ObserveSnapshot(gameServerId, CreateSnapshot(
+            gameServerId,
+            runtime,
+            2,
+            [new RuleConnectionStatusPlayerDto
+            {
+                SlotId = 6,
+                PlayerGuid = "PLAYER2",
+                State = RuleConnectionState.Connected,
+                ConnectionId = secondConnectionId,
+                ConnectionGeneration = 2
+            }]));
+
+        Assert.Equal(HttpStatusCode.OK, replacement.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await api.GetCurrentBinding(gameServerId, 6, "PLAYER1")).StatusCode);
+        var current = await api.GetCurrentBinding(gameServerId, 6, "PLAYER2");
+        Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+        Assert.Equal(secondConnectionId, current.Result!.Data!.ConnectionId);
+        Assert.Equal(RuleConnectionState.Disconnected.ToString(),
+            (await context.RuleConnectionBindings.Where(binding => binding.PlayerGuid == "PLAYER1").SingleAsync()).State);
     }
 
     [Fact]
@@ -179,6 +223,33 @@ public class RuleConnectionBindingsControllerTests
         Assert.Equal(GameType.CallOfDuty4x, result.Result.Data.GameType);
         Assert.Equal(["rcon.chat.public", "rcon.player.drop"], result.Result.Data.IntegrationCapabilities);
         Assert.Empty(result.Result.Data.RuntimeCapabilities);
+    }
+
+    [Fact]
+    public async Task GetCurrentCapabilities_RejectsSnapshotFromPreviousConfiguredGame()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = await AddServer(context, GameType.CallOfDuty4x);
+        var api = (IRuleConnectionBindingsApi)new RuleConnectionBindingsController(context);
+        var snapshot = CreateSnapshot(gameServerId, CreateRuntime(), 1, [], GameType.CallOfDuty4x) with
+        {
+            IntegrationCapabilities = ["rcon.player.drop"]
+        };
+        Assert.Equal(HttpStatusCode.OK, (await api.ObserveSnapshot(gameServerId, snapshot)).StatusCode);
+
+        var server = await context.GameServers.Where(item => item.GameServerId == gameServerId).SingleAsync();
+        server.GameType = (int)GameType.CallOfDuty2;
+        await context.SaveChangesAsync();
+
+        var result = await api.GetCurrentCapabilities(gameServerId);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(result.Result!.Data!.HasFreshStatus);
+        Assert.Empty(result.Result.Data.IntegrationCapabilities);
+        Assert.Empty(result.Result.Data.RuntimeCapabilities);
+        Assert.Null(result.Result.Data.Runtime);
+        Assert.Equal(Guid.Empty, result.Result.Data.SnapshotId);
+        Assert.Equal(0, result.Result.Data.SequenceId);
     }
 
     [Fact]

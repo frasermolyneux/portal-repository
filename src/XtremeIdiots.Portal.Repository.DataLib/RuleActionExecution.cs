@@ -26,10 +26,10 @@ public partial class RuleActionExecution
     [Unicode(false)]
     public string LogicalEffectId { get; set; } = null!;
 
-    [StringLength(64)]
+    [StringLength(128)]
     public string ActionId { get; set; } = null!;
 
-    [StringLength(64)]
+    [StringLength(128)]
     public string ActionTypeId { get; set; } = null!;
 
     public string ParametersJson { get; set; } = null!;

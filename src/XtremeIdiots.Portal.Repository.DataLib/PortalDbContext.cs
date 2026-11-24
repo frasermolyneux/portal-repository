@@ -125,13 +125,9 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.AdminActionId).HasName("PK_dbo.AdminActions");
 
-            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_ActiveBan")
-                .IsUnique()
-                .HasFilter("[Source] = 1 AND [AutomationIsActive] = 1 AND [Type] IN (3, 4)");
+            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_ActiveBan").HasFilter("[Source] = 1 AND [AutomationIsActive] = 1 AND [Type] IN (3, 4)");
 
-            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_NonBan")
-                .IsUnique()
-                .HasFilter("[Source] = 1 AND [Type] IN (0, 1, 2)");
+            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_NonBan").HasFilter("[Source] = 1 AND [Type] IN (0, 1, 2)");
 
             entity.Property(e => e.AdminActionId).HasDefaultValueSql("newsequentialid()");
 
@@ -585,7 +581,9 @@ public partial class PortalDbContext : DbContext
             entity.Property(e => e.ActionExecutionId).ValueGeneratedNever();
             entity.Property(e => e.LogicalEffectId).IsFixedLength();
 
-            entity.HasOne(d => d.AdminAction).WithOne(p => p.RuleActionExecution).HasConstraintName("FK_RuleActionExecutions_AdminActions");
+            entity.HasOne(d => d.AdminAction).WithOne(p => p.RuleActionExecution)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_RuleActionExecutions_AdminActions");
 
             entity.HasOne(d => d.Execution).WithMany(p => p.RuleActionExecutions).HasConstraintName("FK_RuleActionExecutions_Executions");
         });

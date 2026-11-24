@@ -14,6 +14,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -177,6 +178,8 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                 GameServerId = gameServerId,
                 ConnectionId = request.Trigger.ConnectionId,
                 TriggerOccurrenceId = request.Trigger.TriggerOccurrenceId,
+                GameType = (int)request.Trigger.GameType,
+                PlayerGuid = NormalizeGuid(request.Trigger.PlayerGuid),
                 FeatureId = request.FeatureId,
                 SiegeSessionId = request.SiegeSessionId,
                 RuleSetRevision = request.RuleSetRevision,
@@ -371,7 +374,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
         Guid gameServerId, Guid executionId, string actionId, EnsureRuleActionAdminActionDto request, CancellationToken cancellationToken)
     {
         if (gameServerId == Guid.Empty || executionId == Guid.Empty ||
-            string.IsNullOrWhiteSpace(actionId) || actionId.Length > 64 ||
+            string.IsNullOrWhiteSpace(actionId) || actionId.Length > RuleSetConstants.MaxIdLength ||
             request is null || request.ExpectedVersion <= 0 ||
             !ValidLogicalEffectId(request.LogicalEffectId) ||
             string.IsNullOrWhiteSpace(request.Text) ||
@@ -527,7 +530,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
     async Task<ApiResult<RuleActionClaimResultDto>> IRuleExecutionsApi.UpdateActionOutcome(
         Guid gameServerId, Guid executionId, string actionId, UpdateRuleActionOutcomeDto request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(actionId) || actionId.Length > 64 || request?.Result is null ||
+        if (string.IsNullOrWhiteSpace(actionId) || actionId.Length > RuleSetConstants.MaxIdLength || request?.Result is null ||
             request.ExpectedVersion <= 0 || !ValidOutcome(request.Result.Outcome) ||
             request.Result.Detail is { Length: > 1024 } ||
             request.AdminActionId == Guid.Empty ||
@@ -1106,11 +1109,11 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             command.Effect is not null && command.Effect.Type is RuleNativeEffectType.Unknown or
                 RuleNativeEffectType.DropPlayer or RuleNativeEffectType.PublicMessage or RuleNativeEffectType.PrivateMessage &&
             command.LogicalEffectId == request.LogicalEffectId &&
-            !string.IsNullOrWhiteSpace(command.ActionId) && command.ActionId.Length <= 64 &&
+            !string.IsNullOrWhiteSpace(command.ActionId) && command.ActionId.Length <= RuleSetConstants.MaxIdLength &&
             correlation is not null && correlation.ConnectionId == command.ConnectionId &&
             correlation.ActionId == command.ActionId && !string.IsNullOrWhiteSpace(correlation.FeatureId) &&
             correlation.FeatureId.Length <= 64 && !string.IsNullOrWhiteSpace(correlation.RuleId) &&
-            correlation.RuleId.Length <= 64;
+            correlation.RuleId.Length <= RuleSetConstants.MaxIdLength;
     }
 
     private static bool SameLogicalAction(

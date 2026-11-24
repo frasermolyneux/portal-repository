@@ -111,6 +111,11 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
             }
 
             var effectiveSettings = SiegeModeSettingsMerger.Merge(settings, serverOverride);
+            var frozenSettings = SiegeModeSettingsMerger.Freeze(effectiveSettings);
+            if (!new SiegeModeSettingsValidator().Validate(frozenSettings).IsValid)
+            {
+                return new ApiResult<SiegeSessionDto>(HttpStatusCode.Conflict);
+            }
             if (!effectiveSettings.Enabled)
             {
                 return new ApiResult<SiegeSessionDto>(HttpStatusCode.Conflict);
@@ -119,7 +124,6 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
             {
                 return new ApiResult<SiegeSessionDto>(HttpStatusCode.Conflict);
             }
-            var frozenSettings = SiegeModeSettingsMerger.Freeze(effectiveSettings);
 
             if (active is not null)
             {

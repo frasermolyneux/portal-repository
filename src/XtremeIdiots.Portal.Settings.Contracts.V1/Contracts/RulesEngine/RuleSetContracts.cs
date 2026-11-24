@@ -203,6 +203,11 @@ public sealed class RuleSetValidator
         }
 
         ValidateCommon(document.SchemaVersion, document.FeatureId, options.FeatureId, result);
+        if (document.ExtensionData?.Keys.Any(key =>
+                string.Equals(key, "enabled", StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            result.Errors.Add("enabled is not valid on a server override; use enabledOverride.");
+        }
         if (!Enum.IsDefined(document.EnabledOverride) || document.EnabledOverride == FeatureEnablementOverride.Unknown)
         {
             result.Errors.Add("enabledOverride must be Inherit, Enabled, or Disabled.");

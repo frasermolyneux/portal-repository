@@ -349,8 +349,8 @@ captures baseline membership timestamps from the observed player/IP history; rul
 the selected session's GUID/IP baseline timestamps separately from observed-history timestamps.
 Existing baseline rows are backfilled from retained player/IP observations, falling back to session
 activation time when older records lack a source timestamp. New baseline records capture the
-earliest observation timestamp available at activation. Ended or expired session baselines remain
-with the retained session history.
+earliest observation timestamp available at activation. Ended or expired session baselines are removed by Siege maintenance pruning; they are not
+guaranteed to remain for the full lifetime of retained session history.
 
 Siege's generic repository API signatures are in `ISiegeModeApi`: `GetBaseline(gameServerId,
 sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; `ClaimAction` and

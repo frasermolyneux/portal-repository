@@ -64,6 +64,24 @@ public sealed class VpnProtectionSettingsTests
     }
 
     [Fact]
+    public void ServerOverrideRejectsLegacyEnabledProperty()
+    {
+        const string legacy = """
+            {
+              "schemaVersion": 1,
+              "featureId": "vpn-protection",
+              "enabled": true,
+              "rules": [],
+              "ruleOverrides": []
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<VpnProtectionServerSettingsDocument>(legacy, JsonOptions)!;
+
+        Assert.False(new VpnProtectionSettingsValidator().ValidateServerOverride(document).IsValid);
+    }
+
+    [Fact]
     public void UnknownConditionActionTypeAndParametersRoundtripWithoutLoss()
     {
         const string input = """

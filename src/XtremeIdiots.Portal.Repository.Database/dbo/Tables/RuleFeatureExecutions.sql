@@ -4,6 +4,8 @@ CREATE TABLE [dbo].[RuleFeatureExecutions]
     [GameServerId] UNIQUEIDENTIFIER NOT NULL,
     [ConnectionId] UNIQUEIDENTIFIER NOT NULL,
     [TriggerOccurrenceId] UNIQUEIDENTIFIER NOT NULL,
+    [GameType] INT NOT NULL,
+    [PlayerGuid] NVARCHAR(50) NULL,
     [FeatureId] NVARCHAR(64) NOT NULL,
     [SiegeSessionId] UNIQUEIDENTIFIER NULL,
     [RuleSetRevision] NVARCHAR(128) NOT NULL,
@@ -29,3 +31,6 @@ CREATE UNIQUE INDEX [IX_RuleFeatureExecutions_ConnectionFeatureSession]
 GO
 CREATE INDEX [IX_RuleFeatureExecutions_Connection]
     ON [dbo].[RuleFeatureExecutions]([GameServerId], [ConnectionId], [CreatedAtUtc] DESC);
+GO
+CREATE INDEX [IX_RuleFeatureExecutions_Player]
+    ON [dbo].[RuleFeatureExecutions]([GameType], [PlayerGuid]);
