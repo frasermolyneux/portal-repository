@@ -9,6 +9,46 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public sealed class RuleProtocolSerializationTests
 {
     [Fact]
+    public void BindingSnapshotUsesAgentIdentityWithNullableGeneration()
+    {
+        var snapshot = new RuleConnectionStatusSnapshotDto
+        {
+            GameType = GameType.CallOfDuty4,
+            Runtime = new RuleRuntimeDescriptor
+            {
+                Id = "server-agent",
+                IdentityModel = RuleRuntimeIdentityModel.AgentObservedConnection,
+                InstanceId = Guid.NewGuid(),
+                StartedAtUtc = DateTimeOffset.UtcNow
+            },
+            Players =
+            [
+                new RuleConnectionStatusPlayerDto
+                {
+                    SlotId = 3,
+                    PlayerGuid = "agent-player",
+                    State = RuleConnectionState.Connected,
+                    ConnectionId = Guid.NewGuid(),
+                    ConnectionGeneration = null
+                }
+            ]
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            snapshot,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var document = JsonDocument.Parse(json);
+        var runtime = document.RootElement.GetProperty("runtime");
+        var player = document.RootElement.GetProperty("players")[0];
+
+        Assert.Equal("AgentObservedConnection", runtime.GetProperty("identityModel").GetString());
+        Assert.Equal("Connected", player.GetProperty("state").GetString());
+        Assert.True(player.GetProperty("connectionGeneration").ValueKind == JsonValueKind.Null);
+        Assert.Contains(typeof(RuleConnectionBindingDto).Assembly.GetExportedTypes(),
+            type => type == typeof(RuleServerCapabilitiesDto));
+    }
+
+    [Fact]
     public void TriggerUsesEstablishedGameTypeNamesWithBothSerializers()
     {
         var trigger = new RuleTriggerEnvelope
