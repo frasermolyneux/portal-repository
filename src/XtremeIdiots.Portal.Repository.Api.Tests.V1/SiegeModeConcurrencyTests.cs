@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.SiegeMode;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
 using Xunit;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
@@ -26,6 +29,7 @@ public sealed class SiegeModeConcurrencyTests
             await using var setup = new PortalDbContext(options);
             var server = new GameServer { Title = "Test", Hostname = "test", BanFileRootPath = "/", GameType = 1 };
             setup.GameServers.Add(server);
+            setup.GlobalConfigurations.Add(CreateEnabledSiegeConfiguration());
             await setup.SaveChangesAsync();
 
             var firstId = Guid.NewGuid();
@@ -83,6 +87,7 @@ public sealed class SiegeModeConcurrencyTests
             var player = new Player { PlayerId = Guid.NewGuid(), GameType = 1, Guid = "old", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             context.GameServers.Add(server);
             context.Players.Add(player);
+            context.GlobalConfigurations.Add(CreateEnabledSiegeConfiguration());
             await context.SaveChangesAsync();
             var controller = new SiegeModeController(context);
             var sessionId = Guid.NewGuid();
@@ -182,6 +187,7 @@ public sealed class SiegeModeConcurrencyTests
             var retained = new Player { PlayerId = Guid.NewGuid(), GameType = 1, Guid = "retained", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             context.GameServers.Add(server);
             context.Players.AddRange(deleted, retained);
+            context.GlobalConfigurations.Add(CreateEnabledSiegeConfiguration());
             context.PlayerIpAddresses.AddRange(
                 new PlayerIpAddress { PlayerId = deleted.PlayerId, Address = "192.0.2.1", Added = DateTime.UtcNow, LastUsed = DateTime.UtcNow },
                 new PlayerIpAddress { PlayerId = deleted.PlayerId, Address = "192.0.2.2", Added = DateTime.UtcNow, LastUsed = DateTime.UtcNow },
@@ -258,6 +264,7 @@ public sealed class SiegeModeConcurrencyTests
             var player = new Player { PlayerId = Guid.NewGuid(), GameType = 1, Guid = "deleted", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             setup.GameServers.Add(server);
             setup.Players.Add(player);
+            setup.GlobalConfigurations.Add(CreateEnabledSiegeConfiguration());
             setup.PlayerIpAddresses.Add(new PlayerIpAddress
             {
                 PlayerId = player.PlayerId,
@@ -307,6 +314,7 @@ public sealed class SiegeModeConcurrencyTests
             var player = new Player { PlayerId = Guid.NewGuid(), GameType = 1, Guid = "deleted", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
             setup.GameServers.Add(server);
             setup.Players.Add(player);
+            setup.GlobalConfigurations.Add(CreateEnabledSiegeConfiguration());
             setup.PlayerIpAddresses.Add(new PlayerIpAddress
             {
                 PlayerId = player.PlayerId,
@@ -383,6 +391,7 @@ public sealed class SiegeModeConcurrencyTests
             await using var setup = new PortalDbContext(options);
             var server = new GameServer { Title = "Test", Hostname = "test", BanFileRootPath = "/", GameType = 1 };
             setup.GameServers.Add(server);
+            setup.GlobalConfigurations.Add(CreateEnabledSiegeConfiguration());
             await setup.SaveChangesAsync();
             var sessionId = Guid.NewGuid();
             await new SiegeModeController(setup).StartSession(server.GameServerId, new StartSiegeSessionDto
@@ -419,4 +428,41 @@ public sealed class SiegeModeConcurrencyTests
             Assert.Contains(results[1], new int?[] { 200, 409 });
             Assert.Equal(409, await Claim(claim with { ActionId = Guid.NewGuid(), ConnectionId = Guid.NewGuid() }));
         });
+
+    private static GlobalConfiguration CreateEnabledSiegeConfiguration() => new()
+    {
+        Namespace = SiegeModeSettingsConstants.Namespace,
+        Configuration = JsonSerializer.Serialize(
+            new SiegeModeSettingsDocument
+            {
+                Enabled = true,
+                Rules =
+                [
+                    new RuleDefinition
+                    {
+                        Id = "new-guid",
+                        Enabled = true,
+                        Order = 0,
+                        Condition = new RuleConditionNode
+                        {
+                            ConditionId = "player.first-seen-guid",
+                            Parameters = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                                """{"operator":"IsNew","referenceScope":"ObservedHistory"}""")
+                        },
+                        Actions =
+                        [
+                            new RuleActionDefinition
+                            {
+                                Id = "kick",
+                                TypeId = "player.kick",
+                                Parameters = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                                    """{"reason":"test"}""")!
+                            }
+                        ]
+                    }
+                ]
+            },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+        LastModifiedUtc = DateTime.UtcNow
+    };
 }

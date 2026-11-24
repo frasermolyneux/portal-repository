@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Newtonsoft.Json.Linq;
 using XtremeIdiots.Portal.Repository.DataLib;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
 
 namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1;
 
@@ -16,6 +19,48 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
         factory.SeedDatabase(db =>
         {
             db.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Server", Hostname = "localhost", BanFileRootPath = "/", GameType = 1 });
+            db.GlobalConfigurations.Add(new GlobalConfiguration
+            {
+                Namespace = SiegeModeSettingsConstants.Namespace,
+                Configuration = JsonSerializer.Serialize(
+                    new SiegeModeSettingsDocument
+                    {
+                        Enabled = true,
+                        Rules =
+                        [
+                            new RuleDefinition
+                            {
+                                Id = "new-guid",
+                                Enabled = true,
+                                Order = 0,
+                                Condition = new RuleConditionNode
+                                {
+                                    ConditionId = "player.first-seen-guid",
+                                    Parameters = new Dictionary<string, JsonElement>
+                                    {
+                                        ["operator"] = JsonSerializer.SerializeToElement("IsNew"),
+                                        ["referenceScope"] = JsonSerializer.SerializeToElement("SiegeBaseline")
+                                    }
+                                },
+                                Actions =
+                                [
+                                    new RuleActionDefinition
+                                    {
+                                        Id = "record",
+                                        TypeId = "moderation.observation",
+                                        Parameters = new Dictionary<string, JsonElement>
+                                        {
+                                            ["reason"] = JsonSerializer.SerializeToElement("Test observation")
+                                        }
+                                    }
+                                ],
+                                AfterMatch = RuleAfterMatch.StopProcessingRules
+                            }
+                        ]
+                    },
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                LastModifiedUtc = DateTime.UtcNow
+            });
             db.SaveChanges();
         });
         using var client = factory.CreateClient();

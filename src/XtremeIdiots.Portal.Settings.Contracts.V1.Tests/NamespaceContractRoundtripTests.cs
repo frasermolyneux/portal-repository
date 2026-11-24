@@ -629,20 +629,26 @@ public sealed class NamespaceContractRoundtripTests
         };
         var malformedVpnProtection = new VpnProtectionSettingsDocument
         {
+            Rules = [null!]
+        };
+        var malformedVpnProtectionOverride = new VpnProtectionServerSettingsDocument
+        {
             Rules = [null!],
-            RuleOverrides = [null!],
-            ExcludedPlayerTags = null!
+            RuleOverrides = [null!]
         };
 
         var broadcastException = Record.Exception(() => new BroadcastSettingsValidator().Validate(malformedBroadcasts));
         var chatException = Record.Exception(() => new ChatCommandSettingsValidator().Validate(malformedChatCommands));
         var welcomeException = Record.Exception(() => new WelcomeMessageSettingsValidator().Validate(malformedWelcomeMessages));
         var vpnProtectionException = Record.Exception(() => new VpnProtectionSettingsValidator().Validate(malformedVpnProtection));
+        var vpnProtectionOverrideException = Record.Exception(() =>
+            new VpnProtectionSettingsValidator().ValidateServerOverride(malformedVpnProtectionOverride));
 
         Assert.Null(broadcastException);
         Assert.Null(chatException);
         Assert.Null(welcomeException);
         Assert.Null(vpnProtectionException);
+        Assert.Null(vpnProtectionOverrideException);
     }
 
     [Fact]

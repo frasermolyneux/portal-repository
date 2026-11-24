@@ -40,6 +40,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             var client = scope.ServiceProvider.GetRequiredService<IRepositoryApiClient>();
             Assert.NotNull(client);
             Assert.NotNull(client.SiegeMode.V1);
+            Assert.NotNull(client.RuleExecutions.V1);
+            Assert.NotNull(client.RuleConnectionBindings.V1);
         }
 
         /// <summary>
@@ -243,6 +245,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
             typeof(IGameTrackerBannerApi),
             typeof(IMapsApi),
             typeof(IConnectedPlayersApi),
+            typeof(IRuleExecutionsApi),
+            typeof(IRuleConnectionBindingsApi),
             typeof(IPlayerAnalyticsApi),
             typeof(IPlayersApi),
             typeof(IRecentPlayersApi),

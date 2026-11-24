@@ -22,6 +22,9 @@ Post-Deployment Script Template
 -- Backfill new BanFileMonitor status columns and GameServer.BanFileRootPath
 :r .\Script.PostDeploymentBanFileMonitors.sql
 
+-- Backfill timestamped Siege baseline facts for existing sessions
+:r .\Script.PostDeploymentSiegeBaselineTimestamps.sql
+
 -- Idempotent Full Text setup (catalog + indexes) - safe if objects already exist
 IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'PortalFTCatalog')
 BEGIN

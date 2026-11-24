@@ -1,95 +1,89 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
-using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
 
 public static class SiegeModeSettingsConstants
 {
     public const string Namespace = "siegeMode";
+    public const string FeatureId = RulesEngineCatalogueV1.SiegeModeFeature;
     public const int DefaultDurationMinutes = 240;
-    public const int MaxConditionDepth = 8;
-    public const int MaxConditionsPerRule = 100;
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SiegeConditionGroupOperator
+public sealed class SiegeModeSettingsDocument : FeatureRuleSetDocument
 {
-    Unknown = 0,
-    And,
-    Or
+    public SiegeModeSettingsDocument()
+    {
+        FeatureId = SiegeModeSettingsConstants.FeatureId;
+        Enabled = false;
+        DurationMinutes = SiegeModeSettingsConstants.DefaultDurationMinutes;
+    }
+
+    public int DurationMinutes { get; set; }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SiegePlayerSignal
+public sealed class SiegeModeServerSettingsOverrideDocument : FeatureRuleSetOverrideDocument
 {
-    Unknown = 0,
-    NewGuid,
-    NewIp,
-    PlayerTag
+    public SiegeModeServerSettingsOverrideDocument()
+    {
+        FeatureId = SiegeModeSettingsConstants.FeatureId;
+        EnabledOverride = FeatureEnablementOverride.Inherit;
+    }
+
+    public int? DurationMinutesOverride { get; set; }
 }
 
-public sealed class SiegeModeSettingsDocument
+public sealed class SiegeModeSettingsValidator
 {
-    public int SchemaVersion { get; set; } = SchemaVersionSupport.CurrentSchemaVersion;
-    public int DurationMinutes { get; set; } = SiegeModeSettingsConstants.DefaultDurationMinutes;
-    public List<SiegeModeRule> Rules { get; set; } = CreateDefaultRules();
+    private static readonly RuleSetValidationOptions Options =
+        RuleSetValidationOptions.ForFeature(SiegeModeSettingsConstants.FeatureId);
 
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
-
-    private static List<SiegeModeRule> CreateDefaultRules() =>
-    [
-        new()
+    public SettingsValidationResult Validate(SiegeModeSettingsDocument? document)
+    {
+        var result = new RuleSetValidator().Validate(document, Options);
+        if (document is not null && document.DurationMinutes <= 0)
         {
-            Id = "new-guid",
-            Condition = new() { PlayerSignal = SiegePlayerSignal.NewGuid, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" }
-        },
-        new()
-        {
-            Id = "new-vpn-ip",
-            Condition = new()
-            {
-                GroupOperator = SiegeConditionGroupOperator.And,
-                Conditions =
-                [
-                    new()
-                    {
-                        GroupOperator = SiegeConditionGroupOperator.Or,
-                        Conditions =
-                        [
-                            new() { Signal = VpnProtectionSignal.ProxyCheckIsVpn, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" },
-                            new() { Signal = VpnProtectionSignal.MaxMindIsAnonymousVpn, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" }
-                        ]
-                    },
-                    new() { PlayerSignal = SiegePlayerSignal.NewIp, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" },
-                    new() { PlayerSignal = SiegePlayerSignal.PlayerTag, Operator = VpnProtectionComparisonOperator.NotEqual, ExpectedValue = "vpn-exempt" }
-                ]
-            }
+            result.Errors.Add("durationMinutes must be positive.");
         }
-    ];
+        return result;
+    }
+
+    public SettingsValidationResult ValidateServerOverride(SiegeModeServerSettingsOverrideDocument? document)
+    {
+        var result = new RuleSetValidator().ValidateOverride(document, Options);
+        if (document?.DurationMinutesOverride is <= 0)
+        {
+            result.Errors.Add("durationMinutesOverride must be positive when provided.");
+        }
+        return result;
+    }
 }
 
-public sealed class SiegeModeRule
+public sealed record EffectiveSiegeModeSettings(
+    string FeatureId,
+    bool Enabled,
+    int DurationMinutes,
+    IReadOnlyList<RuleDefinition> Rules);
+
+public static class SiegeModeSettingsMerger
 {
-    public string Id { get; set; } = string.Empty;
-    public bool Enabled { get; set; } = true;
-    public SiegeModeCondition? Condition { get; set; }
+    public static EffectiveSiegeModeSettings Merge(
+        SiegeModeSettingsDocument global,
+        SiegeModeServerSettingsOverrideDocument? serverOverride)
+    {
+        var effective = FeatureRuleSetMerger.Merge(global, serverOverride);
+        return new EffectiveSiegeModeSettings(
+            effective.FeatureId,
+            effective.Enabled,
+            serverOverride?.DurationMinutesOverride ?? global.DurationMinutes,
+            effective.Rules);
+    }
 
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
-}
-
-public sealed class SiegeModeCondition
-{
-    public SiegeConditionGroupOperator? GroupOperator { get; set; }
-    public List<SiegeModeCondition>? Conditions { get; set; }
-    public VpnProtectionSignal? Signal { get; set; }
-    public SiegePlayerSignal? PlayerSignal { get; set; }
-    public VpnProtectionComparisonOperator? Operator { get; set; }
-    public string? ExpectedValue { get; set; }
-
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+    public static SiegeModeSettingsDocument Freeze(EffectiveSiegeModeSettings settings) => new()
+    {
+        FeatureId = settings.FeatureId,
+        Enabled = settings.Enabled,
+        DurationMinutes = settings.DurationMinutes,
+        Rules = settings.Rules.ToList()
+    };
 }
