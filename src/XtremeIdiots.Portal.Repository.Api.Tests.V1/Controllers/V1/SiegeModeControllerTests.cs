@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,8 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.SiegeMode;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
@@ -18,6 +21,7 @@ public sealed class SiegeModeControllerTests
     public async Task ClaimAction_RespectsModeAndDeduplicates(SiegeSessionMode mode, bool shouldDispatch, string outcome)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
         await context.SaveChangesAsync();
@@ -67,6 +71,7 @@ public sealed class SiegeModeControllerTests
     public async Task ClaimAction_MatchesTrimmedConfiguredRuleId()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
@@ -99,6 +104,7 @@ public sealed class SiegeModeControllerTests
     public async Task LifecycleResponses_IncludeExistingActionCount()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
@@ -134,6 +140,7 @@ public sealed class SiegeModeControllerTests
     public async Task ActionOutcome_IsIdempotentAndRejectsConflictingCallbacks()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
@@ -179,6 +186,7 @@ public sealed class SiegeModeControllerTests
     public async Task ChangedOrDeletedServer_DoesNotPermitNewClaims(bool deleted)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var server = new GameServer { GameServerId = Guid.NewGuid(), Title = "Test", Hostname = "localhost" };
         context.GameServers.Add(server);
         await context.SaveChangesAsync();
@@ -219,6 +227,7 @@ public sealed class SiegeModeControllerTests
     public async Task AuditSearch_OnlyReturnsRequestedServers()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var firstServer = Guid.NewGuid();
         var secondServer = Guid.NewGuid();
         context.GameServers.AddRange(
@@ -257,6 +266,7 @@ public sealed class SiegeModeControllerTests
     public async Task ActionSummary_GroupsAllRetainedMatchesByModeAndOutcome()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         var otherServerId = Guid.NewGuid();
         context.GameServers.AddRange(
@@ -334,6 +344,7 @@ public sealed class SiegeModeControllerTests
     public async Task UnknownConnectionCheck_IsAuditedWithoutDispatch()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
@@ -367,6 +378,7 @@ public sealed class SiegeModeControllerTests
     public async Task Baseline_RemainsStableAfterNewHistoryAndPruning()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context);
         var serverId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
         context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost", GameType = 1 });
@@ -404,10 +416,130 @@ public sealed class SiegeModeControllerTests
         Assert.Null(otherGame.NewIp);
     }
 
+    [Fact]
+    public async Task StartSession_UsesEffectiveServerEnablementDurationAndFrozenRules()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context, enabled: false);
+        var serverId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
+        var serverOverride = new SiegeModeServerSettingsOverrideDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Enabled,
+            DurationMinutesOverride = 30,
+            InheritGlobalRules = true
+        };
+        context.GameServerConfigurations.Add(new GameServerConfiguration
+        {
+            GameServerId = serverId,
+            Namespace = SiegeModeSettingsConstants.Namespace,
+            Configuration = JsonSerializer.Serialize(serverOverride, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var result = await new SiegeModeController(context).StartSession(serverId, new StartSiegeSessionDto
+        {
+            OperationId = Guid.NewGuid(),
+            Actor = "admin",
+            ExpectedDurationMinutes = 30,
+            Mode = SiegeSessionMode.DryRun
+        });
+
+        Assert.Equal(201, Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode);
+        var session = await context.SiegeSessions.SingleAsync();
+        var frozen = JsonSerializer.Deserialize<SiegeModeSettingsDocument>(
+            session.SettingsJson, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        Assert.True(frozen.Enabled);
+        Assert.Equal(30, frozen.DurationMinutes);
+        Assert.Equal("new-guid", Assert.Single(frozen.Rules).Id);
+        Assert.Equal(TimeSpan.FromMinutes(30), session.ExpiresAtUtc - session.StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task StartSession_RejectsEffectivelyDisabledFeature()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        await SeedSiegeSettings(context, enabled: true);
+        var serverId = Guid.NewGuid();
+        context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost" });
+        var serverOverride = new SiegeModeServerSettingsOverrideDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Disabled,
+            InheritGlobalRules = true
+        };
+        context.GameServerConfigurations.Add(new GameServerConfiguration
+        {
+            GameServerId = serverId,
+            Namespace = SiegeModeSettingsConstants.Namespace,
+            Configuration = JsonSerializer.Serialize(serverOverride, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var result = await new SiegeModeController(context).StartSession(serverId, new StartSiegeSessionDto
+        {
+            OperationId = Guid.NewGuid(),
+            Actor = "admin",
+            ExpectedDurationMinutes = 240,
+            Mode = SiegeSessionMode.DryRun
+        });
+
+        Assert.Equal(409, Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode);
+        Assert.Empty(context.SiegeSessions);
+    }
+
     private static T Payload<T>(IActionResult result)
     {
         var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
         Assert.Equal(200, objectResult.StatusCode);
         return Assert.IsType<ApiResponse<T>>(objectResult.Value).Data!;
+    }
+
+    private static async Task SeedSiegeSettings(PortalDbContext context, bool enabled = true)
+    {
+        var settings = new SiegeModeSettingsDocument
+        {
+            Enabled = enabled,
+            DurationMinutes = 240,
+            Rules =
+            [
+                new RuleDefinition
+                {
+                    Id = "new-guid",
+                    Enabled = true,
+                    Order = 0,
+                    Condition = new RuleConditionNode
+                    {
+                        ConditionId = "player.first-seen-guid",
+                        Parameters = new Dictionary<string, JsonElement>
+                        {
+                            ["operator"] = JsonSerializer.SerializeToElement("IsNew"),
+                            ["referenceScope"] = JsonSerializer.SerializeToElement("SiegeBaseline")
+                        }
+                    },
+                    Actions =
+                    [
+                        new RuleActionDefinition
+                        {
+                            Id = "record",
+                            TypeId = "moderation.observation",
+                            Parameters = new Dictionary<string, JsonElement>
+                            {
+                                ["reason"] = JsonSerializer.SerializeToElement("Test observation")
+                            }
+                        }
+                    ],
+                    AfterMatch = RuleAfterMatch.StopProcessingRules
+                }
+            ]
+        };
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = SiegeModeSettingsConstants.Namespace,
+            Configuration = JsonSerializer.Serialize(settings, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            LastModifiedUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
     }
 }

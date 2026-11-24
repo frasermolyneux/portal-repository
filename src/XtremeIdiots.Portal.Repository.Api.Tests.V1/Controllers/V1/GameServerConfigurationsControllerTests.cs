@@ -15,8 +15,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public class GameServerConfigurationsControllerTests
 {
     [Theory]
-    [InlineData("siegeMode", "{\"schemaVersion\":1,\"featureId\":\"siege-mode\",\"enabledOverride\":\"Inherit\",\"inheritGlobalRules\":true,\"rules\":[],\"ruleOverrides\":[],\"durationMinutesOverride\":60}")]
-    [InlineData("SIEGEMODE", "{\"schemaVersion\":1,\"featureId\":\"siege-mode\",\"enabledOverride\":\"Disabled\",\"inheritGlobalRules\":false,\"rules\":[],\"ruleOverrides\":[]}")]
+    [InlineData("siegeMode", /*lang=json,strict*/ """{"schemaVersion":1,"featureId":"siege-mode","enabledOverride":"Inherit","inheritGlobalRules":true,"rules":[],"ruleOverrides":[],"durationMinutesOverride":60}""")]
+    [InlineData("SIEGEMODE", /*lang=json,strict*/ """{"schemaVersion":1,"featureId":"siege-mode","enabledOverride":"Disabled","inheritGlobalRules":false,"rules":[],"ruleOverrides":[]}""")]
     public async Task UpsertConfiguration_SiegeModeServerOverride_ValidPayloadIsAccepted(string configurationNamespace, string configuration)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -459,7 +459,7 @@ public class GameServerConfigurationsControllerTests
         var api = (IGameServerConfigurationsApi)controller;
         var dto = new UpsertConfigurationDto
         {
-            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"featureId\":\"vpn-protection\",\"enabledOverride\":\"Inherit\",\"inheritGlobalRules\":true,\"rules\":[],\"ruleOverrides\":[{\"ruleId\":\"vpn\",\"actions\":[{\"id\":\"kick\",\"typeId\":\"player.kick\",\"parameters\":{}}]}]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"featureId\":\"vpn-protection\",\"enabledOverride\":\"Inherit\",\"inheritGlobalRules\":true,\"rules\":[],\"ruleOverrides\":[{\"ruleId\":\"vpn\",\"actions\":[{\"id\":\"kick\",\"typeId\":\"player.kick\",\"parameters\":{\"reason\":\"test\"}}]}]}"
         };
 
         var result = await api.UpsertConfiguration(gs.GameServerId, "vpnProtection", dto);

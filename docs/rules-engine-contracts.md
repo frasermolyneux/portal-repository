@@ -82,7 +82,7 @@ The catalogue defines these condition parameters:
 |  | `operator` | string | `ContainsAny`, `ContainsAll`, `ContainsNone` |
 | `player.first-seen-guid` | `operator` | string | `IsNew`, `IsKnown`, `Before`, `After`, `WithinAge` |
 |  | `value` | string | ISO date-time or duration; required by date/age comparisons |
-|  | `referenceScope` | string | Required: `ObservedHistory` or `SiegeBaseline` |
+|  | `referenceScope` | string | Required: `ObservedHistory` for VPN or Siege; `SiegeBaseline` for Siege only |
 | `player.first-seen-ip` | same as GUID |  | IP identity is cross-game |
 | `player.profile-age` | `operator` | string | `LessThan`, `LessThanOrEqual`, `GreaterThan`, `GreaterThanOrEqual` |
 |  | `duration` | string | Required duration |
@@ -135,14 +135,36 @@ processing even when all its actions were skipped. Other features continue indep
 The logical effect identity is SHA-256 over game-server ID, connection ID, feature ID, optional
 Siege session ID, rule ID, and action ID. Trigger ID, trigger occurrence ID, and rule-set revision
 are evidence, not deduplication components. The same action cannot be replayed by a later
-IP-resolution trigger or configuration revision on the same connection. Frozen trigger/rules,
-decision, and execution cursor are stored before an action is claimed. A pending remote result
-blocks only its feature execution until correlated outcome continuation.
+IP-resolution trigger or configuration revision on the same connection. The durable feature cursor
+is keyed by game-server ID, connection ID, feature ID, and optional Siege session ID. Repeated starts
+return the original frozen trigger/rules and cursor, even when the observation occurrence or current
+configuration changes; a different runtime/player/slot identity for that connection conflicts.
+Frozen trigger/rules, decision, and execution cursor are stored before an action is claimed. A pending
+remote result blocks only its feature execution until correlated outcome continuation.
+
+`DecisionSnapshotJson.contextTrigger` may hold the latest complete trigger envelope plus
+`contextObservedAtUtc`. This continuation context may be `player.connected` or `player.ip-resolved`;
+its server, game, connection, player GUID, slot, connection generation, and runtime identity must match
+the immutable original trigger. Its observation and occurrence IDs must be nonempty, and its UTC
+occurrence time must not predate the original or exceed the current time by more than 30 seconds.
+Runtime capabilities may reflect the latest proven observation. Claims use the persisted context
+occurrence/trigger when present and otherwise the original trigger; the execution's original trigger
+is never replaced.
+
+The claimed logical `ActionTypeId` and `ParametersJson` are resolved from the frozen rule/action at
+the submitted cursor after validating the correlation's rule and action IDs. The native
+`RuleActionCommand.Effect` is stored separately and must match the catalogue action's native effect;
+it is not substituted for the logical action type or its frozen parameters.
 
 Native protocol routes owned by server-events are `POST /rules/evaluate`,
 `POST /rules/outcomes`, and `POST /rules/poll`. The evaluate request body is the trigger envelope;
 the outcome body is a result; the poll body includes the connection safety identity and execution
-IDs. Evaluate response shape is `{ protocolVersion, commands, executionIds }`.
+IDs. Evaluate response shape is `{ protocolVersion, commands, executionIds, retryTrigger }`.
+`retryTrigger` is always serialized as a boolean and defaults to `false`. Evaluation sets it to
+`true` only when a feature provider fails before starting a durable execution; healthy commands and
+execution IDs remain in the same response. The plugin consumes those healthy results and retries the
+same observation/occurrence on its existing backoff, stopping at the original 120-second deadline or
+earlier connection/IP invalidation.
 
 Every trigger, command, and result has `protocolVersion: 1`. JSON uses camelCase. A trigger
 contains `observationId`, `triggerId`, `triggerOccurrenceId`, `occurredAtUtc`, `gameServerId`,
@@ -235,23 +257,91 @@ unconfirmed; the repository binding is not an atomic RCON generation check.
 V1 Repository API signatures live in `IRuleExecutionsApi`:
 
 - `StartExecution(gameServerId, StartRuleFeatureExecutionDto)` freezes the original trigger and
-  rule set and gets/creates the per-feature connection execution.
+  rule set and gets/creates the canonical execution for that server, connection, feature, and
+  optional Siege session. Repeated starts return the existing execution without replacing its
+  original frozen trigger, rule set, or cursor.
 - `GetExecution(gameServerId, executionId)` returns frozen trigger, rules, cursor, decision, and
   action claims/outcomes for safe resume.
 - `UpdateProgress(gameServerId, executionId, UpdateRuleFeatureExecutionProgressDto)` persists
-  non-match, Unknown, stop, and decision state using an expected version.
-- `ClaimAction(gameServerId, executionId, ClaimRuleActionDto)` claims a logical action identity.
+  non-match, Unknown, stop, decision state, and optional `contextTrigger` using an expected version.
+- `ClaimAction(gameServerId, executionId, ClaimRuleActionDto)` validates the correlation against the
+  persisted context trigger and claims the frozen logical action type/parameters separately from its
+  native effect.
+- `EnsureRuleActionAdminAction(gameServerId, executionId, actionId, EnsureRuleActionAdminActionDto)`
+  atomically creates and links a moderation record for a claimed action.
 - `UpdateActionOutcome(gameServerId, executionId, actionId, UpdateRuleActionOutcomeDto)` atomically
-  records the result and next cursor using an expected version.
+  records the result and next cursor using an expected version. The body can also link an existing
+  moderation record with `AdminActionId` and persist a separate, fully correlated `NativeEvidence`
+  result.
 - `CreateFactSnapshot(gameServerId, RuleFactSnapshotRequestDto)` snapshots GUID/profile/tag facts
   before player writes, then adds the IP fact before the corresponding IP observation write.
 
+The moderation writer route is
+`POST /v1/game-servers/{gameServerId}/rule-executions/{executionId}/actions/{actionId}/admin-action`.
+Its body contains `expectedVersion`, `logicalEffectId`, `type` (`Observation`, `Kick`, `TempBan`, or
+`Ban`),
+`text`, optional `expires`, and optional `adminId`. The player, feature, and rule are resolved from
+the persisted command/correlation. A new record and its one-to-one `AdminActionId` link are saved
+inside the same serializable transaction while the action is `Claimed`; command expiry is checked
+inside that transaction. An already-linked record is returned idempotently even after expiry. This
+operation does not advance the execution cursor or increment its version, so the caller may use the
+same expected version for the subsequent outcome update. `logicalEffectId` disambiguates repeated
+action IDs in different rules and executions.
+
+Executions persist the frozen trigger/rules, decision snapshot, progress cursor, and monotonically
+increasing version. Progress, first action claims, and cursor-moving outcomes require the current
+expected version; stale versions conflict. Idempotent evidence/link updates may use an older version
+but reject versions ahead of the current execution and never change its cursor or version. A feature
+execution cannot advance while its current action is `Claimed` or `Dispatched`; completed/stopped
+executions are terminal. A logical effect ID is a unique database key across executions.
+The first claim is atomic and dispatchable; a repeated claim returns the original action with
+`ShouldDispatch=false`, even when the later trigger occurrence or rules revision differs. Outcomes
+must echo the claimed server, execution, action, logical-effect, and correlation identities and
+must use a terminal outcome. Outcome and cursor advancement are committed together.
+Native `OccurredAtUtc` is retained as source evidence and is not required to be later than the
+cloud claim timestamp. Enforced native evidence allows up to 30 seconds of source-clock skew around
+the claim/expiry window and receipt time; late evidence is accepted only for an already-known
+correlated action and never rewinds the cursor.
+
+An `AdminActionId` link is one-to-one and idempotent; it references an Observation, Kick, TempBan,
+or Ban record for the same player GUID and game type, with matching automation source, feature, and
+rule ID. The writer accepts Observation only with an Enforce command whose native effect is
+`Unknown`; the record itself is the complete action. Its aggregate outcome may become `Applied`
+after the repository record is created. DryRun creates no admin record and reports
+`WouldExecute`.
+The optional `NativeEvidence` is a separate enforced native `Applied` result whose identities match
+the claimed command and whose occurrence is between claim time and command expiry. It may accompany
+the normal terminal aggregate update; in that case the aggregate result advances the cursor once and
+the native evidence is persisted alongside it. If the aggregate is already `OutcomeUnknown`, an
+evidence-only update echoes the current aggregate result and never changes the aggregate outcome,
+execution state, or cursor. In particular, a native Drop result does not imply that a Ban reached the
+server's ban cache; the host must leave the aggregate unknown until it explicitly confirms full
+enforcement.
+A late `Applied` result for an unlinked native action is accepted only when it occurred before
+command expiry; it does not reopen or advance an already terminal execution. For an action linked to
+an `AdminAction`, `Applied` is treated as the host's explicit aggregate confirmation. Repeated
+identical evidence is idempotent and conflicting evidence is rejected.
+
 Fact snapshots are keyed by server and connection, and return GUID-per-game and IP-global
-first-seen timestamps, profile-first-seen time, `TagIds`, and explicit source-availability flags.
-The first facts are immutable across retries; IP enrichment adds its fact once. First-seen means
-earliest observation still in repository retention, not a claim about events older than retained
-data. Siege activation captures baseline memberships and first-seen timestamps; sessions keep the
-frozen settings and baseline reference.
+first-seen timestamps, earliest pre-observation connected-profile link time (the available profile
+history timestamp in this schema), `TagIds`, and explicit source-availability flags.
+History lookups are strictly earlier than a 10 ms precision guard before `ObservedAtUtc`; this
+accounts for legacy `DATETIME` rounding and keeps the current connection/IP observation from
+establishing its own first-seen fact. The first GUID/profile/tag facts are immutable across
+retries; IP enrichment adds the first resolved IP fact once. First-seen means earliest observation
+still in repository retention, not a claim about events older than retained data. Siege activation
+captures baseline membership timestamps from the observed player/IP history; rule snapshots expose
+the selected session's GUID/IP baseline timestamps separately from observed-history timestamps.
+Existing baseline rows are backfilled from retained player/IP observations, falling back to session
+activation time when older records lack a source timestamp. New baseline records capture the
+earliest observation timestamp available at activation. Ended or expired session baselines remain
+with the retained session history.
+
+Siege's generic repository API signatures are in `ISiegeModeApi`: `GetBaseline(gameServerId,
+sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; `ClaimAction` and
+`UpdateActionOutcome` durably track Siege action lifecycle; `RecordCheck` stores an aggregate check
+outcome. `IRuleExecutionsApi.CreateFactSnapshot` provides the timestamped GUID/IP baseline and
+observed-history facts used by the shared matcher.
 
 The clean-slate reset removes only old VPN/Siege configuration and obsolete feature-owned
 execution data. It does not remove `AdminActions`, existing bans, or unrelated player data.

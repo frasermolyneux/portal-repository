@@ -38,6 +38,9 @@ public partial class SiegeSession
     [InverseProperty("SiegeSession")]
     public virtual GameServer GameServer { get; set; } = null!;
 
+    [InverseProperty("SiegeSession")]
+    public virtual ICollection<RuleFeatureExecution> RuleFeatureExecutions { get; set; } = new List<RuleFeatureExecution>();
+
     [InverseProperty("Session")]
     public virtual ICollection<SiegeAction> SiegeActions { get; set; } = new List<SiegeAction>();
 

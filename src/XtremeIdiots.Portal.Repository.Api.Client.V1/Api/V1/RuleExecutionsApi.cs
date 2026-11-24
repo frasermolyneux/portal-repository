@@ -5,6 +5,7 @@ using MX.Api.Client.Auth;
 using MX.Api.Client.Extensions;
 using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.V1;
@@ -41,6 +42,18 @@ public sealed class RuleExecutionsApi(
         ClaimRuleActionDto request,
         CancellationToken cancellationToken = default) =>
         Send<RuleActionClaimResultDto>($"v1/game-servers/{gameServerId}/rule-executions/{executionId}/actions", Method.Post, request, cancellationToken);
+
+    public Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureRuleActionAdminAction(
+        Guid gameServerId,
+        Guid executionId,
+        string actionId,
+        EnsureRuleActionAdminActionDto request,
+        CancellationToken cancellationToken = default) =>
+        Send<EnsureAutomatedActionResultDto>(
+            $"v1/game-servers/{gameServerId}/rule-executions/{executionId}/actions/{Uri.EscapeDataString(actionId)}/admin-action",
+            Method.Post,
+            request,
+            cancellationToken);
 
     public Task<ApiResult<RuleActionClaimResultDto>> UpdateActionOutcome(
         Guid gameServerId,

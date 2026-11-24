@@ -106,6 +106,11 @@
     <Build Include="dbo\Tables\PlayerSession.sql" />
     <Build Include="dbo\Tables\ServerMapRun.sql" />
     <Build Include="dbo\Tables\PlayerSessionMapSegment.sql" />
+    <Build Include="dbo\Tables\RuleConnectionStatusSnapshots.sql" />
+    <Build Include="dbo\Tables\RuleConnectionBindings.sql" />
+    <Build Include="dbo\Tables\RuleFeatureExecutions.sql" />
+    <Build Include="dbo\Tables\RuleActionExecutions.sql" />
+    <Build Include="dbo\Tables\RuleFactSnapshots.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Script.PreDeployment.sql" />
@@ -114,6 +119,7 @@
     <None Include="Scripts\Script.PostDeploymentTags.sql" />
     <None Include="Scripts\Script.PostDeploymentNotificationTypes.sql" />
     <None Include="Scripts\Script.PostDeploymentBanFileMonitors.sql" />
+    <None Include="Scripts\Script.PostDeploymentSiegeBaselineTimestamps.sql" />
     <None Include="Scripts\AlterReportsTableAnsiNulls.sql" />
   </ItemGroup>
   <ItemGroup>

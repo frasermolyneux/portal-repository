@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
@@ -144,6 +145,7 @@ public sealed record RuleEvaluationResponse
     public int ProtocolVersion { get; init; } = 1;
     public RuleActionCommand[] Commands { get; init; } = [];
     public Guid[] ExecutionIds { get; init; } = [];
+    public bool RetryTrigger { get; init; }
 }
 
 public sealed record RulePollRequest
@@ -207,9 +209,22 @@ public sealed record ClaimRuleActionDto
     public RuleActionCommand Command { get; init; } = new();
 }
 
+public sealed record EnsureRuleActionAdminActionDto
+{
+    public long ExpectedVersion { get; init; }
+    public string LogicalEffectId { get; init; } = string.Empty;
+    [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AdminActionType Type { get; init; }
+    public string Text { get; init; } = string.Empty;
+    public DateTime? Expires { get; init; }
+    public string? AdminId { get; init; }
+}
+
 public sealed record RuleActionExecutionDto
 {
     public Guid ExecutionId { get; init; }
+    public Guid? SiegeSessionId { get; init; }
     public string LogicalEffectId { get; init; } = string.Empty;
     public RuleActionCorrelation Correlation { get; init; } = new();
     public RuleActionCommand Command { get; init; } = new();
@@ -222,6 +237,8 @@ public sealed record RuleActionExecutionDto
     public DateTimeOffset? OutcomeAtUtc { get; init; }
     public string? ResultJson { get; init; }
     public string? Detail { get; init; }
+    public Guid? AdminActionId { get; init; }
+    public RuleActionResult? NativeEvidence { get; init; }
 }
 
 public sealed record RuleActionClaimResultDto
@@ -235,6 +252,8 @@ public sealed record UpdateRuleActionOutcomeDto
 {
     public long ExpectedVersion { get; init; }
     public RuleActionResult Result { get; init; } = new();
+    public Guid? AdminActionId { get; init; }
+    public RuleActionResult? NativeEvidence { get; init; }
     public int NextRuleIndex { get; init; }
     public int NextActionIndex { get; init; }
     public RuleFeatureExecutionState NextState { get; init; }
@@ -275,6 +294,7 @@ public sealed record RuleFactSnapshotDto
     public Guid[] TagIds { get; init; } = [];
     public bool GuidHistoryAvailable { get; init; }
     public bool IpHistoryAvailable { get; init; }
+    public bool ProfileHistoryAvailable { get; init; }
     public bool TagsAvailable { get; init; }
     public bool GuidBaselineAvailable { get; init; }
     public bool IpBaselineAvailable { get; init; }
