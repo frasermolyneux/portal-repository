@@ -246,6 +246,7 @@ public sealed record RuleFactSnapshotRequestDto
     public int ProtocolVersion { get; init; } = 1;
     public Guid ObservationId { get; init; }
     public Guid ConnectionId { get; init; }
+    public Guid? SiegeSessionId { get; init; }
     [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public GameType GameType { get; init; }
