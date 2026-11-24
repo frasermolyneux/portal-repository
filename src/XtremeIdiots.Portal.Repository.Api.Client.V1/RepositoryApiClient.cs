@@ -8,6 +8,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         private readonly IVersionedPlaytimeApi? playtime;
         private readonly IVersionedSiegeModeApi? siegeMode;
+        private readonly IVersionedRuleExecutionsApi? ruleExecutions;
 
         public RepositoryApiClient(
             IVersionedAdminActionsApi adminActions,
@@ -95,7 +96,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
                 playerAnalytics, players, recentPlayers, reports, userProfiles, tags, apiHealth, apiInfo,
                 notificationTypes, notificationPreferences, notifications, mapRotations, dashboard,
                 globalConfigurations, gameServerConfigurations, liveStatus, globalAnalytics, gameAnalytics,
-                serverAnalytics, dashboardAnalytics, mapAnalytics, playerAnalyticsV2, playtime, null)
+                serverAnalytics, dashboardAnalytics, mapAnalytics, playerAnalyticsV2, playtime, null, null)
         {
         }
 
@@ -135,7 +136,8 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             IVersionedMapAnalyticsApi mapAnalytics,
             IVersionedPlayerAnalyticsV2Api playerAnalyticsV2,
             IVersionedPlaytimeApi? playtime,
-            IVersionedSiegeModeApi? siegeMode)
+            IVersionedSiegeModeApi? siegeMode,
+            IVersionedRuleExecutionsApi? ruleExecutions = null)
         {
             AdminActions = adminActions;
             BanFileMonitors = banFileMonitors;
@@ -174,6 +176,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             PlayerAnalyticsV2 = playerAnalyticsV2;
             this.playtime = playtime;
             this.siegeMode = siegeMode;
+            this.ruleExecutions = ruleExecutions;
         }
 
         public IVersionedAdminActionsApi AdminActions { get; }
@@ -215,5 +218,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
             ?? throw new NotSupportedException("The legacy constructor does not configure the playtime API.");
         public IVersionedSiegeModeApi SiegeMode => siegeMode
             ?? throw new NotSupportedException("The legacy constructor does not configure the Siege Mode API.");
+        public IVersionedRuleExecutionsApi RuleExecutions => ruleExecutions
+            ?? throw new NotSupportedException("The legacy constructor does not configure the rule executions API.");
     }
 }

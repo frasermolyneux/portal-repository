@@ -1,121 +1,121 @@
 using System.Text.Json;
-using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
-using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Tests;
 
 public sealed class SiegeModeSettingsTests
 {
-    [Fact]
-    public void Defaults_RoundtripAndValidate()
-    {
-        var document = JsonSerializer.Deserialize<SiegeModeSettingsDocument>(
-            JsonSerializer.Serialize(new SiegeModeSettingsDocument()));
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-        Assert.NotNull(document);
-        Assert.Equal(240, document.DurationMinutes);
-        Assert.Equal(2, document.Rules.Count);
-        var newGuid = document.Rules[0].Condition!;
-        Assert.Equal(SiegePlayerSignal.NewGuid, newGuid.PlayerSignal);
-        Assert.Equal(RuleComparisonOperator.Equal, newGuid.Operator);
-        Assert.Equal("true", newGuid.ExpectedValue);
-        var vpnRule = document.Rules[1].Condition!;
-        Assert.Equal(RuleConditionGroupOperator.And, vpnRule.GroupOperator);
-        var conditions = Assert.IsType<List<SiegeModeCondition>>(vpnRule.Conditions);
-        Assert.Equal(3, conditions.Count);
-        Assert.Equal(RuleConditionGroupOperator.Or, conditions[0].GroupOperator);
-        Assert.Equal(
-            [VpnProtectionSignal.ProxyCheckIsVpn, VpnProtectionSignal.MaxMindIsAnonymousVpn],
-            conditions[0].Conditions!.Select(c => c.Signal!.Value));
-        Assert.All(conditions[0].Conditions!, c =>
-        {
-            Assert.Equal(RuleComparisonOperator.Equal, c.Operator);
-            Assert.Equal("true", c.ExpectedValue);
-        });
-        Assert.Equal(SiegePlayerSignal.NewIp, conditions[1].PlayerSignal);
-        Assert.Equal(RuleComparisonOperator.Equal, conditions[1].Operator);
-        Assert.Equal("true", conditions[1].ExpectedValue);
-        Assert.Equal(SiegePlayerSignal.PlayerTag, conditions[2].PlayerSignal);
-        Assert.Equal(RuleComparisonOperator.NotEqual, conditions[2].Operator);
-        Assert.Equal("vpn-exempt", conditions[2].ExpectedValue);
-        Assert.True(new SiegeModeSettingsValidator().Validate(document).IsValid);
+    [Fact]
+    public void DefaultsAreDisabledWithNoRulesAndValidLifecycleDuration()
+    {
+        var document = new SiegeModeSettingsDocument();
+        var roundtripped = JsonSerializer.Deserialize<SiegeModeSettingsDocument>(
+            JsonSerializer.Serialize(document, JsonOptions), JsonOptions)!;
+
+        Assert.False(roundtripped.Enabled);
+        Assert.Equal(240, roundtripped.DurationMinutes);
+        Assert.Empty(roundtripped.Rules);
+        Assert.True(new SiegeModeSettingsValidator().Validate(roundtripped).IsValid);
     }
 
     [Fact]
-    public void Validation_UsesExistingVpnConditionRules()
+    public void ServerOverrideMergesLocalAndGlobalRulesAndDurationWithoutChangingEnablementRules()
+    {
+        var global = new SiegeModeSettingsDocument { Enabled = true, DurationMinutes = 180, Rules = [Rule("global")] };
+        var server = new SiegeModeServerSettingsOverrideDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Enabled,
+            DurationMinutesOverride = 60,
+            InheritGlobalRules = true,
+            Rules = [Rule("local")]
+        };
+
+        var effective = SiegeModeSettingsMerger.Merge(global, server);
+        var frozen = SiegeModeSettingsMerger.Freeze(effective);
+
+        Assert.True(effective.Enabled);
+        Assert.Equal(60, effective.DurationMinutes);
+        Assert.Equal(["global", "local"], effective.Rules.Select(static rule => rule.Id));
+        Assert.True(new SiegeModeSettingsValidator().Validate(frozen).IsValid);
+        Assert.True(new SiegeModeSettingsValidator().ValidateServerOverride(server).IsValid);
+    }
+
+    [Fact]
+    public void ServerCanDisableGlobalInheritanceIndependentlyFromSiegeEnablement()
+    {
+        var global = new SiegeModeSettingsDocument { Enabled = true, Rules = [Rule("global")] };
+        var server = new SiegeModeServerSettingsOverrideDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Disabled,
+            InheritGlobalRules = false,
+            Rules = [Rule("local")]
+        };
+
+        var effective = SiegeModeSettingsMerger.Merge(global, server);
+
+        Assert.False(effective.Enabled);
+        Assert.Equal("local", Assert.Single(effective.Rules).Id);
+    }
+
+    [Fact]
+    public void InvalidDurationAndConditionParameterAreRejected()
     {
         var document = new SiegeModeSettingsDocument
         {
-            Rules = [new()
-            {
-                Id = "risk",
-                Condition = new()
+            Enabled = true,
+            DurationMinutes = 0,
+            Rules =
+            [
+                new()
                 {
-                    Signal = VpnProtectionSignal.ProxyCheckRiskScore,
-                    Operator = RuleComparisonOperator.GreaterThan,
-                    ExpectedValue = "60"
+                    Id = "invalid",
+                    Condition = new()
+                    {
+                        ConditionId = "player.first-seen-guid",
+                        Parameters = new Dictionary<string, JsonElement>
+                        {
+                            ["operator"] = JsonDocument.Parse("\"IsNew\"").RootElement.Clone(),
+                            ["referenceScope"] = JsonDocument.Parse("\"Other\"").RootElement.Clone()
+                        }
+                    },
+                    Actions = [new() { Id = "observe", TypeId = "moderation.observation" }]
                 }
-            }]
+            ]
         };
-        var validator = new SiegeModeSettingsValidator();
-        Assert.True(validator.Validate(document).IsValid);
-        document.Rules[0].Condition!.ExpectedValue = "101";
-        Assert.False(validator.Validate(document).IsValid);
+
+        var validation = new SiegeModeSettingsValidator().Validate(document);
+
+        Assert.False(validation.IsValid);
+        Assert.Contains(validation.Errors, static error => error.Contains("durationMinutes", StringComparison.Ordinal));
+        Assert.Contains(validation.Errors, static error => error.Contains("referenceScope", StringComparison.Ordinal));
     }
 
-    [Fact]
-    public void Validation_RejectsMalformedGroupAndPlayerCondition()
+    private static RuleDefinition Rule(string id) => new()
     {
-        var document = new SiegeModeSettingsDocument
+        Id = id,
+        Condition = new()
         {
-            Rules = [new() { Id = "bad", Condition = new()
+            ConditionId = "player.first-seen-guid",
+            Parameters = new Dictionary<string, JsonElement>
             {
-                GroupOperator = RuleConditionGroupOperator.And,
-                Conditions = [new() { PlayerSignal = SiegePlayerSignal.NewIp, Operator = RuleComparisonOperator.GreaterThan, ExpectedValue = "true" }]
-            } }]
-        };
-        Assert.False(new SiegeModeSettingsValidator().Validate(document).IsValid);
-        document.Rules[0].Condition!.Conditions = [];
-        Assert.False(new SiegeModeSettingsValidator().Validate(document).IsValid);
-    }
-
-    [Fact]
-    public void ExistingSerializedConditions_RoundtripWithTheSameWireShape()
-    {
-        var input = """
-            {
-                "schemaVersion": 1,
-                "durationMinutes": 240,
-                "rules": [{
-                    "id": "legacy-compatible",
-                    "enabled": true,
-                    "condition": {
-                        "groupOperator": "And",
-                        "conditions": [
-                            { "signal": "ProxyCheckIsVpn", "operator": "Equal", "expectedValue": "true" },
-                            { "playerSignal": "NewIp", "operator": "Equal", "expectedValue": "true" },
-                            { "playerSignal": "PlayerTag", "operator": "NotEqual", "expectedValue": "vpn-exempt" }
-                        ]
-                    }
-                }]
+                ["operator"] = JsonDocument.Parse("\"IsNew\"").RootElement.Clone(),
+                ["referenceScope"] = JsonDocument.Parse("\"SiegeBaseline\"").RootElement.Clone()
             }
-            """;
-
-        var document = JsonSerializer.Deserialize<SiegeModeSettingsDocument>(input, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        Assert.NotNull(document);
-        Assert.True(new SiegeModeSettingsValidator().Validate(document).IsValid);
-
-        var snapshot = JsonSerializer.Serialize(document, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        using var serialized = JsonDocument.Parse(snapshot);
-        var condition = serialized.RootElement.GetProperty("rules")[0].GetProperty("condition");
-        Assert.Equal("And", condition.GetProperty("groupOperator").GetString());
-        Assert.Equal("ProxyCheckIsVpn", condition.GetProperty("conditions")[0].GetProperty("signal").GetString());
-        Assert.Equal("NewIp", condition.GetProperty("conditions")[1].GetProperty("playerSignal").GetString());
-        Assert.Equal("PlayerTag", condition.GetProperty("conditions")[2].GetProperty("playerSignal").GetString());
-
-        var activeSnapshot = JsonSerializer.Deserialize<SiegeModeSettingsDocument>(snapshot, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        Assert.NotNull(activeSnapshot);
-        Assert.True(new SiegeModeSettingsValidator().Validate(activeSnapshot).IsValid);
-    }
+        },
+        Actions =
+        [
+            new()
+            {
+                Id = "observe",
+                TypeId = "moderation.observation",
+                Parameters = new Dictionary<string, JsonElement>
+                {
+                    ["reason"] = JsonDocument.Parse("\"matched\"").RootElement.Clone()
+                }
+            }
+        ]
+    };
 }
