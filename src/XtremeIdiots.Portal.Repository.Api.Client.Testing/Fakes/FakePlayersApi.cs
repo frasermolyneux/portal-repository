@@ -20,7 +20,9 @@ public class FakePlayersApi : IPlayersApi
     private readonly ConcurrentDictionary<Guid, List<PlayerTagDto>> _playerTags = new();
     private readonly ConcurrentDictionary<Guid, PlayerTagDto> _playerTagsById = new();
     private readonly ConcurrentDictionary<Guid, VpnDetectedTagReconciliationCandidateDto> _vpnDetectedTagReconciliationCandidates = new();
-    private readonly ConcurrentDictionary<string, (Guid PlayerId, string Address, DateTimeOffset? ObservedAtUtc)> _ipObservations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (Guid PlayerId, string Address, DateTimeOffset? ObservedAtUtc, bool? Applied)> _ipObservations = new(StringComparer.Ordinal);
+    private readonly Dictionary<Guid, (string Address, DateTimeOffset ObservedAtUtc)> _currentIpObservations = new();
+    private readonly object _ipObservationLock = new();
 
     public FakePlayersApi AddPlayer(PlayerDto player) { _players[player.PlayerId] = player; return this; }
     public FakePlayersApi AddPlayerAliases(Guid playerId, List<PlayerAliasDto> aliases) { _playerAliases[playerId] = aliases; return this; }
@@ -47,11 +49,23 @@ public class FakePlayersApi : IPlayersApi
         _playerTags.Clear();
         _playerTagsById.Clear();
         _vpnDetectedTagReconciliationCandidates.Clear();
-        _ipObservations.Clear();
+        lock (_ipObservationLock)
+        {
+            _ipObservations.Clear();
+            _currentIpObservations.Clear();
+        }
         return this;
     }
 
-    public Task<ApiResult> RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResult> RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default)
+    {
+        var result = await RecordPlayerIpObservationWithStatus(playerId, dto, cancellationToken).ConfigureAwait(false);
+        return result.StatusCode == HttpStatusCode.OK
+            ? new ApiResult(HttpStatusCode.OK, new ApiResponse())
+            : new ApiResult(result.StatusCode);
+    }
+
+    public Task<ApiResult<PlayerIpObservationResultDto>> RecordPlayerIpObservationWithStatus(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (playerId == Guid.Empty || dto is null || string.IsNullOrWhiteSpace(dto.MessageId) ||
@@ -59,22 +73,59 @@ public class FakePlayersApi : IPlayersApi
             (dto.ObservedAtUtc is { } observed && (observed.Offset != TimeSpan.Zero ||
                 observed.UtcDateTime < SqlDateTime.MinValue.Value || observed.UtcDateTime > SqlDateTime.MaxValue.Value)))
         {
-            return Task.FromResult(new ApiResult(HttpStatusCode.BadRequest));
+            return Task.FromResult(new ApiResult<PlayerIpObservationResultDto>(HttpStatusCode.BadRequest));
         }
-        var observation = (PlayerId: playerId, Address: address.ToString(), dto.ObservedAtUtc);
-        if (_ipObservations.TryGetValue(dto.MessageId, out var existing))
+        var normalizedAddress = address.ToString();
+        lock (_ipObservationLock)
         {
-            return Task.FromResult(new ApiResult(existing.PlayerId == observation.PlayerId && existing.Address == observation.Address &&
-                (existing.ObservedAtUtc is null || existing.ObservedAtUtc == observation.ObservedAtUtc) ? HttpStatusCode.OK : HttpStatusCode.Conflict));
+            if (_ipObservations.TryGetValue(dto.MessageId, out var existing))
+            {
+                if (existing.PlayerId != playerId || existing.Address != normalizedAddress ||
+                    (existing.ObservedAtUtc is not null && existing.ObservedAtUtc != dto.ObservedAtUtc))
+                {
+                    return Task.FromResult(new ApiResult<PlayerIpObservationResultDto>(HttpStatusCode.Conflict));
+                }
+                var status = existing.ObservedAtUtc is null || existing.Applied is null
+                    ? PlayerIpObservationStatuses.Unknown
+                    : existing.Applied.Value && _currentIpObservations.TryGetValue(playerId, out var current) &&
+                        current.Address == existing.Address && current.ObservedAtUtc == existing.ObservedAtUtc
+                        ? PlayerIpObservationStatuses.Current : PlayerIpObservationStatuses.NotCurrent;
+                return Task.FromResult(IpObservationResult(status));
+            }
+            if (!_players.TryGetValue(playerId, out var player))
+            {
+                return Task.FromResult(new ApiResult<PlayerIpObservationResultDto>(HttpStatusCode.NotFound));
+            }
+            var now = DateTimeOffset.UtcNow;
+            var observedAt = dto.ObservedAtUtc ?? now;
+            var hasCurrent = _currentIpObservations.TryGetValue(playerId, out var prior);
+            var unknownCurrentTime = false;
+            if (!hasCurrent && !string.IsNullOrEmpty(player.IpAddress))
+            {
+                var lastUsed = _playerIpAddresses.TryGetValue(playerId, out var history)
+                    ? history.Where(ip => ip.Address == player.IpAddress).Max(ip => (DateTime?)ip.LastUsed)
+                    : null;
+                unknownCurrentTime = lastUsed is null;
+                prior = (player.IpAddress, lastUsed is { } time
+                    ? new DateTimeOffset(DateTime.SpecifyKind(time, DateTimeKind.Utc))
+                    : now);
+                _currentIpObservations[playerId] = prior;
+                hasCurrent = true;
+            }
+            var applied = !hasCurrent || observedAt > prior.ObservedAtUtc || (unknownCurrentTime && dto.ObservedAtUtc is null);
+            if (applied)
+            {
+                _currentIpObservations[playerId] = (normalizedAddress, observedAt);
+            }
+            _ipObservations.Add(dto.MessageId, (playerId, normalizedAddress, dto.ObservedAtUtc, unknownCurrentTime ? null : applied));
+            return Task.FromResult(IpObservationResult(dto.ObservedAtUtc is null || unknownCurrentTime
+                ? PlayerIpObservationStatuses.Unknown
+                : applied ? PlayerIpObservationStatuses.Current : PlayerIpObservationStatuses.NotCurrent));
         }
-        if (!_players.ContainsKey(playerId))
-        {
-            return Task.FromResult(new ApiResult(HttpStatusCode.NotFound));
-        }
-        existing = _ipObservations.GetOrAdd(dto.MessageId, observation);
-        return Task.FromResult(new ApiResult(existing.PlayerId == observation.PlayerId && existing.Address == observation.Address &&
-            (existing.ObservedAtUtc is null || existing.ObservedAtUtc == observation.ObservedAtUtc) ? HttpStatusCode.OK : HttpStatusCode.Conflict));
     }
+
+    private static ApiResult<PlayerIpObservationResultDto> IpObservationResult(string status) =>
+        new(HttpStatusCode.OK, new ApiResponse<PlayerIpObservationResultDto>(new PlayerIpObservationResultDto { Status = status }));
 
     public Task<ApiResult<PlayerDto>> GetPlayer(Guid playerId, PlayerEntityOptions playerEntityOptions)
     {
@@ -207,6 +258,18 @@ public class FakePlayersApi : IPlayersApi
     {
         if (_players.TryGetValue(dto.PlayerId, out _))
         {
+            if (!IPAddress.TryParse(dto.IpAddress, out var address))
+            {
+                return Task.FromResult(new ApiResult(HttpStatusCode.BadRequest));
+            }
+            lock (_ipObservationLock)
+            {
+                var now = DateTimeOffset.UtcNow;
+                if (!_currentIpObservations.TryGetValue(dto.PlayerId, out var current) || now > current.ObservedAtUtc)
+                {
+                    _currentIpObservations[dto.PlayerId] = (address.ToString(), now);
+                }
+            }
             return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
         }
 
