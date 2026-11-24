@@ -43,6 +43,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 GameServerId = dto.GameServerId,
                 EventType = dto.EventType,
                 EventData = dto.EventData,
+                IdempotencyKey = dto.IdempotencyKey,
                 Timestamp = DateTime.UtcNow
             };
         }

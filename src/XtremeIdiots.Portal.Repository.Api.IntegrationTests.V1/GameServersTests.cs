@@ -106,6 +106,29 @@ public class GameServersTests : IClassFixture<CustomWebApplicationFactory>, IAsy
     }
 
     [Fact]
+    public async Task GameServerEvents_CreateEndpointsPreserveIdempotency()
+    {
+        var serverId = Guid.NewGuid();
+        var key = Guid.NewGuid();
+        async Task<HttpStatusCode> Post(string path, object payload)
+        {
+            using var content = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+            using var response = await _client.PostAsync(path, content);
+            return response.StatusCode;
+        }
+
+        var dto = new CreateGameServerEventDto(serverId, "event", "data") { IdempotencyKey = key };
+        Assert.Equal(HttpStatusCode.Created, await Post("/v1.0/game-server-events/single", dto));
+        Assert.Equal(HttpStatusCode.OK, await Post("/v1.0/game-server-events", new[] { dto }));
+        Assert.Equal(HttpStatusCode.Conflict, await Post("/v1.0/game-server-events", new[] { dto with { EventData = "changed" } }));
+        Assert.Equal(HttpStatusCode.BadRequest, await Post("/v1.0/game-server-events/single", dto with { IdempotencyKey = Guid.Empty }));
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<PortalDbContext>();
+        Assert.Single(context.GameServerEvents.Where(e => e.GameServerId == serverId && e.IdempotencyKey == key));
+    }
+
+    [Fact]
     public async Task DeleteGameServer_ReturnsNotFound_WhenDoesNotExist()
     {
         var response = await _client.DeleteAsync($"/v1.0/game-servers/{Guid.NewGuid()}");

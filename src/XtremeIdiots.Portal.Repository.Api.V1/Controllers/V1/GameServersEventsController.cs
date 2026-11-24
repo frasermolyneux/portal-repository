@@ -1,4 +1,6 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Asp.Versioning;
 
 using Microsoft.AspNetCore.Authorization;
@@ -144,8 +146,10 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A success response indicating the game server event was created.</returns>
     [HttpPost("game-server-events/single")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateGameServerEvent([FromBody] CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken = default)
     {
         var response = await ((IGameServersEventsApi)this).CreateGameServerEvent(createGameServerEventDto, cancellationToken).ConfigureAwait(false);
@@ -160,13 +164,7 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <returns>An API result indicating the game server event was created.</returns>
     async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvent(CreateGameServerEventDto createGameServerEventDto, CancellationToken cancellationToken)
     {
-        var gameServerEvent = createGameServerEventDto.ToEntity();
-        gameServerEvent.Timestamp = DateTime.UtcNow;
-
-        context.GameServerEvents.Add(gameServerEvent);
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-        return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+        return await CreateEventsAsync([createGameServerEventDto], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -176,8 +174,10 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A success response indicating the game server events were created.</returns>
     [HttpPost("game-server-events")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateGameServerEvents([FromBody] List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken = default)
     {
         var response = await ((IGameServersEventsApi)this).CreateGameServerEvents(createGameServerEventDtos, cancellationToken).ConfigureAwait(false);
@@ -192,17 +192,127 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
     /// <returns>An API result indicating the game server events were created.</returns>
     async Task<ApiResult> IGameServersEventsApi.CreateGameServerEvents(List<CreateGameServerEventDto> createGameServerEventDtos, CancellationToken cancellationToken)
     {
-        var currentTimestamp = DateTime.UtcNow;
-        var gameServerEvents = createGameServerEventDtos.Select(dto =>
+        return await CreateEventsAsync(createGameServerEventDtos, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ApiResult> CreateEventsAsync(List<CreateGameServerEventDto> events, CancellationToken cancellationToken)
+    {
+        if (events.Any(dto => dto.IdempotencyKey == Guid.Empty))
         {
-            var gameServerEvent = dto.ToEntity();
-            gameServerEvent.Timestamp = currentTimestamp;
-            return gameServerEvent;
-        }).ToList();
+            return new ApiResponse(new ApiError(ApiErrorCodes.InvalidRequest, "IdempotencyKey must not be empty."))
+                .ToApiResult(HttpStatusCode.BadRequest);
+        }
 
-        await context.GameServerEvents.AddRangeAsync(gameServerEvents, cancellationToken).ConfigureAwait(false);
+        if (events.All(dto => dto.IdempotencyKey is null))
+        {
+            var timestamp = DateTime.UtcNow;
+            var entities = events.Select(dto =>
+            {
+                var entity = dto.ToEntity();
+                entity.Timestamp = timestamp;
+                return entity;
+            });
+            await context.GameServerEvents.AddRangeAsync(entities, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return new ApiResponse().ToApiResult(HttpStatusCode.Created);
+        }
+
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            context.ChangeTracker.Clear();
+            if (!context.Database.IsRelational())
+            {
+                return await CreateKeyedEventsAsync(events, cancellationToken).ConfigureAwait(false);
+            }
+
+            await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            var result = await CreateKeyedEventsAsync(events, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return result;
+        }).ConfigureAwait(false);
+    }
+
+    private async Task<ApiResult> CreateKeyedEventsAsync(List<CreateGameServerEventDto> events, CancellationToken cancellationToken)
+    {
+        var keyedEvents = events.Where(dto => dto.IdempotencyKey.HasValue)
+            .GroupBy(dto => dto.GameServerId)
+            .OrderBy(group => group.Key)
+            .ToList();
+        var existing = new Dictionary<(Guid ServerId, Guid Key), byte[]>();
+
+        foreach (var group in keyedEvents)
+        {
+            if (context.Database.IsSqlServer())
+            {
+                var resource = $"game-server-events:{group.Key:N}";
+                var results = await context.Database.SqlQuery<int>(
+                    $"""
+                     DECLARE @result int;
+                     EXEC @result = sys.sp_getapplock @Resource = {resource}, @LockMode = 'Exclusive',
+                         @LockOwner = 'Transaction', @LockTimeout = 10000;
+                     SELECT @result AS [Value];
+                     """).ToListAsync(cancellationToken).ConfigureAwait(false);
+                if (results.Single() < 0)
+                {
+                    throw new InvalidOperationException("Could not acquire the game server event idempotency lock.");
+                }
+            }
+        }
+
+        foreach (var group in keyedEvents)
+        {
+            var keys = group.Select(dto => dto.IdempotencyKey!.Value).Distinct().ToArray();
+            var matches = await context.GameServerEvents.AsNoTracking()
+                .Where(entity => entity.GameServerId == group.Key &&
+                    entity.IdempotencyKey.HasValue && keys.Contains(entity.IdempotencyKey.Value))
+                .Select(entity => new { entity.IdempotencyKey, entity.IdempotencyPayloadHash })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var match in matches)
+            {
+                if (match.IdempotencyPayloadHash is null)
+                {
+                    throw new InvalidOperationException("A keyed game server event is missing its payload hash.");
+                }
+
+                existing.Add((group.Key, match.IdempotencyKey!.Value), match.IdempotencyPayloadHash);
+            }
+        }
+
+        var timestamp = DateTime.UtcNow;
+        var inserts = new List<GameServerEvent>();
+        foreach (var dto in events)
+        {
+            var entity = dto.ToEntity();
+            entity.Timestamp = timestamp;
+            if (dto.IdempotencyKey is { } key)
+            {
+                var payloadHash = SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new[] { dto.EventType, dto.EventData }));
+                if (existing.TryGetValue((dto.GameServerId, key), out var priorHash))
+                {
+                    if (!priorHash.AsSpan().SequenceEqual(payloadHash))
+                    {
+                        return new ApiResponse(new ApiError(ApiErrorCodes.EntityConflict,
+                            "IdempotencyKey was already used for a different game server event."))
+                            .ToApiResult(HttpStatusCode.Conflict);
+                    }
+
+                    continue;
+                }
+
+                existing.Add((dto.GameServerId, key), payloadHash);
+                entity.IdempotencyPayloadHash = payloadHash;
+            }
+
+            inserts.Add(entity);
+        }
+
+        if (inserts.Count == 0)
+        {
+            return new ApiResponse().ToApiResult(HttpStatusCode.OK);
+        }
+
+        await context.GameServerEvents.AddRangeAsync(inserts, cancellationToken).ConfigureAwait(false);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
         return new ApiResponse().ToApiResult(HttpStatusCode.Created);
     }
 
