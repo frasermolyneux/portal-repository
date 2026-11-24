@@ -128,8 +128,13 @@ IDs. Evaluate response shape is `{ protocolVersion, commands, executionIds }`.
 
 Every trigger, command, and result has `protocolVersion: 1`. JSON uses camelCase. A trigger
 contains `observationId`, `triggerId`, `triggerOccurrenceId`, `occurredAtUtc`, `gameServerId`,
-`gameType`, `connectionId`, `connectionGeneration` (uint64), optional `playerGuid`, `username`,
+`gameType` as a string enum (`CallOfDuty2`, `CallOfDuty4`, `CallOfDuty5`, `CallOfDuty4x`),
+`connectionId`, `connectionGeneration` (uint64), optional `playerGuid`, `username`,
 `playerIpAddress`, `slotId`, and actual runtime identity/version/capabilities.
+
+The canonical game-type numeric values are from Repository Abstractions `GameType`:
+`CallOfDuty2=1`, `CallOfDuty4=2`, `CallOfDuty5=3`, and `CallOfDuty4x=24`. The protocol serializes
+the enum names, matching established game-server event and plugin configuration strings.
 
 Example native DropPlayer command:
 

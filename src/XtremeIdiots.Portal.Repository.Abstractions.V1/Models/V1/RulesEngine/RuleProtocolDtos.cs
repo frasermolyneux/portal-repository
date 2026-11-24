@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
@@ -64,7 +65,9 @@ public sealed record RuleTriggerEnvelope
     public Guid TriggerOccurrenceId { get; init; }
     public DateTimeOffset OccurredAtUtc { get; init; }
     public Guid GameServerId { get; init; }
-    public int GameType { get; init; }
+    [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public GameType GameType { get; init; }
     public Guid ConnectionId { get; init; }
     public ulong ConnectionGeneration { get; init; }
     public string? PlayerGuid { get; init; }
@@ -229,7 +232,9 @@ public sealed record RuleFactSnapshotRequestDto
     public int ProtocolVersion { get; init; } = 1;
     public Guid ObservationId { get; init; }
     public Guid ConnectionId { get; init; }
-    public int GameType { get; init; }
+    [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public GameType GameType { get; init; }
     public string? PlayerGuid { get; init; }
     public string? PlayerIpAddress { get; init; }
     public DateTimeOffset ObservedAtUtc { get; init; }
@@ -240,7 +245,9 @@ public sealed record RuleFactSnapshotDto
     public Guid SnapshotId { get; init; }
     public Guid GameServerId { get; init; }
     public Guid ConnectionId { get; init; }
-    public int GameType { get; init; }
+    [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public GameType GameType { get; init; }
     public string? PlayerGuid { get; init; }
     public string? PlayerIpAddress { get; init; }
     public DateTimeOffset CapturedAtUtc { get; init; }
