@@ -180,6 +180,21 @@
     },
     {
       "name": "[dbo].[PlayerSessionMapSegment]"
+    },
+    {
+      "name": "[dbo].[RuleConnectionStatusSnapshots]"
+    },
+    {
+      "name": "[dbo].[RuleConnectionBindings]"
+    },
+    {
+      "name": "[dbo].[RuleFeatureExecutions]"
+    },
+    {
+      "name": "[dbo].[RuleActionExecutions]"
+    },
+    {
+      "name": "[dbo].[RuleFactSnapshots]"
     }
   ]
 }

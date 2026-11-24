@@ -103,6 +103,10 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
                 .Single(c => c.GetParameters().Last().ParameterType == typeof(IVersionedPlaytimeApi))
                 .GetParameters().SkipLast(1).Select(p => p.ParameterType).ToArray();
             Assert.NotNull(typeof(RepositoryApiClient).GetConstructor(extendedSignature));
+            var siegeSignature = typeof(RepositoryApiClient).GetConstructors()
+                .Single(c => c.GetParameters().Last().ParameterType == typeof(IVersionedSiegeModeApi))
+                .GetParameters().Select(p => p.ParameterType).ToArray();
+            Assert.NotNull(typeof(RepositoryApiClient).GetConstructor(siegeSignature));
         }
 
         [Fact]

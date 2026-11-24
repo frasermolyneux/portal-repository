@@ -79,6 +79,18 @@ public partial class GameServer
     [InverseProperty("GameServer")]
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 
+    [InverseProperty("GameServer")]
+    public virtual ICollection<RuleConnectionBinding> RuleConnectionBindings { get; set; } = new List<RuleConnectionBinding>();
+
+    [InverseProperty("GameServer")]
+    public virtual RuleConnectionStatusSnapshot? RuleConnectionStatusSnapshot { get; set; }
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<RuleFactSnapshot> RuleFactSnapshots { get; set; } = new List<RuleFactSnapshot>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<RuleFeatureExecution> RuleFeatureExecutions { get; set; } = new List<RuleFeatureExecution>();
+
     [InverseProperty("Server")]
     public virtual ICollection<ServerMapRun> ServerMapRuns { get; set; } = new List<ServerMapRun>();
 

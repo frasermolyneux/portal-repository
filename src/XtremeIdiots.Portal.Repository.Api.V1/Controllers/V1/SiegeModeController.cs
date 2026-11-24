@@ -87,7 +87,7 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
             }
 
             var configuration = await context.GlobalConfigurations.AsNoTracking()
-                .Where(c => c.Namespace.ToLower() == "siegemode")
+                .Where(c => c.Namespace.ToLower() == SiegeModeSettingsConstants.Namespace.ToLower())
                 .Select(c => c.Configuration)
                 .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
             var settings = configuration is null ? new SiegeModeSettingsDocument() : DeserializeSettings(configuration);
@@ -95,7 +95,32 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
             {
                 throw new InvalidOperationException("The stored Siege Mode settings are invalid.");
             }
-            if (settings.DurationMinutes != request.ExpectedDurationMinutes)
+
+            var serverOverrideJson = await context.GameServerConfigurations.AsNoTracking()
+                .Where(c => c.GameServerId == gameServerId &&
+                    c.Namespace.ToLower() == SiegeModeSettingsConstants.Namespace.ToLower())
+                .Select(c => c.Configuration)
+                .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+            var serverOverride = serverOverrideJson is null
+                ? null
+                : DeserializeServerOverride(serverOverrideJson);
+            if (serverOverrideJson is not null &&
+                !new SiegeModeSettingsValidator().ValidateServerOverride(serverOverride).IsValid)
+            {
+                throw new InvalidOperationException("The stored Siege Mode server override is invalid.");
+            }
+
+            var effectiveSettings = SiegeModeSettingsMerger.Merge(settings, serverOverride);
+            var frozenSettings = SiegeModeSettingsMerger.Freeze(effectiveSettings);
+            if (!new SiegeModeSettingsValidator().Validate(frozenSettings).IsValid)
+            {
+                return new ApiResult<SiegeSessionDto>(HttpStatusCode.Conflict);
+            }
+            if (!effectiveSettings.Enabled)
+            {
+                return new ApiResult<SiegeSessionDto>(HttpStatusCode.Conflict);
+            }
+            if (effectiveSettings.DurationMinutes != request.ExpectedDurationMinutes)
             {
                 return new ApiResult<SiegeSessionDto>(HttpStatusCode.Conflict);
             }
@@ -113,15 +138,14 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
                     ExpiresAtUtc = active.ExpiresAtUtc
                 });
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                await DeleteBaselineAsync(active.SessionId, cancellationToken).ConfigureAwait(false);
             }
 
             var guids = await context.Players.AsNoTracking()
                 .Where(p => p.GameType == server.GameType && p.Guid != null && p.Guid != "")
-                .Select(p => new { p.PlayerId, p.Guid }).ToListAsync(cancellationToken).ConfigureAwait(false);
+                .Select(p => new { p.PlayerId, p.Guid, p.FirstSeen }).ToListAsync(cancellationToken).ConfigureAwait(false);
             var addresses = await context.PlayerIpAddresses.AsNoTracking()
                 .Where(ip => ip.Address != null && ip.Address != "")
-                .Select(ip => new { ip.PlayerId, ip.Address }).ToListAsync(cancellationToken).ConfigureAwait(false);
+                .Select(ip => new { ip.PlayerId, ip.Address, ip.Added }).ToListAsync(cancellationToken).ConfigureAwait(false);
             now = DateTime.UtcNow;
             var session = new SiegeSession
             {
@@ -130,8 +154,8 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
                 GameType = server.GameType,
                 StartedBy = request.Actor,
                 StartedAtUtc = now,
-                ExpiresAtUtc = now.AddMinutes(settings.DurationMinutes),
-                SettingsJson = JsonSerializer.Serialize(settings, SettingsJsonOptions),
+                ExpiresAtUtc = now.AddMinutes(effectiveSettings.DurationMinutes),
+                SettingsJson = JsonSerializer.Serialize(frozenSettings, SettingsJsonOptions),
                 Mode = request.Mode.ToString()
             };
             context.SiegeSessions.Add(session);
@@ -146,15 +170,20 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
             });
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            var guidGroups = guids.Select(g => new { g.PlayerId, Guid = g.Guid!.Trim() })
+            var guidGroups = guids.Select(g => new { g.PlayerId, Guid = g.Guid!.Trim(), g.FirstSeen })
                 .Where(g => g.Guid.Length is > 0 and <= 50)
                 .GroupBy(g => g.Guid, StringComparer.OrdinalIgnoreCase);
-            var addressGroups = addresses.Select(a => new { a.PlayerId, Address = NormalizeIp(a.Address) })
+            var addressGroups = addresses.Select(a => new { a.PlayerId, Address = NormalizeIp(a.Address), a.Added })
                 .Where(a => a.Address is not null)
                 .GroupBy(a => a.Address!, StringComparer.OrdinalIgnoreCase);
             foreach (var batch in guidGroups.Chunk(1000))
             {
-                context.SiegeBaselineGuids.AddRange(batch.Select(g => new SiegeBaselineGuid { SessionId = session.SessionId, PlayerGuid = g.Key }));
+                context.SiegeBaselineGuids.AddRange(batch.Select(g => new SiegeBaselineGuid
+                {
+                    SessionId = session.SessionId,
+                    PlayerGuid = g.Key,
+                    FirstSeenAtUtc = DateTime.SpecifyKind(g.Min(x => x.FirstSeen), DateTimeKind.Utc)
+                }));
                 context.SiegeBaselineGuidOwners.AddRange(batch.SelectMany(g => g.Select(x => x.PlayerId).Distinct()
                     .Select(playerId => new SiegeBaselineGuidOwner { SessionId = session.SessionId, PlayerGuid = g.Key, PlayerId = playerId })));
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -166,6 +195,7 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
                 {
                     SessionId = session.SessionId,
                     Address = a.Key,
+                    FirstSeenAtUtc = DateTime.SpecifyKind(a.Min(x => x.Added), DateTimeKind.Utc),
                     HasUnownedSource = a.Any(x => x.PlayerId is null)
                 }));
                 context.SiegeBaselineIpOwners.AddRange(batch.SelectMany(a => a.Where(x => x.PlayerId.HasValue)
@@ -187,6 +217,10 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
     private static SiegeModeSettingsDocument DeserializeSettings(string json) =>
         JsonSerializer.Deserialize<SiegeModeSettingsDocument>(json, SettingsJsonOptions)
         ?? throw new InvalidOperationException("The stored Siege Mode settings are null.");
+
+    private static SiegeModeServerSettingsOverrideDocument DeserializeServerOverride(string json) =>
+        JsonSerializer.Deserialize<SiegeModeServerSettingsOverrideDocument>(json, SettingsJsonOptions)
+        ?? throw new InvalidOperationException("The stored Siege Mode server override is null.");
 
     private static string? NormalizeIp(string? value)
     {
@@ -258,18 +292,4 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
         }
     }
 
-    private async Task DeleteBaselineAsync(Guid sessionId, CancellationToken cancellationToken)
-    {
-        if (context.Database.IsRelational())
-        {
-            await context.SiegeBaselineGuids.Where(g => g.SessionId == sessionId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-            await context.SiegeBaselineIps.Where(i => i.SessionId == sessionId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            context.SiegeBaselineGuids.RemoveRange(context.SiegeBaselineGuids.Where(g => g.SessionId == sessionId));
-            context.SiegeBaselineIps.RemoveRange(context.SiegeBaselineIps.Where(i => i.SessionId == sessionId));
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-    }
 }
