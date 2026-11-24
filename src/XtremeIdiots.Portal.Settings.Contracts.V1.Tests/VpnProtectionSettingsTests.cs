@@ -178,6 +178,17 @@ public sealed class VpnProtectionSettingsTests
             ["value"] = JsonSerializer.SerializeToElement("14.00:00:00"),
             ["referenceScope"] = JsonSerializer.SerializeToElement("ObservedHistory")
         }).IsValid);
+
+        Assert.False(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("IsNew"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("SiegeBaseline")
+        }).IsValid);
+        Assert.True(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("IsNew"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("SiegeBaseline")
+        }, RulesEngineCatalogueV1.SiegeModeFeature).IsValid);
     }
 
     [Fact]
@@ -252,10 +263,12 @@ public sealed class VpnProtectionSettingsTests
 
     private static SettingsValidationResult ValidateCondition(
         string conditionId,
-        Dictionary<string, JsonElement> parameters)
+        Dictionary<string, JsonElement> parameters,
+        string featureId = RulesEngineCatalogueV1.VpnProtectionFeature)
     {
-        var document = new VpnProtectionSettingsDocument
+        var document = new FeatureRuleSetDocument
         {
+            FeatureId = featureId,
             Enabled = true,
             Rules =
             [
@@ -278,7 +291,7 @@ public sealed class VpnProtectionSettingsTests
                 }
             ]
         };
-        return new VpnProtectionSettingsValidator().Validate(document);
+        return new RuleSetValidator().Validate(document, RuleSetValidationOptions.ForFeature(featureId));
     }
 
     private static RuleDefinition Rule(string id) => new()

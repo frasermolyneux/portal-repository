@@ -342,13 +342,19 @@ public sealed class RuleSetValidator
         else if (options.ConditionDefinitions.TryGetValue(condition.ConditionId!, out var definition))
         {
             ValidateParameters(condition.Parameters, definition.Parameters, path + ".parameters", result);
-            ValidateConditionSemantics(condition.ConditionId!, condition.Parameters, path + ".parameters", result);
+            ValidateConditionSemantics(
+                condition.ConditionId!,
+                condition.Parameters,
+                options.FeatureId,
+                path + ".parameters",
+                result);
         }
     }
 
     private static void ValidateConditionSemantics(
         string conditionId,
         IReadOnlyDictionary<string, JsonElement> parameters,
+        string featureId,
         string path,
         SettingsValidationResult result)
     {
@@ -377,6 +383,12 @@ public sealed class RuleSetValidator
 
         if (conditionId is "player.first-seen-guid" or "player.first-seen-ip")
         {
+            if (TryGetString(parameters, "referenceScope", out var referenceScope) &&
+                referenceScope == "SiegeBaseline" &&
+                featureId != RulesEngineCatalogueV1.SiegeModeFeature)
+            {
+                result.Errors.Add($"{path}.referenceScope 'SiegeBaseline' is only valid for Siege Mode rules.");
+            }
             ValidateFirstSeenValue(parameters, path, result);
             return;
         }
