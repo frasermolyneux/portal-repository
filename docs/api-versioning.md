@@ -17,6 +17,11 @@ Both hosts use identical patterns:
 - **Info endpoint**: `ApiInfoController` returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host) with anonymous access
 - **Health endpoints**: `HealthController` exposes `/v1.0/health/live` and `/v1.0/health/ready` (V1 host), and `/v2.0/health/live` and `/v2.0/health/ready` (V2 host), all with anonymous access
 
+The typed clients' `CheckHealth` method calls `v1/health/ready` or
+`v2/health/ready`, including through APIM's `repository` base path.
+There is no bare `/health` endpoint; readiness includes dependency checks,
+while `/health/live` checks only that the host is running.
+
 ## OpenAPI Spec Generation
 
 Three OpenAPI documents are served at runtime across the two hosts:

@@ -1,10 +1,41 @@
+using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using MX.Api.Client;
+using RestSharp;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
 {
     public class RepositoryApiClientTests
     {
+        [Theory]
+        [InlineData(HttpStatusCode.OK, HttpStatusCode.OK)]
+        [InlineData(HttpStatusCode.ServiceUnavailable, HttpStatusCode.InternalServerError)]
+        public async Task CheckHealth_RequestsReadinessAndReportsAvailability(HttpStatusCode statusCode, HttpStatusCode expectedStatus)
+        {
+            using var cancellation = new CancellationTokenSource();
+            var rest = new Mock<IRestClientService>();
+            rest.Setup(client => client.ExecuteAsync(
+                    "https://example.test",
+                    It.IsAny<RestRequest>(),
+                    cancellation.Token))
+                .ReturnsAsync(new RestResponse { StatusCode = statusCode, Content = "{}" });
+            var api = new ApiHealthApi(
+                NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+                null,
+                rest.Object,
+                new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+
+            var result = await api.CheckHealth(cancellation.Token);
+
+            Assert.Equal(expectedStatus, result.StatusCode);
+            rest.Verify(client => client.ExecuteAsync(
+                "https://example.test",
+                It.Is<RestRequest>(request => request.Resource == "v1/health/ready" && request.Method == Method.Get),
+                cancellation.Token), Times.AtLeastOnce);
+        }
+
         private readonly Mock<IVersionedAdminActionsApi> _adminActions = new();
         private readonly Mock<IVersionedBanFileMonitorsApi> _banFileMonitors = new();
         private readonly Mock<IVersionedCentralBanFileStatusApi> _centralBanFileStatus = new();
