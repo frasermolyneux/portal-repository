@@ -193,7 +193,7 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 DECLARE @expectedHash varchar(64) = N'__EXPECTED_HASH__';
 DECLARE @expectedHashBytes varbinary(32) = CONVERT(varbinary(32), @expectedHash, 2);
 DECLARE @newConfiguration nvarchar(max) =
-    N'{{"schemaVersion":2,"enabled":false,"rules":[],"ruleOverrides":[],"excludedPlayerTags":[]}}';
+    N'{{"schemaVersion":1,"enabled":false,"rules":[],"ruleOverrides":[],"excludedPlayerTags":[]}}';
 
 IF ISJSON(@newConfiguration) <> 1
     THROW 51000, 'The replacement VPN settings document is not valid JSON.', 1;
@@ -281,7 +281,6 @@ def _run_sql(query: str) -> list[str]:
             "-b",
             "-h",
             "-1",
-            "-W",
             "-w",
             "65535",
             "-y",
@@ -356,13 +355,15 @@ def _parse_status() -> list[dict[str, str]]:
     return rows
 
 
-def _resolve_flag(value: str, inherited: bool | None = None) -> bool | None:
+def _resolve_flag(
+    value: str, inherited: bool | None = None, *, has_inherited: bool = False
+) -> bool | None:
     if value == "true":
         return True
     if value == "false":
         return False
     if value in ("null-or-missing", "missing-document"):
-        return inherited if inherited is not None else False
+        return inherited if has_inherited else False
     return None
 
 
@@ -396,14 +397,17 @@ def _effective_flags(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None]
         feature_enabled = _resolve_flag(
             vpn["enabled"] if vpn else "missing-document",
             global_flags["vpnProtection"],
+            has_inherited=True,
         )
         plugin_enabled = _resolve_flag(
             plugin["enabled"] if plugin else "missing-document",
             global_flags["pluginEnabled"],
+            has_inherited=True,
         )
         plugin_vpn_enabled = _resolve_flag(
             plugin["plugin_vpn_enabled"] if plugin else "missing-document",
             global_flags["pluginVpnProtectionEnabled"],
+            has_inherited=True,
         )
         if any(value is None for value in (feature_enabled, plugin_enabled, plugin_vpn_enabled)):
             effective = "unknown"
@@ -661,7 +665,7 @@ def main() -> None:
     )
     if (
         global_vpn is None
-        or global_vpn["schema_version"] != "2"
+        or global_vpn["schema_version"] != "1"
         or global_vpn["enabled"] != "false"
         or global_vpn["rule_count"] != "0"
         or global_vpn["rule_override_count"] != "0"
@@ -674,7 +678,7 @@ def main() -> None:
         raise RuntimeError(
             "Post-cutover verification failed; the private VPN settings backup is available for recovery."
         )
-    print("post-cutover verification: schemaVersion=2 enabled=false empty rules; server overrides absent.")
+    print("post-cutover verification: schemaVersion=1 enabled=false empty rules; server overrides absent.")
     print("cache note: direct SQL bypasses Repository API invalidation; wait at least 9 minutes before relying on consumer state.")
 
 
