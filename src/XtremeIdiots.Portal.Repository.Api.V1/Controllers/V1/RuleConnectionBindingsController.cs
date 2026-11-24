@@ -1,4 +1,5 @@
 using System.Net;
+using System.Linq.Expressions;
 using System.Text.Json;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -96,8 +97,18 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
             var expiresAt = observedAt + SnapshotLifetime;
             var current = await context.RuleConnectionStatusSnapshots.SingleOrDefaultAsync(
                 s => s.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
+            var reportedIdentities = request.Players
+                .Where(player => player.State != RuleConnectionState.Unknown)
+                .Select(player => (player.SlotId, PlayerGuid: NormalizePlayerGuid(player.PlayerGuid)))
+                .ToArray();
+            var connectedSlots = request.Players
+                .Where(player => player.State == RuleConnectionState.Connected)
+                .Select(player => player.SlotId)
+                .Distinct()
+                .ToArray();
             var bindings = await context.RuleConnectionBindings
-                .Where(binding => binding.GameServerId == gameServerId)
+                .Where(CreateRelevantBindingsPredicate(
+                    gameServerId, reportedIdentities, connectedSlots, now.UtcDateTime))
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
             var bindingsByIdentity = bindings.ToDictionary(binding => (binding.SlotId, binding.PlayerGuid));
             var bindingsBySlot = bindings.GroupBy(binding => binding.SlotId)
@@ -447,6 +458,52 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
         JsonSerializer.Deserialize<string[]>(value, JsonOptions) ?? [];
 
     private static string NormalizePlayerGuid(string? playerGuid) => playerGuid!.Trim().ToUpperInvariant();
+
+    private static Expression<Func<RuleConnectionBinding, bool>> CreateRelevantBindingsPredicate(
+        Guid gameServerId,
+        IReadOnlyCollection<(int SlotId, string PlayerGuid)> reportedIdentities,
+        IReadOnlyCollection<int> connectedSlots,
+        DateTime nowUtc)
+    {
+        var binding = Expression.Parameter(typeof(RuleConnectionBinding), "binding");
+        Expression identityMatch = Expression.Constant(false);
+        foreach (var identity in reportedIdentities)
+        {
+            var slotMatch = Expression.Equal(
+                Expression.Property(binding, nameof(RuleConnectionBinding.SlotId)),
+                Expression.Constant(identity.SlotId));
+            var playerMatch = Expression.Equal(
+                Expression.Property(binding, nameof(RuleConnectionBinding.PlayerGuid)),
+                Expression.Constant(identity.PlayerGuid));
+            identityMatch = Expression.OrElse(identityMatch, Expression.AndAlso(slotMatch, playerMatch));
+        }
+
+        Expression connectedSlotMatch = Expression.Constant(false);
+        foreach (var slotId in connectedSlots)
+        {
+            connectedSlotMatch = Expression.OrElse(
+                connectedSlotMatch,
+                Expression.Equal(
+                    Expression.Property(binding, nameof(RuleConnectionBinding.SlotId)),
+                    Expression.Constant(slotId)));
+        }
+
+        var activeConnectedOccupant = Expression.AndAlso(
+            Expression.AndAlso(
+                connectedSlotMatch,
+                Expression.Equal(
+                    Expression.Property(binding, nameof(RuleConnectionBinding.State)),
+                    Expression.Constant(RuleConnectionState.Connected.ToString()))),
+            Expression.GreaterThan(
+                Expression.Property(binding, nameof(RuleConnectionBinding.ExpiresAtUtc)),
+                Expression.Constant(nowUtc)));
+        var serverMatch = Expression.Equal(
+            Expression.Property(binding, nameof(RuleConnectionBinding.GameServerId)),
+            Expression.Constant(gameServerId));
+        var relevantBinding = Expression.OrElse(identityMatch, activeConnectedOccupant);
+        return Expression.Lambda<Func<RuleConnectionBinding, bool>>(
+            Expression.AndAlso(serverMatch, relevantBinding), binding);
+    }
 
     private static bool CanAdvanceBinding(RuleConnectionBinding binding, RuleConnectionStatusSnapshotDto request)
     {
