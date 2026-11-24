@@ -43,5 +43,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         IVersionedPlaytimeApi Playtime => throw new NotSupportedException("This client implementation does not provide playtime.");
         IVersionedSiegeModeApi SiegeMode => throw new NotSupportedException("This client implementation does not provide Siege Mode.");
         IVersionedRuleExecutionsApi RuleExecutions => throw new NotSupportedException("This client implementation does not provide rules execution.");
+        IVersionedRuleConnectionBindingsApi RuleConnectionBindings => throw new NotSupportedException("This client implementation does not provide rule connection bindings.");
     }
 }

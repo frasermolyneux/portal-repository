@@ -363,4 +363,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         public IRuleExecutionsApi V1 { get; } = v1Api;
     }
+
+    public class VersionedRuleConnectionBindingsApi(IRuleConnectionBindingsApi v1Api) : IVersionedRuleConnectionBindingsApi
+    {
+        public IRuleConnectionBindingsApi V1 { get; } = v1Api;
+    }
 }

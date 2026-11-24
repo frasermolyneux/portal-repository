@@ -36,5 +36,39 @@ public sealed class RuleProtocolSerializationTests
         using var newtonsoftDocument = JsonDocument.Parse(newtonsoftJson);
         Assert.Equal("CallOfDuty4x", newtonsoftDocument.RootElement.GetProperty("gameType").GetString());
         Assert.Equal(1, newtonsoftDocument.RootElement.GetProperty("runtime").GetProperty("protocolVersion").GetInt32());
+
+        var result = new RuleActionResult { GameServerId = Guid.NewGuid() };
+        var resultJson = System.Text.Json.JsonSerializer.Serialize(
+            result,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var resultDocument = JsonDocument.Parse(resultJson);
+        Assert.Equal(result.GameServerId, resultDocument.RootElement.GetProperty("gameServerId").GetGuid());
+
+        var newtonsoftResult = JsonConvert.SerializeObject(result, new JsonSerializerSettings
+        {
+            ContractResolver = new CamelCasePropertyNamesContractResolver()
+        });
+        using var newtonsoftResultDocument = JsonDocument.Parse(newtonsoftResult);
+        Assert.Equal(result.GameServerId, newtonsoftResultDocument.RootElement.GetProperty("gameServerId").GetGuid());
+
+        var command = new RuleActionCommand
+        {
+            Runtime = new RuleRuntimeDescriptor
+            {
+                Id = "server-agent",
+                IdentityModel = RuleRuntimeIdentityModel.AgentObservedConnection,
+                InstanceId = Guid.NewGuid(),
+                StartedAtUtc = DateTimeOffset.UtcNow
+            }
+        };
+        var commandJson = System.Text.Json.JsonSerializer.Serialize(
+            command,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var commandDocument = JsonDocument.Parse(commandJson);
+        var runtime = commandDocument.RootElement.GetProperty("runtime");
+        Assert.Equal("server-agent", runtime.GetProperty("id").GetString());
+        Assert.Equal("AgentObservedConnection", runtime.GetProperty("identityModel").GetString());
+        Assert.Equal(command.Runtime.InstanceId, runtime.GetProperty("instanceId").GetGuid());
+        Assert.True(runtime.TryGetProperty("startedAtUtc", out _));
     }
 }

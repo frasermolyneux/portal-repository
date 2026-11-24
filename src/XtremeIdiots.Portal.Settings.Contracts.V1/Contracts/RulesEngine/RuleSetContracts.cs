@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 
@@ -106,6 +107,7 @@ public sealed class RuleSetValidationOptions
     public IReadOnlyDictionary<string, ActionTypeDefinition> ActionDefinitions { get; init; } =
         new Dictionary<string, ActionTypeDefinition>(StringComparer.Ordinal);
     public bool AllowUnknownConditionIds { get; init; } = true;
+    public bool AllowUnknownActionTypeIds { get; init; } = true;
 
     public static RuleSetValidationOptions ForFeature(string featureId)
     {
@@ -129,6 +131,46 @@ public sealed class RuleSetValidationOptions
 
 public sealed class RuleSetValidator
 {
+    private static readonly IReadOnlySet<VpnProtectionSignal> BooleanVpnSignals = new HashSet<VpnProtectionSignal>
+    {
+        VpnProtectionSignal.ProxyCheckIsProxy,
+        VpnProtectionSignal.ProxyCheckIsVpn,
+        VpnProtectionSignal.MaxMindIsAnonymous,
+        VpnProtectionSignal.MaxMindIsAnonymousVpn,
+        VpnProtectionSignal.MaxMindIsHostingProvider,
+        VpnProtectionSignal.MaxMindIsPublicProxy,
+        VpnProtectionSignal.MaxMindIsResidentialProxy,
+        VpnProtectionSignal.MaxMindIsTorExitNode,
+        VpnProtectionSignal.IsPartial
+    };
+
+    private static readonly IReadOnlySet<VpnProtectionSignal> NumericVpnSignals = new HashSet<VpnProtectionSignal>
+    {
+        VpnProtectionSignal.ProxyCheckRiskScore,
+        VpnProtectionSignal.MaxMindAnonymizerConfidence
+    };
+
+    private static readonly IReadOnlySet<VpnProtectionSignal> VpnStatusSignals = new HashSet<VpnProtectionSignal>
+    {
+        VpnProtectionSignal.MaxMindStatus,
+        VpnProtectionSignal.ProxyCheckStatus
+    };
+
+    private static readonly IReadOnlySet<string> EqualityOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Equal", "NotEqual"
+    };
+
+    private static readonly IReadOnlySet<string> NumericOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual"
+    };
+
+    private static readonly IReadOnlySet<string> StringOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Equal", "NotEqual", "Contains"
+    };
+
     public SettingsValidationResult Validate(FeatureRuleSetDocument? document, RuleSetValidationOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -300,7 +342,173 @@ public sealed class RuleSetValidator
         else if (options.ConditionDefinitions.TryGetValue(condition.ConditionId!, out var definition))
         {
             ValidateParameters(condition.Parameters, definition.Parameters, path + ".parameters", result);
+            ValidateConditionSemantics(condition.ConditionId!, condition.Parameters, path + ".parameters", result);
         }
+    }
+
+    private static void ValidateConditionSemantics(
+        string conditionId,
+        IReadOnlyDictionary<string, JsonElement> parameters,
+        string path,
+        SettingsValidationResult result)
+    {
+        if (conditionId == "player.tags")
+        {
+            if (!parameters.TryGetValue("tags", out var tags) || tags.ValueKind != JsonValueKind.Array ||
+                tags.GetArrayLength() == 0)
+            {
+                result.Errors.Add($"{path}.tags must contain at least one tag ID.");
+            }
+            else
+            {
+                var ids = new HashSet<Guid>();
+                foreach (var tag in tags.EnumerateArray())
+                {
+                    if (tag.ValueKind != JsonValueKind.String ||
+                        !Guid.TryParse(tag.GetString(), out var tagId) || tagId == Guid.Empty || !ids.Add(tagId))
+                    {
+                        result.Errors.Add($"{path}.tags must contain unique, nonempty GUID IDs.");
+                        break;
+                    }
+                }
+            }
+            return;
+        }
+
+        if (conditionId is "player.first-seen-guid" or "player.first-seen-ip")
+        {
+            ValidateFirstSeenValue(parameters, path, result);
+            return;
+        }
+
+        if (conditionId == "player.profile-age")
+        {
+            if (TryGetString(parameters, "duration", out var durationText) &&
+                (!TimeSpan.TryParse(durationText, CultureInfo.InvariantCulture, out var duration) ||
+                    duration <= TimeSpan.Zero))
+            {
+                result.Errors.Add($"{path}.duration must be a positive duration.");
+            }
+            return;
+        }
+
+        if (conditionId == "vpn.intelligence")
+        {
+            ValidateVpnCondition(parameters, path, result);
+        }
+    }
+
+    private static void ValidateFirstSeenValue(
+        IReadOnlyDictionary<string, JsonElement> parameters,
+        string path,
+        SettingsValidationResult result)
+    {
+        if (!TryGetString(parameters, "operator", out var operation))
+        {
+            return;
+        }
+
+        if (operation is "IsNew" or "IsKnown")
+        {
+            if (parameters.ContainsKey("value"))
+            {
+                result.Errors.Add($"{path}.value is not used by the {operation} operator.");
+            }
+            return;
+        }
+
+        if (!TryGetString(parameters, "value", out var value))
+        {
+            result.Errors.Add($"{path}.value is required for the {operation} operator.");
+            return;
+        }
+
+        if (operation is "Before" or "After")
+        {
+            if (!DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out _))
+            {
+                result.Errors.Add($"{path}.value must be a date-time for the {operation} operator.");
+            }
+        }
+        else if (operation == "WithinAge" &&
+            (!TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var duration) || duration <= TimeSpan.Zero))
+        {
+            result.Errors.Add($"{path}.value must be a positive duration for the WithinAge operator.");
+        }
+    }
+
+    private static void ValidateVpnCondition(
+        IReadOnlyDictionary<string, JsonElement> parameters,
+        string path,
+        SettingsValidationResult result)
+    {
+        if (!TryGetString(parameters, "signal", out var signalText) ||
+            !Enum.TryParse<VpnProtectionSignal>(signalText, false, out var signal) ||
+            signal == VpnProtectionSignal.Unknown || !Enum.IsDefined(signal) ||
+            !TryGetString(parameters, "operator", out var operation) ||
+            !TryGetString(parameters, "expectedValue", out var expectedValue))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(expectedValue))
+        {
+            result.Errors.Add($"{path}.expectedValue cannot be empty.");
+            return;
+        }
+
+        if (BooleanVpnSignals.Contains(signal))
+        {
+            if (!EqualityOperators.Contains(operation))
+            {
+                result.Errors.Add($"{path}.operator '{operation}' is not supported for boolean signal '{signal}'.");
+            }
+            if (!bool.TryParse(expectedValue, out _))
+            {
+                result.Errors.Add($"{path}.expectedValue must be true or false for signal '{signal}'.");
+            }
+        }
+        else if (NumericVpnSignals.Contains(signal))
+        {
+            if (!NumericOperators.Contains(operation))
+            {
+                result.Errors.Add($"{path}.operator '{operation}' is not supported for numeric signal '{signal}'.");
+            }
+            if (!int.TryParse(expectedValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ||
+                value is < 0 or > 100)
+            {
+                result.Errors.Add($"{path}.expectedValue must be an integer between 0 and 100 for signal '{signal}'.");
+            }
+        }
+        else if (VpnStatusSignals.Contains(signal))
+        {
+            if (!EqualityOperators.Contains(operation))
+            {
+                result.Errors.Add($"{path}.operator '{operation}' is not supported for source status signal '{signal}'.");
+            }
+            if (!new[] { "Success", "Failed", "Unavailable" }.Contains(expectedValue.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                result.Errors.Add($"{path}.expectedValue must be Success, Failed, or Unavailable for signal '{signal}'.");
+            }
+        }
+        else if (!StringOperators.Contains(operation))
+        {
+            result.Errors.Add($"{path}.operator '{operation}' is not supported for string signal '{signal}'.");
+        }
+    }
+
+    private static bool TryGetString(
+        IReadOnlyDictionary<string, JsonElement> parameters,
+        string name,
+        out string value)
+    {
+        if (parameters.TryGetValue(name, out var element) && element.ValueKind == JsonValueKind.String)
+        {
+            value = element.GetString()!;
+            return true;
+        }
+        value = string.Empty;
+        return false;
     }
 
     private static void ValidateActions(
@@ -329,7 +537,10 @@ public sealed class RuleSetValidator
             {
                 result.Errors.Add($"{actionPath}.id must be nonempty, unique, and at most {RuleSetConstants.MaxIdLength} characters.");
             }
-            if (!ValidId(action.TypeId) || !options.AllowedActionTypeIds.Contains(action.TypeId))
+            var knownActionType = options.ActionDefinitions.ContainsKey(action.TypeId);
+            if (!ValidId(action.TypeId) ||
+                (knownActionType && !options.AllowedActionTypeIds.Contains(action.TypeId)) ||
+                (!knownActionType && !options.AllowUnknownActionTypeIds))
             {
                 result.Errors.Add($"{actionPath}.typeId is not supported by this feature.");
             }

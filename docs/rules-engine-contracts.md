@@ -8,10 +8,23 @@ cross-process DTOs ship in `XtremeIdiots.Portal.Repository.Abstractions.V1`, und
 `XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine`.
 
 Both features are registered in `RulesEngineCatalogueV1.Current`: `vpn-protection` and
-`siege-mode`. Their trigger IDs are `player.connected` and `player.ip-resolved`. Runtime identity
-`cod4x-plugin` and capabilities `cod4x.player.drop`, `cod4x.chat.public`, and
-`cod4x.chat.private` come from the loaded plugin handshake and are carried in each trigger. Static
-configuration is not proof that a runtime capability is present.
+`siege-mode`. Their trigger IDs are `player.connected` and `player.ip-resolved`. The canonical game
+mapping is `CallOfDuty2=1`, `CallOfDuty4=2`, `CallOfDuty5=3`, and `CallOfDuty4x=24`; the catalogue
+explicitly lists supported game types for every feature, trigger, condition, and action.
+
+The server's configured game type is read from `GameServers.GameType`. Fresh integration and
+runtime capability claims come only from the latest status snapshot written through
+`IRuleConnectionBindingsApi`; the response keeps those sources separate and sets
+`hasFreshStatus=false` with empty capability arrays when status is absent or expired. It never
+infers capabilities from static RCON configuration. A fresh RCON capability is an executor
+eligibility claim, not a guarantee that a UDP request will succeed.
+
+Native actions declare alternative `executionProviders`. A provider is eligible when its game type
+matches and all of its required capability IDs appear in the corresponding fresh source. The
+CoD4x plugin provides `cod4x.player.drop`, `cod4x.chat.public`, and `cod4x.chat.private` on
+CallOfDuty4x. The integration RCON adapter reports only `rcon.player.drop`, `rcon.chat.public`,
+and `rcon.chat.private` for CallOfDuty2/4/5/4x when its effective configuration allows an attempt.
+These are action-executor capabilities, not trigger-transport identifiers.
 
 ## Settings payloads
 
@@ -95,10 +108,15 @@ matching the current plugin executor. Record-producing kick reasons retain a 512
 limit but are additionally capped at 256 UTF-8 bytes because they are also sent to the native drop
 effect.
 
-`postToForums` exists only for actions that produce a moderation record. Unknown condition IDs,
-extension properties, and extra action parameters are retained on read/write. An unknown
-condition evaluates to Unknown; unsupported action execution is recorded as
-`SkippedUnsupported`. Known parameter values are validated against the catalogue.
+RCON provider message parameters additionally declare `AllowedCharacterSet=RconSafePrintableAscii`:
+nonblank printable ASCII U+0020–U+007E, at most 256 bytes, excluding semicolon, quote, and
+backslash. The RCON drop provider does not accept a reason; a nonempty native drop reason is
+unsupported by that adapter. RCON dispatch is UDP and does not confirm that the game applied it.
+
+`postToForums` exists only for actions that produce a moderation record. Unknown condition and
+action type IDs, extension properties, and extra action parameters are retained on read/write. An
+unknown condition evaluates to Unknown; an unknown action type is recorded as `SkippedUnsupported`.
+Known parameter values are validated against the catalogue.
 
 ## Matching and action execution
 
@@ -136,6 +154,14 @@ The canonical game-type numeric values are from Repository Abstractions `GameTyp
 `CallOfDuty2=1`, `CallOfDuty4=2`, `CallOfDuty5=3`, and `CallOfDuty4x=24`. The protocol serializes
 the enum names, matching established game-server event and plugin configuration strings.
 
+The `runtime` descriptor is present on every action command and preserves the producer
+`id`, `version`, `protocolVersion`, `identityModel`, `instanceId`, `startedAtUtc`, and
+capabilities. `identityModel` is `PluginRuntimeGeneration` for `cod4x-plugin` or
+`AgentObservedConnection` for `server-agent`. Plugin commands carry a non-null
+`connectionGeneration`; agent commands carry an agent-observed UUID and a null generation because
+the agent/RCON path has no native generation. The RCON path must not treat that identity as
+atomically generation-safe.
+
 Example native DropPlayer command:
 
 ```json
@@ -154,6 +180,15 @@ Example native DropPlayer command:
     "actionId": "drop-player"
   },
   "gameServerId": "19ce66bd-723f-4bb3-9eb3-149aa7f31af9",
+  "runtime": {
+    "id": "cod4x-plugin",
+    "version": "1.0.0",
+    "protocolVersion": 1,
+    "identityModel": "PluginRuntimeGeneration",
+    "instanceId": "1abec5bf-4079-4856-b8a8-19b0391926ed",
+    "startedAtUtc": "2026-11-24T12:00:00Z",
+    "capabilities": ["cod4x.player.drop"]
+  },
   "slotId": 4,
   "playerGuid": "0123456789abcdef",
   "connectionId": "9d1c17f1-b208-4fe4-9065-c7990c8600b8",
@@ -168,13 +203,34 @@ Example native DropPlayer command:
 ```
 
 Result values are `Dispatched`, `Applied`, `Stale`, `Failed`, `SkippedUnsupported`,
-`SkippedDependency`, `WouldExecute`, and `OutcomeUnknown`. Results echo correlation and IDs.
+`SkippedDependency`, `WouldExecute`, and `OutcomeUnknown`. Results echo `gameServerId`, correlation,
+execution, action, and logical-effect IDs so repository updates can address the owning execution.
 `Dispatched` means the game API call was issued, not that the player was dropped. `DryRun` must
 return `WouldExecute` without external effects. Native effects are `DropPlayer`, `PublicMessage`,
 and `PrivateMessage`; persistent bans and moderation records are cloud-owned, with enforcement
 through existing ban synchronization.
 
 ## Repository persistence APIs
+
+The connection-binding client is `IRuleConnectionBindingsApi`:
+
+- `ObserveSnapshot(gameServerId, RuleConnectionStatusSnapshotDto)` uses
+  `POST /v1/game-servers/{gameServerId}/rule-connection-status`.
+- `GetCurrentBinding(gameServerId, slotId, playerGuid)` uses
+  `GET /v1/game-servers/{gameServerId}/rule-connections/{slotId}/{playerGuid}`.
+- `GetCurrentCapabilities(gameServerId)` uses
+  `GET /v1/game-servers/{gameServerId}/rule-capabilities`.
+
+Snapshots are accepted only when observed within the prior two minutes and no more than 30 seconds
+in the future; expiry is calculated from `observedAtUtc`. Sequence must increase within an
+immutable runtime instance/start identity. A new runtime is accepted only with a later
+`startedAtUtc`. `Connected` requires an agent/plugin connection UUID; plugin identity additionally
+requires a generation, while agent identity explicitly stores a null generation. `Disconnected`
+updates only an exact UUID, nullable generation, runtime identity, and newer sequence match.
+`Unknown` rows and absent rows never change a binding. Reads return only fresh `Connected`
+bindings, include the runtime identity model, and compare the requested GUID case-insensitively.
+The RCON adapter must still recheck slot/GUID immediately before sending and report UDP dispatch as
+unconfirmed; the repository binding is not an atomic RCON generation check.
 
 V1 Repository API signatures live in `IRuleExecutionsApi`:
 

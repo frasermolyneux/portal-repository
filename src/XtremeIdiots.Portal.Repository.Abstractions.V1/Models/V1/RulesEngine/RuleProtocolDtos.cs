@@ -49,11 +49,23 @@ public enum RuleNativeEffectType
     PrivateMessage
 }
 
+[Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum RuleRuntimeIdentityModel
+{
+    Unknown = 0,
+    PluginRuntimeGeneration,
+    AgentObservedConnection
+}
+
 public sealed record RuleRuntimeDescriptor
 {
     public string Id { get; init; } = string.Empty;
     public string Version { get; init; } = string.Empty;
     public int ProtocolVersion { get; init; } = 1;
+    public RuleRuntimeIdentityModel IdentityModel { get; init; }
+    public Guid InstanceId { get; init; }
+    public DateTimeOffset StartedAtUtc { get; init; }
     public string[] Capabilities { get; init; } = [];
 }
 
@@ -69,7 +81,7 @@ public sealed record RuleTriggerEnvelope
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public GameType GameType { get; init; }
     public Guid ConnectionId { get; init; }
-    public ulong ConnectionGeneration { get; init; }
+    public ulong? ConnectionGeneration { get; init; }
     public string? PlayerGuid { get; init; }
     public string? Username { get; init; }
     public string? PlayerIpAddress { get; init; }
@@ -107,7 +119,8 @@ public sealed record RuleActionCommand
     public int SlotId { get; init; }
     public string PlayerGuid { get; init; } = string.Empty;
     public Guid ConnectionId { get; init; }
-    public ulong ConnectionGeneration { get; init; }
+    public ulong? ConnectionGeneration { get; init; }
+    public RuleRuntimeDescriptor Runtime { get; init; } = new();
     public DateTimeOffset ExpiresAtUtc { get; init; }
     public RuleExecutionMode Mode { get; init; }
     public RuleNativeEffect Effect { get; init; } = new();
@@ -116,6 +129,7 @@ public sealed record RuleActionCommand
 public sealed record RuleActionResult
 {
     public int ProtocolVersion { get; init; } = 1;
+    public Guid GameServerId { get; init; }
     public Guid ExecutionId { get; init; }
     public string ActionId { get; init; } = string.Empty;
     public string LogicalEffectId { get; init; } = string.Empty;
@@ -254,8 +268,13 @@ public sealed record RuleFactSnapshotDto
     public DateTimeOffset? GuidFirstSeenAtUtc { get; init; }
     public DateTimeOffset? IpFirstSeenAtUtc { get; init; }
     public DateTimeOffset? ProfileFirstSeenAtUtc { get; init; }
+    public DateTimeOffset? GuidBaselineFirstSeenAtUtc { get; init; }
+    public DateTimeOffset? IpBaselineFirstSeenAtUtc { get; init; }
+    public Guid? SiegeSessionId { get; init; }
     public Guid[] TagIds { get; init; } = [];
     public bool GuidHistoryAvailable { get; init; }
     public bool IpHistoryAvailable { get; init; }
     public bool TagsAvailable { get; init; }
+    public bool GuidBaselineAvailable { get; init; }
+    public bool IpBaselineAvailable { get; init; }
 }

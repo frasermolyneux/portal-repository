@@ -64,7 +64,7 @@ public sealed class VpnProtectionSettingsTests
     }
 
     [Fact]
-    public void UnknownConditionAndActionParametersRoundtripWithoutLoss()
+    public void UnknownConditionActionTypeAndParametersRoundtripWithoutLoss()
     {
         const string input = """
             {
@@ -85,6 +85,10 @@ public sealed class VpnProtectionSettingsTests
                     "reason": "reason",
                     "futureActionParameter": { "value": "unchanged" }
                   }
+                }, {
+                  "id": "future-action",
+                  "typeId": "moderation.future-action",
+                  "parameters": { "newParameter": { "nested": [1, 2, 3] } }
                 }]
               }]
             }
@@ -98,10 +102,12 @@ public sealed class VpnProtectionSettingsTests
             .GetProperty("futureConditionProperty").GetBoolean());
         Assert.Equal("unchanged", parsed.RootElement.GetProperty("rules")[0].GetProperty("actions")[0]
             .GetProperty("parameters").GetProperty("futureActionParameter").GetProperty("value").GetString());
+        Assert.Equal("moderation.future-action", parsed.RootElement.GetProperty("rules")[0].GetProperty("actions")[1]
+            .GetProperty("typeId").GetString());
     }
 
     [Fact]
-    public void ValidationRejectsInvalidKnownParametersAndUnsupportedActions()
+    public void ValidationRejectsInvalidKnownParameters()
     {
         var document = new VpnProtectionSettingsDocument
         {
@@ -129,7 +135,72 @@ public sealed class VpnProtectionSettingsTests
 
         Assert.False(validation.IsValid);
         Assert.Contains(validation.Errors, static error => error.Contains("operator", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("typeId", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidationRejectsInvalidCrossFieldConditionCombinations()
+    {
+        Assert.False(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("WithinAge"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("ObservedHistory")
+        }).IsValid);
+
+        Assert.False(ValidateCondition("player.tags", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("ContainsAny"),
+            ["tags"] = JsonSerializer.SerializeToElement(Array.Empty<string>())
+        }).IsValid);
+
+        Assert.False(ValidateCondition("player.tags", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("ContainsAny"),
+            ["tags"] = JsonSerializer.SerializeToElement(new[] { "not-a-guid" })
+        }).IsValid);
+
+        Assert.False(ValidateCondition("vpn.intelligence", new Dictionary<string, JsonElement>
+        {
+            ["signal"] = JsonSerializer.SerializeToElement(nameof(VpnProtectionSignal.ProxyCheckIsVpn)),
+            ["operator"] = JsonSerializer.SerializeToElement("Contains"),
+            ["expectedValue"] = JsonSerializer.SerializeToElement("true")
+        }).IsValid);
+
+        Assert.False(ValidateCondition("vpn.intelligence", new Dictionary<string, JsonElement>
+        {
+            ["signal"] = JsonSerializer.SerializeToElement(nameof(VpnProtectionSignal.ProxyCheckRiskScore)),
+            ["operator"] = JsonSerializer.SerializeToElement("GreaterThan"),
+            ["expectedValue"] = JsonSerializer.SerializeToElement("101")
+        }).IsValid);
+
+        Assert.True(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("WithinAge"),
+            ["value"] = JsonSerializer.SerializeToElement("14.00:00:00"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("ObservedHistory")
+        }).IsValid);
+    }
+
+    [Fact]
+    public void CatalogueDeclaresGameAndExecutorCapabilityAlternatives()
+    {
+        var catalogue = RulesEngineCatalogueV1.Current;
+        Assert.All(catalogue.Features, feature => Assert.Equal(new[] { 1, 2, 3, 24 }, feature.GameTypes));
+        Assert.All(catalogue.Triggers, trigger => Assert.Equal(new[] { 1, 2, 3, 24 }, trigger.GameTypes));
+        Assert.All(catalogue.Conditions, condition => Assert.Equal(new[] { 1, 2, 3, 24 }, condition.GameTypes));
+        Assert.All(catalogue.Actions, action => Assert.Equal(new[] { 1, 2, 3, 24 }, action.GameTypes));
+
+        var drop = catalogue.Actions.Single(action => action.ActionTypeId == "player.kick");
+        Assert.Contains(drop.ExecutionProviders, provider =>
+            provider.ExecutorId == "cod4x-plugin" &&
+            provider.GameTypes.SequenceEqual(new[] { 24 }) &&
+            provider.RequiredRuntimeCapabilities.Contains(RulesEngineCatalogueV1.Cod4xPlayerDropCapability));
+        Assert.Contains(drop.ExecutionProviders, provider =>
+            provider.ExecutorId == "rcon" &&
+            provider.RequiredIntegrationCapabilities.Contains(RulesEngineCatalogueV1.RconPlayerDropCapability));
+
+        var rconMessage = catalogue.Actions.Single(action => action.ActionTypeId == "message.public")
+            .ExecutionProviders.Single(provider => provider.ExecutorId == "rcon");
+        Assert.Equal("RconSafePrintableAscii", Assert.Single(rconMessage.ParameterConstraints).AllowedCharacterSet);
     }
 
     [Fact]
@@ -170,6 +241,37 @@ public sealed class VpnProtectionSettingsTests
                             Parameters = new Dictionary<string, JsonElement>
                             {
                                 ["message"] = JsonDocument.Parse(JsonSerializer.Serialize(message)).RootElement.Clone()
+                            }
+                        }
+                    ]
+                }
+            ]
+        };
+        return new VpnProtectionSettingsValidator().Validate(document);
+    }
+
+    private static SettingsValidationResult ValidateCondition(
+        string conditionId,
+        Dictionary<string, JsonElement> parameters)
+    {
+        var document = new VpnProtectionSettingsDocument
+        {
+            Enabled = true,
+            Rules =
+            [
+                new()
+                {
+                    Id = "condition",
+                    Condition = new() { ConditionId = conditionId, Parameters = parameters },
+                    Actions =
+                    [
+                        new()
+                        {
+                            Id = "observe",
+                            TypeId = "moderation.observation",
+                            Parameters = new Dictionary<string, JsonElement>
+                            {
+                                ["reason"] = JsonSerializer.SerializeToElement("condition test")
                             }
                         }
                     ]
