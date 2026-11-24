@@ -103,7 +103,7 @@ public sealed class VpnProtectionSettingsMerger
         Conditions = condition.Conditions?.Select(CloneCondition).ToList(),
         Signal = condition.Signal,
         Operator = condition.Operator,
-        ExpectedValue = condition.ExpectedValue,
+        ExpectedValue = condition.ExpectedValue?.Trim(),
         ExtensionData = condition.ExtensionData
     };
 

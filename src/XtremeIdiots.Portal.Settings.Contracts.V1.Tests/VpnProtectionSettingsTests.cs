@@ -93,6 +93,73 @@ public sealed class VpnProtectionSettingsTests
         Assert.Null(document.Rules[0].Condition);
     }
 
+    [Theory]
+    [InlineData("signal", "\"ProxyCheckIsVpn\"")]
+    [InlineData("OPERATOR", "\"Equal\"")]
+    [InlineData("expectedValue", "\"false\"")]
+    public void Validate_LegacyOverrideFields_AreRejected(string field, string value)
+    {
+        var json = $$"""{"ruleOverrides":[{"id":"vpn","{{field}}":{{value}}}]}""";
+        var server = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(json, JsonOptions);
+        var global = new VpnProtectionSettingsDocument
+        {
+            Enabled = true,
+            Rules = [CreateRule("vpn", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Ban)]
+        };
+
+        Assert.NotNull(server);
+        Assert.False(new VpnProtectionSettingsValidator().Validate(server).IsValid);
+        Assert.True(new VpnProtectionSettingsMerger().Merge(global, server).ValidationFailed);
+    }
+
+    [Fact]
+    public void Validate_UnknownOverrideFields_AreStillAllowed()
+    {
+        var server = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(
+            """{"ruleOverrides":[{"id":"vpn","futureProperty":true}]}""", JsonOptions);
+
+        Assert.True(new VpnProtectionSettingsValidator().Validate(server).IsValid);
+    }
+
+    [Fact]
+    public void Validate_LegacyFieldsAlongsideNestedRule_AreRejected()
+    {
+        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>("""
+            {"rules":[{"id":"vpn","signal":"ProxyCheckIsVpn","action":"Ban",
+            "condition":{"signal":"ProxyCheckIsVpn","operator":"Equal","expectedValue":"true"}}]}
+            """, JsonOptions);
+
+        Assert.False(new VpnProtectionSettingsValidator().Validate(document).IsValid);
+    }
+
+    [Fact]
+    public void Merge_TrimmedNestedExpectedValues_DoNotMutateSource()
+    {
+        var leaf = Leaf(VpnProtectionSignal.ProxyCheckStatus, RuleComparisonOperator.Equal, " Success ");
+        var global = new VpnProtectionSettingsDocument
+        {
+            Rules =
+            [
+                new VpnProtectionRule
+                {
+                    Id = "status",
+                    Action = VpnProtectionAction.Observation,
+                    Condition = new VpnProtectionCondition
+                    {
+                        GroupOperator = RuleConditionGroupOperator.And,
+                        Conditions = [leaf]
+                    }
+                }
+            ]
+        };
+
+        var effective = new VpnProtectionSettingsMerger().Merge(global, null);
+
+        Assert.False(effective.ValidationFailed);
+        Assert.Equal("Success", Assert.Single(Assert.Single(effective.Rules).Condition.Conditions!).ExpectedValue);
+        Assert.Equal(" Success ", leaf.ExpectedValue);
+    }
+
     [Fact]
     public void Validate_LegacySchemaVersion_IsRejected()
     {

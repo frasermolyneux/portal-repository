@@ -106,6 +106,7 @@ public sealed class VpnProtectionSettingsValidator
             }
 
             ValidateRuleId(rule.Id, path, seenIds, result);
+            ValidateLegacyConditionFields(rule.ExtensionData?.Keys, path, result);
             ValidateCondition(rule.Condition, path + ".condition", result);
             if (!Enum.IsDefined(rule.Action) || rule.Action == VpnProtectionAction.Unknown)
             {
@@ -142,6 +143,7 @@ public sealed class VpnProtectionSettingsValidator
             }
 
             ValidateRuleId(ruleOverride.Id, path, seenIds, result);
+            ValidateLegacyConditionFields(ruleOverride.ExtensionData?.Keys, path, result);
             if (ruleOverride.Condition is not null)
             {
                 ValidateCondition(ruleOverride.Condition, path + ".condition", result);
@@ -151,6 +153,20 @@ public sealed class VpnProtectionSettingsValidator
                 result.Errors.Add($"{path}.action must not be Unknown when provided.");
             }
             ValidateReasonTemplate(ruleOverride.ReasonTemplate, path + ".reasonTemplate", result);
+        }
+    }
+
+    private static void ValidateLegacyConditionFields(
+        IEnumerable<string>? extensionKeys,
+        string path,
+        SettingsValidationResult result)
+    {
+        if (extensionKeys?.Any(static key =>
+            key.Equals("signal", StringComparison.OrdinalIgnoreCase) ||
+            key.Equals("operator", StringComparison.OrdinalIgnoreCase) ||
+            key.Equals("expectedValue", StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            result.Errors.Add($"{path} contains legacy flat condition fields; use condition instead.");
         }
     }
 

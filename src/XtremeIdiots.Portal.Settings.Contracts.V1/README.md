@@ -76,7 +76,8 @@ player tags continue to merge from global and server settings.
 
 There is deliberately no migration from schema 1's flat rule fields (`signal`, `operator`, and
 `expectedValue`) to the new `condition` object. Those documents fail validation until replaced
-with schema-2 settings. During cutover, remove old per-server override documents as coordinated,
+with schema-2 settings; those legacy fields are rejected on rules and overrides even if a nested
+condition is also supplied. During cutover, remove old per-server override documents as coordinated,
 but do not remove the ability to configure per-server settings in schema 2. Existing consumers
 cache settings for up to three minutes: wait at least that long after disabling settings, and
 independently verify the effective disabled state on every applicable server before changing
