@@ -174,7 +174,17 @@ def _parse_status() -> list[dict[str, str]]:
     for line in _run_sql(STATUS_SQL):
         fields = line.split("|")
         if len(fields) != 13:
-            raise RuntimeError("Unexpected sanitized status row; refusing to infer settings.")
+            scope = fields[0] if fields and fields[0] in {"global", "server"} else "unknown"
+            namespace = (
+                fields[4]
+                if len(fields) > 4 and fields[4] in {"vpnProtection", "cod4xPlugin"}
+                else "unknown"
+            )
+            raise RuntimeError(
+                "Unexpected sanitized status row "
+                f"(fieldCount={len(fields)}, scope={scope}, namespace={namespace}); "
+                "refusing to infer settings."
+            )
         (
             scope,
             server_id,
