@@ -461,7 +461,7 @@ public class GameServerConfigurationsControllerTests
         var api = (IGameServerConfigurationsApi)controller;
         var dto = new UpsertConfigurationDto
         {
-            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"enabled\":true,\"ruleOverrides\":[{\"id\":\"vpn\",\"action\":\"Kick\"}],\"excludedPlayerTags\":[\"Server Exempt\"]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":2,\"enabled\":true,\"ruleOverrides\":[{\"id\":\"vpn\",\"action\":\"Kick\"}],\"excludedPlayerTags\":[\"Server Exempt\"]}"
         };
 
         var result = await api.UpsertConfiguration(gs.GameServerId, "vpnProtection", dto);

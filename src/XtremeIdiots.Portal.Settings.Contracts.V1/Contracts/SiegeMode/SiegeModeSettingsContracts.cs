@@ -9,16 +9,8 @@ public static class SiegeModeSettingsConstants
 {
     public const string Namespace = "siegeMode";
     public const int DefaultDurationMinutes = 240;
-    public const int MaxConditionDepth = 8;
-    public const int MaxConditionsPerRule = 100;
-}
-
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SiegeConditionGroupOperator
-{
-    Unknown = 0,
-    And,
-    Or
+    public const int MaxConditionDepth = RuleConditionTreeConstants.MaxDepth;
+    public const int MaxConditionsPerRule = RuleConditionTreeConstants.MaxConditionsPerRule;
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -44,27 +36,27 @@ public sealed class SiegeModeSettingsDocument
         new()
         {
             Id = "new-guid",
-            Condition = new() { PlayerSignal = SiegePlayerSignal.NewGuid, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" }
+            Condition = new() { PlayerSignal = SiegePlayerSignal.NewGuid, Operator = RuleComparisonOperator.Equal, ExpectedValue = "true" }
         },
         new()
         {
             Id = "new-vpn-ip",
             Condition = new()
             {
-                GroupOperator = SiegeConditionGroupOperator.And,
+                GroupOperator = RuleConditionGroupOperator.And,
                 Conditions =
                 [
                     new()
                     {
-                        GroupOperator = SiegeConditionGroupOperator.Or,
+                        GroupOperator = RuleConditionGroupOperator.Or,
                         Conditions =
                         [
-                            new() { Signal = VpnProtectionSignal.ProxyCheckIsVpn, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" },
-                            new() { Signal = VpnProtectionSignal.MaxMindIsAnonymousVpn, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" }
+                            new() { Signal = VpnProtectionSignal.ProxyCheckIsVpn, Operator = RuleComparisonOperator.Equal, ExpectedValue = "true" },
+                            new() { Signal = VpnProtectionSignal.MaxMindIsAnonymousVpn, Operator = RuleComparisonOperator.Equal, ExpectedValue = "true" }
                         ]
                     },
-                    new() { PlayerSignal = SiegePlayerSignal.NewIp, Operator = VpnProtectionComparisonOperator.Equal, ExpectedValue = "true" },
-                    new() { PlayerSignal = SiegePlayerSignal.PlayerTag, Operator = VpnProtectionComparisonOperator.NotEqual, ExpectedValue = "vpn-exempt" }
+                    new() { PlayerSignal = SiegePlayerSignal.NewIp, Operator = RuleComparisonOperator.Equal, ExpectedValue = "true" },
+                    new() { PlayerSignal = SiegePlayerSignal.PlayerTag, Operator = RuleComparisonOperator.NotEqual, ExpectedValue = "vpn-exempt" }
                 ]
             }
         }
@@ -81,15 +73,7 @@ public sealed class SiegeModeRule
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
-public sealed class SiegeModeCondition
+public sealed class SiegeModeCondition : RuleCondition<VpnProtectionSignal, SiegeModeCondition>
 {
-    public SiegeConditionGroupOperator? GroupOperator { get; set; }
-    public List<SiegeModeCondition>? Conditions { get; set; }
-    public VpnProtectionSignal? Signal { get; set; }
     public SiegePlayerSignal? PlayerSignal { get; set; }
-    public VpnProtectionComparisonOperator? Operator { get; set; }
-    public string? ExpectedValue { get; set; }
-
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
