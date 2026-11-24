@@ -16,6 +16,7 @@ CREATE TABLE [dbo].[RuleActionExecutions]
     [ActionIndex] INT NOT NULL,
     [ClaimedAtUtc] DATETIME2(3) NOT NULL,
     [OutcomeAtUtc] DATETIME2(3) NULL,
+    [UpdatedAtUtc] DATETIME2(3) NOT NULL,
     [ResultJson] NVARCHAR(MAX) NULL,
     [Detail] NVARCHAR(1024) NULL,
     [AdminActionId] UNIQUEIDENTIFIER NULL,

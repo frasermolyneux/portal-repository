@@ -54,6 +54,9 @@ public partial class RuleActionExecution
     [Precision(3)]
     public DateTime? OutcomeAtUtc { get; set; }
 
+    [Precision(3)]
+    public DateTime UpdatedAtUtc { get; set; }
+
     public string? ResultJson { get; set; }
 
     [StringLength(1024)]

@@ -15,6 +15,79 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public sealed class RuleExecutionsControllerTests
 {
     [Fact]
+    public async Task SearchRuleActions_FiltersWithinAuthorizedServerScopeAndReturnsAuditFields()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var firstServerId = await AddServer(context);
+        var secondServerId = await AddServer(context);
+        var sessionId = Guid.NewGuid();
+        var otherSessionId = Guid.NewGuid();
+        var otherServerSessionId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        context.SiegeSessions.AddRange(
+            CreateSiegeSession(firstServerId, sessionId),
+            CreateSiegeSession(firstServerId, otherSessionId),
+            CreateSiegeSession(secondServerId, otherServerSessionId));
+
+        var target = CreateAuditAction(firstServerId, "siege-mode", sessionId, now, RuleExecutionMode.DryRun);
+        var otherSession = CreateAuditAction(firstServerId, "siege-mode", otherSessionId, now.AddMinutes(-1), RuleExecutionMode.Enforce);
+        var otherFeature = CreateAuditAction(firstServerId, "vpn-protection", null, now.AddMinutes(-2), RuleExecutionMode.Enforce);
+        var unauthorizedServer = CreateAuditAction(secondServerId, "siege-mode", otherServerSessionId, now.AddMinutes(-3), RuleExecutionMode.Enforce);
+        context.RuleFeatureExecutions.AddRange(target.Execution, otherSession.Execution, otherFeature.Execution, unauthorizedServer.Execution);
+        context.RuleActionExecutions.AddRange(target.Action, otherSession.Action, otherFeature.Action, unauthorizedServer.Action);
+        await context.SaveChangesAsync();
+
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var result = await api.SearchRuleActions(new RuleActionAuditQueryDto
+        {
+            GameServerIds = [firstServerId],
+            FeatureId = "siege-mode"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(3, result.Result!.Pagination!.TotalCount);
+        Assert.Equal(2, result.Result.Pagination.FilteredCount);
+        Assert.All(result.Result.Data!.Items!, action => Assert.Equal(firstServerId, action.GameServerId));
+
+        var sessionResult = await api.SearchRuleActions(new RuleActionAuditQueryDto
+        {
+            GameServerIds = [firstServerId],
+            SiegeSessionId = sessionId,
+            FeatureId = "siege-mode"
+        });
+        Assert.Equal(1, sessionResult.Result!.Pagination!.FilteredCount);
+        var audited = Assert.Single(sessionResult.Result!.Data!.Items!);
+        Assert.Equal(target.Execution.ExecutionId, audited.ExecutionId);
+        Assert.Equal("siege-mode", audited.FeatureId);
+        Assert.Equal("rule-audit", audited.RuleId);
+        Assert.Equal("action-audit", audited.ActionId);
+        Assert.Equal(0, audited.RuleIndex);
+        Assert.Equal(1, audited.ActionIndex);
+        Assert.Equal(sessionId, audited.SiegeSessionId);
+        Assert.Equal(firstServerId, audited.GameServerId);
+        Assert.Equal(target.Execution.ConnectionId, audited.ConnectionId);
+        Assert.Equal((ulong)7, audited.ConnectionGeneration);
+        Assert.Equal("PLAYER-AUDIT", audited.PlayerGuid);
+        Assert.Equal(5, audited.SlotId);
+        Assert.Equal("moderation.observation", audited.ActionTypeId);
+        Assert.Equal(RuleActionExecutionOutcome.WouldExecute, audited.Outcome);
+        Assert.Equal(RuleExecutionMode.DryRun, audited.Mode);
+        Assert.Equal(target.Action.OutcomeAtUtc, audited.OccurredAtUtc!.Value.UtcDateTime);
+        Assert.Equal(target.Action.UpdatedAtUtc, audited.UpdatedAtUtc.UtcDateTime);
+    }
+
+    [Fact]
+    public async Task SearchRuleActions_RequiresAnAuthorizedServerScope()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+
+        var result = await api.SearchRuleActions(new RuleActionAuditQueryDto());
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
     public async Task EnsureRuleActionAdminAction_SupportsObservationWithoutNativeDispatch()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -1049,5 +1122,116 @@ public sealed class RuleExecutionsControllerTests
         });
         await context.SaveChangesAsync();
         return id;
+    }
+
+    private static SiegeSession CreateSiegeSession(Guid gameServerId, Guid sessionId) =>
+        new()
+        {
+            SessionId = sessionId,
+            GameServerId = gameServerId,
+            GameType = (int)GameType.CallOfDuty4,
+            StartedAtUtc = DateTime.UtcNow.AddHours(-1),
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+            StartedBy = "rules-audit-test",
+            Mode = "DryRun",
+            SettingsJson = "{}",
+            BaselineRevision = 0
+        };
+
+    private static (RuleFeatureExecution Execution, RuleActionExecution Action) CreateAuditAction(
+        Guid gameServerId,
+        string featureId,
+        Guid? siegeSessionId,
+        DateTime claimedAtUtc,
+        RuleExecutionMode mode)
+    {
+        var executionId = Guid.NewGuid();
+        var connectionId = Guid.NewGuid();
+        var actionId = "action-audit";
+        var logicalEffectId = Guid.NewGuid().ToString("N").PadRight(64, 'a');
+        var trigger = new RuleTriggerEnvelope
+        {
+            TriggerId = "player.connected",
+            TriggerOccurrenceId = Guid.NewGuid(),
+            GameServerId = gameServerId,
+            GameType = GameType.CallOfDuty4,
+            ConnectionId = connectionId,
+            PlayerGuid = "PLAYER-AUDIT",
+            SlotId = 5
+        };
+        var correlation = new RuleActionCorrelation
+        {
+            TriggerId = trigger.TriggerId,
+            TriggerOccurrenceId = trigger.TriggerOccurrenceId,
+            ConnectionId = connectionId,
+            FeatureId = featureId,
+            RuleId = "rule-audit",
+            RuleSetRevision = "revision-audit",
+            SiegeSessionId = siegeSessionId,
+            ActionId = actionId
+        };
+        var command = new RuleActionCommand
+        {
+            ExecutionId = executionId,
+            ActionId = actionId,
+            LogicalEffectId = logicalEffectId,
+            Correlation = correlation,
+            GameServerId = gameServerId,
+            SlotId = 5,
+            PlayerGuid = "PLAYER-AUDIT",
+            ConnectionId = connectionId,
+            ConnectionGeneration = 7,
+            Mode = mode
+        };
+        var occurredAtUtc = new DateTimeOffset(claimedAtUtc.AddSeconds(5), TimeSpan.Zero);
+        var result = new RuleActionResult
+        {
+            GameServerId = gameServerId,
+            ExecutionId = executionId,
+            ActionId = actionId,
+            LogicalEffectId = logicalEffectId,
+            Correlation = correlation,
+            Outcome = RuleActionExecutionOutcome.WouldExecute,
+            OccurredAtUtc = occurredAtUtc
+        };
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var execution = new RuleFeatureExecution
+        {
+            ExecutionId = executionId,
+            GameServerId = gameServerId,
+            ConnectionId = connectionId,
+            TriggerOccurrenceId = trigger.TriggerOccurrenceId,
+            FeatureId = featureId,
+            SiegeSessionId = siegeSessionId,
+            RuleSetRevision = "revision-audit",
+            FrozenRulesJson = "{}",
+            TriggerJson = JsonSerializer.Serialize(trigger, jsonOptions),
+            State = RuleFeatureExecutionState.Completed.ToString(),
+            CreatedAtUtc = claimedAtUtc,
+            UpdatedAtUtc = claimedAtUtc.AddMinutes(1)
+        };
+        var action = new RuleActionExecution
+        {
+            ActionExecutionId = Guid.NewGuid(),
+            ExecutionId = executionId,
+            Execution = execution,
+            GameServerId = gameServerId,
+            SiegeSessionId = siegeSessionId,
+            LogicalEffectId = logicalEffectId,
+            ActionId = actionId,
+            ActionTypeId = "moderation.observation",
+            ParametersJson = "{}",
+            CorrelationJson = JsonSerializer.Serialize(correlation, jsonOptions),
+            CommandJson = JsonSerializer.Serialize(command, jsonOptions),
+            Mode = mode.ToString(),
+            Outcome = RuleActionExecutionOutcome.WouldExecute.ToString(),
+            RuleIndex = 0,
+            ActionIndex = 1,
+            ClaimedAtUtc = claimedAtUtc,
+            OutcomeAtUtc = occurredAtUtc.UtcDateTime,
+            UpdatedAtUtc = claimedAtUtc.AddMinutes(1),
+            ResultJson = JsonSerializer.Serialize(result, jsonOptions)
+        };
+        return (execution, action);
     }
 }

@@ -256,6 +256,11 @@ unconfirmed; the repository binding is not an atomic RCON generation check.
 
 V1 Repository API signatures live in `IRuleExecutionsApi`:
 
+- `SearchRuleActions(RuleActionAuditQueryDto)` returns paginated action records only within the
+  required caller-supplied game-server scope, with optional feature, Siege session, and time filters.
+  Pagination counts are calculated only inside that server scope. Results expose the logical
+  action/rule/execution identities, server/session/connection and player-GUID/slot correlation,
+  execution mode, source occurrence time, and persisted update time.
 - `StartExecution(gameServerId, StartRuleFeatureExecutionDto)` freezes the original trigger and
   rule set and gets/creates the canonical execution for that server, connection, feature, and
   optional Siege session. Repeated starts return the existing execution without replacing its
@@ -294,6 +299,8 @@ expected version; stale versions conflict. Idempotent evidence/link updates may 
 but reject versions ahead of the current execution and never change its cursor or version. A feature
 execution cannot advance while its current action is `Claimed` or `Dispatched`; completed/stopped
 executions are terminal. A logical effect ID is a unique database key across executions.
+Action `UpdatedAtUtc` records the repository write time separately from the native source
+`OccurredAtUtc`; evidence-only updates refresh the former without changing the execution cursor.
 The first claim is atomic and dispatchable; a repeated claim returns the original action with
 `ShouldDispatch=false`, even when the later trigger occurrence or rules revision differs. Outcomes
 must echo the claimed server, execution, action, logical-effect, and correlation identities and

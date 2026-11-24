@@ -82,6 +82,42 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
     public async Task<IActionResult> CreateFactSnapshot(Guid gameServerId, RuleFactSnapshotRequestDto request, CancellationToken cancellationToken = default) =>
         (await ((IRuleExecutionsApi)this).CreateFactSnapshot(gameServerId, request, cancellationToken).ConfigureAwait(false)).ToHttpResult();
 
+    [HttpPost("rule-actions/search")]
+    [ProducesResponseType<ApiResponse<CollectionModel<RuleActionExecutionDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchRuleActions(RuleActionAuditQueryDto request, CancellationToken cancellationToken = default) =>
+        (await ((IRuleExecutionsApi)this).SearchRuleActions(request, cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+    async Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> IRuleExecutionsApi.SearchRuleActions(
+        RuleActionAuditQueryDto request, CancellationToken cancellationToken)
+    {
+        if (!ValidRuleActionAuditQuery(request))
+        {
+            return new ApiResult<CollectionModel<RuleActionExecutionDto>>(HttpStatusCode.BadRequest);
+        }
+
+        var authorizedScope = context.RuleActionExecutions.AsNoTracking()
+            .Where(action => request.GameServerIds.Contains(action.GameServerId));
+        var totalCount = await authorizedScope.CountAsync(cancellationToken).ConfigureAwait(false);
+        var filteredCount = await ApplyRuleActionAuditFilters(authorizedScope, request)
+            .CountAsync(cancellationToken).ConfigureAwait(false);
+        var dataQuery = context.RuleActionExecutions.AsNoTracking()
+            .Where(action => request.GameServerIds.Contains(action.GameServerId));
+        var actions = await ApplyRuleActionAuditFilters(dataQuery, request)
+            .OrderByDescending(action => action.ClaimedAtUtc)
+            .ThenBy(action => action.ActionExecutionId)
+            .Skip(request.SkipEntries)
+            .Take(request.TakeEntries)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var data = new CollectionModel<RuleActionExecutionDto>(
+            actions.Select(action => ToActionDto(action)).ToList());
+
+        return new ApiResponse<CollectionModel<RuleActionExecutionDto>>(data)
+        {
+            Pagination = new ApiPagination(totalCount, filteredCount, request.SkipEntries, request.TakeEntries)
+        }.ToApiResult();
+    }
+
     async Task<ApiResult<RuleFeatureExecutionDto>> IRuleExecutionsApi.StartExecution(
         Guid gameServerId, StartRuleFeatureExecutionDto request, CancellationToken cancellationToken)
     {
@@ -297,7 +333,8 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                 Outcome = RuleActionExecutionOutcome.Claimed.ToString(),
                 RuleIndex = request.RuleIndex,
                 ActionIndex = request.ActionIndex,
-                ClaimedAtUtc = now
+                ClaimedAtUtc = now,
+                UpdatedAtUtc = now
             };
             context.RuleActionExecutions.Add(action);
             execution.RuleIndex = request.RuleIndex;
@@ -459,6 +496,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             }
 
             action.AdminActionId = adminAction.AdminActionId;
+            action.UpdatedAtUtc = DateTime.UtcNow;
             context.AdminActions.Add(adminAction);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ApiResponse<EnsureAutomatedActionResultDto>(new EnsureAutomatedActionResultDto
@@ -589,6 +627,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                     }
                     action.NativeEvidenceJson ??= nativeEvidenceJson;
                     action.AdminActionId ??= request.AdminActionId;
+                    action.UpdatedAtUtc = DateTime.UtcNow;
                     await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                     return await ClaimResultAsync(action, execution, shouldDispatch: false, cancellationToken).ConfigureAwait(false);
                 }
@@ -611,6 +650,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                     action.OutcomeAtUtc = request.Result.OccurredAtUtc.UtcDateTime;
                     action.ResultJson = resultJson;
                     action.Detail = request.Result.Detail;
+                    action.UpdatedAtUtc = DateTime.UtcNow;
                     await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                     return await ClaimResultAsync(action, execution, shouldDispatch: false, cancellationToken).ConfigureAwait(false);
                 }
@@ -646,6 +686,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             action.OutcomeAtUtc = outcomeAt;
             action.ResultJson = resultJson;
             action.Detail = request.Result.Detail;
+            action.UpdatedAtUtc = DateTime.UtcNow;
             execution.RuleIndex = request.NextRuleIndex;
             execution.ActionIndex = request.NextActionIndex;
             execution.State = request.NextState.ToString();
@@ -828,7 +869,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             RuleIndex = execution.RuleIndex,
             ActionIndex = execution.ActionIndex,
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
-            Actions = actions.Select(ToActionDto).ToArray(),
+            Actions = actions.Select(action => ToActionDto(action, execution)).ToArray(),
             Version = execution.Version,
             CreatedAtUtc = Utc(execution.CreatedAtUtc),
             UpdatedAtUtc = Utc(execution.UpdatedAtUtc)
@@ -839,32 +880,85 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
         RuleActionExecution action, RuleFeatureExecution execution, bool shouldDispatch, CancellationToken cancellationToken) =>
         new ApiResponse<RuleActionClaimResultDto>(new RuleActionClaimResultDto
         {
-            Action = ToActionDto(action),
+            Action = ToActionDto(action, execution),
             Execution = await ToDtoAsync(execution, cancellationToken).ConfigureAwait(false),
             ShouldDispatch = shouldDispatch
         }).ToApiResult();
 
-    private static RuleActionExecutionDto ToActionDto(RuleActionExecution action) => new()
+    private static RuleActionExecutionDto ToActionDto(RuleActionExecution action, RuleFeatureExecution? execution = null)
     {
-        ExecutionId = action.ExecutionId,
-        SiegeSessionId = action.SiegeSessionId,
-        LogicalEffectId = action.LogicalEffectId.Trim(),
-        Correlation = Deserialize<RuleActionCorrelation>(action.CorrelationJson),
-        Command = Deserialize<RuleActionCommand>(action.CommandJson),
-        GameServerId = action.GameServerId,
-        ActionTypeId = action.ActionTypeId,
-        ParametersJson = action.ParametersJson,
-        Mode = Enum.Parse<RuleExecutionMode>(action.Mode),
-        Outcome = Enum.Parse<RuleActionExecutionOutcome>(action.Outcome),
-        ClaimedAtUtc = Utc(action.ClaimedAtUtc),
-        OutcomeAtUtc = action.OutcomeAtUtc is { } outcomeAt ? Utc(outcomeAt) : null,
-        ResultJson = action.ResultJson,
-        Detail = action.Detail,
-        AdminActionId = action.AdminActionId,
-        NativeEvidence = action.NativeEvidenceJson is { } nativeEvidenceJson
+        var correlation = Deserialize<RuleActionCorrelation>(action.CorrelationJson);
+        var command = Deserialize<RuleActionCommand>(action.CommandJson);
+        var result = action.ResultJson is { } resultJson ? Deserialize<RuleActionResult>(resultJson) : null;
+        var nativeEvidence = action.NativeEvidenceJson is { } nativeEvidenceJson
             ? Deserialize<RuleActionResult>(nativeEvidenceJson)
-            : null
-    };
+            : null;
+        return new RuleActionExecutionDto
+        {
+            ExecutionId = action.ExecutionId,
+            FeatureId = execution?.FeatureId ?? correlation.FeatureId,
+            RuleId = correlation.RuleId,
+            ActionId = action.ActionId,
+            RuleIndex = action.RuleIndex,
+            ActionIndex = action.ActionIndex,
+            SiegeSessionId = action.SiegeSessionId,
+            LogicalEffectId = action.LogicalEffectId.Trim(),
+            Correlation = correlation,
+            Command = command,
+            GameServerId = action.GameServerId,
+            ConnectionId = command.ConnectionId,
+            ConnectionGeneration = command.ConnectionGeneration,
+            PlayerGuid = command.PlayerGuid,
+            SlotId = command.SlotId,
+            ActionTypeId = action.ActionTypeId,
+            ParametersJson = action.ParametersJson,
+            Mode = Enum.Parse<RuleExecutionMode>(action.Mode),
+            Outcome = Enum.Parse<RuleActionExecutionOutcome>(action.Outcome),
+            ClaimedAtUtc = Utc(action.ClaimedAtUtc),
+            OccurredAtUtc = result?.OccurredAtUtc ?? nativeEvidence?.OccurredAtUtc,
+            OutcomeAtUtc = action.OutcomeAtUtc is { } outcomeAt ? Utc(outcomeAt) : null,
+            UpdatedAtUtc = Utc(action.UpdatedAtUtc),
+            ResultJson = action.ResultJson,
+            Detail = action.Detail,
+            AdminActionId = action.AdminActionId,
+            NativeEvidence = nativeEvidence
+        };
+    }
+
+    private IQueryable<RuleActionExecution> ApplyRuleActionAuditFilters(
+        IQueryable<RuleActionExecution> query, RuleActionAuditQueryDto request)
+    {
+        if (request.SiegeSessionId is { } siegeSessionId)
+        {
+            query = query.Where(action => action.SiegeSessionId == siegeSessionId);
+        }
+        if (!string.IsNullOrWhiteSpace(request.FeatureId))
+        {
+            var executionIds = context.RuleFeatureExecutions.AsNoTracking()
+                .Where(execution => execution.FeatureId == request.FeatureId)
+                .Select(execution => execution.ExecutionId);
+            query = query.Where(action => executionIds.Contains(action.ExecutionId));
+        }
+        if (request.FromUtc is { } from)
+        {
+            query = query.Where(action => action.ClaimedAtUtc >= from);
+        }
+        if (request.ToUtc is { } to)
+        {
+            query = query.Where(action => action.ClaimedAtUtc < to);
+        }
+        return query;
+    }
+
+    private static bool ValidRuleActionAuditQuery(RuleActionAuditQueryDto? request) =>
+        request is not null &&
+        request.GameServerIds is { Length: > 0 and <= 1000 } &&
+        request.GameServerIds.All(id => id != Guid.Empty) &&
+        (request.SiegeSessionId is null || request.SiegeSessionId != Guid.Empty) &&
+        (request.FeatureId is null || !string.IsNullOrWhiteSpace(request.FeatureId) && request.FeatureId.Length <= 64) &&
+        request.SkipEntries >= 0 &&
+        request.TakeEntries is > 0 and <= 100 &&
+        (request.FromUtc is null || request.ToUtc is null || request.FromUtc < request.ToUtc);
 
     private static RuleFactSnapshotDto ToDto(RuleFactSnapshot snapshot) => new()
     {

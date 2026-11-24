@@ -224,21 +224,43 @@ public sealed record EnsureRuleActionAdminActionDto
 public sealed record RuleActionExecutionDto
 {
     public Guid ExecutionId { get; init; }
+    public string FeatureId { get; init; } = string.Empty;
+    public string RuleId { get; init; } = string.Empty;
+    public string ActionId { get; init; } = string.Empty;
+    public int RuleIndex { get; init; }
+    public int ActionIndex { get; init; }
     public Guid? SiegeSessionId { get; init; }
     public string LogicalEffectId { get; init; } = string.Empty;
     public RuleActionCorrelation Correlation { get; init; } = new();
     public RuleActionCommand Command { get; init; } = new();
     public Guid GameServerId { get; init; }
+    public Guid ConnectionId { get; init; }
+    public ulong? ConnectionGeneration { get; init; }
+    public string? PlayerGuid { get; init; }
+    public int SlotId { get; init; }
     public string ActionTypeId { get; init; } = string.Empty;
     public string ParametersJson { get; init; } = string.Empty;
     public RuleExecutionMode Mode { get; init; }
     public RuleActionExecutionOutcome Outcome { get; init; }
     public DateTimeOffset ClaimedAtUtc { get; init; }
+    public DateTimeOffset? OccurredAtUtc { get; init; }
     public DateTimeOffset? OutcomeAtUtc { get; init; }
+    public DateTimeOffset UpdatedAtUtc { get; init; }
     public string? ResultJson { get; init; }
     public string? Detail { get; init; }
     public Guid? AdminActionId { get; init; }
     public RuleActionResult? NativeEvidence { get; init; }
+}
+
+public sealed record RuleActionAuditQueryDto
+{
+    public Guid[] GameServerIds { get; init; } = [];
+    public Guid? SiegeSessionId { get; init; }
+    public string? FeatureId { get; init; }
+    public DateTime? FromUtc { get; init; }
+    public DateTime? ToUtc { get; init; }
+    public int SkipEntries { get; init; }
+    public int TakeEntries { get; init; } = 20;
 }
 
 public sealed record RuleActionClaimResultDto

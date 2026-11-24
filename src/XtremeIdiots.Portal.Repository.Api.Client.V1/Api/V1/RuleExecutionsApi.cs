@@ -17,6 +17,11 @@ public sealed class RuleExecutionsApi(
     RepositoryApiClientOptions options)
     : BaseApi<RepositoryApiClientOptions>(logger, apiTokenProvider, restClientService, options), IRuleExecutionsApi
 {
+    public Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> SearchRuleActions(
+        RuleActionAuditQueryDto request,
+        CancellationToken cancellationToken = default) =>
+        Send<CollectionModel<RuleActionExecutionDto>>("v1/rule-actions/search", Method.Post, request, cancellationToken);
+
     public Task<ApiResult<RuleFeatureExecutionDto>> StartExecution(
         Guid gameServerId,
         StartRuleFeatureExecutionDto request,
