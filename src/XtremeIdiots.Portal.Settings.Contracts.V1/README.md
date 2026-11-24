@@ -82,7 +82,8 @@ but do not remove the ability to configure per-server settings in schema 2. Exis
 cache settings for up to three minutes: wait at least that long after disabling settings, and
 independently verify the effective disabled state on every applicable server before changing
 consumers or publishing this breaking contract. This package change does not update production
-settings or deploy anything.
+settings; merging the source change triggers the normal package release and API deployment.
+Settings replacement and processor/editor releases remain separately coordinated.
 
 VPN limits: 100 rules/overrides/excluded tags, 64-character rule IDs, 256-character condition
 values/reason templates, 128-character player tags, and integer numeric values from 0 through
