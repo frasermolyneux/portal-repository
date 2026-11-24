@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-"""Temporary, manually dispatched VPN settings verification and cutover operation."""
+"""Temporary, manually dispatched VPN settings verification operation."""
 
 from __future__ import annotations
 
-import hashlib
-import json
 import os
-import re
 import subprocess
 import sys
-import tempfile
-from pathlib import Path
 from typing import Any
 
 
@@ -135,131 +130,6 @@ FROM StatusRows
 ORDER BY [Scope], GameServerId, [Namespace];
 """
 
-VPN_SNAPSHOT_ROWS = r"""
-SELECT
-    N'global' AS [Scope],
-    CAST(NULL AS uniqueidentifier) AS GameServerId,
-    [Namespace],
-    Configuration,
-    LastModifiedUtc
-FROM dbo.GlobalConfigurations
-WHERE [Namespace] = N'vpnProtection'
-
-UNION ALL
-
-SELECT
-    N'server',
-    GameServerId,
-    [Namespace],
-    Configuration,
-    LastModifiedUtc
-FROM dbo.GameServerConfigurations
-WHERE [Namespace] = N'vpnProtection'
-"""
-
-BACKUP_SQL = f"""
-SET NOCOUNT ON;
-DECLARE @payload nvarchar(max) = (
-    SELECT [Scope], GameServerId, [Namespace], Configuration, LastModifiedUtc
-    FROM ({VPN_SNAPSHOT_ROWS}) AS vpnRows
-    ORDER BY [Scope], GameServerId
-    FOR JSON PATH, INCLUDE_NULL_VALUES
-);
-SET @payload = COALESCE(@payload, N'[]');
-DECLARE @payloadHex varchar(max) =
-    CONVERT(varchar(max), CONVERT(varbinary(max), @payload), 2);
-
-SELECT CONCAT(N'HASH|', CONVERT(varchar(64),
-    HASHBYTES('SHA2_256', CONVERT(varbinary(max), @payload)), 2));
-
-;WITH Chunks AS (
-    SELECT 1 AS ChunkIndex, SUBSTRING(@payloadHex, 1, 30000) AS ChunkText
-    UNION ALL
-    SELECT ChunkIndex + 1, SUBSTRING(@payloadHex, ChunkIndex * 30000 + 1, 30000)
-    FROM Chunks
-    WHERE ChunkIndex * 30000 < LEN(@payloadHex)
-)
-SELECT CONCAT(N'DATA|', ChunkText)
-FROM Chunks
-ORDER BY ChunkIndex
-OPTION (MAXRECURSION 0);
-"""
-
-CUTOVER_SQL = f"""
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-
-DECLARE @expectedHash varchar(64) = N'__EXPECTED_HASH__';
-DECLARE @expectedHashBytes varbinary(32) = CONVERT(varbinary(32), @expectedHash, 2);
-DECLARE @newConfiguration nvarchar(max) =
-    N'{{"schemaVersion":1,"enabled":false,"rules":[],"ruleOverrides":[],"excludedPlayerTags":[]}}';
-
-IF ISJSON(@newConfiguration) <> 1
-    THROW 51000, 'The replacement VPN settings document is not valid JSON.', 1;
-
-BEGIN TRY
-    BEGIN TRANSACTION;
-
-    DECLARE @currentPayload nvarchar(max) = (
-        SELECT [Scope], GameServerId, [Namespace], Configuration, LastModifiedUtc
-        FROM (
-            SELECT
-                N'global' AS [Scope],
-                CAST(NULL AS uniqueidentifier) AS GameServerId,
-                [Namespace],
-                Configuration,
-                LastModifiedUtc
-            FROM dbo.GlobalConfigurations WITH (UPDLOCK, HOLDLOCK)
-            WHERE [Namespace] = N'vpnProtection'
-
-            UNION ALL
-
-            SELECT
-                N'server',
-                GameServerId,
-                [Namespace],
-                Configuration,
-                LastModifiedUtc
-            FROM dbo.GameServerConfigurations WITH (UPDLOCK, HOLDLOCK)
-            WHERE [Namespace] = N'vpnProtection'
-        ) AS vpnRows
-        ORDER BY [Scope], GameServerId
-        FOR JSON PATH, INCLUDE_NULL_VALUES
-    );
-    SET @currentPayload = COALESCE(@currentPayload, N'[]');
-
-    DECLARE @currentHashBytes varbinary(32) =
-        HASHBYTES('SHA2_256', CONVERT(varbinary(max), @currentPayload));
-    IF @currentHashBytes <> @expectedHashBytes
-        THROW 51001, 'VPN settings changed after the secure backup; no cutover was applied.', 1;
-
-    UPDATE dbo.GlobalConfigurations
-    SET Configuration = @newConfiguration,
-        LastModifiedUtc = SYSUTCDATETIME()
-    WHERE [Namespace] = N'vpnProtection';
-
-    IF @@ROWCOUNT = 0
-    BEGIN
-        INSERT INTO dbo.GlobalConfigurations ([Namespace], Configuration, LastModifiedUtc)
-        VALUES (N'vpnProtection', @newConfiguration, SYSUTCDATETIME());
-    END;
-
-    DELETE FROM dbo.GameServerConfigurations
-    WHERE [Namespace] = N'vpnProtection';
-    DECLARE @deletedOverrideCount int = @@ROWCOUNT;
-
-    COMMIT TRANSACTION;
-    SELECT CONCAT(N'CUTOVER|', @deletedOverrideCount) AS CutoverResult;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0
-        ROLLBACK TRANSACTION;
-    THROW;
-END CATCH;
-"""
-
-
 def _environment(name: str) -> str:
     value = os.environ.get(name)
     if not value:
@@ -367,6 +237,28 @@ def _resolve_flag(
     return None
 
 
+def _resolve_document_flag(
+    row: dict[str, str] | None,
+    property_name: str,
+    inherited: bool | None = None,
+    *,
+    has_inherited: bool = False,
+) -> bool | None:
+    if row is None:
+        return inherited if has_inherited else False
+    if row["document_status"] == "invalid-json":
+        return None
+    if row["document_status"] == "valid-json" and row["schema_version"] not in {"0", "1"}:
+        return None
+    if row["document_status"] not in {"missing-document", "valid-json"}:
+        return None
+    return _resolve_flag(
+        row[property_name],
+        inherited,
+        has_inherited=has_inherited,
+    )
+
+
 def _effective_flags(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None], list[dict[str, Any]]]:
     globals_by_namespace = {
         row["namespace"]: row for row in rows if row["scope"] == "global"
@@ -374,14 +266,17 @@ def _effective_flags(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None]
     global_vpn = globals_by_namespace.get("vpnProtection")
     global_plugin = globals_by_namespace.get("cod4xPlugin")
     global_flags = {
-        "vpnProtection": _resolve_flag(
-            global_vpn["enabled"] if global_vpn else "missing-document"
+        "vpnProtection": _resolve_document_flag(
+            global_vpn,
+            "enabled",
         ),
-        "pluginEnabled": _resolve_flag(
-            global_plugin["enabled"] if global_plugin else "missing-document"
+        "pluginEnabled": _resolve_document_flag(
+            global_plugin,
+            "enabled",
         ),
-        "pluginVpnProtectionEnabled": _resolve_flag(
-            global_plugin["plugin_vpn_enabled"] if global_plugin else "missing-document"
+        "pluginVpnProtectionEnabled": _resolve_document_flag(
+            global_plugin,
+            "plugin_vpn_enabled",
         ),
     }
 
@@ -394,18 +289,21 @@ def _effective_flags(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None]
     for server_id, configurations in sorted(server_rows.items()):
         vpn = configurations.get("vpnProtection")
         plugin = configurations.get("cod4xPlugin")
-        feature_enabled = _resolve_flag(
-            vpn["enabled"] if vpn else "missing-document",
+        feature_enabled = _resolve_document_flag(
+            vpn,
+            "enabled",
             global_flags["vpnProtection"],
             has_inherited=True,
         )
-        plugin_enabled = _resolve_flag(
-            plugin["enabled"] if plugin else "missing-document",
+        plugin_enabled = _resolve_document_flag(
+            plugin,
+            "enabled",
             global_flags["pluginEnabled"],
             has_inherited=True,
         )
-        plugin_vpn_enabled = _resolve_flag(
-            plugin["plugin_vpn_enabled"] if plugin else "missing-document",
+        plugin_vpn_enabled = _resolve_document_flag(
+            plugin,
+            "plugin_vpn_enabled",
             global_flags["pluginVpnProtectionEnabled"],
             has_inherited=True,
         )
@@ -444,23 +342,23 @@ def _render_status(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None], 
             continue
         if row["namespace"] == "vpnProtection":
             print(
-                "global vpnProtection: "
+                "global stored vpnProtection: "
                 f"document={row['document_status']} schemaVersion={row['schema_version']} "
-                f"enabled={row['enabled']} rules={row['rule_count']} "
+                f"storedEnabled={row['enabled']} rules={row['rule_count']} "
                 f"ruleOverrides={row['rule_override_count']} "
                 f"excludedPlayerTags={row['excluded_tag_count']} "
                 f"lastModifiedUtc={row['modified_utc'] or 'unknown'}"
             )
         else:
             print(
-                "global cod4xPlugin: "
-                f"document={row['document_status']} enabled={row['enabled']} "
-                f"vpnProtectionEnabled={row['plugin_vpn_enabled']} "
+                "global stored cod4xPlugin: "
+                f"document={row['document_status']} storedEnabled={row['enabled']} "
+                f"storedVpnProtectionEnabled={row['plugin_vpn_enabled']} "
                 f"lastModifiedUtc={row['modified_utc'] or 'unknown'}"
             )
 
     print(
-        "global effective controls: "
+        "global stored/inherited controls: "
         f"vpnProtection={_format_flag(global_flags['vpnProtection'])} "
         f"pluginVpnProtection={_format_flag(global_flags['pluginVpnProtectionEnabled'])} "
         f"pluginEnabled={_format_flag(global_flags['pluginEnabled'])}"
@@ -469,16 +367,16 @@ def _render_status(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None], 
         print(
             f"server={server['server_id']} gameType={server['game_type'] or 'unknown'} "
             f"serverListEnabled={server['server_list_enabled'] or 'unknown'} "
-            f"vpnProtection={_format_flag(server['feature_enabled'])} "
-            f"pluginEnabled={_format_flag(server['plugin_enabled'])} "
-            f"pluginVpnProtection={_format_flag(server['plugin_vpn_enabled'])} "
-            f"effective={server['effective']} "
+            f"vpnProtectionStoredOrInherited={_format_flag(server['feature_enabled'])} "
+            f"pluginEnabledStoredOrInherited={_format_flag(server['plugin_enabled'])} "
+            f"pluginVpnProtectionStoredOrInherited={_format_flag(server['plugin_vpn_enabled'])} "
+            f"derivedFromStoredFlags={server['effective']} "
             f"vpnLastModifiedUtc={server['vpn_modified_utc'] or 'unknown'} "
             f"pluginLastModifiedUtc={server['plugin_modified_utc'] or 'unknown'}"
         )
 
     if not servers:
-        print("active-server-count=0 effectiveState=unknown")
+        print("active-server-count=0 derivedState=unknown")
     else:
         all_disabled = (
             global_flags["vpnProtection"] is False
@@ -499,187 +397,25 @@ def _render_status(rows: list[dict[str, str]]) -> tuple[dict[str, bool | None], 
             )
         )
         overall = "disabled" if all_disabled else "enabled" if any_enabled else "unknown"
-        print(f"active-server-count={len(servers)} all-vpn-controls={overall}")
+        print(f"active-server-count={len(servers)} all-stored-controls={overall}")
     return global_flags, servers
-
-
-def _assert_cutover_preconditions(
-    global_flags: dict[str, bool | None], servers: list[dict[str, Any]]
-) -> None:
-    if not servers:
-        raise RuntimeError("Cutover refused: no active servers were returned for verification.")
-    if (
-        global_flags["vpnProtection"] is not False
-        or global_flags["pluginVpnProtectionEnabled"] is not False
-        or any(
-            server["feature_enabled"] is not False
-            or server["plugin_vpn_enabled"] is not False
-            for server in servers
-        )
-    ):
-        raise RuntimeError(
-            "Cutover refused: every global and active-server VPN control must be verified disabled."
-        )
-
-
-def _backup_payload() -> tuple[str, str]:
-    output = _run_sql(BACKUP_SQL)
-    digest = None
-    encoded_chunks = []
-    for line in output:
-        if line.startswith("HASH|") and re.fullmatch(r"[0-9A-Fa-f]{64}", line[5:]):
-            digest = line[5:].lower()
-        elif line.startswith("DATA|") and re.fullmatch(r"[0-9A-Fa-f]+", line[5:]):
-            encoded_chunks.append(line[5:])
-        else:
-            raise RuntimeError("Unexpected backup response; no settings were changed.")
-    if digest is None or not encoded_chunks:
-        raise RuntimeError("The secure VPN configuration backup could not be prepared.")
-    try:
-        payload = bytes.fromhex("".join(encoded_chunks)).decode("utf-16le")
-        records = json.loads(payload)
-    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise RuntimeError("The VPN configuration backup could not be decoded.") from error
-    if not isinstance(records, list):
-        raise RuntimeError("The VPN configuration backup has an unexpected shape.")
-    return json.dumps(records, ensure_ascii=False, separators=(",", ":")), digest
-
-
-def _upload_backup(payload: str, digest: str) -> str:
-    account = _environment("SQL_BACKUP_STORAGE_ACCOUNT")
-    run_id = _environment("GITHUB_RUN_ID")
-    attempt = _environment("GITHUB_RUN_ATTEMPT")
-    blob_name = f"vpn-protection-cutover/{run_id}-{attempt}-{digest[:12]}.json"
-    temp_dir = Path(_environment("RUNNER_TEMP"))
-    temp_file = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", newline="\n", dir=temp_dir, prefix="vpn-settings-", suffix=".json", delete=False
-        ) as backup:
-            temp_file = Path(backup.name)
-            backup.write(payload)
-        upload = subprocess.run(
-            [
-                "az",
-                "storage",
-                "blob",
-                "upload",
-                "--account-name",
-                account,
-                "--container-name",
-                "sql-backups",
-                "--name",
-                blob_name,
-                "--file",
-                str(temp_file),
-                "--auth-mode",
-                "login",
-                "--only-show-errors",
-                "--output",
-                "none",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if upload.returncode != 0:
-            raise RuntimeError("Private backup upload failed; no settings were changed.")
-        exists = subprocess.run(
-            [
-                "az",
-                "storage",
-                "blob",
-                "exists",
-                "--account-name",
-                account,
-                "--container-name",
-                "sql-backups",
-                "--name",
-                blob_name,
-                "--auth-mode",
-                "login",
-                "--query",
-                "exists",
-                "--output",
-                "tsv",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if exists.returncode != 0 or exists.stdout.strip().lower() != "true":
-            raise RuntimeError("Private backup verification failed; no settings were changed.")
-        return blob_name
-    finally:
-        if temp_file is not None:
-            temp_file.unlink(missing_ok=True)
-
-
-def _apply_cutover(digest: str) -> int:
-    if not re.fullmatch(r"[0-9a-f]{64}", digest):
-        raise RuntimeError("Invalid snapshot digest; no settings were changed.")
-    output = _run_sql(CUTOVER_SQL.replace("__EXPECTED_HASH__", digest.upper()))
-    for line in output:
-        match = re.fullmatch(r"CUTOVER\|(\d+)", line)
-        if match:
-            return int(match.group(1))
-    raise RuntimeError("The cutover transaction did not return its sanitized result.")
 
 
 def main() -> None:
     operation = _environment("VPN_SETTINGS_OPERATION")
-    if operation not in {"verify", "cutover"}:
-        raise RuntimeError("Operation must be verify or cutover.")
+    if operation != "verify":
+        raise RuntimeError("Operation must be verify.")
 
     rows = _parse_status()
-    global_flags, servers = _render_status(rows)
-    if operation == "verify":
-        print(
-            "cache note: run at least 9 minutes after the last settings update; "
-            "this query reads stored settings, not live in-process cache contents."
-        )
-        return
-
-    _assert_cutover_preconditions(global_flags, servers)
-    payload, digest = _backup_payload()
-    blob_name = _upload_backup(payload, digest)
-    deleted_count = _apply_cutover(digest)
+    _render_status(rows)
     print(
-        "cutover completed: "
-        "global vpnProtection replaced with schemaVersion=2 enabled=false and empty rules; "
-        f"deleted {deleted_count} vpnProtection server override(s)."
+        "cache note: run at least 9 minutes after the last settings update; "
+        "this query reads stored settings, not live in-process cache contents."
     )
     print(
-        f"privateRecoveryBackup=sql-backups/{blob_name} "
-        f"sha256={hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+        "validation note: inheritance is derived from stored control flags; "
+        "typed contract validation and live plugin process state are not queried."
     )
-    verification_rows = _parse_status()
-    verification_flags, verification_servers = _effective_flags(verification_rows)
-    global_vpn = next(
-        (
-            row
-            for row in verification_rows
-            if row["scope"] == "global" and row["namespace"] == "vpnProtection"
-        ),
-        None,
-    )
-    if (
-        global_vpn is None
-        or global_vpn["schema_version"] != "1"
-        or global_vpn["enabled"] != "false"
-        or global_vpn["rule_count"] != "0"
-        or global_vpn["rule_override_count"] != "0"
-        or global_vpn["excluded_tag_count"] != "0"
-        or verification_flags["pluginVpnProtectionEnabled"] is not False
-        or any(server["feature_enabled"] is not False for server in verification_servers)
-        or any(server["plugin_vpn_enabled"] is not False for server in verification_servers)
-        or verification_flags["vpnProtection"] is not False
-    ):
-        raise RuntimeError(
-            "Post-cutover verification failed; the private VPN settings backup is available for recovery."
-        )
-    print("post-cutover verification: schemaVersion=1 enabled=false empty rules; server overrides absent.")
-    print("cache note: direct SQL bypasses Repository API invalidation; wait at least 9 minutes before relying on consumer state.")
 
 
 if __name__ == "__main__":
