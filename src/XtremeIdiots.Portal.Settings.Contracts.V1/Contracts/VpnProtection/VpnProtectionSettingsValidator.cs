@@ -30,49 +30,46 @@ public sealed class VpnProtectionSettingsValidator
         VpnProtectionSignal.ProxyCheckStatus
     };
 
-    private static readonly IReadOnlySet<VpnProtectionComparisonOperator> EqualityOperators =
-        new HashSet<VpnProtectionComparisonOperator>
-        {
-            VpnProtectionComparisonOperator.Equal,
-            VpnProtectionComparisonOperator.NotEqual
-        };
+    private static readonly IReadOnlySet<RuleComparisonOperator> EqualityOperators = new HashSet<RuleComparisonOperator>
+    {
+        RuleComparisonOperator.Equal,
+        RuleComparisonOperator.NotEqual
+    };
 
-    private static readonly IReadOnlySet<VpnProtectionComparisonOperator> NumericOperators =
-        new HashSet<VpnProtectionComparisonOperator>
-        {
-            VpnProtectionComparisonOperator.Equal,
-            VpnProtectionComparisonOperator.NotEqual,
-            VpnProtectionComparisonOperator.GreaterThan,
-            VpnProtectionComparisonOperator.GreaterThanOrEqual,
-            VpnProtectionComparisonOperator.LessThan,
-            VpnProtectionComparisonOperator.LessThanOrEqual
-        };
+    private static readonly IReadOnlySet<RuleComparisonOperator> NumericOperators = new HashSet<RuleComparisonOperator>
+    {
+        RuleComparisonOperator.Equal,
+        RuleComparisonOperator.NotEqual,
+        RuleComparisonOperator.GreaterThan,
+        RuleComparisonOperator.GreaterThanOrEqual,
+        RuleComparisonOperator.LessThan,
+        RuleComparisonOperator.LessThanOrEqual
+    };
 
-    private static readonly IReadOnlySet<VpnProtectionComparisonOperator> StringOperators =
-        new HashSet<VpnProtectionComparisonOperator>
-        {
-            VpnProtectionComparisonOperator.Equal,
-            VpnProtectionComparisonOperator.NotEqual,
-            VpnProtectionComparisonOperator.Contains
-        };
+    private static readonly IReadOnlySet<RuleComparisonOperator> StringOperators = new HashSet<RuleComparisonOperator>
+    {
+        RuleComparisonOperator.Equal,
+        RuleComparisonOperator.NotEqual,
+        RuleComparisonOperator.Contains
+    };
 
-    private static readonly IReadOnlySet<string> SourceStatusValues =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Success",
-            "Failed",
-            "Unavailable"
-        };
+    private static readonly IReadOnlySet<string> SourceStatusValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Success",
+        "Failed",
+        "Unavailable"
+    };
 
     public SettingsValidationResult Validate(VpnProtectionSettingsDocument? document)
     {
         var result = new SettingsValidationResult();
         if (document is null)
         {
+            result.Errors.Add("settings are required.");
             return result;
         }
 
-        if (!SchemaVersionSupport.IsSupported(document.SchemaVersion))
+        if (document.SchemaVersion != VpnProtectionSettingsConstants.SchemaVersion)
         {
             result.Errors.Add($"Unsupported schemaVersion '{document.SchemaVersion}' for namespace '{VpnProtectionSettingsConstants.Namespace}'.");
             return result;
@@ -81,7 +78,6 @@ public sealed class VpnProtectionSettingsValidator
         ValidateRules(document.Rules, result);
         ValidateRuleOverrides(document.RuleOverrides, result);
         ValidateExcludedPlayerTags(document.ExcludedPlayerTags, result);
-
         return result;
     }
 
@@ -103,7 +99,6 @@ public sealed class VpnProtectionSettingsValidator
         {
             var rule = rules[index];
             var path = $"rules[{index}]";
-
             if (rule is null)
             {
                 result.Errors.Add($"{path} must be an object.");
@@ -111,13 +106,12 @@ public sealed class VpnProtectionSettingsValidator
             }
 
             ValidateRuleId(rule.Id, path, seenIds, result);
-            ValidateCondition(rule.Signal, rule.Operator, rule.ExpectedValue, path, result);
-
-            if (rule.Action == VpnProtectionAction.Unknown)
+            ValidateLegacyConditionFields(rule.ExtensionData?.Keys, path, result);
+            ValidateCondition(rule.Condition, path + ".condition", result);
+            if (!Enum.IsDefined(rule.Action) || rule.Action == VpnProtectionAction.Unknown)
             {
                 result.Errors.Add($"{path}.action must be specified.");
             }
-
             ValidateReasonTemplate(rule.ReasonTemplate, $"{path}.reasonTemplate", result);
         }
     }
@@ -142,7 +136,6 @@ public sealed class VpnProtectionSettingsValidator
         {
             var ruleOverride = ruleOverrides[index];
             var path = $"ruleOverrides[{index}]";
-
             if (ruleOverride is null)
             {
                 result.Errors.Add($"{path} must be an object.");
@@ -150,28 +143,30 @@ public sealed class VpnProtectionSettingsValidator
             }
 
             ValidateRuleId(ruleOverride.Id, path, seenIds, result);
-
-            if (ruleOverride.Signal == VpnProtectionSignal.Unknown)
+            ValidateLegacyConditionFields(ruleOverride.ExtensionData?.Keys, path, result);
+            if (ruleOverride.Condition is not null)
             {
-                result.Errors.Add($"{path}.signal must not be Unknown when provided.");
+                ValidateCondition(ruleOverride.Condition, path + ".condition", result);
             }
-
-            if (ruleOverride.Operator == VpnProtectionComparisonOperator.Unknown)
-            {
-                result.Errors.Add($"{path}.operator must not be Unknown when provided.");
-            }
-
-            if (ruleOverride.ExpectedValue is not null)
-            {
-                ValidateExpectedValueLength(ruleOverride.ExpectedValue, $"{path}.expectedValue", result);
-            }
-
-            if (ruleOverride.Action == VpnProtectionAction.Unknown)
+            if (ruleOverride.Action is { } action && (!Enum.IsDefined(action) || action == VpnProtectionAction.Unknown))
             {
                 result.Errors.Add($"{path}.action must not be Unknown when provided.");
             }
+            ValidateReasonTemplate(ruleOverride.ReasonTemplate, path + ".reasonTemplate", result);
+        }
+    }
 
-            ValidateReasonTemplate(ruleOverride.ReasonTemplate, $"{path}.reasonTemplate", result);
+    private static void ValidateLegacyConditionFields(
+        IEnumerable<string>? extensionKeys,
+        string path,
+        SettingsValidationResult result)
+    {
+        if (extensionKeys?.Any(static key =>
+            key.Equals("signal", StringComparison.OrdinalIgnoreCase) ||
+            key.Equals("operator", StringComparison.OrdinalIgnoreCase) ||
+            key.Equals("expectedValue", StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            result.Errors.Add($"{path} contains legacy flat condition fields; use condition instead.");
         }
     }
 
@@ -192,27 +187,49 @@ public sealed class VpnProtectionSettingsValidator
         {
             result.Errors.Add($"{path}.id must be <= {VpnProtectionSettingsConstants.MaxRuleIdLength} characters.");
         }
-
         if (!seenIds.Add(normalizedRuleId))
         {
             result.Errors.Add($"{path}.id '{ruleId}' must be unique.");
         }
     }
 
+    private static void ValidateCondition(
+        VpnProtectionCondition? condition,
+        string path,
+        SettingsValidationResult result)
+    {
+        RuleConditionTreeValidator.Validate<VpnProtectionSignal, VpnProtectionCondition>(
+            condition, path, result, ValidateConditionLeaf);
+    }
+
+    private static void ValidateConditionLeaf(
+        VpnProtectionCondition condition,
+        string path,
+        SettingsValidationResult result)
+    {
+        if (condition.Signal is null || condition.Operator is null)
+        {
+            result.Errors.Add($"{path} must contain a signal and operator.");
+            return;
+        }
+
+        ValidateCondition(condition.Signal.Value, condition.Operator.Value, condition.ExpectedValue, path, result);
+    }
+
     internal static void ValidateCondition(
         VpnProtectionSignal signal,
-        VpnProtectionComparisonOperator comparisonOperator,
+        RuleComparisonOperator comparisonOperator,
         string? expectedValue,
         string path,
         SettingsValidationResult result)
     {
-        if (signal == VpnProtectionSignal.Unknown)
+        if (signal == VpnProtectionSignal.Unknown || !Enum.IsDefined(signal))
         {
             result.Errors.Add($"{path}.signal must be specified.");
             return;
         }
 
-        if (comparisonOperator == VpnProtectionComparisonOperator.Unknown)
+        if (comparisonOperator == RuleComparisonOperator.Unknown || !Enum.IsDefined(comparisonOperator))
         {
             result.Errors.Add($"{path}.operator must be specified.");
             return;
@@ -232,12 +249,10 @@ public sealed class VpnProtectionSettingsValidator
             {
                 result.Errors.Add($"{path}.operator '{comparisonOperator}' is not supported for boolean signal '{signal}'.");
             }
-
             if (!bool.TryParse(expectedValue, out _))
             {
                 result.Errors.Add($"{path}.expectedValue must be 'true' or 'false' for signal '{signal}'.");
             }
-
             return;
         }
 
@@ -247,14 +262,12 @@ public sealed class VpnProtectionSettingsValidator
             {
                 result.Errors.Add($"{path}.operator '{comparisonOperator}' is not supported for numeric signal '{signal}'.");
             }
-
             if (!int.TryParse(expectedValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericValue) ||
                 numericValue < VpnProtectionSettingsConstants.MinNumericValue ||
                 numericValue > VpnProtectionSettingsConstants.MaxNumericValue)
             {
                 result.Errors.Add($"{path}.expectedValue must be an integer between {VpnProtectionSettingsConstants.MinNumericValue} and {VpnProtectionSettingsConstants.MaxNumericValue} for signal '{signal}'.");
             }
-
             return;
         }
 
@@ -264,12 +277,10 @@ public sealed class VpnProtectionSettingsValidator
             {
                 result.Errors.Add($"{path}.operator '{comparisonOperator}' is not supported for source status signal '{signal}'.");
             }
-
             if (!SourceStatusValues.Contains(expectedValue.Trim()))
             {
                 result.Errors.Add($"{path}.expectedValue must be Success, Failed, or Unavailable for signal '{signal}'.");
             }
-
             return;
         }
 
@@ -310,7 +321,6 @@ public sealed class VpnProtectionSettingsValidator
         {
             var tag = excludedPlayerTags[index];
             var path = $"excludedPlayerTags[{index}]";
-
             if (string.IsNullOrWhiteSpace(tag))
             {
                 result.Errors.Add($"{path} cannot be empty.");
@@ -322,7 +332,6 @@ public sealed class VpnProtectionSettingsValidator
             {
                 result.Errors.Add($"{path} must be <= {VpnProtectionSettingsConstants.MaxPlayerTagLength} characters.");
             }
-
             if (!seenTags.Add(normalizedTag))
             {
                 result.Errors.Add($"{path} '{tag}' must be unique.");
@@ -339,18 +348,15 @@ public sealed class VpnProtectionSettingsValidator
         {
             return;
         }
-
         if (string.IsNullOrWhiteSpace(reasonTemplate))
         {
             result.Errors.Add($"{path} cannot be empty when provided.");
             return;
         }
-
         if (reasonTemplate.Length > VpnProtectionSettingsConstants.MaxReasonTemplateLength)
         {
             result.Errors.Add($"{path} must be <= {VpnProtectionSettingsConstants.MaxReasonTemplateLength} characters.");
         }
-
         if (reasonTemplate.IndexOfAny([';', '\r', '\n']) >= 0)
         {
             result.Errors.Add($"{path} cannot contain command separators or new lines.");
@@ -371,7 +377,6 @@ public sealed class VpnProtectionSettingsValidator
                 result.Errors.Add($"{path} contains an unmatched closing brace.");
                 return;
             }
-
             if (reasonTemplate[index] != '{')
             {
                 continue;
@@ -389,7 +394,6 @@ public sealed class VpnProtectionSettingsValidator
             {
                 result.Errors.Add($"{path} contains unsupported placeholder '{placeholder}'.");
             }
-
             index = closingBraceIndex;
         }
     }

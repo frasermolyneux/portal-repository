@@ -7,7 +7,7 @@ namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 public static class VpnProtectionSettingsConstants
 {
     public const string Namespace = "vpnProtection";
-    public const int SchemaVersion = SchemaVersionSupport.CurrentSchemaVersion;
+    public const int SchemaVersion = 2;
 
     public const int MaxRules = 100;
     public const int MaxRuleIdLength = 64;
@@ -54,19 +54,6 @@ public enum VpnProtectionSignal
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum VpnProtectionComparisonOperator
-{
-    Unknown = 0,
-    Equal,
-    NotEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
-    LessThan,
-    LessThanOrEqual,
-    Contains
-}
-
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum VpnProtectionAction
 {
     Unknown = 0,
@@ -99,11 +86,7 @@ public sealed class VpnProtectionRule
 
     public bool? Enabled { get; set; }
 
-    public VpnProtectionSignal Signal { get; set; }
-
-    public VpnProtectionComparisonOperator Operator { get; set; }
-
-    public string ExpectedValue { get; set; } = string.Empty;
+    public VpnProtectionCondition? Condition { get; set; }
 
     public VpnProtectionAction Action { get; set; }
 
@@ -121,11 +104,7 @@ public sealed class VpnProtectionRuleOverride
 
     public bool? Enabled { get; set; }
 
-    public VpnProtectionSignal? Signal { get; set; }
-
-    public VpnProtectionComparisonOperator? Operator { get; set; }
-
-    public string? ExpectedValue { get; set; }
+    public VpnProtectionCondition? Condition { get; set; }
 
     public VpnProtectionAction? Action { get; set; }
 
@@ -135,6 +114,10 @@ public sealed class VpnProtectionRuleOverride
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+public sealed class VpnProtectionCondition : RuleCondition<VpnProtectionSignal, VpnProtectionCondition>
+{
 }
 
 public sealed record EffectiveVpnProtectionSettings
@@ -160,11 +143,7 @@ public sealed record EffectiveVpnProtectionRule
 
     public required bool Enabled { get; init; }
 
-    public required VpnProtectionSignal Signal { get; init; }
-
-    public required VpnProtectionComparisonOperator Operator { get; init; }
-
-    public required string ExpectedValue { get; init; }
+    public required VpnProtectionCondition Condition { get; init; }
 
     public required VpnProtectionAction Action { get; init; }
 

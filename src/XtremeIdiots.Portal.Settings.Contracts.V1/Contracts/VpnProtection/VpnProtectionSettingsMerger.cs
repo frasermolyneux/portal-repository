@@ -8,7 +8,8 @@ public sealed class VpnProtectionSettingsMerger
         VpnProtectionSettingsDocument? globalDocument,
         VpnProtectionSettingsDocument? serverDocument)
     {
-        if (!validator.Validate(globalDocument).IsValid || !validator.Validate(serverDocument).IsValid)
+        if ((globalDocument is not null && !validator.Validate(globalDocument).IsValid) ||
+            (serverDocument is not null && !validator.Validate(serverDocument).IsValid))
         {
             return EffectiveVpnProtectionSettings.Disabled(validationFailed: true);
         }
@@ -63,9 +64,9 @@ public sealed class VpnProtectionSettingsMerger
             {
                 Id = rule.Id,
                 Enabled = ruleOverride.Enabled ?? rule.Enabled,
-                Signal = ruleOverride.Signal ?? rule.Signal,
-                Operator = ruleOverride.Operator ?? rule.Operator,
-                ExpectedValue = ruleOverride.ExpectedValue ?? rule.ExpectedValue,
+                Condition = ruleOverride.Condition is null
+                    ? CloneCondition(rule.Condition!)
+                    : CloneCondition(ruleOverride.Condition),
                 Action = ruleOverride.Action ?? rule.Action,
                 PostObservationToForums = ruleOverride.PostObservationToForums ?? rule.PostObservationToForums,
                 ReasonTemplate = ruleOverride.ReasonTemplate ?? rule.ReasonTemplate,
@@ -89,22 +90,28 @@ public sealed class VpnProtectionSettingsMerger
     {
         Id = rule.Id,
         Enabled = rule.Enabled,
-        Signal = rule.Signal,
-        Operator = rule.Operator,
-        ExpectedValue = rule.ExpectedValue,
+        Condition = CloneCondition(rule.Condition!),
         Action = rule.Action,
         PostObservationToForums = rule.PostObservationToForums,
         ReasonTemplate = rule.ReasonTemplate,
         ExtensionData = rule.ExtensionData
     };
 
+    private static VpnProtectionCondition CloneCondition(VpnProtectionCondition condition) => new()
+    {
+        GroupOperator = condition.GroupOperator,
+        Conditions = condition.Conditions?.Select(CloneCondition).ToList(),
+        Signal = condition.Signal,
+        Operator = condition.Operator,
+        ExpectedValue = condition.ExpectedValue?.Trim(),
+        ExtensionData = condition.ExtensionData
+    };
+
     private static EffectiveVpnProtectionRule ToEffectiveRule(VpnProtectionRule rule, int orderIndex) => new()
     {
         Id = rule.Id.Trim(),
         Enabled = rule.Enabled ?? true,
-        Signal = rule.Signal,
-        Operator = rule.Operator,
-        ExpectedValue = rule.ExpectedValue.Trim(),
+        Condition = CloneCondition(rule.Condition!),
         Action = rule.Action,
         PostObservationToForums = rule.PostObservationToForums,
         ReasonTemplate = string.IsNullOrWhiteSpace(rule.ReasonTemplate)
