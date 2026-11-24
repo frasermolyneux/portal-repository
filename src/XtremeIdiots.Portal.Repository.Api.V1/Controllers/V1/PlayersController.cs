@@ -945,12 +945,34 @@ public class PlayersController : ControllerBase, IPlayersApi
 
     async Task<ApiResult> IPlayersApi.RecordPlayerIpObservation(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken)
     {
+        var result = await RecordPlayerIpObservationWithStatusCore(playerId, dto, cancellationToken).ConfigureAwait(false);
+        return result.StatusCode == HttpStatusCode.OK
+            ? new ApiResponse().ToApiResult()
+            : new ApiResult(result.StatusCode);
+    }
+
+    [HttpPut("players/{playerId:guid}/ip-address/observations/with-status")]
+    [ProducesResponseType(typeof(ApiResponse<PlayerIpObservationResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RecordPlayerIpObservationWithStatus(Guid playerId, [FromBody] RecordPlayerIpObservationDto dto, CancellationToken cancellationToken = default)
+    {
+        var result = await RecordPlayerIpObservationWithStatusCore(playerId, dto, cancellationToken).ConfigureAwait(false);
+        return result.ToHttpResult();
+    }
+
+    Task<ApiResult<PlayerIpObservationResultDto>> IPlayersApi.RecordPlayerIpObservationWithStatus(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken) =>
+        RecordPlayerIpObservationWithStatusCore(playerId, dto, cancellationToken);
+
+    private async Task<ApiResult<PlayerIpObservationResultDto>> RecordPlayerIpObservationWithStatusCore(Guid playerId, RecordPlayerIpObservationDto dto, CancellationToken cancellationToken)
+    {
         if (playerId == Guid.Empty || dto is null || string.IsNullOrWhiteSpace(dto.MessageId) ||
             dto.MessageId.Length > 128 || !IPAddress.TryParse(dto.IpAddress, out var address) ||
             (dto.ObservedAtUtc is { } observed && (observed.Offset != TimeSpan.Zero ||
                 observed.UtcDateTime < SqlDateTime.MinValue.Value || observed.UtcDateTime > SqlDateTime.MaxValue.Value)))
         {
-            return new ApiResult(HttpStatusCode.BadRequest);
+            return new ApiResult<PlayerIpObservationResultDto>(HttpStatusCode.BadRequest);
         }
 
         var messageKey = SHA256.HashData(Encoding.UTF8.GetBytes(dto.MessageId));
@@ -974,7 +996,7 @@ public class PlayersController : ControllerBase, IPlayersApi
         }).ConfigureAwait(false);
     }
 
-    private async Task<ApiResult> RecordPlayerIpObservationCore(Guid playerId, string messageId, byte[] messageKey, string address, DateTime? observedAtUtc, CancellationToken cancellationToken)
+    private async Task<ApiResult<PlayerIpObservationResultDto>> RecordPlayerIpObservationCore(Guid playerId, string messageId, byte[] messageKey, string address, DateTime? observedAtUtc, CancellationToken cancellationToken)
     {
         var operation = await context.PlayerIpObservationOperations.FindAsync([messageKey], cancellationToken).ConfigureAwait(false);
         if (operation is not null)
@@ -982,18 +1004,34 @@ public class PlayersController : ControllerBase, IPlayersApi
             var storedAddress = await context.PlayerIpAddresses.AsNoTracking()
                 .Where(ip => ip.PlayerIpAddressId == operation.PlayerIpAddressId && ip.PlayerId == operation.PlayerId)
                 .Select(ip => ip.Address).SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
-            return string.Equals(operation.MessageId, messageId, StringComparison.Ordinal) &&
-                operation.PlayerId == playerId && storedAddress == address &&
-                (operation.ObservedAtUtc is null || operation.ObservedAtUtc == observedAtUtc)
-                ? new ApiResponse().ToApiResult()
-                : new ApiResult(HttpStatusCode.Conflict);
+            if (!string.Equals(operation.MessageId, messageId, StringComparison.Ordinal) ||
+                operation.PlayerId != playerId || storedAddress != address ||
+                (operation.ObservedAtUtc is not null && operation.ObservedAtUtc != observedAtUtc))
+            {
+                return new ApiResult<PlayerIpObservationResultDto>(HttpStatusCode.Conflict);
+            }
+
+            if (operation.AppliedAsCurrent is null || operation.ObservedAtUtc is null)
+            {
+                return IpObservationResult(PlayerIpObservationStatuses.Unknown);
+            }
+
+            var current = await context.Players.AsNoTracking()
+                .Where(player => player.PlayerId == playerId)
+                .Select(player => new { player.IpAddress, player.IpAddressObservedAtUtc })
+                .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+            return IpObservationResult(operation.AppliedAsCurrent.Value &&
+                current is not null && current.IpAddress == address &&
+                current.IpAddressObservedAtUtc == operation.ObservedAtUtc
+                    ? PlayerIpObservationStatuses.Current
+                    : PlayerIpObservationStatuses.NotCurrent);
         }
 
         var player = await context.Players.Include(p => p.PlayerIpAddresses)
             .SingleOrDefaultAsync(p => p.PlayerId == playerId, cancellationToken).ConfigureAwait(false);
         if (player is null)
         {
-            return new ApiResult(HttpStatusCode.NotFound);
+            return new ApiResult<PlayerIpObservationResultDto>(HttpStatusCode.NotFound);
         }
         var now = DateTime.UtcNow;
         var observedAt = observedAtUtc ?? now;
@@ -1007,7 +1045,8 @@ public class PlayersController : ControllerBase, IPlayersApi
             currentAt ??= now;
             player.IpAddressObservedAtUtc = currentAt;
         }
-        if (currentAt is null || observedAt > currentAt || (unknownCurrentTime && observedAtUtc is null))
+        var appliedAsCurrent = currentAt is null || observedAt > currentAt || (unknownCurrentTime && observedAtUtc is null);
+        if (appliedAsCurrent)
         {
             player.IpAddress = address;
             player.IpAddressObservedAtUtc = observedAt;
@@ -1045,11 +1084,17 @@ public class PlayersController : ControllerBase, IPlayersApi
             PlayerId = playerId,
             PlayerIpAddressId = history.PlayerIpAddressId,
             RecordedAtUtc = now,
-            ObservedAtUtc = observedAtUtc
+            ObservedAtUtc = observedAtUtc,
+            AppliedAsCurrent = unknownCurrentTime ? null : appliedAsCurrent
         });
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return new ApiResponse().ToApiResult();
+        return IpObservationResult(observedAtUtc is null || unknownCurrentTime
+            ? PlayerIpObservationStatuses.Unknown
+            : appliedAsCurrent ? PlayerIpObservationStatuses.Current : PlayerIpObservationStatuses.NotCurrent);
     }
+
+    private static ApiResult<PlayerIpObservationResultDto> IpObservationResult(string status) =>
+        new ApiResponse<PlayerIpObservationResultDto>(new PlayerIpObservationResultDto { Status = status }).ToApiResult();
 
     private async Task AcquireIpObservationLock(string resource, CancellationToken cancellationToken)
     {

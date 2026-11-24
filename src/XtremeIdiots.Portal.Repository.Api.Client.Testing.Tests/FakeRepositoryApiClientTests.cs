@@ -39,6 +39,55 @@ public class FakeRepositoryApiClientTests
     }
 
     [Fact]
+    public async Task IpObservationStatus_RechecksCurrentnessOnReplay()
+    {
+        var client = new FakeRepositoryApiClient();
+        var playerId = Guid.NewGuid();
+        var player = Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Players.PlayerDto>(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new { PlayerId = playerId }))!;
+        client.PlayersApi.AddPlayer(player);
+        var first = new Abstractions.Models.V1.Players.RecordPlayerIpObservationDto
+        {
+            MessageId = "first",
+            IpAddress = "192.0.2.1",
+            ObservedAtUtc = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        };
+        async Task<string?> Record(Abstractions.Models.V1.Players.RecordPlayerIpObservationDto dto) =>
+            (await client.Players.V1.RecordPlayerIpObservationWithStatus(playerId, dto)).Result?.Data?.Status;
+        Assert.Equal("Current", await Record(first));
+        Assert.Equal("Current", await Record(first));
+        Assert.Equal("NotCurrent", await Record(first with { MessageId = "tie" }));
+        Assert.Equal("Current", await Record(first with { MessageId = "new", ObservedAtUtc = first.ObservedAtUtc!.Value.AddSeconds(1) }));
+        Assert.Equal("NotCurrent", await Record(first));
+        Assert.Equal("Unknown", await Record(first with { MessageId = "no-time", ObservedAtUtc = null }));
+    }
+
+    [Fact]
+    public async Task IpObservationStatus_UsesSeededCurrentIpHistoryAsWatermark()
+    {
+        var client = new FakeRepositoryApiClient();
+        var playerId = Guid.NewGuid();
+        var time = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var player = Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Players.PlayerDto>(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new { PlayerId = playerId, IpAddress = "192.0.2.1" }))!;
+        var history = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Abstractions.Models.V1.Players.IpAddressDto>>(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new[] {
+                new { Address = "192.0.2.1", LastUsed = time },
+                new { Address = "192.0.2.2", LastUsed = time.AddDays(1) }
+            }))!;
+        client.PlayersApi.AddPlayer(player).AddPlayerIpAddresses(playerId, history);
+        var observation = new Abstractions.Models.V1.Players.RecordPlayerIpObservationDto
+        {
+            MessageId = "older",
+            IpAddress = "192.0.2.2",
+            ObservedAtUtc = new DateTimeOffset(time.AddSeconds(-1))
+        };
+        Assert.Equal("NotCurrent", (await client.Players.V1.RecordPlayerIpObservationWithStatus(playerId, observation)).Result!.Data!.Status);
+        Assert.Equal("Current", (await client.Players.V1.RecordPlayerIpObservationWithStatus(playerId,
+            observation with { MessageId = "newer", ObservedAtUtc = new DateTimeOffset(time.AddSeconds(1)) })).Result!.Data!.Status);
+    }
+
+    [Fact]
     public void SiegeMode_RequiresAnExplicitFake()
     {
         var client = new FakeRepositoryApiClient();

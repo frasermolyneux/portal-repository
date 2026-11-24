@@ -18,6 +18,84 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 public sealed class PlayerIpObservationConcurrencyTests
 {
     [Fact]
+    public Task ObservationStatus_RechecksReplayAndRejectsTies()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var player = new Player { GameType = 1, Guid = "guid", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.Players.Add(player);
+            await context.SaveChangesAsync();
+            using var cache = new MemoryCache(new MemoryCacheOptions());
+            var api = (IPlayersApi)new PlayersController(context, cache, Mock.Of<IAuditLogger>());
+            var time = new DateTimeOffset(2025, 5, 2, 12, 0, 0, TimeSpan.Zero);
+            var first = new RecordPlayerIpObservationDto { MessageId = "first", IpAddress = "192.0.2.1", ObservedAtUtc = time };
+            async Task<string?> Record(RecordPlayerIpObservationDto dto) =>
+                (await api.RecordPlayerIpObservationWithStatus(player.PlayerId, dto)).Result?.Data?.Status;
+
+            Assert.Equal(PlayerIpObservationStatuses.Current, await Record(first));
+            Assert.Equal(PlayerIpObservationStatuses.Current, await Record(first));
+            var tie = first with { MessageId = "tie" };
+            Assert.Equal(PlayerIpObservationStatuses.NotCurrent, await Record(tie));
+            Assert.Equal(PlayerIpObservationStatuses.NotCurrent, await Record(tie));
+            Assert.Equal(PlayerIpObservationStatuses.NotCurrent, await Record(first with { MessageId = "older", ObservedAtUtc = time.AddSeconds(-1) }));
+            var newer = first with { MessageId = "newer", IpAddress = "192.0.2.2", ObservedAtUtc = time.AddSeconds(1) };
+            Assert.Equal(PlayerIpObservationStatuses.Current, await Record(newer));
+            Assert.Equal(PlayerIpObservationStatuses.NotCurrent, await Record(first));
+            Assert.Equal(HttpStatusCode.Conflict, (await api.RecordPlayerIpObservationWithStatus(player.PlayerId, first with { IpAddress = newer.IpAddress })).StatusCode);
+            Assert.Equal(4, await context.PlayerIpObservationOperations.CountAsync());
+            var oldOperation = await context.PlayerIpObservationOperations.SingleAsync(op => op.MessageId == "newer");
+            oldOperation.AppliedAsCurrent = null;
+            await context.SaveChangesAsync();
+            Assert.Equal(PlayerIpObservationStatuses.Unknown, await Record(newer));
+        });
+
+    [Fact]
+    public Task ObservationStatus_ConcurrentTiesIdentifyOnlyTheWinner()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var setup = new PortalDbContext(options);
+            var player = new Player { GameType = 1, Guid = "guid", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            setup.Players.Add(player);
+            await setup.SaveChangesAsync();
+            var time = new DateTimeOffset(2025, 5, 2, 12, 0, 0, TimeSpan.Zero);
+            var first = new RecordPlayerIpObservationDto { MessageId = "one", IpAddress = "192.0.2.1", ObservedAtUtc = time };
+            var second = first with { MessageId = "two" };
+            async Task<string?> Record(RecordPlayerIpObservationDto dto)
+            {
+                await using var context = new PortalDbContext(options);
+                using var cache = new MemoryCache(new MemoryCacheOptions());
+                return (await ((IPlayersApi)new PlayersController(context, cache, Mock.Of<IAuditLogger>()))
+                    .RecordPlayerIpObservationWithStatus(player.PlayerId, dto)).Result?.Data?.Status;
+            }
+            var results = await Task.WhenAll(Record(first), Record(second));
+            Assert.Single(results, status => status == PlayerIpObservationStatuses.Current);
+            Assert.Single(results, status => status == PlayerIpObservationStatuses.NotCurrent);
+            Assert.Equal(results[0], await Record(first));
+            Assert.Equal(results[1], await Record(second));
+        });
+
+    [Fact]
+    public Task ObservationStatus_LegacyDecisionsAndUnknownCurrentTimeFailOpen()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var player = new Player { GameType = 1, Guid = "guid", IpAddress = "192.0.2.2", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            context.Players.Add(player);
+            await context.SaveChangesAsync();
+            using var cache = new MemoryCache(new MemoryCacheOptions());
+            var api = (IPlayersApi)new PlayersController(context, cache, Mock.Of<IAuditLogger>());
+            var request = new RecordPlayerIpObservationDto { MessageId = "unknown", IpAddress = "192.0.2.1", ObservedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
+            Assert.Equal(PlayerIpObservationStatuses.Unknown, (await api.RecordPlayerIpObservationWithStatus(player.PlayerId, request)).Result!.Data!.Status);
+            Assert.Equal(PlayerIpObservationStatuses.Unknown, (await api.RecordPlayerIpObservationWithStatus(player.PlayerId, request)).Result!.Data!.Status);
+            var noTime = request with { MessageId = "no-time", ObservedAtUtc = null };
+            Assert.Equal(PlayerIpObservationStatuses.Unknown, (await api.RecordPlayerIpObservationWithStatus(player.PlayerId, noTime)).Result!.Data!.Status);
+
+        });
+
+    [Fact]
     public Task ReplayedObservations_DoNotRefreshHistoryOrRecreatePrunedIp() =>
         SqlServerTestDatabase.RunAsync(async connectionString =>
         {

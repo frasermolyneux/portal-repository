@@ -17,29 +17,33 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - id: v1-ci
-        uses: frasermolyneux/actions/dotnet-web-ci@a6271c58ed8e8f3b6fbdb738ac7566863fdc38c8 # dotnet-web-ci/v3.0.1
+      - id: ci
+        uses: frasermolyneux/actions/dotnet-ci@a6e30cdad5013f520dfbef81d10c3bdf737aa47e # dotnet-ci/v2.2.0
         with:
           test-reporting: "true"
+          dotnet-version: |
+            9.0.x
+            10.0.x
+          src-folder: "src"
+          skip-nuget-artifact-upload: "true"
+          test-results-artifact-name: "test-results-XtremeIdiots.Portal.Repository.Api.V1"
+          secondary-test-results-artifact-names: "test-results-XtremeIdiots.Portal.Repository.Api.V2"
+
+      - id: v1-publish
+        uses: frasermolyneux/actions/dotnet-web-publish@a6e30cdad5013f520dfbef81d10c3bdf737aa47e # dotnet-web-publish/v1.0.0
+        with:
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V1"
-          dotnet-version: |
-            9.0.x
-            10.0.x
           src-folder: "src"
-          skip-nuget-artifact-upload: "true"
-      - id: v2-ci
-        uses: frasermolyneux/actions/dotnet-web-ci@a6271c58ed8e8f3b6fbdb738ac7566863fdc38c8 # dotnet-web-ci/v3.0.1
+
+      - id: v2-publish
+        uses: frasermolyneux/actions/dotnet-web-publish@a6e30cdad5013f520dfbef81d10c3bdf737aa47e # dotnet-web-publish/v1.0.0
         with:
-          test-reporting: "true"
           dotnet-project: "XtremeIdiots.Portal.Repository.Api.V2"
-          dotnet-version: |
-            9.0.x
-            10.0.x
           src-folder: "src"
-          skip-nuget-artifact-upload: "true"
 
     outputs:
-      build_version: ${{ steps.v1-ci.outputs.build_version }}
+      test_report: ${{ steps.ci.outputs.test-report }}
+      build_version: ${{ steps.ci.outputs.build_version }}
 
   terraform-plan-and-apply-dev:
     permissions:
