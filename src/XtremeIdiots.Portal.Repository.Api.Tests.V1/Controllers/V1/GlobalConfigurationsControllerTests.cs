@@ -619,7 +619,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":2,\"enabled\":true,\"rules\":[{\"id\":\"vpn\",\"condition\":{\"signal\":\"ProxyCheckIsVpn\",\"operator\":\"Equal\",\"expectedValue\":\"true\"},\"action\":\"Ban\"}],\"excludedPlayerTags\":[\"Trusted VPN\"]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"featureId\":\"vpn-protection\",\"enabled\":true,\"rules\":[{\"id\":\"vpn\",\"enabled\":true,\"order\":0,\"condition\":{\"conditionId\":\"vpn.intelligence\",\"parameters\":{\"signal\":\"ProxyCheckIsVpn\",\"operator\":\"Equal\",\"expectedValue\":\"true\"}},\"actions\":[{\"id\":\"ban\",\"typeId\":\"moderation.ban\",\"parameters\":{\"reason\":\"VPN detected\"}}],\"afterMatch\":\"StopProcessingRules\"}]}"
         };
 
         var result = await api.UpsertConfiguration("vpnProtection", dto);
@@ -637,7 +637,7 @@ public class GlobalConfigurationsControllerTests
 
         var dto = new UpsertConfigurationDto
         {
-            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":2,\"enabled\":true,\"rules\":[{\"id\":\"vpn\",\"condition\":{\"signal\":\"ProxyCheckIsVpn\",\"operator\":\"GreaterThan\",\"expectedValue\":\"true\"},\"action\":\"Ban\"}],\"excludedPlayerTags\":[]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"featureId\":\"vpn-protection\",\"enabled\":true,\"rules\":[{\"id\":\"vpn\",\"enabled\":true,\"order\":0,\"condition\":{\"conditionId\":\"vpn.intelligence\",\"parameters\":{\"signal\":\"ProxyCheckIsVpn\",\"operator\":\"Invalid\",\"expectedValue\":\"true\"}},\"actions\":[{\"id\":\"ban\",\"typeId\":\"moderation.ban\",\"parameters\":{\"reason\":\"VPN detected\"}}],\"afterMatch\":\"StopProcessingRules\"}]}"
         };
 
         var result = await api.UpsertConfiguration("vpnProtection", dto);

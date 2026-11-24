@@ -1,0 +1,17 @@
+using MX.Api.Abstractions;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
+
+namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+
+public interface IRuleExecutionsApi
+{
+    Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> SearchRuleActions(RuleActionAuditQueryDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleFeatureExecutionDto>> StartExecution(Guid gameServerId, StartRuleFeatureExecutionDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleFeatureExecutionDto>> GetExecution(Guid gameServerId, Guid executionId, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleFeatureExecutionDto>> UpdateProgress(Guid gameServerId, Guid executionId, UpdateRuleFeatureExecutionProgressDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleActionClaimResultDto>> ClaimAction(Guid gameServerId, Guid executionId, ClaimRuleActionDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureRuleActionAdminAction(Guid gameServerId, Guid executionId, string actionId, EnsureRuleActionAdminActionDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleActionClaimResultDto>> UpdateActionOutcome(Guid gameServerId, Guid executionId, string actionId, UpdateRuleActionOutcomeDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleFactSnapshotDto>> CreateFactSnapshot(Guid gameServerId, RuleFactSnapshotRequestDto request, CancellationToken cancellationToken = default);
+}

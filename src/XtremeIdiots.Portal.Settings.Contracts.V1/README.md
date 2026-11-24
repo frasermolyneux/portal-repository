@@ -17,18 +17,14 @@ This package is the canonical owner of typed settings contracts for platform set
 - `chatCommands`
 - `welcomeMessages`
 - `vpnProtection`
-- `siegeMode` (global only)
+- `siegeMode` (global and per-server override)
 - `cod4xPlugin`
 - `cod4xPower`
 - `cod4xCommands`
 
 ## Schema Compatibility Policy
 
-Most namespace contracts use schema version `1` and support versions `0` and `1` during migration windows. VPN Protection is a breaking schema transition:
-
-- `vpnProtection` uses schema version `2`; version `1` is rejected and is not migrated.
-- Unknown JSON properties are tolerated via extension data to preserve dynamic transport compatibility.
-- Validators are fail-safe and return diagnostics without mutating source payloads.
+Most namespace contracts use schema version `1` and support versions `0` and `1` during migration windows. Universal rules use schema version `1`; old VPN/Siege rule payloads are rejected rather than migrated or read through a compatibility path. Unknown condition IDs and JSON parameters are preserved for forward-compatible round trips.
 
 ## SFTP Authentication
 
@@ -41,59 +37,55 @@ The `sftp` namespace supports password and private-key authentication through
 Credential persistence is owned by the Repository API. Consumers continue to receive the
 effective settings document and do not resolve backing-store references themselves.
 
-## Shared Rule Conditions
+## Universal Rules
 
-The shared recursive contract lives in `Contracts.Shared`:
+The canonical contracts and catalogue are in `Contracts.RulesEngine`. A global feature document
+has `schemaVersion`, `featureId`, explicit boolean `enabled`, and ordered `rules`. A server
+override has `schemaVersion`, `featureId`, `enabledOverride` (`Inherit`, `Enabled`, or `Disabled`),
+`inheritGlobalRules`, local `rules`, and `ruleOverrides`. Feature enablement is independent of
+rule inheritance. With inheritance enabled, effective rules are global rules in configured order
+after same-ID overrides, followed by server-local rules in configured order. With inheritance
+disabled, only server-local rules run. The effective merger assigns a contiguous `order` to the
+resulting sequence.
 
-- `RuleCondition<TSignal, TCondition>` contains either a typed `signal`, `operator`, and
-  `expectedValue` leaf or a `groupOperator` (`And`/`Or`) with nested `conditions`.
-- `RuleComparisonOperator` defines `Equal`, `NotEqual`, numeric comparisons, and `Contains`.
-  Feature-specific signal and action enums remain in their own contracts.
-- `RuleConditionTreeValidator` enforces a maximum depth of 8 and 100 nodes per rule.
-- Siege's previous `SiegeConditionGroupOperator` and `VpnProtectionComparisonOperator` CLR
-  types are replaced by the shared `RuleConditionGroupOperator` and `RuleComparisonOperator`.
-  Their serialized enum names are unchanged, so existing Siege JSON and active snapshots retain
-  the same wire representation; source consumers must update their enum references.
+Each rule has `id`, `enabled`, `order`, a recursive `condition`, ordered `actions`, and
+`afterMatch` (`StopProcessingRules` or `ContinueToNextRule`). Condition groups use
+`groupOperator: And|Or` and nested `conditions`; condition leaves use `conditionId` and a typed
+JSON `parameters` object. Actions use `id`, `typeId`, typed JSON `parameters`, and ordered
+`dependsOnActionIds`. Unknown condition leaves, condition extension properties, action
+extension properties, and unknown action parameters are retained during serialization. Unknown
+conditions evaluate to Unknown. The tree limit is depth 8 and 100 nodes per rule.
 
-Conditions with missing input or unavailable data evaluate to **Unknown**, not false and never
-as a match by themselves. Evaluate groups with three-valued logic (`And`: any false makes the
-group false; `Or`: any true makes the group true); only a root value of true matches. A rule
-with an unknown root must not trigger its feature-specific action.
+The V1 catalogue declares VPN intelligence (`signal`, `operator`, `expectedValue`), player tags
+(`tags: string[]` of tag GUIDs, `operator: ContainsAny|ContainsAll|ContainsNone`), GUID/IP first-seen
+(`operator`, optional date/duration `value`, `referenceScope`), and player profile age
+(`operator`, `duration`). First-seen GUIDs are per game; IP history is cross-game. These values
+are computed from observations retained in the repository. They cannot establish events older
+than retained history; missing/unavailable source data remains Unknown. The evaluation snapshot
+is captured before the current connection/IP observation is written and reused for retries.
 
-## VPN Protection
+Actions are `moderation.observation`, `player.kick`, `moderation.kick-with-record`,
+`moderation.temporary-ban`, `moderation.ban`, `message.public`, and `message.private`.
+`postToForums` is only declared on record-producing moderation actions. Native plugin capabilities
+are `cod4x.player.drop`, `cod4x.chat.public`, and `cod4x.chat.private`; they describe the loaded
+plugin runtime, not static configuration. Ban, temporary-ban, and kick-with-record persist
+moderation data through the cloud path and existing ban synchronization; the plugin does not
+advertise native temporary-ban execution.
 
-The schema-2 `vpnProtection` document defaults to an empty `rules` array and, when there is no
-explicit global or server `enabled` value, resolves to disabled. Set `enabled: false` explicitly
-for an initial global document. Each rule has an `id`, optional `enabled`, a required `condition`
-tree, a VPN-specific `action`, and optional observation/reason settings. The typed VPN signals
-and actions remain distinct from the shared condition operators.
+Only a root condition of True matches. AND is false-dominant and OR is true-dominant; otherwise
+the result is Unknown. Unsupported actions are skipped individually, dependent actions are skipped
+when prerequisites fail, and independent actions continue. Stop/continue applies only to the
+current feature; Stop takes effect after a matching rule even when every action is skipped.
 
-Global and per-server configuration remain supported. A nullable per-server `enabled` inherits
-the global setting; `inheritGlobalRules: false` excludes global rules. A `ruleOverrides` entry
-with no `condition` inherits that rule's complete condition; a supplied `condition` replaces the
-complete tree. Override fields such as action and enabled are independently optional. Excluded
-player tags continue to merge from global and server settings.
+## VPN Protection and Siege Mode
 
-There is deliberately no migration from schema 1's flat rule fields (`signal`, `operator`, and
-`expectedValue`) to the new `condition` object. Those documents fail validation until replaced
-with schema-2 settings; those legacy fields are rejected on rules and overrides even if a nested
-condition is also supplied. During cutover, remove old per-server override documents as coordinated,
-but do not remove the ability to configure per-server settings in schema 2. Existing consumers
-cache settings for up to three minutes: wait at least that long after disabling settings, and
-independently verify the effective disabled state on every applicable server before changing
-consumers or publishing this breaking contract. This package change does not update production
-settings; merging the source change triggers the normal package release and API deployment.
-Settings replacement and processor/editor releases remain separately coordinated.
-
-VPN limits: 100 rules/overrides/excluded tags, 64-character rule IDs, 256-character condition
-values/reason templates, 128-character player tags, and integer numeric values from 0 through
-100. Boolean, numeric, and status signals retain their existing operator/value restrictions.
-Reason templates continue to support `{ruleId}`, `{signal}`, `{actualValue}`, and
-`{expectedValue}`. For a single leaf, the last three placeholders resolve as they did before.
-For a true compound condition, collect contributing true leaves in depth-first source order
-(all successful children of `And`; every successful branch of `Or`) and expand each placeholder
-to the comma-separated corresponding leaf values. Keep the entries aligned and in the same
-order across all three placeholders; unknown leaves are never included in a matched result.
+`vpnProtection` uses the common global/server envelopes and the `vpn-protection` feature ID.
+`siegeMode` uses the same rule/action schema and feature enablement/inheritance fields, with
+`durationMinutes` on global settings and optional `durationMinutesOverride` on server settings.
+Both default disabled and contain no executable rules. Siege activation remains separately
+authorized; activation freezes the effective rules and duration into the session. DryRun records
+would-execute outcomes without external effects. Baseline GUID/IP membership and first-seen
+timestamps are captured consistently at activation.
 
 ## Siege Mode
 
@@ -119,4 +111,5 @@ The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1
 - Versioning is managed by Nerdbank.GitVersioning from repository `version.json`.
 - Package is produced on build (`GeneratePackageOnBuild=true`).
 - Readme is packed for NuGet visibility.
-- Consumers should wait for the published version before phase 2 adoption.
+- The companion `XtremeIdiots.Portal.RulesEngine.V1` package supplies the portable matcher and
+  references this contracts package. Both packages build from the same tagged repository commit.

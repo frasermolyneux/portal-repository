@@ -15,21 +15,19 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public class GameServerConfigurationsControllerTests
 {
     [Theory]
-    [InlineData("siegeMode")]
-    [InlineData("SIEGEMODE")]
-    [InlineData("siegeMode ")]
-    [InlineData(" SIEGEMODE ")]
-    public async Task UpsertConfiguration_SiegeModeIsGlobalOnly(string configurationNamespace)
+    [InlineData("siegeMode", /*lang=json,strict*/ """{"schemaVersion":1,"featureId":"siege-mode","enabledOverride":"Inherit","inheritGlobalRules":true,"rules":[],"ruleOverrides":[],"durationMinutesOverride":60}""")]
+    [InlineData("SIEGEMODE", /*lang=json,strict*/ """{"schemaVersion":1,"featureId":"siege-mode","enabledOverride":"Disabled","inheritGlobalRules":false,"rules":[],"ruleOverrides":[]}""")]
+    public async Task UpsertConfiguration_SiegeModeServerOverride_ValidPayloadIsAccepted(string configurationNamespace, string configuration)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var server = CreateTestGameServer();
         context.GameServers.Add(server);
         await context.SaveChangesAsync();
         var result = await ((IGameServerConfigurationsApi)CreateController(context))
-            .UpsertConfiguration(server.GameServerId, configurationNamespace, new UpsertConfigurationDto { Configuration = "{}" });
+            .UpsertConfiguration(server.GameServerId, configurationNamespace, new UpsertConfigurationDto { Configuration = configuration });
 
-        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
-        Assert.Empty(context.GameServerConfigurations);
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Single(context.GameServerConfigurations);
     }
 
     private GameServerConfigurationsController CreateController(
@@ -461,7 +459,7 @@ public class GameServerConfigurationsControllerTests
         var api = (IGameServerConfigurationsApi)controller;
         var dto = new UpsertConfigurationDto
         {
-            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":2,\"enabled\":true,\"ruleOverrides\":[{\"id\":\"vpn\",\"action\":\"Kick\"}],\"excludedPlayerTags\":[\"Server Exempt\"]}"
+            Configuration = /*lang=json,strict*/ "{\"schemaVersion\":1,\"featureId\":\"vpn-protection\",\"enabledOverride\":\"Inherit\",\"inheritGlobalRules\":true,\"rules\":[],\"ruleOverrides\":[{\"ruleId\":\"vpn\",\"actions\":[{\"id\":\"kick\",\"typeId\":\"player.kick\",\"parameters\":{\"reason\":\"test\"}}]}]}"
         };
 
         var result = await api.UpsertConfiguration(gs.GameServerId, "vpnProtection", dto);

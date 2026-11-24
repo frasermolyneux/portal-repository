@@ -7,5 +7,6 @@ public enum AutomationFeature
 {
     VpnProtection,
     ProtectedName,
-    RconBanImport
+    RconBanImport,
+    SiegeMode
 }

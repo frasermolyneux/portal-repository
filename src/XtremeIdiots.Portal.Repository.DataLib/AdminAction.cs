@@ -49,6 +49,9 @@ public partial class AdminAction
     [InverseProperty("AdminActions")]
     public virtual Player Player { get; set; } = null!;
 
+    [InverseProperty("AdminAction")]
+    public virtual RuleActionExecution? RuleActionExecution { get; set; }
+
     [ForeignKey("UserProfileId")]
     [InverseProperty("AdminActions")]
     public virtual UserProfile? UserProfile { get; set; }

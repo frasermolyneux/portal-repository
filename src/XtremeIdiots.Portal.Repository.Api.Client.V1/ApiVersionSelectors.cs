@@ -179,6 +179,16 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
         ISiegeModeApi V1 { get; }
     }
 
+    public interface IVersionedRuleExecutionsApi
+    {
+        IRuleExecutionsApi V1 { get; }
+    }
+
+    public interface IVersionedRuleConnectionBindingsApi
+    {
+        IRuleConnectionBindingsApi V1 { get; }
+    }
+
     public interface IVersionedPlayerAnalyticsV2Api
     {
         IPlayerAnalyticsV2Api V1 { get; }

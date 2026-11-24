@@ -358,4 +358,14 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
     {
         public ISiegeModeApi V1 { get; } = v1Api;
     }
+
+    public class VersionedRuleExecutionsApi(IRuleExecutionsApi v1Api) : IVersionedRuleExecutionsApi
+    {
+        public IRuleExecutionsApi V1 { get; } = v1Api;
+    }
+
+    public class VersionedRuleConnectionBindingsApi(IRuleConnectionBindingsApi v1Api) : IVersionedRuleConnectionBindingsApi
+    {
+        public IRuleConnectionBindingsApi V1 { get; } = v1Api;
+    }
 }
