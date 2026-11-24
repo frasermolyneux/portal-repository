@@ -5,12 +5,54 @@ using MX.Api.Client;
 using MX.Api.Client.Auth;
 using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
 {
     public class RepositoryApiClientTests
     {
+        [Theory]
+        [InlineData(HttpStatusCode.Created)]
+        [InlineData(HttpStatusCode.OK)]
+        public async Task CreateGameServerEvent_PreservesIdempotencyStatus(HttpStatusCode status)
+        {
+            var rest = new Mock<IRestClientService>();
+            rest.Setup(client => client.ExecuteAsync("https://example.test", It.IsAny<RestRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new RestResponse { StatusCode = status, Content = "{}" });
+            var api = new GameServersEventsApi(
+                NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+                Mock.Of<IApiTokenProvider>(),
+                rest.Object,
+                new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+
+            var result = await api.CreateGameServerEvent(
+                new CreateGameServerEventDto(Guid.NewGuid(), "event", "data") { IdempotencyKey = Guid.NewGuid() });
+
+            Assert.Equal(status, result.StatusCode);
+            rest.Verify(client => client.ExecuteAsync("https://example.test",
+                It.Is<RestRequest>(request => request.Resource == "v1/game-server-events" && request.Method == Method.Post),
+                It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        }
+
+        [Fact]
+        public async Task CreateGameServerEvent_ConflictRetainsHttpStatusInException()
+        {
+            var rest = new Mock<IRestClientService>();
+            rest.Setup(client => client.ExecuteAsync("https://example.test", It.IsAny<RestRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new RestResponse { StatusCode = HttpStatusCode.Conflict, Content = "{}" });
+            var api = new GameServersEventsApi(
+                NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+                Mock.Of<IApiTokenProvider>(),
+                rest.Object,
+                new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+
+            var error = await Assert.ThrowsAsync<ApiHttpRequestException>(() => api.CreateGameServerEvent(
+                new CreateGameServerEventDto(Guid.NewGuid(), "event", "data") { IdempotencyKey = Guid.NewGuid() }));
+
+            Assert.Equal(HttpStatusCode.Conflict, error.StatusCode);
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.Created)]
         [InlineData(HttpStatusCode.OK)]

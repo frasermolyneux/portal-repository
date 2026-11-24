@@ -53,6 +53,21 @@ Event history and cleanup use a 30-day window. Unlocked chat retains six months;
 locked messages remain accessible and are never removed by chat retention.
 Other retention periods are unchanged.
 
+V1 game-server event creation accepts an optional `idempotencyKey` GUID in both
+the single and batch endpoints. Keys are scoped to a game server; reuse the
+same key and exact `eventType` and `eventData` for retries. New events return
+201, matching duplicates return 200, and a key reused with different content
+returns 409. An empty GUID returns 400. Batches are atomic: a conflict inserts
+nothing, and a batch returns 201 if it inserts any events, otherwise 200.
+Events without a key keep the existing always-create behavior. The V1 typed
+client's single-create method sends a one-item batch.
+The typed client throws `ApiHttpRequestException` for HTTP 400 or 409; inspect
+its status and error response rather than expecting an `ApiResult` on failure.
+
+The key is retained only with the event, so pruning ends deduplication for that
+key. Idempotency does not guarantee delivery; producers must retain and retry
+their own pending work. Deploy the database and API before using keys.
+
 Every retention endpoint commits batches of at most 1,000 rows, with a shared
 20-batch/20-second invocation budget. HTTP 202 means committed progress with more
 work potentially remaining; HTTP 200 means no eligible rows remained when checked.

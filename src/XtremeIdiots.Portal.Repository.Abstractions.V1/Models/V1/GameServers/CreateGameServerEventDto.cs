@@ -21,6 +21,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers
         [JsonProperty]
         public string EventData { get; set; }
 
+        [JsonProperty]
+        public Guid? IdempotencyKey { get; set; }
+
         [JsonIgnore]
         public Dictionary<string, string> TelemetryProperties => new()
         {
