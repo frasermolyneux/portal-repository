@@ -2,13 +2,42 @@ using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using MX.Api.Client;
+using MX.Api.Client.Auth;
 using RestSharp;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1
 {
     public class RepositoryApiClientTests
     {
+        [Theory]
+        [InlineData(HttpStatusCode.Created)]
+        [InlineData(HttpStatusCode.OK)]
+        public async Task ClaimAction_PreservesOwnershipStatusWithoutNativeDispatch(HttpStatusCode statusCode)
+        {
+            var rest = new Mock<IRestClientService>();
+            rest.Setup(client => client.ExecuteAsync(
+                    "https://example.test",
+                    It.IsAny<RestRequest>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new RestResponse
+                {
+                    StatusCode = statusCode,
+                    Content = /*lang=json,strict*/ """{"data":{"shouldDispatch":false}}"""
+                });
+            var api = new RuleExecutionsApi(
+                NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+                Mock.Of<IApiTokenProvider>(),
+                rest.Object,
+                new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+
+            var result = await api.ClaimAction(Guid.NewGuid(), Guid.NewGuid(), new ClaimRuleActionDto());
+
+            Assert.Equal(statusCode, result.StatusCode);
+            Assert.False(result.Result!.Data!.ShouldDispatch);
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.OK, HttpStatusCode.OK)]
         [InlineData(HttpStatusCode.ServiceUnavailable, HttpStatusCode.InternalServerError)]

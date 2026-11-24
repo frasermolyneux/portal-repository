@@ -142,6 +142,13 @@ configuration changes; a different runtime/player/slot identity for that connect
 Frozen trigger/rules, decision, and execution cursor are stored before an action is claimed. A pending
 remote result blocks only its feature execution until correlated outcome continuation.
 
+`ClaimAction` returns HTTP 201 only when that request creates the durable action claim.
+An existing claim returns HTTP 200 without advancing the execution version or authorizing another
+dispatch. This distinction also applies to DryRun and Observation claims, whose `shouldDispatch`
+is false even when newly created. Callers must inspect the status rather than infer ownership from
+version changes. `shouldDispatch` authorizes only a new, unexpired Enforce native effect; it is not
+a general claim-ownership flag. Outcome updates continue to return HTTP 200.
+
 `DecisionSnapshotJson.contextTrigger` may hold the latest complete trigger envelope plus
 `contextObservedAtUtc`. This continuation context may be `player.connected` or `player.ip-resolved`;
 its server, game, connection, player GUID, slot, connection generation, and runtime identity must match
