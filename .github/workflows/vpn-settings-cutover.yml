@@ -1,0 +1,82 @@
+name: Temporary VPN settings cutover
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Use verify for read-only inspection. Do not select cutover until release order is agreed."
+        required: true
+        type: choice
+        options:
+          - verify
+          - cutover
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.repository }}-prd
+  cancel-in-progress: false
+
+jobs:
+  vpn-settings:
+    if: github.ref == 'refs/heads/main'
+    environment: Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SQL_SERVER_FQDN: sql-portal-core-prd-uksouth-3b96524e401c.database.windows.net
+      SQL_DATABASE_NAME: portal-repo-655b79d54d89
+      SQL_BACKUP_STORAGE_ACCOUNT: sasqlbackup655b79d54d89
+      VPN_SETTINGS_OPERATION: ${{ inputs.operation }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - name: Checkout pinned SQL firewall helper
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          repository: frasermolyneux/actions
+          ref: 182b469ae6d029d287cfaf16e2453789b825284b
+          path: .github/tmp/sql-actions
+
+      - name: Azure login
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install pinned Go sqlcmd
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/sqlcmd-v1.6.0-linux-x64.tar.bz2"
+          curl --fail --location --silent --show-error \
+            "https://github.com/microsoft/go-sqlcmd/releases/download/v1.6.0/sqlcmd-v1.6.0-linux-x64.tar.bz2" \
+            --output "$archive"
+          tar -xjf "$archive" -C "$RUNNER_TEMP" sqlcmd
+          chmod 700 "$RUNNER_TEMP/sqlcmd"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Allow runner through SQL firewall when required
+        id: sql-firewall
+        shell: bash
+        run: python .github/tmp/sql-actions/deploy-sql-database/firewall.py create
+
+      - name: Verify or cut over VPN settings
+        shell: bash
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: python .github/operations/vpn-settings-cutover.py
+
+      - name: Remove temporary SQL firewall rule
+        if: always() && steps.sql-firewall.outputs.rule-name != ''
+        shell: bash
+        env:
+          SQL_FIREWALL_SERVER: ${{ steps.sql-firewall.outputs.server }}
+          SQL_FIREWALL_RESOURCE_GROUP: ${{ steps.sql-firewall.outputs.resource-group }}
+          SQL_FIREWALL_RULE_NAME: ${{ steps.sql-firewall.outputs.rule-name }}
+        run: python .github/tmp/sql-actions/deploy-sql-database/firewall.py delete
