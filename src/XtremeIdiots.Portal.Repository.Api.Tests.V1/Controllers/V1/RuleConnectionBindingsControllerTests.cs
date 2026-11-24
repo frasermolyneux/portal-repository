@@ -102,6 +102,31 @@ public class RuleConnectionBindingsControllerTests
     }
 
     [Fact]
+    public async Task ObserveSnapshot_ProcessesMaximumPlayerSnapshot()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gameServerId = await AddServer(context);
+        var players = Enumerable.Range(0, 256)
+            .Select(slot => new RuleConnectionStatusPlayerDto
+            {
+                SlotId = slot,
+                PlayerGuid = $"PLAYER{slot}",
+                State = RuleConnectionState.Connected,
+                ConnectionId = Guid.NewGuid(),
+                ConnectionGeneration = (ulong)(slot + 1)
+            })
+            .ToArray();
+        var api = (IRuleConnectionBindingsApi)new RuleConnectionBindingsController(context);
+
+        var observed = await api.ObserveSnapshot(gameServerId, CreateSnapshot(
+            gameServerId, CreateRuntime(), 1, players));
+
+        Assert.Equal(HttpStatusCode.OK, observed.StatusCode);
+        Assert.Equal(players.Length, observed.Result!.Data!.UpdatedBindings);
+        Assert.Equal(players.Length, await context.RuleConnectionBindings.CountAsync());
+    }
+
+    [Fact]
     public async Task ObserveSnapshot_RejectsOutOfOrderSequence()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

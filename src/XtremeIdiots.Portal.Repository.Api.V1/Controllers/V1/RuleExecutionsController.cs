@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 
@@ -129,6 +130,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
         return await ExecuteMutationAsync(async () =>
         {
+            await AcquireGameHistoryReadLockAsync((int)request.Trigger.GameType, cancellationToken).ConfigureAwait(false);
             var siegeSessionKey = request.SiegeSessionId?.ToString("N") ?? "none";
             if (!await AcquireTransactionLockAsync(
                     $"rules-execution:{gameServerId:N}:{request.Trigger.ConnectionId:N}:{request.FeatureId}:{siegeSessionKey}",
@@ -221,6 +223,10 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
         return await ExecuteMutationAsync(async () =>
         {
+            if (!await AcquireExecutionGameLockAsync(gameServerId, executionId, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound);
+            }
             if (!await AcquireTransactionLockAsync($"rules-execution-id:{executionId:N}", cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
@@ -287,6 +293,10 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
         return await ExecuteMutationAsync(async () =>
         {
+            if (!await AcquireExecutionGameLockAsync(gameServerId, executionId, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.NotFound);
+            }
             if (!await AcquireTransactionLockAsync($"rules-execution-id:{executionId:N}", cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
@@ -387,6 +397,10 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
         return await ExecuteMutationAsync(async () =>
         {
+            if (!await AcquireExecutionGameLockAsync(gameServerId, executionId, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<EnsureAutomatedActionResultDto>(HttpStatusCode.NotFound);
+            }
             if (!await AcquireTransactionLockAsync($"rules-execution-id:{executionId:N}", cancellationToken).ConfigureAwait(false) ||
                 !await AcquireTransactionLockAsync($"rules-effect:{request.LogicalEffectId}", cancellationToken).ConfigureAwait(false))
             {
@@ -543,6 +557,10 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
         return await ExecuteMutationAsync(async () =>
         {
+            if (!await AcquireExecutionGameLockAsync(gameServerId, executionId, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.NotFound);
+            }
             if (!await AcquireTransactionLockAsync($"rules-execution-id:{executionId:N}", cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
@@ -728,6 +746,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
         return await ExecuteMutationAsync(async () =>
         {
+            await AcquireGameHistoryReadLockAsync((int)request.GameType, cancellationToken).ConfigureAwait(false);
             var server = await context.GameServers.AsNoTracking().SingleOrDefaultAsync(
                 s => s.GameServerId == gameServerId && !s.Deleted, cancellationToken).ConfigureAwait(false);
             if (server is null)
@@ -1033,6 +1052,30 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             SELECT @result AS [Value];
             """).ToListAsync(cancellationToken).ConfigureAwait(false);
         return results.Single() >= 0;
+    }
+
+    private async Task<bool> AcquireExecutionGameLockAsync(
+        Guid gameServerId,
+        Guid executionId,
+        CancellationToken cancellationToken)
+    {
+        var gameType = await context.RuleFeatureExecutions.AsNoTracking()
+            .Where(execution => execution.GameServerId == gameServerId && execution.ExecutionId == executionId)
+            .Select(execution => (int?)execution.GameType)
+            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (gameType is null)
+        {
+            return false;
+        }
+
+        await AcquireGameHistoryReadLockAsync(gameType.Value, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    private Task AcquireGameHistoryReadLockAsync(int gameType, CancellationToken cancellationToken)
+    {
+        // Player deletion holds this same game-wide lock exclusively before enumerating rule history.
+        return PlaytimeServerLock.AcquireGameAsync(context, gameType, exclusive: false, cancellationToken);
     }
 
     private static bool ValidStartRequest(Guid gameServerId, StartRuleFeatureExecutionDto? request) =>

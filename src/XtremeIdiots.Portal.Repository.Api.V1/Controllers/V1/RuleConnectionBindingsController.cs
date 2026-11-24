@@ -96,6 +96,12 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
             var expiresAt = observedAt + SnapshotLifetime;
             var current = await context.RuleConnectionStatusSnapshots.SingleOrDefaultAsync(
                 s => s.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
+            var bindings = await context.RuleConnectionBindings
+                .Where(binding => binding.GameServerId == gameServerId)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            var bindingsByIdentity = bindings.ToDictionary(binding => (binding.SlotId, binding.PlayerGuid));
+            var bindingsBySlot = bindings.GroupBy(binding => binding.SlotId)
+                .ToDictionary(group => group.Key, group => group.ToList());
 
             if (current is not null)
             {
@@ -151,10 +157,7 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
                 }
                 var playerGuid = NormalizePlayerGuid(player.PlayerGuid);
 
-                var binding = await context.RuleConnectionBindings.SingleOrDefaultAsync(
-                    b => b.GameServerId == gameServerId && b.SlotId == player.SlotId &&
-                        b.PlayerGuid == playerGuid,
-                    cancellationToken).ConfigureAwait(false);
+                bindingsByIdentity.TryGetValue((player.SlotId, playerGuid), out var binding);
 
                 if (player.State == RuleConnectionState.Connected)
                 {
@@ -163,25 +166,26 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
                         continue;
                     }
 
-                    var previousOccupants = await context.RuleConnectionBindings
-                        .Where(b => b.GameServerId == gameServerId && b.SlotId == player.SlotId &&
-                            b.PlayerGuid != playerGuid && b.State == RuleConnectionState.Connected.ToString())
-                        .ToListAsync(cancellationToken).ConfigureAwait(false);
-                    foreach (var previousOccupant in previousOccupants)
+                    if (bindingsBySlot.TryGetValue(player.SlotId, out var slotBindings))
                     {
-                        if (!CanAdvanceBinding(previousOccupant, request))
+                        foreach (var previousOccupant in slotBindings.Where(
+                            binding => binding.PlayerGuid != playerGuid &&
+                                binding.State == RuleConnectionState.Connected.ToString()))
                         {
-                            continue;
-                        }
+                            if (!CanAdvanceBinding(previousOccupant, request))
+                            {
+                                continue;
+                            }
 
-                        previousOccupant.State = RuleConnectionState.Disconnected.ToString();
-                        previousOccupant.SnapshotId = request.SnapshotId;
-                        previousOccupant.SequenceId = request.SequenceId;
-                        previousOccupant.ObservedAtUtc = observedAt;
-                        previousOccupant.ExpiresAtUtc = expiresAt;
-                        previousOccupant.Version++;
-                        previousOccupant.UpdatedAtUtc = now.UtcDateTime;
-                        updatedBindings++;
+                            previousOccupant.State = RuleConnectionState.Disconnected.ToString();
+                            previousOccupant.SnapshotId = request.SnapshotId;
+                            previousOccupant.SequenceId = request.SequenceId;
+                            previousOccupant.ObservedAtUtc = observedAt;
+                            previousOccupant.ExpiresAtUtc = expiresAt;
+                            previousOccupant.Version++;
+                            previousOccupant.UpdatedAtUtc = now.UtcDateTime;
+                            updatedBindings++;
+                        }
                     }
 
                     if (binding is null)
@@ -193,6 +197,14 @@ public sealed class RuleConnectionBindingsController(PortalDbContext context) : 
                             PlayerGuid = playerGuid
                         };
                         context.RuleConnectionBindings.Add(binding);
+                        bindings.Add(binding);
+                        bindingsByIdentity.Add((player.SlotId, playerGuid), binding);
+                        if (!bindingsBySlot.TryGetValue(player.SlotId, out slotBindings))
+                        {
+                            slotBindings = [];
+                            bindingsBySlot.Add(player.SlotId, slotBindings);
+                        }
+                        slotBindings.Add(binding);
                     }
 
                     binding.GameType = (int)request.GameType;
