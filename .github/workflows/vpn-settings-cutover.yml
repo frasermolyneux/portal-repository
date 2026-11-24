@@ -1,15 +1,14 @@
-name: Temporary VPN settings cutover
+name: Temporary VPN settings verification
 
 on:
   workflow_dispatch:
     inputs:
       operation:
-        description: "Use verify for read-only inspection. Do not select cutover until release order is agreed."
+        description: "Read-only inspection of stored VPN settings."
         required: true
         type: choice
         options:
           - verify
-          - cutover
 
 permissions: {}
 
@@ -29,7 +28,6 @@ jobs:
     env:
       SQL_SERVER_FQDN: sql-portal-core-prd-uksouth-3b96524e401c.database.windows.net
       SQL_DATABASE_NAME: portal-repo-655b79d54d89
-      SQL_BACKUP_STORAGE_ACCOUNT: sasqlbackup655b79d54d89
       VPN_SETTINGS_OPERATION: ${{ inputs.operation }}
     steps:
       - name: Checkout repository
@@ -66,10 +64,8 @@ jobs:
         shell: bash
         run: python .github/tmp/sql-actions/deploy-sql-database/firewall.py create
 
-      - name: Verify or cut over VPN settings
+      - name: Verify VPN settings
         shell: bash
-        env:
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
         run: python .github/operations/vpn-settings-cutover.py
 
       - name: Remove temporary SQL firewall rule
