@@ -18,6 +18,9 @@ public partial class SiegeBaselineIp
     [StringLength(60)]
     public string Address { get; set; } = null!;
 
+    [Precision(3)]
+    public DateTime? FirstSeenAtUtc { get; set; }
+
     public bool HasUnownedSource { get; set; }
 
     [ForeignKey("SessionId")]

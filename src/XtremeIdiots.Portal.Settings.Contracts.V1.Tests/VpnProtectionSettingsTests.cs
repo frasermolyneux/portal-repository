@@ -1,262 +1,341 @@
 using System.Text.Json;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.VpnProtection;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Tests;
 
-[Trait("Category", "Unit")]
 public sealed class VpnProtectionSettingsTests
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
-    public void RoundtripAndValidate_ValidDocument_Succeeds()
+    public void GlobalAndServerContractsUseUniversalRuleShape()
     {
-        var input = """
+        var global = new VpnProtectionSettingsDocument
+        {
+            Enabled = true,
+            Rules = [Rule("global")]
+        };
+        var server = new VpnProtectionServerSettingsDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Disabled,
+            InheritGlobalRules = true,
+            RuleOverrides = [new() { RuleId = "global", Enabled = false }],
+            Rules = [Rule("local")]
+        };
+
+        var globalJson = JsonSerializer.Serialize(global, JsonOptions);
+        var serverJson = JsonSerializer.Serialize(server, JsonOptions);
+        var roundtrippedGlobal = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(globalJson, JsonOptions)!;
+        var roundtrippedServer = JsonSerializer.Deserialize<VpnProtectionServerSettingsDocument>(serverJson, JsonOptions)!;
+
+        Assert.Equal(VpnProtectionSettingsConstants.FeatureId, roundtrippedGlobal.FeatureId);
+        Assert.True(new VpnProtectionSettingsValidator().Validate(roundtrippedGlobal).IsValid);
+        Assert.True(new VpnProtectionSettingsValidator().ValidateServerOverride(roundtrippedServer).IsValid);
+        Assert.Equal(FeatureEnablementOverride.Disabled, roundtrippedServer.EnabledOverride);
+        Assert.True(roundtrippedServer.InheritGlobalRules);
+        Assert.Single(roundtrippedServer.Rules);
+        Assert.Single(roundtrippedServer.RuleOverrides);
+    }
+
+    [Fact]
+    public void MergeKeepsFeatureEnablementIndependentFromRuleInheritanceAndAppendsLocalRules()
+    {
+        var global = new VpnProtectionSettingsDocument { Enabled = true, Rules = [Rule("global")] };
+        var server = new VpnProtectionServerSettingsDocument
+        {
+            EnabledOverride = FeatureEnablementOverride.Disabled,
+            InheritGlobalRules = true,
+            RuleOverrides = [new() { RuleId = "global", Enabled = false }],
+            Rules = [Rule("local")]
+        };
+
+        var inherited = FeatureRuleSetMerger.Merge(global, server);
+        Assert.False(inherited.Enabled);
+        Assert.Equal(["global", "local"], inherited.Rules.Select(static rule => rule.Id));
+        Assert.False(inherited.Rules[0].Enabled);
+        Assert.Equal([0, 1], inherited.Rules.Select(static rule => rule.Order));
+
+        server.InheritGlobalRules = false;
+        var localOnly = FeatureRuleSetMerger.Merge(global, server);
+        Assert.False(localOnly.Enabled);
+        Assert.Equal("local", Assert.Single(localOnly.Rules).Id);
+    }
+
+    [Fact]
+    public void ServerOverrideRejectsLegacyEnabledProperty()
+    {
+        const string legacy = """
             {
-                "schemaVersion": 1,
-                "enabled": true,
-                "inheritGlobalRules": true,
-                "rules": [
-                    {
-                        "id": "high-risk-vpn",
-                        "enabled": true,
-                        "signal": "ProxyCheckRiskScore",
-                        "operator": "GreaterThanOrEqual",
-                        "expectedValue": "75",
-                        "action": "Ban",
-                        "reasonTemplate": "VPN Protection: {ruleId} ({actualValue})"
-                    }
-                ],
-                "ruleOverrides": [],
-                "excludedPlayerTags": ["Trusted VPN"],
-                "futureProperty": true
+              "schemaVersion": 1,
+              "featureId": "vpn-protection",
+              "enabled": true,
+              "rules": [],
+              "ruleOverrides": []
             }
             """;
 
-        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(input, JsonOptions);
+        var document = JsonSerializer.Deserialize<VpnProtectionServerSettingsDocument>(legacy, JsonOptions)!;
 
-        Assert.NotNull(document);
+        Assert.False(new VpnProtectionSettingsValidator().ValidateServerOverride(document).IsValid);
+    }
+
+    [Fact]
+    public void UnknownConditionActionTypeAndParametersRoundtripWithoutLoss()
+    {
+        const string input = """
+            {
+              "schemaVersion": 1,
+              "featureId": "vpn-protection",
+              "enabled": true,
+              "rules": [{
+                "id": "future",
+                "condition": {
+                  "conditionId": "future.signal",
+                  "parameters": { "newParam": { "nested": [1, 2, 3] } },
+                  "futureConditionProperty": true
+                },
+                "actions": [{
+                  "id": "action",
+                  "typeId": "moderation.observation",
+                  "parameters": {
+                    "reason": "reason",
+                    "futureActionParameter": { "value": "unchanged" }
+                  }
+                }, {
+                  "id": "future-action",
+                  "typeId": "moderation.future-action",
+                  "parameters": { "newParameter": { "nested": [1, 2, 3] } }
+                }]
+              }]
+            }
+            """;
+
+        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(input, JsonOptions)!;
         Assert.True(new VpnProtectionSettingsValidator().Validate(document).IsValid);
-
-        var output = JsonSerializer.Serialize(document, JsonOptions);
-        var roundtripped = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(output, JsonOptions);
-
-        Assert.NotNull(roundtripped);
-        Assert.True(roundtripped.Enabled);
-        Assert.Single(roundtripped.Rules);
-        Assert.Equal(VpnProtectionAction.Ban, roundtripped.Rules[0].Action);
-        Assert.NotNull(roundtripped.ExtensionData);
-        Assert.Contains("futureProperty", roundtripped.ExtensionData.Keys);
+        var roundtrip = JsonSerializer.Serialize(document, JsonOptions);
+        using var parsed = JsonDocument.Parse(roundtrip);
+        Assert.True(parsed.RootElement.GetProperty("rules")[0].GetProperty("condition")
+            .GetProperty("futureConditionProperty").GetBoolean());
+        Assert.Equal("unchanged", parsed.RootElement.GetProperty("rules")[0].GetProperty("actions")[0]
+            .GetProperty("parameters").GetProperty("futureActionParameter").GetProperty("value").GetString());
+        Assert.Equal("moderation.future-action", parsed.RootElement.GetProperty("rules")[0].GetProperty("actions")[1]
+            .GetProperty("typeId").GetString());
     }
 
     [Fact]
-    public void Merge_LegacyObservation_DefaultsToForumPublication()
-    {
-        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>("""
-            {"enabled":true,"rules":[{"id":"vpn","signal":"ProxyCheckIsVpn",
-            "operator":"Equal","expectedValue":"true","action":"Observation"}]}
-            """, JsonOptions);
-
-        var effective = new VpnProtectionSettingsMerger().Merge(document, null);
-
-        Assert.False(effective.ValidationFailed);
-        Assert.True(Assert.Single(effective.Rules).PostObservationToForums);
-    }
-
-    [Theory]
-    [InlineData(true, null, true)]
-    [InlineData(false, null, false)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, true)]
-    public void Merge_ObservationPublication_InheritsAndOverrides(bool globalValue, bool? serverOverride, bool expected)
-    {
-        var rule = CreateRule("vpn", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Observation);
-        rule.PostObservationToForums = globalValue;
-        var global = new VpnProtectionSettingsDocument { Enabled = true, Rules = [rule] };
-        var server = new VpnProtectionSettingsDocument
-        {
-            RuleOverrides = [new VpnProtectionRuleOverride { Id = "vpn", PostObservationToForums = serverOverride }]
-        };
-
-        var json = JsonSerializer.Serialize(server, JsonOptions);
-        var roundtripped = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(json, JsonOptions);
-        var effective = new VpnProtectionSettingsMerger().Merge(global, roundtripped);
-
-        Assert.False(effective.ValidationFailed);
-        Assert.Equal(expected, Assert.Single(effective.Rules).PostObservationToForums);
-        Assert.Equal(serverOverride, Assert.Single(roundtripped!.RuleOverrides).PostObservationToForums);
-    }
-
-    [Fact]
-    public void Merge_LocalObservation_PreservesDisabledForumPublication()
-    {
-        var rule = CreateRule("vpn", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Observation);
-        rule.PostObservationToForums = false;
-        var json = JsonSerializer.Serialize(new VpnProtectionSettingsDocument { Enabled = true, Rules = [rule] }, JsonOptions);
-        var document = JsonSerializer.Deserialize<VpnProtectionSettingsDocument>(json, JsonOptions);
-
-        var effective = new VpnProtectionSettingsMerger().Merge(null, document);
-
-        Assert.False(effective.ValidationFailed);
-        Assert.False(Assert.Single(effective.Rules).PostObservationToForums);
-    }
-
-    [Fact]
-    public void Validate_InvalidConditionAndUnsafeReason_ReturnsErrors()
+    public void ValidationRejectsInvalidKnownParameters()
     {
         var document = new VpnProtectionSettingsDocument
         {
+            Enabled = true,
             Rules =
             [
-                new VpnProtectionRule
+                new()
                 {
-                    Id = "vpn",
-                    Signal = VpnProtectionSignal.ProxyCheckIsVpn,
-                    Operator = VpnProtectionComparisonOperator.GreaterThan,
-                    ExpectedValue = "not-a-boolean",
-                    Action = VpnProtectionAction.Kick,
-                    ReasonTemplate = "VPN; quit {unsupported}"
-                },
-                new VpnProtectionRule
-                {
-                    Id = "VPN",
-                    Signal = VpnProtectionSignal.ProxyCheckRiskScore,
-                    Operator = VpnProtectionComparisonOperator.GreaterThanOrEqual,
-                    ExpectedValue = "101",
-                    Action = VpnProtectionAction.Unknown
-                },
-                new VpnProtectionRule
-                {
-                    Id = "source-status",
-                    Signal = VpnProtectionSignal.ProxyCheckStatus,
-                    Operator = VpnProtectionComparisonOperator.Contains,
-                    ExpectedValue = "Success",
-                    Action = VpnProtectionAction.Observation
+                    Id = "invalid",
+                    Condition = new()
+                    {
+                        ConditionId = "player.first-seen-guid",
+                        Parameters = new Dictionary<string, JsonElement>
+                        {
+                            ["operator"] = JsonDocument.Parse("\"Unknown\"").RootElement.Clone(),
+                            ["referenceScope"] = JsonDocument.Parse("\"ObservedHistory\"").RootElement.Clone()
+                        }
+                    },
+                    Actions = [new() { Id = "action", TypeId = "unsupported" }]
                 }
-            ],
-            ExcludedPlayerTags = ["Trusted", "trusted"]
+            ]
         };
 
         var validation = new VpnProtectionSettingsValidator().Validate(document);
 
         Assert.False(validation.IsValid);
-        Assert.Contains(validation.Errors, static error => error.Contains("not supported for boolean", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("must be 'true' or 'false'", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("command separators", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("unsupported placeholder", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("must be unique", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("between 0 and 100", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("action must be specified", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("source status signal", StringComparison.Ordinal));
-        Assert.Contains(validation.Errors, static error => error.Contains("excludedPlayerTags", StringComparison.Ordinal));
+        Assert.Contains(validation.Errors, static error => error.Contains("operator", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Merge_ServerOverridesGlobalAndAddsLocalRule_ReturnsEffectiveSettings()
+    public void ValidationRejectsInvalidCrossFieldConditionCombinations()
     {
-        var global = new VpnProtectionSettingsDocument
+        Assert.False(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
         {
-            Enabled = false,
-            Rules =
-            [
-                CreateRule("vpn", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Observation),
-                CreateRule("tor", VpnProtectionSignal.MaxMindIsTorExitNode, "true", VpnProtectionAction.Ban)
-            ],
-            ExcludedPlayerTags = ["Global Exempt"]
-        };
-        var server = new VpnProtectionSettingsDocument
+            ["operator"] = JsonSerializer.SerializeToElement("WithinAge"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("ObservedHistory")
+        }).IsValid);
+
+        Assert.False(ValidateCondition("player.tags", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("ContainsAny"),
+            ["tags"] = JsonSerializer.SerializeToElement(Array.Empty<string>())
+        }).IsValid);
+
+        Assert.False(ValidateCondition("player.tags", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("ContainsAny"),
+            ["tags"] = JsonSerializer.SerializeToElement(new[] { "not-a-guid" })
+        }).IsValid);
+
+        Assert.False(ValidateCondition("vpn.intelligence", new Dictionary<string, JsonElement>
+        {
+            ["signal"] = JsonSerializer.SerializeToElement(nameof(VpnProtectionSignal.ProxyCheckIsVpn)),
+            ["operator"] = JsonSerializer.SerializeToElement("Contains"),
+            ["expectedValue"] = JsonSerializer.SerializeToElement("true")
+        }).IsValid);
+
+        Assert.False(ValidateCondition("vpn.intelligence", new Dictionary<string, JsonElement>
+        {
+            ["signal"] = JsonSerializer.SerializeToElement(nameof(VpnProtectionSignal.ProxyCheckRiskScore)),
+            ["operator"] = JsonSerializer.SerializeToElement("GreaterThan"),
+            ["expectedValue"] = JsonSerializer.SerializeToElement("101")
+        }).IsValid);
+
+        Assert.True(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("WithinAge"),
+            ["value"] = JsonSerializer.SerializeToElement("14.00:00:00"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("ObservedHistory")
+        }).IsValid);
+
+        Assert.False(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("IsNew"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("SiegeBaseline")
+        }).IsValid);
+        Assert.True(ValidateCondition("player.first-seen-guid", new Dictionary<string, JsonElement>
+        {
+            ["operator"] = JsonSerializer.SerializeToElement("IsNew"),
+            ["referenceScope"] = JsonSerializer.SerializeToElement("SiegeBaseline")
+        }, RulesEngineCatalogueV1.SiegeModeFeature).IsValid);
+    }
+
+    [Fact]
+    public void CatalogueDeclaresGameAndExecutorCapabilityAlternatives()
+    {
+        var catalogue = RulesEngineCatalogueV1.Current;
+        Assert.All(catalogue.Features, feature => Assert.Equal(new[] { 1, 2, 3, 24 }, feature.GameTypes));
+        Assert.All(catalogue.Triggers, trigger => Assert.Equal(new[] { 1, 2, 3, 24 }, trigger.GameTypes));
+        Assert.All(catalogue.Conditions, condition => Assert.Equal(new[] { 1, 2, 3, 24 }, condition.GameTypes));
+        Assert.All(catalogue.Actions, action => Assert.Equal(new[] { 1, 2, 3, 24 }, action.GameTypes));
+
+        var drop = catalogue.Actions.Single(action => action.ActionTypeId == "player.kick");
+        Assert.Contains(drop.ExecutionProviders, provider =>
+            provider.ExecutorId == "cod4x-plugin" &&
+            provider.GameTypes.SequenceEqual(new[] { 24 }) &&
+            provider.RequiredRuntimeCapabilities.Contains(RulesEngineCatalogueV1.Cod4xPlayerDropCapability));
+        Assert.Contains(drop.ExecutionProviders, provider =>
+            provider.ExecutorId == "rcon" &&
+            provider.RequiredIntegrationCapabilities.Contains(RulesEngineCatalogueV1.RconPlayerDropCapability));
+
+        var rconMessage = catalogue.Actions.Single(action => action.ActionTypeId == "message.public")
+            .ExecutionProviders.Single(provider => provider.ExecutorId == "rcon");
+        Assert.Equal("RconSafePrintableAscii", Assert.Single(rconMessage.ParameterConstraints).AllowedCharacterSet);
+    }
+
+    [Fact]
+    public void NativeTextValidationEnforcesUtf8ByteLimitAndRejectsControlCharacters()
+    {
+        Assert.True(ValidatePublicMessage(new string('a', 256)).IsValid);
+        Assert.False(ValidatePublicMessage(new string('a', 257)).IsValid);
+        Assert.False(ValidatePublicMessage(new string('é', 129)).IsValid);
+        Assert.False(ValidatePublicMessage("line\u000abreak").IsValid);
+        Assert.False(ValidatePublicMessage("bad\u007ftext").IsValid);
+    }
+
+    private static SettingsValidationResult ValidatePublicMessage(string message)
+    {
+        var document = new VpnProtectionSettingsDocument
         {
             Enabled = true,
-            RuleOverrides =
+            Rules =
             [
-                new VpnProtectionRuleOverride
+                new()
                 {
-                    Id = "vpn",
-                    Action = VpnProtectionAction.Kick,
-                    ReasonTemplate = "Server VPN rule {ruleId}"
-                },
-                new VpnProtectionRuleOverride { Id = "tor", Enabled = false }
-            ],
+                    Id = "message",
+                    Condition = new()
+                    {
+                        ConditionId = "player.first-seen-guid",
+                        Parameters = new Dictionary<string, JsonElement>
+                        {
+                            ["operator"] = JsonDocument.Parse("\"IsNew\"").RootElement.Clone(),
+                            ["referenceScope"] = JsonDocument.Parse("\"ObservedHistory\"").RootElement.Clone()
+                        }
+                    },
+                    Actions =
+                    [
+                        new()
+                        {
+                            Id = "message",
+                            TypeId = "message.public",
+                            Parameters = new Dictionary<string, JsonElement>
+                            {
+                                ["message"] = JsonDocument.Parse(JsonSerializer.Serialize(message)).RootElement.Clone()
+                            }
+                        }
+                    ]
+                }
+            ]
+        };
+        return new VpnProtectionSettingsValidator().Validate(document);
+    }
+
+    private static SettingsValidationResult ValidateCondition(
+        string conditionId,
+        Dictionary<string, JsonElement> parameters,
+        string featureId = RulesEngineCatalogueV1.VpnProtectionFeature)
+    {
+        var document = new FeatureRuleSetDocument
+        {
+            FeatureId = featureId,
+            Enabled = true,
             Rules =
             [
-                CreateRule(
-                    "hosting",
-                    VpnProtectionSignal.MaxMindIsHostingProvider,
-                    "true",
-                    VpnProtectionAction.Observation)
-            ],
-            ExcludedPlayerTags = ["Server Exempt", "global exempt"]
+                new()
+                {
+                    Id = "condition",
+                    Condition = new() { ConditionId = conditionId, Parameters = parameters },
+                    Actions =
+                    [
+                        new()
+                        {
+                            Id = "observe",
+                            TypeId = "moderation.observation",
+                            Parameters = new Dictionary<string, JsonElement>
+                            {
+                                ["reason"] = JsonSerializer.SerializeToElement("condition test")
+                            }
+                        }
+                    ]
+                }
+            ]
         };
-
-        var effective = new VpnProtectionSettingsMerger().Merge(global, server);
-
-        Assert.True(effective.Enabled);
-        Assert.False(effective.ValidationFailed);
-        Assert.Equal(3, effective.Rules.Count);
-        Assert.Equal(VpnProtectionAction.Kick, effective.Rules[0].Action);
-        Assert.Equal("Server VPN rule {ruleId}", effective.Rules[0].ReasonTemplate);
-        Assert.False(effective.Rules[1].Enabled);
-        Assert.Equal(VpnProtectionSettingsConstants.DefaultReasonTemplate, effective.Rules[2].ReasonTemplate);
-        Assert.Equal(2, effective.ExcludedPlayerTags.Count);
-        Assert.Contains("Global Exempt", effective.ExcludedPlayerTags);
-        Assert.Contains("Server Exempt", effective.ExcludedPlayerTags);
+        return new RuleSetValidator().Validate(document, RuleSetValidationOptions.ForFeature(featureId));
     }
 
-    [Fact]
-    public void Merge_ServerDisablesInheritance_UsesOnlyLocalRules()
+    private static RuleDefinition Rule(string id) => new()
     {
-        var global = new VpnProtectionSettingsDocument
+        Id = id,
+        Condition = new()
         {
-            Enabled = true,
-            Rules = [CreateRule("global", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Ban)]
-        };
-        var server = new VpnProtectionSettingsDocument
-        {
-            InheritGlobalRules = false,
-            Rules = [CreateRule("local", VpnProtectionSignal.ProxyCheckIsProxy, "true", VpnProtectionAction.Kick)]
-        };
-
-        var effective = new VpnProtectionSettingsMerger().Merge(global, server);
-
-        Assert.True(effective.Enabled);
-        var rule = Assert.Single(effective.Rules);
-        Assert.Equal("local", rule.Id);
-    }
-
-    [Fact]
-    public void Merge_LocalRuleCollidesWithInheritedRule_FailsClosed()
-    {
-        var global = new VpnProtectionSettingsDocument
-        {
-            Enabled = true,
-            Rules = [CreateRule("duplicate", VpnProtectionSignal.ProxyCheckIsVpn, "true", VpnProtectionAction.Ban)]
-        };
-        var server = new VpnProtectionSettingsDocument
-        {
-            Enabled = true,
-            Rules = [CreateRule("DUPLICATE", VpnProtectionSignal.ProxyCheckIsProxy, "true", VpnProtectionAction.Kick)]
-        };
-
-        var effective = new VpnProtectionSettingsMerger().Merge(global, server);
-
-        Assert.False(effective.Enabled);
-        Assert.True(effective.ValidationFailed);
-        Assert.Empty(effective.Rules);
-    }
-
-    private static VpnProtectionRule CreateRule(
-        string id,
-        VpnProtectionSignal signal,
-        string expectedValue,
-        VpnProtectionAction action) => new()
-        {
-            Id = id,
-            Signal = signal,
-            Operator = VpnProtectionComparisonOperator.Equal,
-            ExpectedValue = expectedValue,
-            Action = action
-        };
+            ConditionId = "player.first-seen-guid",
+            Parameters = new Dictionary<string, JsonElement>
+            {
+                ["operator"] = JsonDocument.Parse("\"IsNew\"").RootElement.Clone(),
+                ["referenceScope"] = JsonDocument.Parse("\"ObservedHistory\"").RootElement.Clone()
+            }
+        },
+        Actions =
+        [
+            new()
+            {
+                Id = "observe",
+                TypeId = "moderation.observation",
+                Parameters = new Dictionary<string, JsonElement>
+                {
+                    ["reason"] = JsonDocument.Parse("\"matched\"").RootElement.Clone(),
+                    ["postToForums"] = JsonDocument.Parse("true").RootElement.Clone()
+                }
+            }
+        ]
+    };
 }

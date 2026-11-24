@@ -83,6 +83,16 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<Report> Reports { get; set; }
 
+    public virtual DbSet<RuleActionExecution> RuleActionExecutions { get; set; }
+
+    public virtual DbSet<RuleConnectionBinding> RuleConnectionBindings { get; set; }
+
+    public virtual DbSet<RuleConnectionStatusSnapshot> RuleConnectionStatusSnapshots { get; set; }
+
+    public virtual DbSet<RuleFactSnapshot> RuleFactSnapshots { get; set; }
+
+    public virtual DbSet<RuleFeatureExecution> RuleFeatureExecutions { get; set; }
+
     public virtual DbSet<ServerMapRun> ServerMapRuns { get; set; }
 
     public virtual DbSet<SiegeAction> SiegeActions { get; set; }
@@ -115,13 +125,9 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.AdminActionId).HasName("PK_dbo.AdminActions");
 
-            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_ActiveBan")
-                .IsUnique()
-                .HasFilter("[Source] = 1 AND [AutomationIsActive] = 1 AND [Type] IN (3, 4)");
+            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_ActiveBan").HasFilter("[Source] = 1 AND [AutomationIsActive] = 1 AND [Type] IN (3, 4)");
 
-            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_NonBan")
-                .IsUnique()
-                .HasFilter("[Source] = 1 AND [Type] IN (0, 1, 2)");
+            entity.HasIndex(e => new { e.PlayerId, e.AutomationFeature, e.AutomationRuleId, e.Type }, "IX_AdminActions_Automation_NonBan").HasFilter("[Source] = 1 AND [Type] IN (0, 1, 2)");
 
             entity.Property(e => e.AdminActionId).HasDefaultValueSql("newsequentialid()");
 
@@ -564,6 +570,61 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Player).WithMany(p => p.Reports).HasConstraintName("FK_dbo.Reports_dbo.Players_PlayerId");
 
             entity.HasOne(d => d.UserProfile).WithMany(p => p.ReportUserProfiles).HasConstraintName("FK_dbo.Reports_dbo.UserProfiles_Id");
+        });
+
+        modelBuilder.Entity<RuleActionExecution>(entity =>
+        {
+            entity.HasIndex(e => e.AdminActionId, "IX_RuleActionExecutions_AdminActionId")
+                .IsUnique()
+                .HasFilter("[AdminActionId] IS NOT NULL");
+
+            entity.Property(e => e.ActionExecutionId).ValueGeneratedNever();
+            entity.Property(e => e.LogicalEffectId).IsFixedLength();
+
+            entity.HasOne(d => d.AdminAction).WithOne(p => p.RuleActionExecution)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_RuleActionExecutions_AdminActions");
+
+            entity.HasOne(d => d.Execution).WithMany(p => p.RuleActionExecutions).HasConstraintName("FK_RuleActionExecutions_Executions");
+        });
+
+        modelBuilder.Entity<RuleConnectionBinding>(entity =>
+        {
+            entity.HasOne(d => d.GameServer).WithMany(p => p.RuleConnectionBindings)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleConnectionBindings_GameServers");
+        });
+
+        modelBuilder.Entity<RuleConnectionStatusSnapshot>(entity =>
+        {
+            entity.Property(e => e.GameServerId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.GameServer).WithOne(p => p.RuleConnectionStatusSnapshot)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleConnectionStatusSnapshots_GameServers");
+        });
+
+        modelBuilder.Entity<RuleFactSnapshot>(entity =>
+        {
+            entity.Property(e => e.SnapshotId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.RuleFactSnapshots)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleFactSnapshots_GameServers");
+        });
+
+        modelBuilder.Entity<RuleFeatureExecution>(entity =>
+        {
+            entity.Property(e => e.ExecutionId).ValueGeneratedNever();
+            entity.Property(e => e.Version).HasDefaultValue(1L);
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.RuleFeatureExecutions)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleFeatureExecutions_GameServers");
+
+            entity.HasOne(d => d.SiegeSession).WithMany(p => p.RuleFeatureExecutions)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_RuleFeatureExecutions_SiegeSessions");
         });
 
         modelBuilder.Entity<ServerMapRun>(entity =>

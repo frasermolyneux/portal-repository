@@ -17,19 +17,14 @@ This package is the canonical owner of typed settings contracts for platform set
 - `chatCommands`
 - `welcomeMessages`
 - `vpnProtection`
-- `siegeMode` (global only)
+- `siegeMode` (global and per-server override)
 - `cod4xPlugin`
 - `cod4xPower`
 - `cod4xCommands`
 
 ## Schema Compatibility Policy
 
-Each namespace contract includes a schema version and validator that supports forward rollout with backward read tolerance:
-
-- Current schema version is `1`.
-- Supported versions are `0` and `1` during migration windows.
-- Unknown JSON properties are tolerated via extension data to preserve dynamic transport compatibility.
-- Validators are fail-safe and return diagnostics without mutating source payloads.
+Most namespace contracts use schema version `1` and support versions `0` and `1` during migration windows. Universal rules use schema version `1`; old VPN/Siege rule payloads are rejected rather than migrated or read through a compatibility path. Unknown condition IDs and JSON parameters are preserved for forward-compatible round trips.
 
 ## SFTP Authentication
 
@@ -42,14 +37,65 @@ The `sftp` namespace supports password and private-key authentication through
 Credential persistence is owned by the Repository API. Consumers continue to receive the
 effective settings document and do not resolve backing-store references themselves.
 
+## Universal Rules
+
+The canonical contracts and catalogue are in `Contracts.RulesEngine`. A global feature document
+has `schemaVersion`, `featureId`, explicit boolean `enabled`, and ordered `rules`. A server
+override has `schemaVersion`, `featureId`, `enabledOverride` (`Inherit`, `Enabled`, or `Disabled`),
+`inheritGlobalRules`, local `rules`, and `ruleOverrides`. Feature enablement is independent of
+rule inheritance. With inheritance enabled, effective rules are global rules in configured order
+after same-ID overrides, followed by server-local rules in configured order. With inheritance
+disabled, only server-local rules run. The effective merger assigns a contiguous `order` to the
+resulting sequence.
+
+Each rule has `id`, `enabled`, `order`, a recursive `condition`, ordered `actions`, and
+`afterMatch` (`StopProcessingRules` or `ContinueToNextRule`). Condition groups use
+`groupOperator: And|Or` and nested `conditions`; condition leaves use `conditionId` and a typed
+JSON `parameters` object. Actions use `id`, `typeId`, typed JSON `parameters`, and ordered
+`dependsOnActionIds`. Unknown condition leaves, condition extension properties, action
+extension properties, and unknown action parameters are retained during serialization. Unknown
+conditions evaluate to Unknown. The tree limit is depth 8 and 100 nodes per rule.
+
+The V1 catalogue declares VPN intelligence (`signal`, `operator`, `expectedValue`), player tags
+(`tags: string[]` of tag GUIDs, `operator: ContainsAny|ContainsAll|ContainsNone`), GUID/IP first-seen
+(`operator`, optional date/duration `value`, `referenceScope`), and player profile age
+(`operator`, `duration`). First-seen GUIDs are per game; IP history is cross-game. These values
+are computed from observations retained in the repository. They cannot establish events older
+than retained history; missing/unavailable source data remains Unknown. The evaluation snapshot
+is captured before the current connection/IP observation is written and reused for retries.
+
+Actions are `moderation.observation`, `player.kick`, `moderation.kick-with-record`,
+`moderation.temporary-ban`, `moderation.ban`, `message.public`, and `message.private`.
+`postToForums` is only declared on record-producing moderation actions. Native plugin capabilities
+are `cod4x.player.drop`, `cod4x.chat.public`, and `cod4x.chat.private`; they describe the loaded
+plugin runtime, not static configuration. Ban, temporary-ban, and kick-with-record persist
+moderation data through the cloud path and existing ban synchronization; the plugin does not
+advertise native temporary-ban execution.
+
+Only a root condition of True matches. AND is false-dominant and OR is true-dominant; otherwise
+the result is Unknown. Unsupported actions are skipped individually, dependent actions are skipped
+when prerequisites fail, and independent actions continue. Stop/continue applies only to the
+current feature; Stop takes effect after a matching rule even when every action is skipped.
+
+## VPN Protection and Siege Mode
+
+`vpnProtection` uses the common global/server envelopes and the `vpn-protection` feature ID.
+`siegeMode` uses the same rule/action schema and feature enablement/inheritance fields, with
+`durationMinutes` on global settings and optional `durationMinutesOverride` on server settings.
+Both default disabled and contain no executable rules. Siege activation remains separately
+authorized; activation freezes the effective rules and duration into the session. DryRun records
+would-execute outcomes without external effects. Baseline GUID/IP membership and first-seen
+timestamps are captured consistently at activation.
+
 ## Siege Mode
 
 The global `siegeMode` document defaults to a four-hour duration and two independent
 kick rules: a new game GUID, or a VPN connection on a new IP without the `vpn-exempt`
 tag. Conditions can combine VPN Protection signals and operators with `NewGuid`,
-`NewIp`, and `PlayerTag` using nested `And` and `Or` groups. A caller must treat
-unavailable conditions as unknown, not as matches; another independently confirmed
-rule may still match. Active sessions must use their activation-time settings snapshot.
+`NewIp`, and `PlayerTag` using the shared nested `And` and `Or` tree. Existing Siege JSON field
+names (`signal`, `playerSignal`, `operator`, and `expectedValue`) are unchanged. Siege sessions
+continue to persist the activation-time settings snapshot; do not evaluate active sessions using
+later edits to global settings.
 
 ## Compatibility Shim Transition (Chat Package Path)
 
@@ -65,4 +111,5 @@ The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1
 - Versioning is managed by Nerdbank.GitVersioning from repository `version.json`.
 - Package is produced on build (`GeneratePackageOnBuild=true`).
 - Readme is packed for NuGet visibility.
-- Consumers should wait for the published version before phase 2 adoption.
+- The companion `XtremeIdiots.Portal.RulesEngine.V1` package supplies the portable matcher and
+  references this contracts package. Both packages build from the same tagged repository commit.

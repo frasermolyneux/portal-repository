@@ -18,6 +18,9 @@ public partial class SiegeBaselineGuid
     [StringLength(50)]
     public string PlayerGuid { get; set; } = null!;
 
+    [Precision(3)]
+    public DateTime? FirstSeenAtUtc { get; set; }
+
     [ForeignKey("SessionId")]
     [InverseProperty("SiegeBaselineGuids")]
     public virtual SiegeSession Session { get; set; } = null!;

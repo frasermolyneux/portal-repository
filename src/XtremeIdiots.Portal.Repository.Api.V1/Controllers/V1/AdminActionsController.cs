@@ -13,6 +13,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
+using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using Asp.Versioning;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
@@ -377,9 +378,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             var strategy = context.Database.CreateExecutionStrategy();
             return await strategy.ExecuteAsync(async () =>
             {
-                // The retrying execution strategy may re-invoke this delegate on a transient
-                // fault. Reset any entities tracked by a prior (failed) attempt so each run
-                // starts from committed database state and cannot flush stale/duplicate rows.
                 context.ChangeTracker.Clear();
 
                 for (var attempt = 0; attempt < 2; attempt++)
@@ -392,7 +390,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     {
                         var state = await GetOrCreateAutomationActionStateAsync(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
                         var result = await EnsureAutomatedActionCoreAsync(ensureAutomatedActionDto, state, cancellationToken).ConfigureAwait(false);
-
                         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                         return result;
                     }
@@ -552,7 +549,6 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         {
             var nowUtc = DateTime.UtcNow;
             var existingActions = await GetAutomationActionsAsync(ensureAutomatedActionDto, cancellationToken).ConfigureAwait(false);
-
             if (DeactivateExpiredAutomationBans(existingActions, nowUtc))
             {
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -575,12 +571,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 state?.LastUpdatedUtc = nowUtc;
                 await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
                 return ToEnsureResult(promotedRconImportBan, created: false, HttpStatusCode.OK);
             }
 
             DeactivateLowerActiveBans(existingActions, ensureAutomatedActionDto.Type, nowUtc);
-
             var adminAction = new AdminAction
             {
                 PlayerId = ensureAutomatedActionDto.PlayerId,
@@ -600,17 +594,12 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             context.AdminActions.Add(adminAction);
-
             state?.LastUpdatedUtc = nowUtc;
-
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
             return ToEnsureResult(adminAction, created: true, HttpStatusCode.Created);
         }
 
-        private static AdminAction? PromoteRconImportTemporaryBan(
-            IEnumerable<AdminAction> actions,
-            EnsureAutomatedActionDto dto)
+        private static AdminAction? PromoteRconImportTemporaryBan(IEnumerable<AdminAction> actions, EnsureAutomatedActionDto dto)
         {
             if (dto.AutomationFeature != AutomationFeature.RconBanImport || dto.Type != AdminActionType.Ban)
             {
@@ -618,8 +607,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             }
 
             var temporaryBan = actions.SingleOrDefault(action =>
-                action.AutomationIsActive &&
-                action.Type.ToAdminActionType() == AdminActionType.TempBan);
+                action.AutomationIsActive && action.Type.ToAdminActionType() == AdminActionType.TempBan);
             if (temporaryBan is null)
             {
                 return null;
@@ -629,9 +617,109 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             temporaryBan.Text = dto.Text;
             temporaryBan.Expires = null;
             temporaryBan.AutomationIsActive = true;
-
             return temporaryBan;
         }
+
+        private async Task<List<AdminAction>> GetAutomationActionsAsync(EnsureAutomatedActionDto dto, CancellationToken cancellationToken) =>
+            await context.AdminActions
+                .Where(action => action.PlayerId == dto.PlayerId
+                    && action.Source == (byte)ActionSource.Automation
+                    && action.AutomationFeature == (int)dto.AutomationFeature
+                    && action.AutomationRuleId == dto.AutomationRuleId)
+                .OrderByDescending(action => action.Type)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+        private async Task<AutomationActionState> GetOrCreateAutomationActionStateAsync(EnsureAutomatedActionDto dto, CancellationToken cancellationToken)
+        {
+            var state = await context.AutomationActionStates
+                .SingleOrDefaultAsync(existing => existing.PlayerId == dto.PlayerId
+                    && existing.AutomationFeature == (int)dto.AutomationFeature
+                    && existing.AutomationRuleId == dto.AutomationRuleId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (state is not null)
+            {
+                return state;
+            }
+
+            state = new AutomationActionState
+            {
+                PlayerId = dto.PlayerId,
+                AutomationFeature = (int)dto.AutomationFeature,
+                AutomationRuleId = dto.AutomationRuleId,
+                LastUpdatedUtc = DateTime.UtcNow
+            };
+            context.AutomationActionStates.Add(state);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return state;
+        }
+
+        private static bool DeactivateExpiredAutomationBans(IEnumerable<AdminAction> actions, DateTime nowUtc)
+        {
+            var changed = false;
+            foreach (var action in actions.Where(action => action.AutomationIsActive
+                && IsBan(action.Type.ToAdminActionType())
+                && action.Expires.HasValue
+                && action.Expires <= nowUtc))
+            {
+                action.AutomationIsActive = false;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static AdminAction? FindEqualOrStrongerAction(IEnumerable<AdminAction> actions, AdminActionType requestedType, DateTime nowUtc) =>
+            actions.Where(action => IsActionRelevant(action, nowUtc))
+                .FirstOrDefault(action => GetSeverity(action.Type.ToAdminActionType()) >= GetSeverity(requestedType));
+
+        private static void DeactivateLowerActiveBans(IEnumerable<AdminAction> actions, AdminActionType requestedType, DateTime nowUtc)
+        {
+            if (!IsBan(requestedType))
+            {
+                return;
+            }
+
+            foreach (var action in actions.Where(action => action.AutomationIsActive
+                && IsBan(action.Type.ToAdminActionType())
+                && GetSeverity(action.Type.ToAdminActionType()) < GetSeverity(requestedType)))
+            {
+                action.AutomationIsActive = false;
+                action.Expires = nowUtc;
+            }
+        }
+
+        private static bool IsActionRelevant(AdminAction action, DateTime nowUtc) =>
+            !IsBan(action.Type.ToAdminActionType()) ||
+            action.AutomationIsActive && (!action.Expires.HasValue || action.Expires > nowUtc);
+
+        private static int GetSeverity(AdminActionType type) => type switch
+        {
+            AdminActionType.Observation => 0,
+            AdminActionType.Warning => 1,
+            AdminActionType.Kick => 2,
+            AdminActionType.TempBan => 3,
+            AdminActionType.Ban => 4,
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported admin action type.")
+        };
+
+        private static ApiResult<EnsureAutomatedActionResultDto> ToEnsureResult(AdminAction action, bool created, HttpStatusCode statusCode)
+        {
+            var result = new EnsureAutomatedActionResultDto
+            {
+                Created = created,
+                AdminAction = action.ToDto(expand: false)
+            };
+            return new ApiResponse<EnsureAutomatedActionResultDto>(result).ToApiResult(statusCode);
+        }
+
+        private async Task<Guid?> ResolveUserProfileIdAsync(string adminId, CancellationToken cancellationToken) =>
+            await context.UserProfiles
+                .Where(profile => profile.IdentityOid == adminId || profile.XtremeIdiotsForumId == adminId)
+                .Select(profile => (Guid?)profile.UserProfileId)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
 
         /// <summary>
         /// Partially updates an existing admin action. Uses PATCH semantics: only non-null properties in the payload are applied.
@@ -716,127 +804,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             return new ApiResponse().ToApiResult();
         }
 
-        private async Task<List<AdminAction>> GetAutomationActionsAsync(EnsureAutomatedActionDto dto, CancellationToken cancellationToken)
-        {
-            return await context.AdminActions
-                .Where(action => action.PlayerId == dto.PlayerId
-                    && action.Source == (byte)ActionSource.Automation
-                    && action.AutomationFeature == (int)dto.AutomationFeature
-                    && action.AutomationRuleId == dto.AutomationRuleId)
-                .OrderByDescending(action => action.Type)
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        private async Task<AutomationActionState> GetOrCreateAutomationActionStateAsync(EnsureAutomatedActionDto dto, CancellationToken cancellationToken)
-        {
-            var state = await context.AutomationActionStates
-                .SingleOrDefaultAsync(existing => existing.PlayerId == dto.PlayerId
-                    && existing.AutomationFeature == (int)dto.AutomationFeature
-                    && existing.AutomationRuleId == dto.AutomationRuleId, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (state is not null)
-            {
-                return state;
-            }
-
-            state = new AutomationActionState
-            {
-                PlayerId = dto.PlayerId,
-                AutomationFeature = (int)dto.AutomationFeature,
-                AutomationRuleId = dto.AutomationRuleId,
-                LastUpdatedUtc = DateTime.UtcNow
-            };
-            context.AutomationActionStates.Add(state);
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-            return state;
-        }
-
-        private static bool DeactivateExpiredAutomationBans(IEnumerable<AdminAction> actions, DateTime nowUtc)
-        {
-            var changed = false;
-
-            foreach (var action in actions.Where(action => action.AutomationIsActive
-                && IsBan(action.Type.ToAdminActionType())
-                && action.Expires.HasValue
-                && action.Expires <= nowUtc))
-            {
-                action.AutomationIsActive = false;
-                changed = true;
-            }
-
-            return changed;
-        }
-
-        private static AdminAction? FindEqualOrStrongerAction(IEnumerable<AdminAction> actions, AdminActionType requestedType, DateTime nowUtc)
-        {
-            return actions
-                .Where(action => IsActionRelevant(action, nowUtc))
-                .FirstOrDefault(action => GetSeverity(action.Type.ToAdminActionType()) >= GetSeverity(requestedType));
-        }
-
-        private static void DeactivateLowerActiveBans(IEnumerable<AdminAction> actions, AdminActionType requestedType, DateTime nowUtc)
-        {
-            if (!IsBan(requestedType))
-            {
-                return;
-            }
-
-            foreach (var action in actions.Where(action => action.AutomationIsActive
-                && IsBan(action.Type.ToAdminActionType())
-                && GetSeverity(action.Type.ToAdminActionType()) < GetSeverity(requestedType)))
-            {
-                action.AutomationIsActive = false;
-                action.Expires = nowUtc;
-            }
-        }
-
-        private static bool IsActionRelevant(AdminAction action, DateTime nowUtc)
-        {
-            if (!IsBan(action.Type.ToAdminActionType()))
-            {
-                return true;
-            }
-
-            return action.AutomationIsActive
-                && (!action.Expires.HasValue || action.Expires > nowUtc);
-        }
-
         private static bool IsBan(AdminActionType type) => type is AdminActionType.Ban or AdminActionType.TempBan;
-
-        private static int GetSeverity(AdminActionType type) => type switch
-        {
-            AdminActionType.Observation => 0,
-            AdminActionType.Warning => 1,
-            AdminActionType.Kick => 2,
-            AdminActionType.TempBan => 3,
-            AdminActionType.Ban => 4,
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported admin action type.")
-        };
-
-        private static ApiResult<EnsureAutomatedActionResultDto> ToEnsureResult(AdminAction action, bool created, HttpStatusCode statusCode)
-        {
-            var result = new EnsureAutomatedActionResultDto
-            {
-                Created = created,
-                AdminAction = action.ToDto(expand: false)
-            };
-
-            return new ApiResponse<EnsureAutomatedActionResultDto>(result).ToApiResult(statusCode);
-        }
-
-        private async Task<Guid?> ResolveUserProfileIdAsync(string adminId, CancellationToken cancellationToken)
-        {
-            var userProfileId = await context.UserProfiles
-                .Where(profile => profile.IdentityOid == adminId || profile.XtremeIdiotsForumId == adminId)
-                .Select(profile => (Guid?)profile.UserProfileId)
-                .FirstOrDefaultAsync(cancellationToken)
-                .ConfigureAwait(false);
-
-            return userProfileId;
-        }
 
         /// <summary>
         /// Deletes an admin action by its unique identifier.

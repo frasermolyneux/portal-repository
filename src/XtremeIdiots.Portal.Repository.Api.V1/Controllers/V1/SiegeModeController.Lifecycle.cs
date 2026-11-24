@@ -105,10 +105,6 @@ public partial class SiegeModeController
                 ExtensionMinutes = request.ExtensionMinutes
             });
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            if (!extend)
-            {
-                await DeleteBaselineAsync(sessionId, cancellationToken).ConfigureAwait(false);
-            }
             return await ResultAsync(session, HttpStatusCode.OK, cancellationToken).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }

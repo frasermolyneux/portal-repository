@@ -19,6 +19,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using Asp.Versioning;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -38,6 +39,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     private const string ModeratorTagName = "moderator";
     private const string ClanMemberTagName = "clan-member";
     private const int PlaytimeRedactionBatchSize = 128;
+    private static readonly JsonSerializerOptions RulesEngineJsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly PortalDbContext context;
     private readonly IConfiguration configuration;
@@ -92,15 +94,43 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
-            await RemoveSiegePlayerData(player, operationCancellationToken).ConfigureAwait(false);
             await PlaytimeServerLock.AcquireGameAsync(context, player.GameType, exclusive: true, operationCancellationToken)
                 .ConfigureAwait(false);
-            var playtimeServerIds = await context.GameServers
-                .Where(x => x.GameType == player.GameType)
-                .Select(x => x.GameServerId)
+            await RemoveSiegePlayerData(player, operationCancellationToken).ConfigureAwait(false);
+            var gameTypeServerIds = await context.GameServers
+                .Where(server => server.GameType == player.GameType)
+                .Select(server => server.GameServerId)
                 .ToListAsync(operationCancellationToken)
                 .ConfigureAwait(false);
-            foreach (var serverId in playtimeServerIds.OrderBy(x => x))
+            var ruleServerIds = gameTypeServerIds.ToHashSet();
+            var playerGuid = player.Guid?.Trim().ToUpperInvariant();
+            if (!string.IsNullOrEmpty(playerGuid))
+            {
+                ruleServerIds.UnionWith(await context.RuleConnectionBindings
+                    .Where(binding => binding.GameType == player.GameType && binding.PlayerGuid == playerGuid)
+                    .Select(binding => binding.GameServerId)
+                    .ToListAsync(operationCancellationToken).ConfigureAwait(false));
+                ruleServerIds.UnionWith(await context.RuleFactSnapshots
+                    .Where(snapshot => snapshot.GameType == player.GameType && snapshot.PlayerGuid == playerGuid)
+                    .Select(snapshot => snapshot.GameServerId)
+                    .ToListAsync(operationCancellationToken).ConfigureAwait(false));
+                ruleServerIds.UnionWith(await context.RuleFeatureExecutions
+                    .Where(execution => execution.GameType == player.GameType && execution.PlayerGuid == playerGuid)
+                    .Select(execution => execution.GameServerId)
+                    .ToListAsync(operationCancellationToken).ConfigureAwait(false));
+                ruleServerIds.UnionWith(await context.RuleConnectionStatusSnapshots
+                    .Where(snapshot => snapshot.GameType == player.GameType)
+                    .Select(snapshot => snapshot.GameServerId)
+                    .ToListAsync(operationCancellationToken).ConfigureAwait(false));
+            }
+            foreach (var serverId in ruleServerIds.Order())
+            {
+                await SiegeModeController.LockServerAsync(context, serverId, operationCancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            await RemoveRulesEnginePlayerData(player, operationCancellationToken).ConfigureAwait(false);
+            foreach (var serverId in gameTypeServerIds.OrderBy(x => x))
             {
                 await PlaytimeServerLock.AcquireAsync(context, serverId, operationCancellationToken)
                     .ConfigureAwait(false);
@@ -211,6 +241,62 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             context.SiegeChecks.RemoveRange(await context.SiegeChecks.Where(c =>
                 c.Session.GameType == player.GameType && c.PlayerGuid == guid).ToListAsync(cancellationToken).ConfigureAwait(false));
         }
+    }
+
+    private async Task RemoveRulesEnginePlayerData(
+        Player player,
+        CancellationToken cancellationToken)
+    {
+        var playerGuid = player.Guid?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(playerGuid))
+        {
+            return;
+        }
+
+        var bindings = await context.RuleConnectionBindings
+            .Where(binding => binding.GameType == player.GameType &&
+                binding.PlayerGuid == playerGuid)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var factSnapshots = await context.RuleFactSnapshots
+            .Where(snapshot => snapshot.GameType == player.GameType && snapshot.PlayerGuid != null &&
+                snapshot.PlayerGuid.ToUpper() == playerGuid)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var executions = await context.RuleFeatureExecutions
+            .Where(execution => execution.GameType == player.GameType &&
+                execution.PlayerGuid != null && execution.PlayerGuid == playerGuid)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var executionIds = executions.Select(execution => execution.ExecutionId).ToArray();
+        var actionExecutions = await context.RuleActionExecutions
+            .Where(action => executionIds.Contains(action.ExecutionId))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var statusSnapshots = await context.RuleConnectionStatusSnapshots
+            .Where(snapshot => snapshot.GameType == player.GameType)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var statusSnapshot in statusSnapshots)
+        {
+            var snapshot = JsonSerializer.Deserialize<RuleConnectionStatusSnapshotDto>(
+                statusSnapshot.SnapshotJson, RulesEngineJsonOptions);
+            if (snapshot is null)
+            {
+                throw new JsonException("A stored rule connection status snapshot could not be deserialized.");
+            }
+
+            var retainedPlayers = snapshot.Players
+                .Where(connection => !string.Equals(
+                    connection.PlayerGuid?.Trim(), playerGuid, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (retainedPlayers.Length != snapshot.Players.Length)
+            {
+                statusSnapshot.SnapshotJson = JsonSerializer.Serialize(
+                    snapshot with { Players = retainedPlayers }, RulesEngineJsonOptions);
+            }
+        }
+
+        context.RuleConnectionBindings.RemoveRange(bindings);
+        context.RuleFactSnapshots.RemoveRange(factSnapshots);
+        context.RuleActionExecutions.RemoveRange(actionExecutions);
+        context.RuleFeatureExecutions.RemoveRange(executions);
     }
 
     private async Task RedactPlaytimeObservations(
