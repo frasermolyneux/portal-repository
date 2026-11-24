@@ -232,16 +232,33 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
             }
-            if (execution.State is nameof(RuleFeatureExecutionState.Completed) or nameof(RuleFeatureExecutionState.Stopped) ||
-                await context.RuleActionExecutions.AnyAsync(a => a.ExecutionId == executionId &&
+            if (execution.State is nameof(RuleFeatureExecutionState.Completed) or nameof(RuleFeatureExecutionState.Stopped))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+
+            var hasPendingAction = await context.RuleActionExecutions.AnyAsync(a => a.ExecutionId == executionId &&
                     (a.Outcome == RuleActionExecutionOutcome.Claimed.ToString() ||
-                     a.Outcome == RuleActionExecutionOutcome.Dispatched.ToString()), cancellationToken).ConfigureAwait(false))
+                     a.Outcome == RuleActionExecutionOutcome.Dispatched.ToString()), cancellationToken).ConfigureAwait(false);
+            if (hasPendingAction &&
+                (request.RuleIndex != execution.RuleIndex || request.ActionIndex != execution.ActionIndex ||
+                 request.State.ToString() != execution.State ||
+                 request.DecisionSnapshotJson is null ||
+                 request.DecisionSnapshotJson == execution.DecisionSnapshotJson ||
+                 request.FactSnapshotId is { } requestedFactSnapshotId &&
+                    requestedFactSnapshotId != execution.FactSnapshotId))
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
             }
             if (request.FactSnapshotId is { } factSnapshotId &&
                 !await context.RuleFactSnapshots.AnyAsync(f => f.SnapshotId == factSnapshotId &&
                     f.GameServerId == gameServerId && f.ConnectionId == execution.ConnectionId, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
+            }
+            if (!TryGetContextTrigger(execution.TriggerJson,
+                    request.DecisionSnapshotJson ?? execution.DecisionSnapshotJson, out _, out var hasContextTrigger) ||
+                hasPendingAction && !hasContextTrigger)
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
             }
@@ -1123,20 +1140,31 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
     }
 
     private static bool TryGetContextTrigger(RuleFeatureExecution execution, out RuleTriggerEnvelope trigger)
+        => TryGetContextTrigger(execution.TriggerJson, execution.DecisionSnapshotJson, out trigger);
+
+    private static bool TryGetContextTrigger(
+        string triggerJson, string? decisionSnapshotJson, out RuleTriggerEnvelope trigger)
+        => TryGetContextTrigger(triggerJson, decisionSnapshotJson, out trigger, out _);
+
+    private static bool TryGetContextTrigger(
+        string triggerJson, string? decisionSnapshotJson,
+        out RuleTriggerEnvelope trigger, out bool hasContextTrigger)
     {
-        var original = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson);
+        var original = Deserialize<RuleTriggerEnvelope>(triggerJson);
         trigger = original;
-        if (execution.DecisionSnapshotJson is null)
+        hasContextTrigger = false;
+        if (decisionSnapshotJson is null)
         {
             return true;
         }
 
-        using var snapshot = JsonDocument.Parse(execution.DecisionSnapshotJson);
+        using var snapshot = JsonDocument.Parse(decisionSnapshotJson);
         if (snapshot.RootElement.ValueKind != JsonValueKind.Object ||
             !snapshot.RootElement.TryGetProperty("contextTrigger", out var contextElement))
         {
             return true;
         }
+        hasContextTrigger = true;
         if (contextElement.ValueKind != JsonValueKind.Object ||
             !snapshot.RootElement.TryGetProperty("contextObservedAtUtc", out var observedAtElement) ||
             observedAtElement.ValueKind != JsonValueKind.String ||

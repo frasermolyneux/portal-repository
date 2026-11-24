@@ -365,15 +365,12 @@ public sealed class RuleExecutionsControllerTests
                 State = RuleFeatureExecutionState.Evaluating,
                 DecisionSnapshotJson = invalidSnapshotJson
             });
-        Assert.Equal(HttpStatusCode.OK, invalidContext.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidContext.StatusCode);
         const string firstEffectId = "8123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        var rejectedClaim = await api.ClaimAction(serverId, execution.ExecutionId,
-            ClaimRequestWithTrigger(serverId, invalidContext.Result!.Data!, firstEffectId, contextTrigger, "kick-player", 0));
-        Assert.Equal(HttpStatusCode.BadRequest, rejectedClaim.StatusCode);
         var restoredContext = await api.UpdateProgress(serverId, execution.ExecutionId,
             new UpdateRuleFeatureExecutionProgressDto
             {
-                ExpectedVersion = invalidContext.Result!.Data!.Version,
+                ExpectedVersion = updated.Result!.Data!.Version,
                 State = RuleFeatureExecutionState.Evaluating,
                 DecisionSnapshotJson = decisionSnapshotJson
             });
@@ -388,6 +385,50 @@ public sealed class RuleExecutionsControllerTests
         Assert.Equal("player.kick", firstClaim.Result.Data.Action.ActionTypeId);
         Assert.Equal(/*lang=json,strict*/ """{"reason":"test"}""", firstClaim.Result.Data.Action.ParametersJson);
 
+        var newerContextTrigger = contextTrigger with
+        {
+            ObservationId = Guid.NewGuid(),
+            TriggerOccurrenceId = Guid.NewGuid(),
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            PlayerIpAddress = "203.0.113.11"
+        };
+        var newerDecisionSnapshotJson = JsonSerializer.Serialize(new
+        {
+            contextTrigger = newerContextTrigger,
+            contextObservedAtUtc = newerContextTrigger.OccurredAtUtc
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var pendingContextUpdate = await api.UpdateProgress(serverId, execution.ExecutionId,
+            new UpdateRuleFeatureExecutionProgressDto
+            {
+                ExpectedVersion = firstClaim.Result.Data.Execution.Version,
+                RuleIndex = 0,
+                ActionIndex = 0,
+                State = RuleFeatureExecutionState.AwaitingActionOutcome,
+                DecisionSnapshotJson = newerDecisionSnapshotJson
+            });
+        Assert.Equal(HttpStatusCode.OK, pendingContextUpdate.StatusCode);
+        Assert.Equal(firstClaim.Result.Data.Execution.Version + 1, pendingContextUpdate.Result!.Data!.Version);
+        Assert.Equal(RuleFeatureExecutionState.AwaitingActionOutcome, pendingContextUpdate.Result.Data.State);
+        Assert.Equal(0, pendingContextUpdate.Result.Data.RuleIndex);
+        Assert.Equal(0, pendingContextUpdate.Result.Data.ActionIndex);
+        Assert.Equal(newerDecisionSnapshotJson, pendingContextUpdate.Result.Data.DecisionSnapshotJson);
+        Assert.Equal(
+            JsonSerializer.Serialize(firstClaim.Result.Data.Action.Command),
+            JsonSerializer.Serialize(pendingContextUpdate.Result.Data.Actions.Single().Command));
+        Assert.Equal(contextTrigger.TriggerOccurrenceId,
+            pendingContextUpdate.Result.Data.Actions.Single().Correlation.TriggerOccurrenceId);
+
+        var attemptedCursorChange = await api.UpdateProgress(serverId, execution.ExecutionId,
+            new UpdateRuleFeatureExecutionProgressDto
+            {
+                ExpectedVersion = pendingContextUpdate.Result.Data.Version,
+                RuleIndex = 0,
+                ActionIndex = 1,
+                State = RuleFeatureExecutionState.Evaluating,
+                DecisionSnapshotJson = newerDecisionSnapshotJson
+            });
+        Assert.Equal(HttpStatusCode.Conflict, attemptedCursorChange.StatusCode);
+
         var firstOutcome = new RuleActionResult
         {
             GameServerId = serverId,
@@ -401,28 +442,29 @@ public sealed class RuleExecutionsControllerTests
         var completedFirstAction = await api.UpdateActionOutcome(serverId, execution.ExecutionId,
             firstOutcome.ActionId, new UpdateRuleActionOutcomeDto
             {
-                ExpectedVersion = firstClaim.Result.Data.Execution.Version,
+                ExpectedVersion = pendingContextUpdate.Result.Data.Version,
                 Result = firstOutcome,
                 NextRuleIndex = 0,
                 NextActionIndex = 1,
-                NextState = RuleFeatureExecutionState.Evaluating,
-                DecisionSnapshotJson = decisionSnapshotJson
+                NextState = RuleFeatureExecutionState.Evaluating
             });
         Assert.Equal(HttpStatusCode.OK, completedFirstAction.StatusCode);
 
         const string secondEffectId = "9123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         var secondClaim = await api.ClaimAction(serverId, execution.ExecutionId,
             ClaimRequestWithTrigger(serverId, completedFirstAction.Result!.Data!.Execution,
-                secondEffectId, contextTrigger, "kick-player-2", 1));
+                secondEffectId, newerContextTrigger, "kick-player-2", 1));
 
         Assert.Equal(HttpStatusCode.OK, secondClaim.StatusCode);
         Assert.True(secondClaim.Result!.Data!.ShouldDispatch);
-        Assert.Equal(contextTrigger.TriggerOccurrenceId, secondClaim.Result.Data.Action.Correlation.TriggerOccurrenceId);
+        Assert.Equal(newerContextTrigger.TriggerOccurrenceId, secondClaim.Result.Data.Action.Correlation.TriggerOccurrenceId);
         Assert.Equal("kick-player-2", secondClaim.Result.Data.Action.Command.ActionId);
+        Assert.Equal(newerContextTrigger.TriggerOccurrenceId,
+            secondClaim.Result.Data.Action.Command.Correlation.TriggerOccurrenceId);
 
         var repeatedFirstAction = await api.ClaimAction(serverId, execution.ExecutionId,
             ClaimRequestWithTrigger(serverId, secondClaim.Result.Data.Execution,
-                firstEffectId, contextTrigger, "kick-player", 0));
+                firstEffectId, newerContextTrigger, "kick-player", 0));
         Assert.Equal(HttpStatusCode.OK, repeatedFirstAction.StatusCode);
         Assert.False(repeatedFirstAction.Result!.Data!.ShouldDispatch);
         Assert.Equal(RuleActionExecutionOutcome.Applied, repeatedFirstAction.Result.Data.Action.Outcome);

@@ -151,6 +151,12 @@ Runtime capabilities may reflect the latest proven observation. Claims use the p
 occurrence/trigger when present and otherwise the original trigger; the execution's original trigger
 is never replaced.
 
+`UpdateProgress` validates any proposed continuation context against the immutable original trigger.
+While a claimed or dispatched action is pending, it accepts only a changed decision snapshot with
+the current expected version and unchanged rule index, action index, execution state, and fact
+snapshot. This metadata-only update preserves the in-flight command and cursor while allowing a
+newer trigger context to be used for subsequent actions after the pending result is recorded.
+
 The claimed logical `ActionTypeId` and `ParametersJson` are resolved from the frozen rule/action at
 the submitted cursor after validating the correlation's rule and action IDs. The native
 `RuleActionCommand.Effect` is stored separately and must match the catalogue action's native effect;
@@ -269,6 +275,8 @@ V1 Repository API signatures live in `IRuleExecutionsApi`:
   action claims/outcomes for safe resume.
 - `UpdateProgress(gameServerId, executionId, UpdateRuleFeatureExecutionProgressDto)` persists
   non-match, Unknown, stop, decision state, and optional `contextTrigger` using an expected version.
+  When an action is pending, only a decision-snapshot-only update with an unchanged cursor/state and
+  fact snapshot is accepted; the pending command is not changed.
 - `ClaimAction(gameServerId, executionId, ClaimRuleActionDto)` validates the correlation against the
   persisted context trigger and claims the frozen logical action type/parameters separately from its
   native effect.
