@@ -104,7 +104,7 @@ public sealed partial class RuleExecutionsController
             {
                 return (RuleExecutionStructureStatus.Missing, []);
             }
-            if (rulesElement.ValueKind != JsonValueKind.Array || rulesElement.GetArrayLength() > RuleSetConstants.MaxRules)
+            if (rulesElement.ValueKind != JsonValueKind.Array || rulesElement.GetArrayLength() > 2 * RuleSetConstants.MaxRules)
             {
                 return (RuleExecutionStructureStatus.Malformed, []);
             }
@@ -179,10 +179,19 @@ public sealed partial class RuleExecutionsController
                     });
                 }
                 string? afterMatch = null;
-                if (element.TryGetProperty("afterMatch", out var afterElement) && afterElement.ValueKind == JsonValueKind.String &&
-                    afterElement.GetString() is "StopProcessingRules" or "ContinueToNextRule")
+                if (element.TryGetProperty("afterMatch", out var afterElement) && afterElement.ValueKind != JsonValueKind.Null)
                 {
-                    afterMatch = afterElement.GetString();
+                    afterMatch = afterElement.ValueKind switch
+                    {
+                        JsonValueKind.String when afterElement.GetString() is "StopProcessingRules" or "ContinueToNextRule" => afterElement.GetString(),
+                        JsonValueKind.Number when afterElement.TryGetInt32(out var value) && value == (int)RuleAfterMatch.StopProcessingRules => nameof(RuleAfterMatch.StopProcessingRules),
+                        JsonValueKind.Number when afterElement.TryGetInt32(out var value) && value == (int)RuleAfterMatch.ContinueToNextRule => nameof(RuleAfterMatch.ContinueToNextRule),
+                        _ => null
+                    };
+                    if (afterMatch is null)
+                    {
+                        return (RuleExecutionStructureStatus.Malformed, []);
+                    }
                 }
                 rules.Add(new RuleExecutionFlowRuleDto
                 {

@@ -67,6 +67,32 @@ public sealed partial class RuleExecutionsControllerTests
     }
 
     [Fact]
+    public async Task FlowAcceptsInheritedSnapshotsLargerThanOneRuleDocument()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var execution = (await api.StartExecution(serverId, StartRequest(serverId, Guid.NewGuid()))).Result!.Data!;
+        var row = context.RuleFeatureExecutions.Single(item => item.ExecutionId == execution.ExecutionId);
+        row.FrozenRulesJson = JsonSerializer.Serialize(new
+        {
+            rules = Enumerable.Range(0, 120).Select(index => new
+            {
+                id = $"rule-{index}",
+                condition = new { conditionId = "always" },
+                actions = Array.Empty<object>(),
+                afterMatch = index == 0 ? 1 : 2
+            })
+        });
+        await context.SaveChangesAsync();
+        var flow = (await api.GetRuleExecutionFlow(execution.ExecutionId)).Result!.Data!;
+        Assert.Equal(RuleExecutionStructureStatus.Available, flow.StructureStatus);
+        Assert.Equal(120, flow.Rules.Length);
+        Assert.Equal("StopProcessingRules", flow.Rules[0].AfterMatch);
+        Assert.Equal("ContinueToNextRule", flow.Rules[119].AfterMatch);
+    }
+
+    [Fact]
     public async Task FlowDistinguishesMissingMalformedAndEmptyStructure()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -82,6 +108,8 @@ public sealed partial class RuleExecutionsControllerTests
             (/*lang=json,strict*/ """{"rules":[]}""", RuleExecutionStructureStatus.Available),
             (/*lang=json,strict*/ """{"rules":[{"id":"x","actions":[]}]}""", RuleExecutionStructureStatus.Malformed),
             (/*lang=json,strict*/ """{"rules":[{"id":"x","condition":{"conditionId":"always"},"actions":[],"order":"bad"}]}""", RuleExecutionStructureStatus.Malformed),
+            (/*lang=json,strict*/ """{"rules":[{"id":"x","condition":{"conditionId":"always"},"actions":[],"afterMatch":"invalid"}]}""", RuleExecutionStructureStatus.Malformed),
+            (/*lang=json,strict*/ """{"rules":[{"id":"x","condition":{"conditionId":"always"},"actions":[],"afterMatch":123}]}""", RuleExecutionStructureStatus.Malformed),
             ("{", RuleExecutionStructureStatus.Malformed)
         })
         {
