@@ -88,6 +88,77 @@ public sealed class RuleExecutionsControllerTests
     }
 
     [Fact]
+    public async Task SearchRuleActions_ResolvesOnlyUniquePlayerAndReportsIpProvenance()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var now = DateTime.UtcNow;
+        var target = CreateAuditAction(serverId, "siege-mode", null, now, RuleExecutionMode.Enforce);
+        var snapshot = new RuleFactSnapshot
+        {
+            SnapshotId = Guid.NewGuid(),
+            GameServerId = serverId,
+            ConnectionId = target.Execution.ConnectionId,
+            GameType = (int)GameType.CallOfDuty4,
+            PlayerGuid = "PLAYER-AUDIT",
+            PlayerIpAddress = "192.0.2.1",
+            CapturedAtUtc = now.AddMinutes(-2),
+            IpEnrichedAtUtc = now.AddMinutes(-1),
+            TagIdsJson = "[]"
+        };
+        target.Execution.FactSnapshotId = snapshot.SnapshotId;
+        var player = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, Guid = "player-audit" };
+        context.RuleFeatureExecutions.Add(target.Execution);
+        context.RuleActionExecutions.Add(target.Action);
+        context.RuleFactSnapshots.Add(snapshot);
+        context.Players.AddRange(player, new Player { PlayerId = Guid.NewGuid(), GameType = 999, Guid = "PLAYER-AUDIT" });
+        await context.SaveChangesAsync();
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var query = new RuleActionAuditQueryDto { GameServerIds = [serverId] };
+        async Task<RuleActionExecutionDto> Search() =>
+            Assert.Single((await api.SearchRuleActions(query)).Result!.Data!.Items!);
+
+        var found = await Search();
+        Assert.Equal(GameType.CallOfDuty4, found.GameType);
+        Assert.Equal(player.PlayerId, found.PlayerId);
+        Assert.Equal("192.0.2.1", found.ObservedIpAddress);
+        Assert.Equal("FactSnapshotEnrichment", found.ObservedIpSource);
+        Assert.Equal(snapshot.IpEnrichedAtUtc, found.ObservedIpRecordedAtUtc!.Value.UtcDateTime);
+
+        context.Players.Add(new Player { PlayerId = Guid.NewGuid(), GameType = player.GameType, Guid = "PLAYER-AUDIT" });
+        var trigger = JsonSerializer.Deserialize<RuleTriggerEnvelope>(target.Execution.TriggerJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))! with
+        {
+            PlayerIpAddress = "192.0.2.2",
+            OccurredAtUtc = new DateTimeOffset(now, TimeSpan.Zero)
+        };
+        target.Execution.TriggerJson = JsonSerializer.Serialize(trigger, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await context.SaveChangesAsync();
+        var ambiguous = await Search();
+        Assert.Null(ambiguous.PlayerId);
+        Assert.Equal("192.0.2.2", ambiguous.ObservedIpAddress);
+        Assert.Equal("Trigger", ambiguous.ObservedIpSource);
+        Assert.Equal(trigger.OccurredAtUtc, ambiguous.ObservedIpRecordedAtUtc);
+
+        target.Execution.TriggerJson = JsonSerializer.Serialize(trigger with { PlayerIpAddress = null },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        context.Players.RemoveRange(context.Players.Where(p => p.GameType == player.GameType));
+        snapshot.IpEnrichedAtUtc = null;
+        await context.SaveChangesAsync();
+        var missing = await Search();
+        Assert.Null(missing.PlayerId);
+        Assert.Equal("FactSnapshot", missing.ObservedIpSource);
+        Assert.Equal(snapshot.CapturedAtUtc, missing.ObservedIpRecordedAtUtc!.Value.UtcDateTime);
+
+        snapshot.ConnectionId = Guid.NewGuid();
+        await context.SaveChangesAsync();
+        var mismatch = await Search();
+        Assert.Null(mismatch.ObservedIpAddress);
+        Assert.Null(mismatch.ObservedIpSource);
+        Assert.Null(mismatch.ObservedIpRecordedAtUtc);
+    }
+
+    [Fact]
     public async Task EnsureRuleActionAdminAction_SupportsObservationWithoutNativeDispatch()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -1297,6 +1368,8 @@ public sealed class RuleExecutionsControllerTests
             GameServerId = gameServerId,
             ConnectionId = connectionId,
             TriggerOccurrenceId = trigger.TriggerOccurrenceId,
+            GameType = (int)trigger.GameType,
+            PlayerGuid = trigger.PlayerGuid,
             FeatureId = featureId,
             SiegeSessionId = siegeSessionId,
             RuleSetRevision = "revision-audit",
