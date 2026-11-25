@@ -50,9 +50,6 @@ public partial class RuleFeatureExecution
     [StringLength(32)]
     public string State { get; set; } = null!;
 
-    [StringLength(16)]
-    public string? MatchStatus { get; set; }
-
     public int RuleIndex { get; set; }
 
     public int ActionIndex { get; set; }
@@ -70,6 +67,9 @@ public partial class RuleFeatureExecution
 
     [Precision(3)]
     public DateTime UpdatedAtUtc { get; set; }
+
+    [StringLength(16)]
+    public string? MatchStatus { get; set; }
 
     [ForeignKey("GameServerId")]
     [InverseProperty("RuleFeatureExecutions")]
