@@ -414,7 +414,8 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             }
             else
             {
-                if (prepared is not null || request.Command.RecipientTarget is not null)
+                if (prepared is not null || request.Command.RecipientTarget is not null ||
+                    frozenAction.TypeId == RulesEngineCatalogueV1.PrivateTaggedMessageAction)
                 {
                     return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
                 }

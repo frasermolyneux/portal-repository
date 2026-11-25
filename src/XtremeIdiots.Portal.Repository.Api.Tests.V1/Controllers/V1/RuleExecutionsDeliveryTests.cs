@@ -90,6 +90,13 @@ public sealed partial class RuleExecutionsControllerTests
         var all = (await api.GetTaggedAudience(serverId, request with { Match = RuleRecipientTagMatch.All })).Result!.Data!;
         Assert.Equal("FIRST", Assert.Single(all.Recipients).PlayerGuid);
         Assert.All(any.Recipients, item => Assert.Equal(serverId, item.GameServerId));
+        var server = context.GameServers.Single(item => item.GameServerId == serverId);
+        server.GameType = (int)GameType.CallOfDuty2;
+        await context.SaveChangesAsync();
+        Assert.False((await api.GetTaggedAudience(serverId, request)).Result!.Data!.Available);
+        server.Deleted = true;
+        await context.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await api.GetTaggedAudience(serverId, request)).StatusCode);
     }
 
     [Fact]
@@ -148,6 +155,14 @@ public sealed partial class RuleExecutionsControllerTests
             StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: /*lang=json,strict*/ """{"message":"literal"}""")))
             .Result!.Data!;
         var command = DeliveryCommand(serverId, execution, 0, "literal");
+        var wrongRule = await api.PrepareAction(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"literal"}""",
+            Commands = [command with { Correlation = command.Correlation with { RuleId = "other-rule" } }]
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, wrongRule.StatusCode);
+        Assert.Empty(context.RulePreparedActions);
         var invalid = await api.PrepareAction(serverId, execution.ExecutionId, new()
         {
             ExpectedVersion = execution.Version,
@@ -172,6 +187,48 @@ public sealed partial class RuleExecutionsControllerTests
             }
         };
         Assert.Equal(HttpStatusCode.BadRequest, (await api.ClaimAction(serverId, kick.ExecutionId, claim)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TaggedPlanRequiresPreparationAndEveryAudienceRecipient()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var execution = (await api.StartExecution(serverId, StartRequest(serverId, Guid.NewGuid(),
+            actionTypeId: "message.private-tagged", parametersJson: /*lang=json,strict*/ """{"message":"alert"}"""))).Result!.Data!;
+        var direct = ClaimRequest(serverId, execution, new string('b', 64), RuleNativeEffectType.PrivateMessage);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ClaimAction(serverId, execution.ExecutionId, direct)).StatusCode);
+        var command = DeliveryCommand(serverId, execution, 0, "alert");
+        var first = new RuleMessageRecipientTarget
+        {
+            GameServerId = serverId,
+            Runtime = command.Runtime,
+            ConnectionId = Guid.NewGuid(),
+            PlayerGuid = "FIRST",
+            SlotId = 1
+        };
+        var second = first with { ConnectionId = Guid.NewGuid(), PlayerGuid = "SECOND", SlotId = 2 };
+        var identity = command.DeliveryIdentity! with { RecipientConnectionId = first.ConnectionId };
+        command = command with { RecipientTarget = first, DeliveryIdentity = identity, LogicalEffectId = identity.ToLogicalEffectId() };
+        var request = new PrepareRuleActionDto
+        {
+            ExpectedVersion = execution.Version,
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"alert"}""",
+            AudienceSnapshot = new() { GameServerId = serverId, Available = true, Recipients = [first, second] },
+            Commands = [command]
+        };
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.PrepareAction(serverId, execution.ExecutionId, request)).StatusCode);
+        Assert.Empty(context.RulePreparedActions);
+        var secondIdentity = identity with { RecipientConnectionId = second.ConnectionId };
+        request = request with
+        {
+            Commands = [command, command with
+            {
+                RecipientTarget = second, DeliveryIdentity = secondIdentity, LogicalEffectId = secondIdentity.ToLogicalEffectId()
+            }]
+        };
+        Assert.Equal(HttpStatusCode.Created, (await api.PrepareAction(serverId, execution.ExecutionId, request)).StatusCode);
     }
 
     [Fact]
@@ -274,6 +331,7 @@ public sealed partial class RuleExecutionsControllerTests
         var snapshot = new RuleConnectionStatusSnapshotDto
         {
             GameServerId = serverId,
+            GameType = GameType.CallOfDuty4,
             SnapshotId = Guid.NewGuid(),
             ObservedAtUtc = DateTimeOffset.UtcNow,
             Players = [new() { State = RuleConnectionState.Unknown }]
@@ -281,6 +339,7 @@ public sealed partial class RuleExecutionsControllerTests
         context.RuleConnectionStatusSnapshots.Add(new()
         {
             GameServerId = serverId,
+            GameType = (int)GameType.CallOfDuty4,
             SnapshotId = snapshot.SnapshotId,
             SnapshotJson = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
             ExpiresAtUtc = DateTime.UtcNow.AddMinutes(1),

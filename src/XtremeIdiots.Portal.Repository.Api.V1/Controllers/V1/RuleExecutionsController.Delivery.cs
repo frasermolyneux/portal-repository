@@ -134,9 +134,15 @@ public sealed partial class RuleExecutionsController
         {
             return new ApiResult<RuleTaggedAudienceDto>(HttpStatusCode.BadRequest);
         }
+        var server = await context.GameServers.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.GameServerId == gameServerId && !item.Deleted, cancellationToken).ConfigureAwait(false);
+        if (server is null)
+        {
+            return new ApiResult<RuleTaggedAudienceDto>(HttpStatusCode.NotFound);
+        }
         var snapshot = await context.RuleConnectionStatusSnapshots.AsNoTracking()
             .SingleOrDefaultAsync(item => item.GameServerId == gameServerId, cancellationToken).ConfigureAwait(false);
-        if (snapshot is null || snapshot.ExpiresAtUtc <= DateTime.UtcNow)
+        if (snapshot is null || snapshot.ExpiresAtUtc <= DateTime.UtcNow || snapshot.GameType != server.GameType)
         {
             return new ApiResponse<RuleTaggedAudienceDto>(new RuleTaggedAudienceDto
             {
@@ -239,7 +245,12 @@ public sealed partial class RuleExecutionsController
                     ActionIndex = request.ActionIndex,
                     LogicalEffectId = command.LogicalEffectId,
                     Command = command
-                }) || !ValidNativeMessage(command))
+                }) || !TryResolveFrozenAction(execution, new()
+                {
+                    RuleIndex = request.RuleIndex,
+                    ActionIndex = request.ActionIndex,
+                    Command = command
+                }, out _) || !ValidNativeMessage(command))
             {
                 return false;
             }
@@ -257,7 +268,10 @@ public sealed partial class RuleExecutionsController
                 return false;
             }
         }
-        return request.Commands.Select(command => command.DeliveryIdentity!.ParentLogicalEffectId).Distinct(StringComparer.Ordinal).Count() == 1 &&
+        return (definition.TypeId != RulesEngineCatalogueV1.PrivateTaggedMessageAction ||
+                request.Commands.Select(command => command.RecipientTarget!.ConnectionId).ToHashSet()
+                    .SetEquals(request.AudienceSnapshot!.Recipients.Select(recipient => recipient.ConnectionId))) &&
+            request.Commands.Select(command => command.DeliveryIdentity!.ParentLogicalEffectId).Distinct(StringComparer.Ordinal).Count() == 1 &&
             request.Commands.GroupBy(command => command.DeliveryIdentity!.RecipientConnectionId).All(group =>
                 group.Select(command => (command.DeliveryIdentity!.MessageIndex, command.DeliveryIdentity.FragmentIndex))
                     .SequenceEqual(group.OrderBy(command => command.DeliveryIdentity!.MessageIndex)
