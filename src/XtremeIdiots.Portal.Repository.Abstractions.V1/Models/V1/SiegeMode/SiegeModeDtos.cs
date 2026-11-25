@@ -33,6 +33,7 @@ public sealed record SiegeSessionDto
     public string StartedBy { get; init; } = string.Empty;
     public SiegeSessionMode Mode { get; init; }
     public string SettingsJson { get; init; } = string.Empty;
+    /// <summary>Number of generic rule action claims associated with this session, across all outcomes.</summary>
     public int ActionCount { get; init; }
 }
 

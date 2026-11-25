@@ -35,7 +35,12 @@ public partial class SiegeModeController
         var count = await query.CountAsync(cancellationToken).ConfigureAwait(false);
         var items = await query.OrderByDescending(s => s.StartedAtUtc).ThenBy(s => s.SessionId)
             .Skip(request.SkipEntries).Take(request.TakeEntries)
-            .Select(s => new { Session = s, ActionCount = s.SiegeActions.Count })
+            .Select(s => new
+            {
+                Session = s,
+                ActionCount = context.RuleActionExecutions.Count(a =>
+                a.GameServerId == s.GameServerId && a.SiegeSessionId == s.SessionId)
+            })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
         var data = new CollectionModel<SiegeSessionDto>(items.Select(s => ToDto(s.Session, s.ActionCount)).ToList());
         return new ApiResponse<CollectionModel<SiegeSessionDto>>(data)

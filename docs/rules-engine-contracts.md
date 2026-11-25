@@ -274,6 +274,12 @@ V1 Repository API signatures live in `IRuleExecutionsApi`:
   Pagination counts are calculated only inside that server scope. Results expose the logical
   action/rule/execution identities, server/session/connection and player-GUID/slot correlation,
   execution mode, source occurrence time, and persisted update time.
+  `filteredCount` reflects all selected filters, while `totalCount` covers the server scope before
+  those filters. Audit results include the execution's game type and a current `playerId` only when
+  exactly one player matches that game type and GUID. They also include `observedIpAddress`,
+  `observedIpSource`, and `observedIpRecordedAtUtc` when an IP was retained. `Trigger` uses the
+  trigger occurrence time; `FactSnapshot` and `FactSnapshotEnrichment` use the snapshot capture
+  or enrichment time respectively and do not establish that the address was present at trigger time.
 - `StartExecution(gameServerId, StartRuleFeatureExecutionDto)` freezes the original trigger and
   rule set and gets/creates the canonical execution for that server, connection, feature, and
   optional Siege session. Repeated starts return the existing execution without replacing its
@@ -364,6 +370,8 @@ sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; 
 `UpdateActionOutcome` durably track Siege action lifecycle; `RecordCheck` stores an aggregate check
 outcome. `IRuleExecutionsApi.CreateFactSnapshot` provides the timestamped GUID/IP baseline and
 observed-history facts used by the shared matcher.
+Session `actionCount` counts generic rule action claims associated with the session, across all
+outcomes; legacy Siege action endpoints continue to report only legacy action records.
 
 The clean-slate reset removes only old VPN/Siege configuration and obsolete feature-owned
 execution data. It does not remove `AdminActions`, existing bans, or unrelated player data.

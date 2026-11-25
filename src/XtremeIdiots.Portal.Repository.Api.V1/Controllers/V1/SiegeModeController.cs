@@ -32,7 +32,12 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
         var session = await context.SiegeSessions.AsNoTracking()
             .Where(s => s.GameServerId == gameServerId && !s.GameServer.Deleted &&
                 s.GameServer.GameType == s.GameType && s.EndedAtUtc == null && s.ExpiresAtUtc > now)
-            .Select(s => new { Session = s, ActionCount = s.SiegeActions.Count })
+            .Select(s => new
+            {
+                Session = s,
+                ActionCount = context.RuleActionExecutions.Count(a =>
+                a.GameServerId == s.GameServerId && a.SiegeSessionId == s.SessionId)
+            })
             .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         return session is null
             ? new ApiResult<SiegeSessionDto>(HttpStatusCode.NotFound).ToHttpResult()
@@ -238,7 +243,8 @@ public partial class SiegeModeController(PortalDbContext context, ILogger<SiegeM
 
     private async Task<ApiResult<SiegeSessionDto>> ResultAsync(SiegeSession session, HttpStatusCode status, CancellationToken cancellationToken)
     {
-        var actionCount = await context.SiegeActions.CountAsync(a => a.SessionId == session.SessionId, cancellationToken).ConfigureAwait(false);
+        var actionCount = await context.RuleActionExecutions.CountAsync(
+            a => a.GameServerId == session.GameServerId && a.SiegeSessionId == session.SessionId, cancellationToken).ConfigureAwait(false);
         return new ApiResponse<SiegeSessionDto>(ToDto(session, actionCount)).ToApiResult(status);
     }
 
