@@ -10,6 +10,69 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public sealed class RuleProtocolSerializationTests
 {
     [Fact]
+    public void ExecutionDiagnosticsUseRendererCompatibleStringCodesWithBothSerializers()
+    {
+        var progress = new UpdateRuleFeatureExecutionProgressDto
+        {
+            Diagnostics = [new()
+            {
+                Code = RuleExecutionDiagnosticCode.FallbackUsed, TokenKey = "context.server.Name",
+                Source = "ServerMetadata", Detail = "Display value unavailable."
+            }]
+        };
+        var serialized = new[]
+        {
+            System.Text.Json.JsonSerializer.Serialize(progress, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            JsonConvert.SerializeObject(progress, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() })
+        };
+        foreach (var json in serialized)
+        {
+            using var document = JsonDocument.Parse(json);
+            var diagnostic = document.RootElement.GetProperty("diagnostics")[0];
+            Assert.Equal("FallbackUsed", diagnostic.GetProperty("code").GetString());
+            Assert.Equal("ServerMetadata", diagnostic.GetProperty("source").GetString());
+            Assert.Equal(progress.Diagnostics[0].TokenKey, diagnostic.GetProperty("tokenKey").GetString());
+        }
+    }
+
+    [Fact]
+    public void RecipientAndFragmentContractsPreserveOriginalTriggerWithBothSerializers()
+    {
+        var trigger = Guid.NewGuid();
+        var recipient = Guid.NewGuid();
+        var delivery = new RuleDeliveryIdentity
+        {
+            ParentLogicalEffectId = new string('a', 64),
+            RecipientConnectionId = recipient,
+            MessageIndex = 1,
+            FragmentIndex = 2
+        };
+        var command = new RuleActionCommand
+        {
+            ConnectionId = trigger,
+            Correlation = new() { ConnectionId = trigger },
+            RecipientTarget = new() { ConnectionId = recipient, ConnectionGeneration = 3, SlotId = 4, PlayerGuid = "recipient" },
+            DeliveryIdentity = delivery,
+            LogicalEffectId = delivery.ToLogicalEffectId()
+        };
+        var serialized = new[]
+        {
+            System.Text.Json.JsonSerializer.Serialize(command, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            JsonConvert.SerializeObject(command, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() })
+        };
+        foreach (var json in serialized)
+        {
+            using var document = JsonDocument.Parse(json);
+            Assert.Equal(trigger, document.RootElement.GetProperty("connectionId").GetGuid());
+            Assert.Equal(trigger, document.RootElement.GetProperty("correlation").GetProperty("connectionId").GetGuid());
+            Assert.Equal(recipient, document.RootElement.GetProperty("recipientTarget").GetProperty("connectionId").GetGuid());
+            Assert.Equal(2, document.RootElement.GetProperty("deliveryIdentity").GetProperty("fragmentIndex").GetInt32());
+        }
+        Assert.NotEqual(delivery.ToLogicalEffectId(), (delivery with { FragmentIndex = 3 }).ToLogicalEffectId());
+        Assert.NotEqual(delivery.ToLogicalEffectId(), (delivery with { RecipientConnectionId = Guid.NewGuid() }).ToLogicalEffectId());
+    }
+
+    [Fact]
     public void EvaluationRetryAndActionProgressFieldsUseStableCamelCaseDefaults()
     {
         var defaultResponseJson = System.Text.Json.JsonSerializer.Serialize(

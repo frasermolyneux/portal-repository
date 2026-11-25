@@ -8,8 +8,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
+[Index("CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditCreated")]
+[Index("FeatureId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditFeatureCreated")]
+[Index("GameServerId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditServerCreated")]
 [Index("GameServerId", "ConnectionId", "CreatedAtUtc", Name = "IX_RuleFeatureExecutions_Connection")]
 [Index("GameServerId", "ConnectionId", "FeatureId", "SiegeSessionId", Name = "IX_RuleFeatureExecutions_ConnectionFeatureSession", IsUnique = true)]
+[Index("GameServerId", "FeatureId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_FeatureCreated")]
 [Index("GameType", "PlayerGuid", Name = "IX_RuleFeatureExecutions_Player")]
 public partial class RuleFeatureExecution
 {
@@ -50,6 +54,10 @@ public partial class RuleFeatureExecution
 
     public string? DecisionSnapshotJson { get; set; }
 
+    public string? CoordinationJson { get; set; }
+
+    public string? DiagnosticsJson { get; set; }
+
     public long Version { get; set; }
 
     [Precision(3)]
@@ -64,6 +72,9 @@ public partial class RuleFeatureExecution
 
     [InverseProperty("Execution")]
     public virtual ICollection<RuleActionExecution> RuleActionExecutions { get; set; } = new List<RuleActionExecution>();
+
+    [InverseProperty("Execution")]
+    public virtual ICollection<RulePreparedAction> RulePreparedActions { get; set; } = new List<RulePreparedAction>();
 
     [ForeignKey("SiegeSessionId")]
     [InverseProperty("RuleFeatureExecutions")]
