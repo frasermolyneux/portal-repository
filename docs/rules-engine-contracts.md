@@ -7,8 +7,9 @@ The canonical serialized rule and catalogue contracts ship in
 cross-process DTOs ship in `XtremeIdiots.Portal.Repository.Abstractions.V1`, under
 `XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine`.
 
-Both features are registered in `RulesEngineCatalogueV1.Current`: `vpn-protection` and
-`siege-mode`. Their trigger IDs are `player.connected` and `player.ip-resolved`. The canonical game
+`RulesEngineCatalogueV1.Current` registers `vpn-protection`, `siege-mode`, and
+`welcome-messages`. Protection features support `player.connected` and `player.ip-resolved`;
+welcome starts only on `player.connected`. The canonical game
 mapping is `CallOfDuty2=1`, `CallOfDuty4=2`, `CallOfDuty5=3`, and `CallOfDuty4x=24`; the catalogue
 explicitly lists supported game types for every feature, trigger, condition, and action.
 
@@ -101,10 +102,17 @@ Action parameters are:
 |  | `postToForums` | boolean | Optional |
 | `moderation.ban` | `reason` | string | Required, max 512 characters |
 |  | `postToForums` | boolean | Optional |
-| `message.public`, `message.private` | `message` | string | Required, max 256 UTF-8 bytes; C0/DEL control characters rejected |
+| `message.public`, `message.private`, `message.private-tagged` | `message`, `messages` | string, string array | At least one nonempty item; single string first, then list; max 100 list items, 16384 characters/item; controls rejected |
+| `message.private-tagged` | `recipientTags`, `recipientTagMatch` | GUID string array, string | Nonempty unique tag IDs; `Any` or `All`; audience is connected players on the same server |
 
-Native kick reasons and chat messages are capped at 256 UTF-8 bytes and reject C0/DEL controls,
-matching the current plugin executor. Record-producing kick reasons retain a 512-character UI
+Native kick reasons retain a 256 UTF-8 byte limit. Message source text is segmented after
+rendering using an explicitly supplied channel budget, not the old 256-byte source ceiling.
+Prepared CoD4x plugin chat commands are individually capped at 149 UTF-8 bytes, including colour
+carry, based on the client's 150-byte/NUL-terminated chat buffer. The compatible plugin applies
+literal framing internally to prevent localization expansion before that copy. Other transport
+budgets must account for their actual client, prefix, encoding, escaping, and envelope limits;
+neither an RCON buffer size nor an API validation limit proves a display limit.
+Record-producing kick reasons retain a 512-character UI
 limit but are additionally capped at 256 UTF-8 bytes because they are also sent to the native drop
 effect.
 
@@ -168,6 +176,118 @@ The claimed logical `ActionTypeId` and `ParametersJson` are resolved from the fr
 the submitted cursor after validating the correlation's rule and action IDs. The native
 `RuleActionCommand.Effect` is stored separately and must match the catalogue action's native effect;
 it is not substituted for the logical action type or its frozen parameters.
+
+## Welcome, templates, and prepared delivery
+
+New welcome documents use **`welcomeRules`**, not legacy `welcomeMessages`, with
+`WelcomeRulesSettingsDocument` / `WelcomeRulesServerSettingsDocument` in `Contracts.WelcomeMessages`.
+They use the normal feature envelope, are disabled by default, and accept only messaging actions.
+Legacy documents are not migrated or reinterpreted. The new namespace requires an explicit
+`featureId: "welcome-messages"` on the wire. The Events cutover owns disabling/removing old
+configuration and retiring old delayed work before enabling recreated rules.
+
+The explicit `always` leaf has empty parameters and matches everyone; a missing condition or
+empty group still means Unknown. Welcome first-match planning defers at an indeterminate stopping
+rule instead of selecting a lower catch-all. Other features preserve their existing matcher
+behavior; the delegate overload can opt into this using `deferOnIndeterminate: true`.
+
+Feature `timing` is `{ connectionDelaySeconds: 5, freshnessSeconds: 120 }` by default.
+Server feature, rule, and rule-override timing have nullable fields. Use
+`FeatureRuleSetMerger.Merge(global, server).Timing.Apply(effectiveRule.Timing)`: server feature
+fields overlay global feature fields, then rule-specific fields win, with same-ID server rule
+overrides overlaying global rule timing. Delay is 0–60 seconds; freshness is greater than delay
+and at most 900 seconds. The merger rejects an invalid effective combination.
+
+`RuleActionDefinition.templateParameters` opts individual catalogue-approved text parameters into
+rendering. An empty list preserves literal strings, including braces. `supportsTemplates` and
+`supportsMessageList` are parameter metadata; `messages` has type `string[]`, and opting it in
+renders each item without joining them. IDs, durations, flags and arbitrary JSON cannot opt in.
+Template validation is separate from rendered-output constraints.
+
+`RuleTextTokens.Definitions` declares canonical registered token keys, label/group, description,
+type/format, required sources, sample, fallback, sensitivity, and availability. The typed
+`RuleTextValues` records expose only approved facts; no reflection or path traversal is used.
+`RuleTextRenderer.Parse` discovers required sources; `Render` is one-pass and case-insensitive,
+accepts `{{` / `}}` escapes, and never reparses inserted values. Unknown/malformed tokens fail
+explicitly. Missing values use declared fallbacks plus diagnostics; numeric zero and boolean
+false remain real values. `CreateSampleValues()` is preview-only; `new RuleTextValues()` previews
+missing data. Runtime callers must hydrate only required source groups and retain lookup diagnostics.
+
+`MessagePreparation.Normalize(message, messages)` preserves the legacy append convention.
+`Prepare(message, messages, MessageChannelBudget)` validates the entire batch before returning
+fragments. Budget metadata includes provider/channel/game/evidence, payload bytes and reserved
+prefix bytes; optional `RejectDoubleQuotes` / `RconSafePrintableAscii` policies reject unsafe
+provider inputs without escaping or stripping them. UTF-8 and CoD colour escapes remain atomic;
+active colour is carried within the next fragment's budget, whitespace is preserved, and each
+logical item is completed before starting the next. Results expose zero-based item/fragment
+indices, text, UTF-8 bytes and total payload bytes. No production budget is assumed by the helper.
+Reasons are never split into multiple moderation operations.
+
+Additional `IRuleExecutionsApi` methods:
+
+- `PrepareAction(server, execution, PrepareRuleActionDto)` posts to
+  `.../rule-executions/{execution}/prepared-actions`. It atomically freezes
+  `resolvedParametersJson`, an optional complete `audienceSnapshot`, and exact ordered `commands`.
+  Repeated preparation returns the winner, never newly rendered values.
+- `GetConnectionExecutions(server, connection)` reads
+  `.../rule-connections/{connection}/executions`, including protection states and actions.
+- `GetTaggedAudience(server, { tagIds, match })` posts to `.../rule-tagged-audience`.
+  It combines fresh shared connection status/bindings with authoritative current player tags.
+  `available=false` or `partial=true` is not an empty audience. Power/admin enablement is irrelevant.
+
+Executions expose frozen `preparedActions` and optional durable `coordination`
+`{ dueAtUtc, expiresAtUtc, predecessorExecutionIds, waitingReason }`. Once supplied, this scheduler
+envelope and its predecessors cannot be reset by a retry or progress update; it may be initialized
+after selection when unavailable at Start. `Waiting` is a persisted state. Each prepared welcome
+plan separately exposes `ruleCoordination`, derived from the frozen effective feature/rule timing
+and original connection time. This permits continuing rules with different overrides without
+changing another rule's window. Trigger-addressed preparation/claims require execution coordination,
+but use the selected rule's due/expiry rather than an execution-default window. Events admits the
+relevant protection evaluations before starting welcome and persists their IDs.
+Trigger-addressed welcome claims wait for due time and terminal predecessors,
+including any additional protection execution admitted after the captured predecessor set.
+Additional terminal, clear evaluations do not permanently block delivery.
+Claims remain blocked by claimed/dispatched/applied/uncertain enforcement. Independently addressed
+tagged alerts do not wait behind those trigger prerequisites.
+
+Prepared commands keep the original top-level trigger identity and correlation. Only
+`PrivateMessage` may carry `recipientTarget`, containing a separate same-server runtime,
+connection UUID/generation, GUID and slot. The compatible executor must recheck that recipient
+before every fragment; moderation never permits recipient retargeting. Capability requirements
+are `cod4x.chat.private.recipient` plus `cod4x.chat.fragments` for the plugin, or
+`rcon.chat.private.recipient` for Integration. Unsupported runtimes must not broadcast or fall
+back to the trigger. Polls may carry a runtime descriptor for independently addressed continuation.
+
+Each child has `deliveryIdentity`
+`{ parentLogicalEffectId, recipientConnectionId?, messageIndex, fragmentIndex }`; call
+`ToLogicalEffectId()` for its stable lowercase SHA-256 ID. `ClaimAction` accepts only an exact
+frozen child command and requires earlier fragments for that recipient to have completed.
+Outcomes still select by parent action ID **and** child logical-effect ID, so a failed/retried
+recipient or fragment cannot replay another. `preparedActions` reports derived aggregate outcome,
+detail and completed/total fragment counts. An available, complete empty tagged audience freezes
+an empty plan and reports `Applied` / `No recipients.` without a synthetic native command.
+Advance that parent using normal progress. Partial/uncertain delivery is never whole-message
+success. A terminal `OutcomeUnknown` permits the next ordered fragment without replaying the
+uncertain fragment or relabelling it `Applied`. A failed/stale/skipped preceding fragment permits
+only terminal no-dispatch continuation for that recipient.
+
+For an exact frozen child, `ClaimRuleActionDto.terminalOutcome` may be `Stale`,
+`SkippedDependency` or `SkippedUnsupported`, with optional `terminalDetail` (maximum 1024
+characters). This atomically records the terminal child and returns `shouldDispatch: false`,
+an incremented execution version and `Evaluating` state; no outcome update is needed.
+It preserves fragment ordering and the global one-in-flight constraint but does not require
+dispatch eligibility, so expiry, disconnect or protection after preparation cannot strand the
+remaining plan. Ordinary claims still enforce all delivery prerequisites.
+
+For single/record actions, `ClaimRuleActionDto.resolvedParametersJson` freezes rendered values.
+Upgrade the Repository API client together with its abstractions to consume the new delivery
+methods. Default interface implementations preserve older client startup and existing methods,
+but explicitly throw `NotSupportedException` when a new delivery method is unavailable.
+Only explicitly opted-in fields may differ from frozen source parameters. The claimed
+`ParametersJson` is authoritative for native reasons, moderation records and forum publication;
+templated moderation text must equal that frozen reason. Retries consume the persisted winner.
+Prepared native strings must never be split or rendered again after claim. Direct endpoints retain
+their documented transport semantics; durable deduplication is not proof of player receipt.
 
 Native protocol routes owned by server-events are `POST /rules/evaluate`,
 `POST /rules/outcomes`, and `POST /rules/poll`. The evaluate request body is the trigger envelope;

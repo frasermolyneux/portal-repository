@@ -191,6 +191,9 @@
       "name": "[dbo].[RuleFeatureExecutions]"
     },
     {
+      "name": "[dbo].[RulePreparedActions]"
+    },
+    {
       "name": "[dbo].[RuleActionExecutions]"
     },
     {

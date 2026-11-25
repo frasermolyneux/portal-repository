@@ -16,6 +16,7 @@ CREATE TABLE [dbo].[RuleFeatureExecutions]
     [RuleIndex] INT NOT NULL,
     [ActionIndex] INT NOT NULL,
     [DecisionSnapshotJson] NVARCHAR(MAX) NULL,
+    [CoordinationJson] NVARCHAR(MAX) NULL,
     [Version] BIGINT NOT NULL CONSTRAINT [DF_RuleFeatureExecutions_Version] DEFAULT (1),
     [CreatedAtUtc] DATETIME2(3) NOT NULL,
     [UpdatedAtUtc] DATETIME2(3) NOT NULL,
@@ -23,7 +24,7 @@ CREATE TABLE [dbo].[RuleFeatureExecutions]
     CONSTRAINT [FK_RuleFeatureExecutions_GameServers] FOREIGN KEY ([GameServerId]) REFERENCES [dbo].[GameServers]([GameServerId]),
     CONSTRAINT [FK_RuleFeatureExecutions_SiegeSessions] FOREIGN KEY ([SiegeSessionId]) REFERENCES [dbo].[SiegeSessions]([SessionId]) ON DELETE CASCADE,
     CONSTRAINT [CK_RuleFeatureExecutions_Progress] CHECK ([RuleIndex] >= 0 AND [ActionIndex] >= 0 AND [Version] > 0),
-    CONSTRAINT [CK_RuleFeatureExecutions_State] CHECK ([State] IN (N'Evaluating', N'AwaitingActionOutcome', N'Completed', N'Stopped'))
+    CONSTRAINT [CK_RuleFeatureExecutions_State] CHECK ([State] IN (N'Evaluating', N'AwaitingActionOutcome', N'Waiting', N'Completed', N'Stopped'))
 );
 GO
 CREATE UNIQUE INDEX [IX_RuleFeatureExecutions_ConnectionFeatureSession]
