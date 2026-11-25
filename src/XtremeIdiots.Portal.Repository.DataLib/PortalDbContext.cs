@@ -93,6 +93,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<RuleFeatureExecution> RuleFeatureExecutions { get; set; }
 
+    public virtual DbSet<RulePreparedAction> RulePreparedActions { get; set; }
+
     public virtual DbSet<ServerMapRun> ServerMapRuns { get; set; }
 
     public virtual DbSet<SiegeAction> SiegeActions { get; set; }
@@ -630,6 +632,13 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.SiegeSession).WithMany(p => p.RuleFeatureExecutions)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_RuleFeatureExecutions_SiegeSessions");
+        });
+
+        modelBuilder.Entity<RulePreparedAction>(entity =>
+        {
+            entity.Property(e => e.PreparationId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.Execution).WithMany(p => p.RulePreparedActions).HasConstraintName("FK_RulePreparedActions_Executions");
         });
 
         modelBuilder.Entity<ServerMapRun>(entity =>

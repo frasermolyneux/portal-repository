@@ -6,6 +6,27 @@ namespace XtremeIdiots.Portal.RulesEngine.V1.Tests;
 
 public sealed class RuleMatcherTests
 {
+    [Fact]
+    public void AlwaysMatchesWithoutCallingResolverButMissingConditionsRemainUnknown()
+    {
+        Assert.Equal(RuleTruthValue.True, RuleMatcher.EvaluateCondition(Leaf("always"),
+            _ => throw new InvalidOperationException()).Value);
+        Assert.Equal(RuleTruthValue.Unknown, RuleMatcher.EvaluateCondition(null, _ => ConditionEvaluation.True).Value);
+    }
+
+    [Fact]
+    public void FirstMatchSelectionWaitsForUnknownHigherPriorityRule()
+    {
+        var plan = RuleMatcher.Plan(
+            [
+                new() { Id = "member", Order = 0, Condition = Leaf("player.tags") },
+                new() { Id = "general", Order = 1, Condition = Leaf("always") }
+            ],
+            _ => ConditionEvaluation.Unknown("Tags unavailable"), new HashSet<string>(), deferOnIndeterminate: true);
+        Assert.Empty(plan.MatchedRules);
+        Assert.Equal("member", Assert.Single(plan.IndeterminateRules).Rule.Id);
+    }
+
     [Theory]
     [InlineData(RuleConditionGroupOperator.And, RuleTruthValue.False, RuleTruthValue.Unknown, RuleTruthValue.False)]
     [InlineData(RuleConditionGroupOperator.And, RuleTruthValue.True, RuleTruthValue.Unknown, RuleTruthValue.Unknown)]

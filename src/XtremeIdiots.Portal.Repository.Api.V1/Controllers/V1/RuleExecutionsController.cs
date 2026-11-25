@@ -23,7 +23,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 [Authorize(Roles = "ServiceAccount")]
 [ApiVersion(ApiVersions.V1)]
 [Route("v{version:apiVersion}")]
-public sealed class RuleExecutionsController(PortalDbContext context) : ControllerBase, IRuleExecutionsApi
+public sealed partial class RuleExecutionsController(PortalDbContext context) : ControllerBase, IRuleExecutionsApi
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan LegacyObservationPrecisionMargin = TimeSpan.FromMilliseconds(10);
@@ -231,6 +231,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                 RuleSetRevision = request.RuleSetRevision,
                 FrozenRulesJson = request.FrozenRulesJson,
                 TriggerJson = JsonSerializer.Serialize(request.Trigger, JsonOptions),
+                CoordinationJson = request.Coordination is null ? null : JsonSerializer.Serialize(request.Coordination, JsonOptions),
                 FactSnapshotId = request.FactSnapshotId,
                 State = RuleFeatureExecutionState.Evaluating.ToString(),
                 RuleIndex = 0,
@@ -260,7 +261,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
         Guid gameServerId, Guid executionId, UpdateRuleFeatureExecutionProgressDto request, CancellationToken cancellationToken)
     {
         if (request is null || request.ExpectedVersion <= 0 || request.RuleIndex < 0 || request.ActionIndex < 0 ||
-            !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson))
+            !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson) || !ValidDiagnostics(request.Diagnostics))
         {
             return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
         }
@@ -292,6 +293,15 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
             }
+            if (!ValidCoordination(request.Coordination, Deserialize<RuleTriggerEnvelope>(execution.TriggerJson)) ||
+                request.Coordination is { } incomingCoordination && execution.CoordinationJson is { } coordinationJson &&
+                Deserialize<RuleExecutionCoordination>(coordinationJson) is { } currentCoordination &&
+                (incomingCoordination.DueAtUtc != currentCoordination.DueAtUtc ||
+                 incomingCoordination.ExpiresAtUtc != currentCoordination.ExpiresAtUtc ||
+                 !incomingCoordination.PredecessorExecutionIds.SequenceEqual(currentCoordination.PredecessorExecutionIds)))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
+            }
 
             var hasPendingAction = await context.RuleActionExecutions.AnyAsync(a => a.ExecutionId == executionId &&
                     (a.Outcome == RuleActionExecutionOutcome.Claimed.ToString() ||
@@ -322,7 +332,15 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             execution.ActionIndex = request.ActionIndex;
             execution.State = request.State.ToString();
             execution.DecisionSnapshotJson = request.DecisionSnapshotJson ?? execution.DecisionSnapshotJson;
+            if (request.Diagnostics is not null)
+            {
+                execution.DiagnosticsJson = JsonSerializer.Serialize(request.Diagnostics, JsonOptions);
+            }
             execution.FactSnapshotId = request.FactSnapshotId ?? execution.FactSnapshotId;
+            if (request.Coordination is not null)
+            {
+                execution.CoordinationJson = JsonSerializer.Serialize(request.Coordination, JsonOptions);
+            }
             execution.Version++;
             execution.UpdatedAtUtc = DateTime.UtcNow;
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -333,7 +351,12 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
     async Task<ApiResult<RuleActionClaimResultDto>> IRuleExecutionsApi.ClaimAction(
         Guid gameServerId, Guid executionId, ClaimRuleActionDto request, CancellationToken cancellationToken)
     {
-        if (!ValidClaimRequest(gameServerId, executionId, request))
+        if (!ValidClaimRequest(gameServerId, executionId, request) ||
+            request.TerminalOutcome is not (null or RuleActionExecutionOutcome.Stale or
+                RuleActionExecutionOutcome.SkippedDependency or RuleActionExecutionOutcome.SkippedUnsupported) ||
+            request.TerminalDetail is { Length: > 1024 } ||
+            request.TerminalOutcome is not null && request.Command.DeliveryIdentity is null ||
+            request.TerminalDetail is not null && request.TerminalOutcome is null)
         {
             return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
         }
@@ -368,6 +391,66 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             {
                 return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
             }
+            var prepared = await context.RulePreparedActions.AsNoTracking().SingleOrDefaultAsync(item =>
+                item.ExecutionId == executionId && item.RuleIndex == request.RuleIndex && item.ActionIndex == request.ActionIndex,
+                cancellationToken).ConfigureAwait(false);
+            string parametersJson;
+            if (request.Command.DeliveryIdentity is not null)
+            {
+                if (prepared is null)
+                {
+                    return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
+                }
+                var plan = Deserialize<RulePreparedActionDto>(prepared.PlanJson);
+                var child = plan.Commands.SingleOrDefault(item => item.LogicalEffectId == request.LogicalEffectId);
+                if (child is null || JsonSerializer.Serialize(child, JsonOptions) != JsonSerializer.Serialize(request.Command, JsonOptions))
+                {
+                    return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
+                }
+                parametersJson = plan.ResolvedParametersJson;
+                var childIndex = Array.FindIndex(plan.Commands, item => item.LogicalEffectId == request.LogicalEffectId);
+                var preceding = plan.Commands.Take(childIndex).Where(item =>
+                    item.DeliveryIdentity!.RecipientConnectionId == child.DeliveryIdentity!.RecipientConnectionId)
+                    .Select(item => item.LogicalEffectId).ToArray();
+                var completed = await context.RuleActionExecutions.AsNoTracking()
+                    .Where(item => item.ExecutionId == executionId && preceding.Contains(item.LogicalEffectId) &&
+                        item.Outcome != nameof(RuleActionExecutionOutcome.Pending) &&
+                        item.Outcome != nameof(RuleActionExecutionOutcome.Claimed) &&
+                        item.Outcome != nameof(RuleActionExecutionOutcome.Dispatched))
+                    .Select(item => new { item.LogicalEffectId, item.Outcome }).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+                if (preceding.Any(id => !completed.Any(item => item.LogicalEffectId == id)) ||
+                    request.TerminalOutcome is null && completed.Any(item =>
+                        item.Outcome is not (nameof(RuleActionExecutionOutcome.Applied) or
+                            nameof(RuleActionExecutionOutcome.WouldExecute) or nameof(RuleActionExecutionOutcome.OutcomeUnknown))))
+                {
+                    return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
+                }
+            }
+            else
+            {
+                if (prepared is not null || request.Command.RecipientTarget is not null ||
+                    frozenAction.TypeId == RulesEngineCatalogueV1.PrivateTaggedMessageAction)
+                {
+                    return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
+                }
+                using var rules = JsonDocument.Parse(execution.FrozenRulesJson);
+                if (!TryGetActionDefinition(rules.RootElement, request.RuleIndex, request.ActionIndex, out var definition) ||
+                    definition.TemplateParameters.Count > 0 && request.ResolvedParametersJson is null ||
+                    request.ResolvedParametersJson is { } resolved && !ValidResolvedParameters(definition, resolved))
+                {
+                    return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
+                }
+                parametersJson = request.ResolvedParametersJson ?? frozenAction.ParametersJson;
+                if (request.ResolvedParametersJson is not null && request.Command.Effect.Type == RuleNativeEffectType.DropPlayer)
+                {
+                    using var parameters = JsonDocument.Parse(parametersJson);
+                    if (!parameters.RootElement.TryGetProperty("reason", out var reason) ||
+                        reason.ValueKind != JsonValueKind.String || reason.GetString() != request.Command.Effect.Reason)
+                    {
+                        return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
+                    }
+                }
+            }
             if (!await AcquireTransactionLockAsync($"rules-effect:{request.LogicalEffectId}", cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
@@ -383,6 +466,11 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                     return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
                 }
                 return await ClaimResultAsync(existing, execution, shouldDispatch: false, cancellationToken).ConfigureAwait(false);
+            }
+            if (request.TerminalOutcome is null &&
+                !await DeliveryPrerequisitesSatisfiedAsync(execution, request.Command, request.RuleIndex, cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
             }
             if (execution.Version != request.ExpectedVersion ||
                 !Enum.TryParse<RuleFeatureExecutionState>(execution.State, out var state) ||
@@ -406,24 +494,41 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                 LogicalEffectId = request.LogicalEffectId,
                 ActionId = command.ActionId,
                 ActionTypeId = frozenAction.TypeId,
-                ParametersJson = frozenAction.ParametersJson,
+                ParametersJson = parametersJson,
                 CorrelationJson = JsonSerializer.Serialize(command.Correlation, JsonOptions),
                 CommandJson = JsonSerializer.Serialize(command, JsonOptions),
                 Mode = command.Mode.ToString(),
-                Outcome = RuleActionExecutionOutcome.Claimed.ToString(),
+                Outcome = (request.TerminalOutcome ?? RuleActionExecutionOutcome.Claimed).ToString(),
                 RuleIndex = request.RuleIndex,
                 ActionIndex = request.ActionIndex,
                 ClaimedAtUtc = now,
                 UpdatedAtUtc = now
             };
+            if (request.TerminalOutcome is { } terminalOutcome)
+            {
+                action.OutcomeAtUtc = now;
+                action.Detail = request.TerminalDetail;
+                action.ResultJson = JsonSerializer.Serialize(new RuleActionResult
+                {
+                    GameServerId = gameServerId,
+                    ExecutionId = executionId,
+                    ActionId = command.ActionId,
+                    LogicalEffectId = command.LogicalEffectId,
+                    Correlation = command.Correlation,
+                    Outcome = terminalOutcome,
+                    Detail = request.TerminalDetail,
+                    OccurredAtUtc = new DateTimeOffset(now, TimeSpan.Zero)
+                }, JsonOptions);
+            }
             context.RuleActionExecutions.Add(action);
             execution.RuleIndex = request.RuleIndex;
             execution.ActionIndex = request.ActionIndex;
-            execution.State = RuleFeatureExecutionState.AwaitingActionOutcome.ToString();
+            execution.State = (request.TerminalOutcome is null
+                ? RuleFeatureExecutionState.AwaitingActionOutcome : RuleFeatureExecutionState.Evaluating).ToString();
             execution.Version++;
             execution.UpdatedAtUtc = now;
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            var shouldDispatch = command.Mode == RuleExecutionMode.Enforce &&
+            var shouldDispatch = request.TerminalOutcome is null && command.Mode == RuleExecutionMode.Enforce &&
                 command.ExpiresAtUtc > DateTimeOffset.UtcNow &&
                 command.Effect.Type is RuleNativeEffectType.DropPlayer or RuleNativeEffectType.PublicMessage or RuleNativeEffectType.PrivateMessage;
             return await ClaimResultAsync(action, execution, shouldDispatch, cancellationToken, HttpStatusCode.Created).ConfigureAwait(false);
@@ -533,6 +638,19 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             if (request.Type == AdminActionType.TempBan && request.Expires <= DateTime.UtcNow)
             {
                 return new ApiResult<EnsureAutomatedActionResultDto>(HttpStatusCode.BadRequest);
+            }
+            using (var frozenRules = JsonDocument.Parse(execution.FrozenRulesJson))
+            {
+                if (TryGetActionDefinition(frozenRules.RootElement, action.RuleIndex, action.ActionIndex, out var definition) &&
+                    definition.TemplateParameters.Contains("reason", StringComparer.Ordinal))
+                {
+                    using var parameters = JsonDocument.Parse(action.ParametersJson);
+                    if (!parameters.RootElement.TryGetProperty("reason", out var reason) ||
+                        reason.ValueKind != JsonValueKind.String || request.Text != reason.GetString())
+                    {
+                        return new ApiResult<EnsureAutomatedActionResultDto>(HttpStatusCode.BadRequest);
+                    }
+                }
             }
 
             var playerGuid = NormalizeGuid(command.PlayerGuid);
@@ -949,7 +1067,15 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             .Where(a => a.ExecutionId == execution.ExecutionId)
             .OrderBy(a => a.RuleIndex).ThenBy(a => a.ActionIndex)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-        return new RuleFeatureExecutionDto
+        var preparations = await context.RulePreparedActions.AsNoTracking()
+            .Where(item => item.ExecutionId == execution.ExecutionId).OrderBy(item => item.RuleIndex).ThenBy(item => item.ActionIndex)
+            .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        return ToExecutionDto(execution, actions, preparations);
+    }
+
+    private static RuleFeatureExecutionDto ToExecutionDto(RuleFeatureExecution execution,
+        IReadOnlyList<RuleActionExecution> actions, IReadOnlyList<RulePreparedAction> preparations) =>
+        new()
         {
             ExecutionId = execution.ExecutionId,
             GameServerId = execution.GameServerId,
@@ -964,12 +1090,14 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             RuleIndex = execution.RuleIndex,
             ActionIndex = execution.ActionIndex,
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
+            Coordination = execution.CoordinationJson is { } coordination ? Deserialize<RuleExecutionCoordination>(coordination) : null,
+            Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
+            PreparedActions = preparations.Select(item => WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson), actions)).ToArray(),
             Actions = actions.Select(action => ToActionDto(action, execution)).ToArray(),
             Version = execution.Version,
             CreatedAtUtc = Utc(execution.CreatedAtUtc),
             UpdatedAtUtc = Utc(execution.UpdatedAtUtc)
         };
-    }
 
     private async Task<ApiResult<RuleActionClaimResultDto>> ClaimResultAsync(
         RuleActionExecution action, RuleFeatureExecution execution, bool shouldDispatch, CancellationToken cancellationToken,
@@ -1136,7 +1264,9 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
         ValidTriggerRuntime(request.Trigger) &&
         !string.IsNullOrWhiteSpace(request.FeatureId) && request.FeatureId.Length <= 64 &&
         !string.IsNullOrWhiteSpace(request.RuleSetRevision) && request.RuleSetRevision.Length <= 128 &&
-        ValidJsonObject(request.FrozenRulesJson);
+        ValidJsonObject(request.FrozenRulesJson) && ValidCoordination(request.Coordination, request.Trigger) &&
+        (request.FeatureId != RulesEngineCatalogueV1.WelcomeMessagesFeature ||
+            request.Trigger.TriggerId == RulesEngineCatalogueV1.PlayerConnectedTrigger);
 
     private static bool SameConnectionIdentity(RuleTriggerEnvelope original, RuleTriggerEnvelope incoming) =>
         original.GameServerId == incoming.GameServerId &&
@@ -1204,7 +1334,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             correlation is not null && correlation.ConnectionId == command.ConnectionId &&
             correlation.ActionId == command.ActionId && !string.IsNullOrWhiteSpace(correlation.FeatureId) &&
             correlation.FeatureId.Length <= 64 && !string.IsNullOrWhiteSpace(correlation.RuleId) &&
-            correlation.RuleId.Length <= RuleSetConstants.MaxIdLength;
+            correlation.RuleId.Length <= RuleSetConstants.MaxIdLength && ValidRecipient(command);
     }
 
     private static bool SameLogicalAction(
@@ -1361,7 +1491,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
                 effectType == RuleNativeEffectType.DropPlayer,
             "moderation.observation" => effectType == RuleNativeEffectType.Unknown,
             "message.public" => effectType == RuleNativeEffectType.PublicMessage,
-            "message.private" => effectType == RuleNativeEffectType.PrivateMessage,
+            "message.private" or RulesEngineCatalogueV1.PrivateTaggedMessageAction => effectType == RuleNativeEffectType.PrivateMessage,
             _ => effectType == RuleNativeEffectType.Unknown
         };
 
@@ -1431,7 +1561,8 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
     private static bool CanTransitionFromDispatched(RuleActionExecutionOutcome outcome) =>
         outcome is RuleActionExecutionOutcome.Applied or RuleActionExecutionOutcome.Failed or
-            RuleActionExecutionOutcome.Stale or RuleActionExecutionOutcome.OutcomeUnknown;
+            RuleActionExecutionOutcome.Stale or RuleActionExecutionOutcome.OutcomeUnknown or
+            RuleActionExecutionOutcome.SkippedUnsupported;
 
     private static bool ValidOutcome(RuleActionExecutionOutcome outcome) =>
         outcome is RuleActionExecutionOutcome.Dispatched or RuleActionExecutionOutcome.Applied or
@@ -1465,7 +1596,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
     private static bool ValidExecutionState(RuleFeatureExecutionState state) =>
         state is RuleFeatureExecutionState.Evaluating or RuleFeatureExecutionState.AwaitingActionOutcome or
-            RuleFeatureExecutionState.Completed or RuleFeatureExecutionState.Stopped;
+            RuleFeatureExecutionState.Completed or RuleFeatureExecutionState.Stopped or RuleFeatureExecutionState.Waiting;
 
     private static bool ValidLogicalEffectId(string? value) =>
         value is { Length: 64 } && value.All(character =>

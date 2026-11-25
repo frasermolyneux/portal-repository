@@ -87,13 +87,17 @@ public static class RuleMatcher
         {
             return ConditionEvaluation.Unknown("Condition leaf is malformed.");
         }
-        return evaluateLeaf(condition);
+        return condition.ConditionId == RulesEngineCatalogueV1.AlwaysCondition
+            ? condition.Parameters is { Count: 0 } ? ConditionEvaluation.True
+                : ConditionEvaluation.Unknown("Always does not accept parameters.")
+            : evaluateLeaf(condition);
     }
 
     public static RuleMatchPlan Plan(
         IEnumerable<RuleDefinition> rules,
         Func<RuleConditionNode, ConditionEvaluation> evaluateLeaf,
-        IReadOnlySet<string> supportedActionTypeIds)
+        IReadOnlySet<string> supportedActionTypeIds,
+        bool deferOnIndeterminate = false)
     {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(evaluateLeaf);
@@ -112,6 +116,10 @@ public static class RuleMatcher
             if (condition.Value == RuleTruthValue.Unknown)
             {
                 indeterminate.Add(new PlannedRule(rule, condition, []));
+                if (deferOnIndeterminate && rule.AfterMatch == RuleAfterMatch.StopProcessingRules)
+                {
+                    break;
+                }
                 continue;
             }
             if (condition.Value != RuleTruthValue.True)
@@ -141,7 +149,8 @@ public static class RuleMatcher
         return Plan(
             rules,
             condition => conditionResolver.Resolve(condition, context),
-            supportedActionTypeIds);
+            supportedActionTypeIds,
+            deferOnIndeterminate: context.FeatureId == RulesEngineCatalogueV1.WelcomeMessagesFeature);
     }
 
     private static IReadOnlyList<PlannedRuleAction> PlanActions(
