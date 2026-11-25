@@ -261,7 +261,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
         Guid gameServerId, Guid executionId, UpdateRuleFeatureExecutionProgressDto request, CancellationToken cancellationToken)
     {
         if (request is null || request.ExpectedVersion <= 0 || request.RuleIndex < 0 || request.ActionIndex < 0 ||
-            !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson))
+            !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson) || !ValidDiagnostics(request.Diagnostics))
         {
             return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
         }
@@ -332,6 +332,10 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             execution.ActionIndex = request.ActionIndex;
             execution.State = request.State.ToString();
             execution.DecisionSnapshotJson = request.DecisionSnapshotJson ?? execution.DecisionSnapshotJson;
+            if (request.Diagnostics is not null)
+            {
+                execution.DiagnosticsJson = JsonSerializer.Serialize(request.Diagnostics, JsonOptions);
+            }
             execution.FactSnapshotId = request.FactSnapshotId ?? execution.FactSnapshotId;
             if (request.Coordination is not null)
             {
@@ -1066,7 +1070,12 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
         var preparations = await context.RulePreparedActions.AsNoTracking()
             .Where(item => item.ExecutionId == execution.ExecutionId).OrderBy(item => item.RuleIndex).ThenBy(item => item.ActionIndex)
             .ToArrayAsync(cancellationToken).ConfigureAwait(false);
-        return new RuleFeatureExecutionDto
+        return ToExecutionDto(execution, actions, preparations);
+    }
+
+    private static RuleFeatureExecutionDto ToExecutionDto(RuleFeatureExecution execution,
+        IReadOnlyList<RuleActionExecution> actions, IReadOnlyList<RulePreparedAction> preparations) =>
+        new()
         {
             ExecutionId = execution.ExecutionId,
             GameServerId = execution.GameServerId,
@@ -1082,13 +1091,13 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             ActionIndex = execution.ActionIndex,
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
             Coordination = execution.CoordinationJson is { } coordination ? Deserialize<RuleExecutionCoordination>(coordination) : null,
+            Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
             PreparedActions = preparations.Select(item => WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson), actions)).ToArray(),
             Actions = actions.Select(action => ToActionDto(action, execution)).ToArray(),
             Version = execution.Version,
             CreatedAtUtc = Utc(execution.CreatedAtUtc),
             UpdatedAtUtc = Utc(execution.UpdatedAtUtc)
         };
-    }
 
     private async Task<ApiResult<RuleActionClaimResultDto>> ClaimResultAsync(
         RuleActionExecution action, RuleFeatureExecution execution, bool shouldDispatch, CancellationToken cancellationToken,

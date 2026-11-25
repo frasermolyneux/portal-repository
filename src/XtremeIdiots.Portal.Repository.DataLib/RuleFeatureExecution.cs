@@ -10,6 +10,7 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("GameServerId", "ConnectionId", "CreatedAtUtc", Name = "IX_RuleFeatureExecutions_Connection")]
 [Index("GameServerId", "ConnectionId", "FeatureId", "SiegeSessionId", Name = "IX_RuleFeatureExecutions_ConnectionFeatureSession", IsUnique = true)]
+[Index("GameServerId", "FeatureId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_FeatureCreated")]
 [Index("GameType", "PlayerGuid", Name = "IX_RuleFeatureExecutions_Player")]
 public partial class RuleFeatureExecution
 {
@@ -51,6 +52,8 @@ public partial class RuleFeatureExecution
     public string? DecisionSnapshotJson { get; set; }
 
     public string? CoordinationJson { get; set; }
+
+    public string? DiagnosticsJson { get; set; }
 
     public long Version { get; set; }
 

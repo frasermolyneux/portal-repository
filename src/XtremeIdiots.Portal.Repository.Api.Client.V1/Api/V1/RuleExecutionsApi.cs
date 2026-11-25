@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MX.Api.Abstractions;
 using MX.Api.Client;
@@ -17,6 +18,25 @@ public sealed class RuleExecutionsApi(
     RepositoryApiClientOptions options)
     : BaseApi<RepositoryApiClientOptions>(logger, apiTokenProvider, restClientService, options), IRuleExecutionsApi
 {
+    public async Task<ApiResult<CollectionModel<RuleFeatureExecutionDto>>> SearchRuleExecutions(
+        RuleFeatureExecutionQueryDto request, CancellationToken cancellationToken = default)
+    {
+        var httpRequest = await CreateRequestAsync($"v1/game-servers/{request.GameServerId}/rule-executions", Method.Get, cancellationToken).ConfigureAwait(false);
+        httpRequest.AddQueryParameter("featureId", request.FeatureId);
+        httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
+        httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
+        if (request.FromUtc is { } from)
+        {
+            httpRequest.AddQueryParameter("fromUtc", from.ToString("O", CultureInfo.InvariantCulture));
+        }
+        if (request.ToUtc is { } to)
+        {
+            httpRequest.AddQueryParameter("toUtc", to.ToString("O", CultureInfo.InvariantCulture));
+        }
+        var response = await ExecuteAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        return response.ToApiResult<CollectionModel<RuleFeatureExecutionDto>>();
+    }
+
     public Task<ApiResult<RuleFeatureExecutionDto[]>> GetConnectionExecutions(
         Guid gameServerId, Guid connectionId, CancellationToken cancellationToken = default) =>
         Send<RuleFeatureExecutionDto[]>($"v1/game-servers/{gameServerId}/rule-connections/{connectionId}/executions", Method.Get, null, cancellationToken);

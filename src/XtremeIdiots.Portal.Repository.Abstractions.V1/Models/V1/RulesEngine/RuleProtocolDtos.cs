@@ -180,6 +180,7 @@ public sealed record RuleFeatureExecutionDto
     public string? DecisionSnapshotJson { get; init; }
     public RuleExecutionCoordination? Coordination { get; init; }
     public RulePreparedActionDto[] PreparedActions { get; init; } = [];
+    public RuleExecutionDiagnostic[] Diagnostics { get; init; } = [];
     public RuleActionExecutionDto[] Actions { get; init; } = [];
     public long Version { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; }
@@ -206,6 +207,7 @@ public sealed record UpdateRuleFeatureExecutionProgressDto
     public string? DecisionSnapshotJson { get; init; }
     public Guid? FactSnapshotId { get; init; }
     public RuleExecutionCoordination? Coordination { get; init; }
+    public RuleExecutionDiagnostic[]? Diagnostics { get; init; }
 }
 
 public sealed record ClaimRuleActionDto

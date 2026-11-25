@@ -19,7 +19,10 @@ public sealed record MessageChannelBudget(
     int ReservedPrefixUtf8Bytes = 0,
     string? GameType = null,
     bool RejectDoubleQuotes = false,
-    bool RconSafePrintableAscii = false);
+    bool RconSafePrintableAscii = false)
+{
+    public bool UseCodColorCodes { get; init; } = true;
+}
 
 public sealed record MessagePreparationError(string Code, int? ItemIndex, int? Position, string Message);
 public sealed record PreparedMessageFragment(
@@ -123,7 +126,7 @@ public static class MessagePreparation
         var fragments = new List<PreparedMessageFragment>();
         for (var itemIndex = 0; itemIndex < normalized.Items.Count; itemIndex++)
         {
-            Segment(normalized.Items[itemIndex], itemIndex, budget.MaxPayloadBytes - budget.ReservedPrefixUtf8Bytes, fragments, errors);
+            Segment(normalized.Items[itemIndex], itemIndex, budget.MaxPayloadBytes - budget.ReservedPrefixUtf8Bytes, budget.UseCodColorCodes, fragments, errors);
         }
 
         // Even a later segmentation failure must expose no partially dispatchable batch.
@@ -165,7 +168,7 @@ public static class MessagePreparation
 
     private sealed record Atom(string Text, int Bytes, bool IsWordBoundary, bool IsColour);
 
-    private static void Segment(string text, int itemIndex, int budget,
+    private static void Segment(string text, int itemIndex, int budget, bool useCodColorCodes,
         List<PreparedMessageFragment> fragments, List<MessagePreparationError> errors)
     {
         if (Encoding.UTF8.GetByteCount(text) <= budget)
@@ -177,7 +180,7 @@ public static class MessagePreparation
         var atoms = new List<Atom>();
         for (var position = 0; position < text.Length;)
         {
-            if (position + 1 < text.Length && text[position] == '^' && text[position + 1] is >= '0' and <= '9')
+            if (useCodColorCodes && position + 1 < text.Length && text[position] == '^' && text[position + 1] is >= '0' and <= '9')
             {
                 atoms.Add(new(text.Substring(position, 2), 2, false, true));
                 position += 2;
