@@ -279,7 +279,12 @@ public partial class PortalDbContext : DbContext
 
         modelBuilder.Entity<GameServerEvent>(entity =>
         {
+            entity.HasIndex(e => new { e.GameServerId, e.IdempotencyKey }, "IX_GameServerEvents_Server_IdempotencyKey")
+                .IsUnique()
+                .HasFilter("[IdempotencyKey] IS NOT NULL");
+
             entity.Property(e => e.GameServerEventId).HasDefaultValueSql("newsequentialid()");
+            entity.Property(e => e.IdempotencyPayloadHash).IsFixedLength();
 
             entity.HasOne(d => d.GameServer).WithMany(p => p.GameServerEvents)
                 .OnDelete(DeleteBehavior.ClientSetNull)
