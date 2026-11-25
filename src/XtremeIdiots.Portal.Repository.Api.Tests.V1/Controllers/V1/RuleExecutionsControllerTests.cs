@@ -12,7 +12,7 @@ using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
-public sealed class RuleExecutionsControllerTests
+public sealed partial class RuleExecutionsControllerTests
 {
     [Fact]
     public async Task SearchRuleActions_FiltersWithinAuthorizedServerScopeAndReturnsAuditFields()

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MX.Api.Abstractions;
 using MX.Api.Client;
@@ -17,6 +18,67 @@ public sealed class RuleExecutionsApi(
     RepositoryApiClientOptions options)
     : BaseApi<RepositoryApiClientOptions>(logger, apiTokenProvider, restClientService, options), IRuleExecutionsApi
 {
+    public Task<ApiResult<RuleExecutionFlowDto>> GetRuleExecutionFlow(
+        Guid executionId, CancellationToken cancellationToken = default) =>
+        Send<RuleExecutionFlowDto>($"v1/rule-executions/{executionId}/flow", Method.Get, null, cancellationToken);
+
+    public async Task<ApiResult<CollectionModel<RuleExecutionAuditDto>>> SearchRuleExecutionAudit(
+        RuleExecutionAuditQueryDto request, CancellationToken cancellationToken = default)
+    {
+        var httpRequest = await CreateRequestAsync("v1/rule-executions/audit", Method.Get, cancellationToken).ConfigureAwait(false);
+        if (request.GameServerId is { } serverId)
+        {
+            httpRequest.AddQueryParameter("gameServerId", serverId.ToString());
+        }
+        if (request.FeatureId is { } featureId)
+        {
+            httpRequest.AddQueryParameter("featureId", featureId);
+        }
+        httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
+        httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
+        if (request.FromUtc is { } from)
+        {
+            httpRequest.AddQueryParameter("fromUtc", from.ToString("O", CultureInfo.InvariantCulture));
+        }
+        if (request.ToUtc is { } to)
+        {
+            httpRequest.AddQueryParameter("toUtc", to.ToString("O", CultureInfo.InvariantCulture));
+        }
+        var response = await ExecuteAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        return response.ToApiResult<CollectionModel<RuleExecutionAuditDto>>();
+    }
+
+    public async Task<ApiResult<CollectionModel<RuleFeatureExecutionDto>>> SearchRuleExecutions(
+        RuleFeatureExecutionQueryDto request, CancellationToken cancellationToken = default)
+    {
+        var httpRequest = await CreateRequestAsync($"v1/game-servers/{request.GameServerId}/rule-executions", Method.Get, cancellationToken).ConfigureAwait(false);
+        httpRequest.AddQueryParameter("featureId", request.FeatureId);
+        httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
+        httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
+        if (request.FromUtc is { } from)
+        {
+            httpRequest.AddQueryParameter("fromUtc", from.ToString("O", CultureInfo.InvariantCulture));
+        }
+        if (request.ToUtc is { } to)
+        {
+            httpRequest.AddQueryParameter("toUtc", to.ToString("O", CultureInfo.InvariantCulture));
+        }
+        var response = await ExecuteAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        return response.ToApiResult<CollectionModel<RuleFeatureExecutionDto>>();
+    }
+
+    public Task<ApiResult<RuleFeatureExecutionDto[]>> GetConnectionExecutions(
+        Guid gameServerId, Guid connectionId, CancellationToken cancellationToken = default) =>
+        Send<RuleFeatureExecutionDto[]>($"v1/game-servers/{gameServerId}/rule-connections/{connectionId}/executions", Method.Get, null, cancellationToken);
+
+    public Task<ApiResult<RulePreparedActionDto>> PrepareAction(
+        Guid gameServerId, Guid executionId, PrepareRuleActionDto request, CancellationToken cancellationToken = default) =>
+        Send<RulePreparedActionDto>($"v1/game-servers/{gameServerId}/rule-executions/{executionId}/prepared-actions", Method.Post, request, cancellationToken);
+
+    public Task<ApiResult<RuleTaggedAudienceDto>> GetTaggedAudience(
+        Guid gameServerId, RuleTaggedAudienceRequestDto request, CancellationToken cancellationToken = default) =>
+        Send<RuleTaggedAudienceDto>($"v1/game-servers/{gameServerId}/rule-tagged-audience", Method.Post, request, cancellationToken);
+
     public Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> SearchRuleActions(
         RuleActionAuditQueryDto request,
         CancellationToken cancellationToken = default) =>

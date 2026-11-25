@@ -120,6 +120,9 @@ builder.Services.AddApiVersioning(options =>
 // Configure OpenAPI
 builder.Services.AddOpenApi("v1.0", options =>
 {
+    var defaultSchemaReferenceId = options.CreateSchemaReferenceId;
+    options.CreateSchemaReferenceId = typeInfo =>
+        defaultSchemaReferenceId(typeInfo)?.Replace("[]", "Array", StringComparison.Ordinal);
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
     options.AddDocumentTransformer<StripVersionPrefixTransformer>();
 });

@@ -49,6 +49,10 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
         var document = JObject.Parse(content);
         Assert.NotNull(document["openapi"]);
         Assert.NotEmpty((JObject)document["paths"]!);
+        if (document["components"]?["schemas"] is JObject schemas)
+        {
+            Assert.All(schemas.Properties(), schema => Assert.Matches("^[a-zA-Z0-9._-]+$", schema.Name));
+        }
     }
 
     [Fact]
