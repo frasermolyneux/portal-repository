@@ -40,3 +40,15 @@ CREATE INDEX [IX_RuleFeatureExecutions_Player]
 GO
 CREATE INDEX [IX_RuleFeatureExecutions_FeatureCreated]
     ON [dbo].[RuleFeatureExecutions]([GameServerId], [FeatureId], [CreatedAtUtc] DESC, [ExecutionId]);
+GO
+CREATE INDEX [IX_RuleFeatureExecutions_AuditCreated]
+    ON [dbo].[RuleFeatureExecutions]([CreatedAtUtc] DESC, [ExecutionId])
+    INCLUDE ([GameServerId], [FeatureId]);
+GO
+CREATE INDEX [IX_RuleFeatureExecutions_AuditServerCreated]
+    ON [dbo].[RuleFeatureExecutions]([GameServerId], [CreatedAtUtc] DESC, [ExecutionId])
+    INCLUDE ([FeatureId]);
+GO
+CREATE INDEX [IX_RuleFeatureExecutions_AuditFeatureCreated]
+    ON [dbo].[RuleFeatureExecutions]([FeatureId], [CreatedAtUtc] DESC, [ExecutionId])
+    INCLUDE ([GameServerId]);

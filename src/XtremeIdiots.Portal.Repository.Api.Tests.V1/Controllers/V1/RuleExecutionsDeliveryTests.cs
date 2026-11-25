@@ -147,6 +147,19 @@ public sealed partial class RuleExecutionsControllerTests
         var discoveredPlan = Assert.Single(Assert.Single(discovered.Result!.Data!.Items!).PreparedActions);
         Assert.Equal(1, discoveredPlan.CompletedFragmentCount);
         Assert.Equal(2, discoveredPlan.Commands.Length);
+        var audit = await api.SearchRuleExecutionAudit(new() { GameServerId = serverId });
+        var auditExecution = Assert.Single(audit.Result!.Data!.Items!);
+        var auditPlan = Assert.Single(auditExecution.PreparedActions);
+        Assert.Equal(RuleActionExecutionOutcome.Pending, auditPlan.Outcome);
+        Assert.Equal(1, auditPlan.CompletedFragmentCount);
+        Assert.Equal(2, auditPlan.TotalFragmentCount);
+        Assert.All(auditExecution.Actions, action => Assert.Equal(0, action.MessageIndex));
+        Assert.Equal(new int?[] { 0, 1 }, auditExecution.Actions.Select(action => action.FragmentIndex).Order());
+        var auditJson = JsonSerializer.Serialize(auditExecution);
+        Assert.DoesNotContain("\"first\"", auditJson);
+        Assert.DoesNotContain("\"second\"", auditJson);
+        Assert.DoesNotContain("RecipientTarget", auditJson);
+        Assert.DoesNotContain("FrozenRulesJson", auditJson);
     }
 
     [Theory]

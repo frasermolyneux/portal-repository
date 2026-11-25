@@ -10,6 +10,78 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public sealed partial class RuleExecutionsControllerTests
 {
     [Fact]
+    public async Task GenericAuditFiltersAndPaginatesAcrossServersAndFeatures()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var firstServer = await AddServer(context);
+        var secondServer = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var baseline = DateTime.UtcNow.AddHours(-1);
+        var ids = new List<Guid>();
+        foreach (var (server, feature) in new[]
+        {
+            (firstServer, "welcome-messages"), (secondServer, "welcome-messages"),
+            (firstServer, "other-feature")
+        })
+        {
+            var start = StartRequest(server, Guid.NewGuid()) with { FeatureId = feature };
+            var execution = (await api.StartExecution(server, start)).Result!.Data!;
+            var updated = await api.UpdateProgress(server, execution.ExecutionId, new()
+            {
+                ExpectedVersion = execution.Version,
+                State = RuleFeatureExecutionState.Waiting,
+                Diagnostics = [new() { Code = RuleExecutionDiagnosticCode.WaitingForContext }]
+            });
+            Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+            context.RuleFeatureExecutions.Single(item => item.ExecutionId == execution.ExecutionId).CreatedAtUtc =
+                baseline.AddMinutes(ids.Count);
+            await context.SaveChangesAsync();
+            ids.Add(execution.ExecutionId);
+        }
+
+        var result = await api.SearchRuleExecutionAudit(new()
+        {
+            FromUtc = baseline,
+            ToUtc = baseline.AddMinutes(2),
+            SkipEntries = 1,
+            TakeEntries = 1
+        });
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(3, result.Result!.Pagination!.TotalCount);
+        Assert.Equal(2, result.Result.Pagination.FilteredCount);
+        var item = Assert.Single(result.Result.Data!.Items!);
+        Assert.Equal(ids[0], item.ExecutionId);
+        Assert.Equal(RuleFeatureExecutionState.Waiting, item.State);
+        Assert.Equal(RuleExecutionDiagnosticCode.WaitingForContext, Assert.Single(item.Diagnostics).Code);
+        Assert.Empty(item.Actions);
+        Assert.Empty(item.PreparedActions);
+
+        var serverResults = await api.SearchRuleExecutionAudit(new() { GameServerId = firstServer });
+        Assert.Equal(new[] { ids[2], ids[0] }, serverResults.Result!.Data!.Items!.Select(x => x.ExecutionId));
+        var featureResults = await api.SearchRuleExecutionAudit(new() { FeatureId = "welcome-messages" });
+        Assert.Equal(new[] { ids[1], ids[0] }, featureResults.Result!.Data!.Items!.Select(x => x.ExecutionId));
+        var both = await api.SearchRuleExecutionAudit(new() { GameServerId = secondServer, FeatureId = "welcome-messages" });
+        Assert.Equal(ids[1], Assert.Single(both.Result!.Data!.Items!).ExecutionId);
+        var tied = context.RuleFeatureExecutions.Where(x => x.ExecutionId == ids[0] || x.ExecutionId == ids[1]).ToArray();
+        foreach (var row in tied)
+        {
+            row.CreatedAtUtc = baseline;
+        }
+        await context.SaveChangesAsync();
+        var ties = await api.SearchRuleExecutionAudit(new() { FeatureId = "welcome-messages", TakeEntries = 1 });
+        var next = await api.SearchRuleExecutionAudit(new() { FeatureId = "welcome-messages", TakeEntries = 1, SkipEntries = 1 });
+        Assert.Equal(ids.Take(2).Order().ToArray(),
+            new[] { Assert.Single(ties.Result!.Data!.Items!).ExecutionId, Assert.Single(next.Result!.Data!.Items!).ExecutionId });
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new() { GameServerId = Guid.Empty })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new() { FeatureId = " " })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new() { TakeEntries = 101 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new() { SkipEntries = -1 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new() { FromUtc = baseline, ToUtc = baseline })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new() { FromUtc = DateTime.SpecifyKind(baseline, DateTimeKind.Unspecified) })).StatusCode);
+    }
+
+    [Fact]
     public async Task ExecutionSearchIncludesNoActionStatesWithinFeatureServerAndExclusiveTimeRange()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

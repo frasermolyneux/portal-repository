@@ -15,6 +15,40 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public sealed class HistoryQuerySerializationTests
 {
     [Fact]
+    public async Task GenericExecutionAuditTransmitsOptionalFiltersAndBounds()
+    {
+        using var rest = new CapturingRestClientService();
+        using var cancellation = new CancellationTokenSource();
+        var api = new RuleExecutionsApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+        var from = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
+        var query = new RuleExecutionAuditQueryDto
+        {
+            GameServerId = Guid.NewGuid(),
+            FeatureId = "welcome-messages",
+            FromUtc = from,
+            ToUtc = from.AddDays(1),
+            SkipEntries = 20,
+            TakeEntries = 10
+        };
+        Assert.True((await api.SearchRuleExecutionAudit(query, cancellation.Token)).IsSuccess);
+        Assert.Equal("v1/rule-executions/audit", rest.Resource);
+        Assert.Equal(Method.Get, rest.Method);
+        Assert.Equal(query.GameServerId.ToString(), rest.Query["gameServerId"]);
+        Assert.Equal(query.FeatureId, rest.Query["featureId"]);
+        Assert.Equal(from.ToString("O", CultureInfo.InvariantCulture), rest.Query["fromUtc"]);
+        Assert.Equal(query.ToUtc.Value.ToString("O", CultureInfo.InvariantCulture), rest.Query["toUtc"]);
+        Assert.Equal("20", rest.Query["skipEntries"]);
+        Assert.Equal("10", rest.Query["takeEntries"]);
+        Assert.Equal(cancellation.Token, rest.Token);
+        Assert.True((await api.SearchRuleExecutionAudit(new())).IsSuccess);
+        Assert.DoesNotContain("gameServerId", rest.Query.Keys);
+        Assert.DoesNotContain("featureId", rest.Query.Keys);
+        Assert.DoesNotContain("fromUtc", rest.Query.Keys);
+        Assert.DoesNotContain("toUtc", rest.Query.Keys);
+    }
+
+    [Fact]
     public async Task ExecutionSearchTransmitsServerFeaturePaginationAndTimeBounds()
     {
         using var rest = new CapturingRestClientService();

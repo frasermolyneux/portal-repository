@@ -5,11 +5,152 @@ using MX.Api.Abstractions;
 using MX.Api.Web.Extensions;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
+using XtremeIdiots.Portal.Repository.DataLib;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
 public sealed partial class RuleExecutionsController
 {
+    [HttpGet("rule-executions/audit")]
+    [ProducesResponseType<ApiResponse<CollectionModel<RuleExecutionAuditDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchRuleExecutionAudit(
+        [FromQuery] RuleExecutionAuditQueryDto request, CancellationToken cancellationToken = default) =>
+        (await ((IRuleExecutionsApi)this).SearchRuleExecutionAudit(request, cancellationToken).ConfigureAwait(false)).ToHttpResult();
+
+    async Task<ApiResult<CollectionModel<RuleExecutionAuditDto>>> IRuleExecutionsApi.SearchRuleExecutionAudit(
+        RuleExecutionAuditQueryDto request, CancellationToken cancellationToken)
+    {
+        if (request is null || request.GameServerId == Guid.Empty ||
+            request.FeatureId is { } feature && (string.IsNullOrWhiteSpace(feature) || feature.Length > 64) ||
+            request.SkipEntries < 0 || request.TakeEntries is <= 0 or > 100 ||
+            request.FromUtc is { Kind: not DateTimeKind.Utc } || request.ToUtc is { Kind: not DateTimeKind.Utc } ||
+            request.FromUtc is { } from && request.ToUtc is { } to && from >= to)
+        {
+            return new ApiResult<CollectionModel<RuleExecutionAuditDto>>(HttpStatusCode.BadRequest);
+        }
+
+        var scope = context.RuleFeatureExecutions.AsNoTracking().AsQueryable();
+        if (request.GameServerId is { } serverId)
+        {
+            scope = scope.Where(item => item.GameServerId == serverId);
+        }
+        if (request.FeatureId is { } featureId)
+        {
+            scope = scope.Where(item => item.FeatureId == featureId);
+        }
+        var total = await scope.CountAsync(cancellationToken).ConfigureAwait(false);
+        if (request.FromUtc is { } fromUtc)
+        {
+            scope = scope.Where(item => item.CreatedAtUtc >= fromUtc);
+        }
+        if (request.ToUtc is { } toUtc)
+        {
+            scope = scope.Where(item => item.CreatedAtUtc < toUtc);
+        }
+        var filtered = await scope.CountAsync(cancellationToken).ConfigureAwait(false);
+        var executions = await scope.OrderByDescending(item => item.CreatedAtUtc).ThenBy(item => item.ExecutionId)
+            .Skip(request.SkipEntries).Take(request.TakeEntries)
+            .Select(item => new
+            {
+                item.ExecutionId,
+                item.GameServerId,
+                item.ConnectionId,
+                item.FeatureId,
+                item.PlayerGuid,
+                item.TriggerJson,
+                item.State,
+                item.CreatedAtUtc,
+                item.UpdatedAtUtc,
+                item.DiagnosticsJson
+            }).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        var ids = executions.Select(item => item.ExecutionId).ToArray();
+        var actions = await context.RuleActionExecutions.AsNoTracking().Where(item => ids.Contains(item.ExecutionId))
+            .OrderBy(item => item.RuleIndex).ThenBy(item => item.ActionIndex).ThenBy(item => item.ActionExecutionId)
+            .Select(item => new RuleActionExecution
+            {
+                ExecutionId = item.ExecutionId,
+                CorrelationJson = item.CorrelationJson,
+                CommandJson = item.CommandJson,
+                LogicalEffectId = item.LogicalEffectId,
+                ActionId = item.ActionId,
+                RuleIndex = item.RuleIndex,
+                ActionIndex = item.ActionIndex,
+                ActionTypeId = item.ActionTypeId,
+                Mode = item.Mode,
+                Outcome = item.Outcome,
+                ClaimedAtUtc = item.ClaimedAtUtc,
+                OutcomeAtUtc = item.OutcomeAtUtc,
+                UpdatedAtUtc = item.UpdatedAtUtc,
+                Detail = item.Detail,
+                AdminActionId = item.AdminActionId
+            }).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        var actionsByExecution = actions.ToLookup(item => item.ExecutionId);
+        var preparations = await context.RulePreparedActions.AsNoTracking().Where(item => ids.Contains(item.ExecutionId))
+            .OrderBy(item => item.RuleIndex).ThenBy(item => item.ActionIndex)
+            .Select(item => new { item.ExecutionId, item.PlanJson })
+            .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        var preparationsByExecution = preparations.ToLookup(item => item.ExecutionId);
+        var data = new CollectionModel<RuleExecutionAuditDto>(executions.Select(execution =>
+        {
+            var trigger = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson);
+            return new RuleExecutionAuditDto
+            {
+                ExecutionId = execution.ExecutionId,
+                GameServerId = execution.GameServerId,
+                ConnectionId = execution.ConnectionId,
+                FeatureId = execution.FeatureId,
+                TriggerId = trigger.TriggerId,
+                PlayerGuid = execution.PlayerGuid,
+                Username = trigger.Username,
+                State = Enum.Parse<RuleFeatureExecutionState>(execution.State),
+                CreatedAtUtc = Utc(execution.CreatedAtUtc),
+                UpdatedAtUtc = Utc(execution.UpdatedAtUtc),
+                Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
+                Actions = actionsByExecution[execution.ExecutionId].Select(action =>
+                {
+                    var identity = Deserialize<RuleActionCommand>(action.CommandJson).DeliveryIdentity;
+                    return new RuleExecutionAuditActionDto
+                    {
+                        RuleId = Deserialize<RuleActionCorrelation>(action.CorrelationJson).RuleId,
+                        ActionId = action.ActionId,
+                        RuleIndex = action.RuleIndex,
+                        ActionIndex = action.ActionIndex,
+                        ActionTypeId = action.ActionTypeId,
+                        Mode = Enum.Parse<RuleExecutionMode>(action.Mode),
+                        Outcome = Enum.Parse<RuleActionExecutionOutcome>(action.Outcome),
+                        ClaimedAtUtc = Utc(action.ClaimedAtUtc),
+                        OutcomeAtUtc = action.OutcomeAtUtc is { } outcomeAt ? Utc(outcomeAt) : null,
+                        UpdatedAtUtc = Utc(action.UpdatedAtUtc),
+                        Detail = action.Detail,
+                        AdminActionId = action.AdminActionId,
+                        MessageIndex = identity?.MessageIndex,
+                        FragmentIndex = identity?.FragmentIndex
+                    };
+                }).ToArray(),
+                PreparedActions = preparationsByExecution[execution.ExecutionId].Select(item =>
+                {
+                    var plan = WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson),
+                        actionsByExecution[execution.ExecutionId].ToArray());
+                    return new RuleExecutionAuditPreparationDto
+                    {
+                        ActionId = plan.ActionId,
+                        RuleIndex = plan.RuleIndex,
+                        ActionIndex = plan.ActionIndex,
+                        Outcome = plan.Outcome,
+                        Detail = plan.Detail,
+                        CompletedFragmentCount = plan.CompletedFragmentCount,
+                        TotalFragmentCount = plan.TotalFragmentCount
+                    };
+                }).ToArray()
+            };
+        }).ToList());
+        return new ApiResponse<CollectionModel<RuleExecutionAuditDto>>(data)
+        {
+            Pagination = new ApiPagination(total, filtered, request.SkipEntries, request.TakeEntries)
+        }.ToApiResult();
+    }
+
     [HttpGet("game-servers/{gameServerId:guid}/rule-executions")]
     [ProducesResponseType<ApiResponse<CollectionModel<RuleFeatureExecutionDto>>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

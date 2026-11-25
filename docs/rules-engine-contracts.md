@@ -300,6 +300,14 @@ tie-break, using the existing collection/pagination envelope. They include waiti
 no-action executions, full coordination, prepared fragment plans and child outcomes. The server,
 feature and creation-time query has a matching database index.
 
+`IRuleExecutionsApi.SearchRuleExecutionAudit(RuleExecutionAuditQueryDto)` uses service-account
+`GET v1.0/rule-executions/audit` for a generic cross-server, cross-feature feed. Server and feature
+filters are optional; optional time bounds must be explicit UTC, with an inclusive lower and
+exclusive upper bound. Ordering, page limits and count semantics match execution discovery.
+The response contains typed execution, action, preparation and diagnostic summaries, including
+fragment counts and indices, but excludes raw rule snapshots, command payloads, recipient targets
+and trigger IP addresses. Portal must enforce senior-admin access to its audit UI independently.
+
 `RuleFeatureExecutionDto.Diagnostics` is a typed collection, empty for historical rows.
 `UpdateRuleFeatureExecutionProgressDto.Diagnostics` replaces it under the same optimistic version
 check as progress; null preserves and an empty collection clears it. Stable codes describe waits,
