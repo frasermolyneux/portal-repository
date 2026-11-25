@@ -18,6 +18,32 @@ public sealed class RuleExecutionsApi(
     RepositoryApiClientOptions options)
     : BaseApi<RepositoryApiClientOptions>(logger, apiTokenProvider, restClientService, options), IRuleExecutionsApi
 {
+    public async Task<ApiResult<CollectionModel<RuleExecutionAuditDto>>> SearchRuleExecutionAudit(
+        RuleExecutionAuditQueryDto request, CancellationToken cancellationToken = default)
+    {
+        var httpRequest = await CreateRequestAsync("v1/rule-executions/audit", Method.Get, cancellationToken).ConfigureAwait(false);
+        if (request.GameServerId is { } serverId)
+        {
+            httpRequest.AddQueryParameter("gameServerId", serverId.ToString());
+        }
+        if (request.FeatureId is { } featureId)
+        {
+            httpRequest.AddQueryParameter("featureId", featureId);
+        }
+        httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
+        httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
+        if (request.FromUtc is { } from)
+        {
+            httpRequest.AddQueryParameter("fromUtc", from.ToString("O", CultureInfo.InvariantCulture));
+        }
+        if (request.ToUtc is { } to)
+        {
+            httpRequest.AddQueryParameter("toUtc", to.ToString("O", CultureInfo.InvariantCulture));
+        }
+        var response = await ExecuteAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        return response.ToApiResult<CollectionModel<RuleExecutionAuditDto>>();
+    }
+
     public async Task<ApiResult<CollectionModel<RuleFeatureExecutionDto>>> SearchRuleExecutions(
         RuleFeatureExecutionQueryDto request, CancellationToken cancellationToken = default)
     {

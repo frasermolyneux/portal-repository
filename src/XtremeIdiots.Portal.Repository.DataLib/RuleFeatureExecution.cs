@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace XtremeIdiots.Portal.Repository.DataLib;
 
+[Index("CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditCreated")]
+[Index("FeatureId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditFeatureCreated")]
+[Index("GameServerId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditServerCreated")]
 [Index("GameServerId", "ConnectionId", "CreatedAtUtc", Name = "IX_RuleFeatureExecutions_Connection")]
 [Index("GameServerId", "ConnectionId", "FeatureId", "SiegeSessionId", Name = "IX_RuleFeatureExecutions_ConnectionFeatureSession", IsUnique = true)]
 [Index("GameServerId", "FeatureId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_FeatureCreated")]

@@ -52,11 +52,26 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
         var archive = document["paths"]!["/user-profile/{userProfileId}/archive"]!["post"];
         Assert.NotNull(archive);
         Assert.NotNull(document["paths"]!["/user-profile/{userProfileId}/including-archived"]!["get"]);
+        Assert.NotNull(document["paths"]!["/rule-executions/audit"]!["get"]);
+        var auditProperties = document["components"]!["schemas"]!["RuleExecutionAuditDto"]!["properties"]!;
+        Assert.NotNull(auditProperties["diagnostics"]);
+        Assert.NotNull(auditProperties["preparedActions"]);
+        Assert.Null(auditProperties["frozenRulesJson"]);
+        Assert.Null(auditProperties["trigger"]);
         var reference = archive["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.Value<string>()!;
         var schema = document["components"]!["schemas"]![reference.Split('/').Last()]!;
         Assert.Contains("reason", schema["required"]!.Values<string>());
         Assert.Equal(500, schema["properties"]!["reason"]!["maxLength"]!.Value<int>());
         Assert.NotEqual(true, schema["properties"]!["reason"]!["readOnly"]?.Value<bool>());
+    }
+
+    [Fact]
+    public async Task RuleExecutionAuditAcceptsUtcBoundsAndRejectsUnspecifiedBounds()
+    {
+        using var valid = await _client.GetAsync("/v1.0/rule-executions/audit?fromUtc=2026-10-01T12%3A00%3A00Z&toUtc=2026-10-02T12%3A00%3A00Z");
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        using var invalid = await _client.GetAsync("/v1.0/rule-executions/audit?fromUtc=2026-10-01T12%3A00%3A00");
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
     }
 
     [Fact]
