@@ -7,7 +7,9 @@ namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 /// A caller-verified safe text payload budget for a specific provider/game/channel.
 /// The caller must already account for transport escaping and command envelopes. This total
 /// includes ReservedPrefixUtf8Bytes and added colour-continuation bytes. Evidence identifies the
-/// verified cutoff's source; no channel/provider limit is inferred here.
+/// verified cutoff's source; no channel/provider limit or character policy is inferred here.
+/// RconSafePrintableAscii additionally permits only printable ASCII without double quotes,
+/// backslashes or semicolons.
 /// </summary>
 public sealed record MessageChannelBudget(
     string Channel,
@@ -15,7 +17,9 @@ public sealed record MessageChannelBudget(
     string? Provider = null,
     string? Evidence = null,
     int ReservedPrefixUtf8Bytes = 0,
-    string? GameType = null);
+    string? GameType = null,
+    bool RejectDoubleQuotes = false,
+    bool RconSafePrintableAscii = false);
 
 public sealed record MessagePreparationError(string Code, int? ItemIndex, int? Position, string Message);
 public sealed record PreparedMessageFragment(
@@ -84,11 +88,6 @@ public static class MessagePreparation
                 {
                     errors.Add(new("ControlCharacter", itemIndex, position, "Messages cannot contain control characters."));
                 }
-                if (item[position] == '"')
-                {
-                    errors.Add(new("UnsupportedCharacter", itemIndex, position, "Messages cannot contain double quotes in native command text."));
-                }
-
                 if (Rune.DecodeFromUtf16(item.AsSpan(position), out _, out var consumed) != OperationStatus.Done)
                 {
                     errors.Add(new("InvalidUnicode", itemIndex, position, "Messages must contain valid Unicode scalar values."));
@@ -110,6 +109,7 @@ public static class MessagePreparation
         ArgumentNullException.ThrowIfNull(budget);
         var normalized = Normalize(message, messages);
         var errors = normalized.Errors.ToList();
+        ValidateProviderCharacters(normalized.Items, budget, errors);
         if (string.IsNullOrWhiteSpace(budget.Channel) || budget.MaxPayloadBytes <= 0 ||
             budget.ReservedPrefixUtf8Bytes < 0 || budget.ReservedPrefixUtf8Bytes >= budget.MaxPayloadBytes)
         {
@@ -131,6 +131,36 @@ public static class MessagePreparation
                 ? fragments.Select(fragment => fragment with { ReservedPrefixUtf8Bytes = budget.ReservedPrefixUtf8Bytes }).ToList().AsReadOnly()
                 : [],
             errors.AsReadOnly());
+    }
+
+    private static void ValidateProviderCharacters(IReadOnlyList<string> items, MessageChannelBudget budget,
+        List<MessagePreparationError> errors)
+    {
+        for (var itemIndex = 0; itemIndex < items.Count; itemIndex++)
+        {
+            var item = items[itemIndex];
+            for (var position = 0; position < item.Length;)
+            {
+                if (Rune.DecodeFromUtf16(item.AsSpan(position), out var rune, out var consumed) != OperationStatus.Done)
+                {
+                    position++;
+                    continue;
+                }
+
+                if (rune.Value == '"' && (budget.RejectDoubleQuotes || budget.RconSafePrintableAscii))
+                {
+                    errors.Add(new("UnsupportedCharacter", itemIndex, position,
+                        "The selected channel/provider does not support double quotes."));
+                }
+                else if (budget.RconSafePrintableAscii && (rune.Value > '~' || rune.Value is '\\' or ';'))
+                {
+                    errors.Add(new("UnsupportedCharacter", itemIndex, position,
+                        "The selected channel/provider requires RCON-safe printable ASCII."));
+                }
+
+                position += consumed;
+            }
+        }
     }
 
     private sealed record Atom(string Text, int Bytes, bool IsWordBoundary, bool IsColour);

@@ -77,7 +77,7 @@ public sealed class MessagePreparationTests
     [InlineData("later\"invalid", "UnsupportedCharacter")]
     public void Prepare_ValidatesEntireBatchBeforeExposingAnyFragments(string invalid, string code)
     {
-        var result = MessagePreparation.Prepare("first long message", [invalid], new("test", 5));
+        var result = MessagePreparation.Prepare("first long message", [invalid], new("test", 5, RejectDoubleQuotes: true));
 
         Assert.False(result.IsValid);
         Assert.Empty(result.Fragments);
@@ -151,7 +151,7 @@ public sealed class MessagePreparationTests
     public void Prepare_MatchesNative149ByteBoundaryVectors()
     {
         var budget = new MessageChannelBudget("say", 149, Provider: "CoD4x",
-            Evidence: "Native parity vectors; explicitly supplied verified payload budget");
+            Evidence: "Native parity vectors; explicitly supplied verified payload budget", RejectDoubleQuotes: true);
         (string Text, string[] Expected)[] vectors =
         [
             (new string('a', 149), [new string('a', 149)]),
@@ -169,5 +169,43 @@ public sealed class MessagePreparationTests
             Assert.All(prepared.Fragments, fragment =>
                 Assert.InRange(fragment.TotalPayloadByteCount, 1, budget.MaxPayloadBytes));
         }
+    }
+
+    [Fact]
+    public void Prepare_CharacterPoliciesAreExplicitAndValidateTheFullBatch()
+    {
+        const string unicodeWithQuote = "é😀\"";
+        Assert.True(MessagePreparation.Normalize(null, [unicodeWithQuote]).IsValid);
+        Assert.True(MessagePreparation.Prepare(null, [unicodeWithQuote], new("unicode", 20)).IsValid);
+
+        var quoted = MessagePreparation.Prepare("first", ["quoted\""], new("native", 20, RejectDoubleQuotes: true));
+        Assert.False(quoted.IsValid);
+        Assert.Empty(quoted.Fragments);
+        Assert.Contains(quoted.Errors, error => error.Code == "UnsupportedCharacter" && error.ItemIndex == 1);
+        Assert.True(MessagePreparation.Prepare("é😀", null, new("native", 20, RejectDoubleQuotes: true)).IsValid);
+
+        var ascii = MessagePreparation.Prepare("first", [unicodeWithQuote], new("rcon", 20, RconSafePrintableAscii: true));
+        Assert.False(ascii.IsValid);
+        Assert.Empty(ascii.Fragments);
+        Assert.Equal(3, ascii.Errors.Count);
+        Assert.Equal([0, 1, 3], ascii.Errors.Select(error => error.Position!.Value));
+        Assert.True(MessagePreparation.Prepare("Printable ^1text!", null, new("rcon", 20, RconSafePrintableAscii: true)).IsValid);
+    }
+
+    [Theory]
+    [InlineData("path\\name")]
+    [InlineData("first;second")]
+    public void Prepare_RconPolicyRejectsBackslashesAndSemicolonsWithoutEscaping(string text)
+    {
+        Assert.True(MessagePreparation.Prepare(text, null, new("unicode", 20)).IsValid);
+
+        var result = MessagePreparation.Prepare("first", [text], new("rcon", 20, RconSafePrintableAscii: true));
+
+        Assert.False(result.IsValid);
+        Assert.Empty(result.Fragments);
+        Assert.Equal(text, result.Items[1]);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("UnsupportedCharacter", error.Code);
+        Assert.Equal(1, error.ItemIndex);
     }
 }

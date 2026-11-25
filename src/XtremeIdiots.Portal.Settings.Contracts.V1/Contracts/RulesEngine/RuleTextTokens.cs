@@ -133,6 +133,43 @@ public static class RuleTextTokens
     public static RuleTextTokenDefinition? GetByKey(string? key) =>
         key is not null && ByKey.TryGetValue(key, out var definition) ? definition : null;
 
+    /// <summary>Illustrative preview facts, never runtime substitutes for unavailable sources.</summary>
+    public static RuleTextValues CreateSampleValues() => new()
+    {
+        Player = new()
+        {
+            Name = "ExamplePlayer",
+            Guid = "0123456789abcdef",
+            SteamId = "76561198000000000",
+            IpAddress = "203.0.113.42",
+            Tags = ["Member", "Admin"],
+            FirstSeenUtc = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            ProfileAgeDays = 365,
+            Geo = new() { CountryName = "United Kingdom", CountryCode = "GB", CityName = "London" },
+            Network = new()
+            {
+                ProxyCheckRiskScore = 75,
+                ProxyCheckIsVpn = true,
+                ProxyCheckIsProxy = false,
+                ProxyCheckAsNumber = "AS64500",
+                ProxyCheckAsOrganization = "Example Network",
+                MaxMindIsAnonymousVpn = false,
+                MaxMindProviderName = "Example Provider"
+            }
+        },
+        Server = new()
+        {
+            Name = "Example Server",
+            GameType = "CallOfDuty4",
+            CurrentMap = "mp_crash",
+            CurrentPlayerCount = 18,
+            MaxPlayerCount = 32
+        },
+        TriggerOccurredAtUtc = new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.Zero),
+        FeatureId = "welcome-messages",
+        RuleId = "general-welcome"
+    };
+
     private static RuleTextTokenDefinition Define(string key, string label, string group, string description,
         RuleTextTokenSource source, string sample, string fallback,
         RuleTextTokenValueType type = RuleTextTokenValueType.Text, string format = "verbatim",

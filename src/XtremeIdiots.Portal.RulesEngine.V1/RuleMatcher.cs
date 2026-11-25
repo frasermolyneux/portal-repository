@@ -96,7 +96,8 @@ public static class RuleMatcher
     public static RuleMatchPlan Plan(
         IEnumerable<RuleDefinition> rules,
         Func<RuleConditionNode, ConditionEvaluation> evaluateLeaf,
-        IReadOnlySet<string> supportedActionTypeIds)
+        IReadOnlySet<string> supportedActionTypeIds,
+        bool deferOnIndeterminate = false)
     {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(evaluateLeaf);
@@ -115,6 +116,10 @@ public static class RuleMatcher
             if (condition.Value == RuleTruthValue.Unknown)
             {
                 indeterminate.Add(new PlannedRule(rule, condition, []));
+                if (deferOnIndeterminate && rule.AfterMatch == RuleAfterMatch.StopProcessingRules)
+                {
+                    break;
+                }
                 continue;
             }
             if (condition.Value != RuleTruthValue.True)
@@ -144,7 +149,8 @@ public static class RuleMatcher
         return Plan(
             rules,
             condition => conditionResolver.Resolve(condition, context),
-            supportedActionTypeIds);
+            supportedActionTypeIds,
+            deferOnIndeterminate: context.FeatureId == RulesEngineCatalogueV1.WelcomeMessagesFeature);
     }
 
     private static IReadOnlyList<PlannedRuleAction> PlanActions(

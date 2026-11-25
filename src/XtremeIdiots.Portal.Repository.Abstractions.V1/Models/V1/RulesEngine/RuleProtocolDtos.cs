@@ -148,7 +148,6 @@ public sealed record RuleEvaluationResponse
     public int ProtocolVersion { get; init; } = 1;
     public RuleActionCommand[] Commands { get; init; } = [];
     public Guid[] ExecutionIds { get; init; } = [];
-    public RuleRuntimeDescriptor? Runtime { get; init; }
     public bool RetryTrigger { get; init; }
 }
 

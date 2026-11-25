@@ -71,7 +71,10 @@ public sealed partial class RuleExecutionsController
                 cancellationToken).ConfigureAwait(false);
             if (existing is not null)
             {
-                return new ApiResponse<RulePreparedActionDto>(Deserialize<RulePreparedActionDto>(existing.PlanJson)).ToApiResult();
+                var existingActions = await context.RuleActionExecutions.AsNoTracking().Where(item => item.ExecutionId == executionId)
+                    .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+                return new ApiResponse<RulePreparedActionDto>(WithDeliveryOutcome(
+                    Deserialize<RulePreparedActionDto>(existing.PlanJson), existingActions)).ToApiResult();
             }
             if (execution.Version != request.ExpectedVersion || execution.RuleIndex != request.RuleIndex ||
                 execution.ActionIndex != request.ActionIndex || execution.State != nameof(RuleFeatureExecutionState.Evaluating) ||
@@ -109,7 +112,7 @@ public sealed partial class RuleExecutionsController
                 CreatedAtUtc = plan.PreparedAtUtc.UtcDateTime
             });
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return new ApiResponse<RulePreparedActionDto>(plan).ToApiResult(HttpStatusCode.Created);
+            return new ApiResponse<RulePreparedActionDto>(WithDeliveryOutcome(plan, [])).ToApiResult(HttpStatusCode.Created);
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -191,7 +194,8 @@ public sealed partial class RuleExecutionsController
         RuleFeatureExecution execution, RuleTriggerEnvelope trigger, RuleActionDefinition definition, PrepareRuleActionDto request)
     {
         if (definition.TypeId == RulesEngineCatalogueV1.PrivateTaggedMessageAction &&
-            request.AudienceSnapshot is not { Available: true, Partial: false })
+            (request.AudienceSnapshot is not { Available: true, Partial: false, Recipients: not null } ||
+             request.AudienceSnapshot.GameServerId != execution.GameServerId))
         {
             return false;
         }
@@ -205,9 +209,12 @@ public sealed partial class RuleExecutionsController
         var positions = new HashSet<(Guid?, int, int)>();
         foreach (var command in request.Commands)
         {
-            if (command?.DeliveryIdentity is not { } identity ||
+            if (command?.DeliveryIdentity is not { } identity || command.Runtime is null ||
+                command.Correlation is null || command.Effect is null ||
                 !ValidLogicalEffectId(identity.ParentLogicalEffectId) || identity.MessageIndex < 0 || identity.FragmentIndex < 0 ||
                 command.LogicalEffectId != identity.ToLogicalEffectId() || !ids.Add(command.LogicalEffectId) ||
+                command.Runtime.IdentityModel == RuleRuntimeIdentityModel.PluginRuntimeGeneration &&
+                    !command.Runtime.Capabilities.Contains(RulesEngineCatalogueV1.Cod4xFragmentsCapability, StringComparer.Ordinal) ||
                 !positions.Add((identity.RecipientConnectionId, identity.MessageIndex, identity.FragmentIndex)) ||
                 command.ActionId != definition.Id || !CorrelationMatchesExecution(command.Correlation, execution, trigger) ||
                 command.ExpiresAtUtc <= DateTimeOffset.UtcNow ||
@@ -216,8 +223,11 @@ public sealed partial class RuleExecutionsController
                 !CommandMatchesTrigger(command, trigger) || !NativeEffectMatchesAction(definition.TypeId, command.Effect.Type) ||
                 !ValidClaimRequest(execution.GameServerId, execution.ExecutionId, new()
                 {
-                    ExpectedVersion = request.ExpectedVersion, RuleIndex = request.RuleIndex, ActionIndex = request.ActionIndex,
-                    LogicalEffectId = command.LogicalEffectId, Command = command
+                    ExpectedVersion = request.ExpectedVersion,
+                    RuleIndex = request.RuleIndex,
+                    ActionIndex = request.ActionIndex,
+                    LogicalEffectId = command.LogicalEffectId,
+                    Command = command
                 }) || !ValidNativeMessage(command))
             {
                 return false;
@@ -280,8 +290,9 @@ public sealed partial class RuleExecutionsController
     private static bool TryGetActionDefinition(JsonElement root, int ruleIndex, int actionIndex, out RuleActionDefinition action)
     {
         action = default!;
-        if (!root.TryGetProperty("rules", out var rules) || rules.ValueKind != JsonValueKind.Array ||
-            ruleIndex >= rules.GetArrayLength() || !rules[ruleIndex].TryGetProperty("actions", out var actions) ||
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("rules", out var rules) || rules.ValueKind != JsonValueKind.Array ||
+            ruleIndex >= rules.GetArrayLength() || rules[ruleIndex].ValueKind != JsonValueKind.Object ||
+            !rules[ruleIndex].TryGetProperty("actions", out var actions) ||
             actions.ValueKind != JsonValueKind.Array || actionIndex >= actions.GetArrayLength())
         {
             return false;
@@ -304,6 +315,10 @@ public sealed partial class RuleExecutionsController
             return false;
         }
         using var document = JsonDocument.Parse(json);
+        if (document.RootElement.EnumerateObject().GroupBy(item => item.Name, StringComparer.Ordinal).Any(group => group.Count() > 1))
+        {
+            return false;
+        }
         var resolved = document.RootElement.EnumerateObject().ToDictionary(item => item.Name, item => item.Value);
         if (resolved.Count != definition.Parameters.Count)
         {

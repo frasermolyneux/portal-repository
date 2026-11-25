@@ -79,6 +79,15 @@ internal static class NamespaceSchemaValidationRegistry
         {
             if (string.Equals(normalizedNamespace, WelcomeRulesSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
             {
+                using var welcomeJson = JsonDocument.Parse(configuration);
+                if (welcomeJson.RootElement.ValueKind != JsonValueKind.Object ||
+                    !welcomeJson.RootElement.EnumerateObject().Any(item =>
+                        item.Name.Equals("featureId", StringComparison.OrdinalIgnoreCase) &&
+                        item.Value.ValueKind == JsonValueKind.String &&
+                        item.Value.GetString() == WelcomeRulesSettingsConstants.FeatureId))
+                {
+                    return false;
+                }
                 var welcomeValidator = new WelcomeRulesSettingsValidator();
                 return serverOverride
                     ? welcomeValidator.ValidateServerOverride(Deserialize<WelcomeRulesServerSettingsDocument>(configuration)).IsValid

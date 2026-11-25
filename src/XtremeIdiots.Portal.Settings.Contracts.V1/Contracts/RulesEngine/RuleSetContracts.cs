@@ -372,6 +372,11 @@ public sealed class RuleSetValidator
         string path,
         SettingsValidationResult result)
     {
+        if (conditionId == RulesEngineCatalogueV1.AlwaysCondition && parameters.Count != 0)
+        {
+            result.Errors.Add($"{path} must be empty for the Always condition.");
+            return;
+        }
         if (conditionId == "player.tags")
         {
             if (!parameters.TryGetValue("tags", out var tags) || tags.ValueKind != JsonValueKind.Array ||
@@ -595,80 +600,80 @@ public sealed class RuleSetValidator
     }
 
     private static void ValidateTiming(RuleTimingSettings timing, string path, SettingsValidationResult result)
-            {
-                if (!timing.IsValid)
-                {
-                    result.Errors.Add($"{path} requires a delay from 0 to 60 seconds and a freshness window greater than the delay and at most 900 seconds.");
-                }
-            }
+    {
+        if (!timing.IsValid)
+        {
+            result.Errors.Add($"{path} requires a delay from 0 to 60 seconds and a freshness window greater than the delay and at most 900 seconds.");
+        }
+    }
 
-            private static void ValidateTimingOverrides(RuleTimingOverrides? timing, string path, SettingsValidationResult result)
-            {
-                if (timing is null)
-                {
-                    return;
-                }
-                if (timing.ConnectionDelaySeconds is < 0 or > 60 || timing.FreshnessSeconds is <= 0 or > 900 ||
-                    timing.ConnectionDelaySeconds is { } delay && timing.FreshnessSeconds is { } freshness && delay >= freshness)
-                {
-                    result.Errors.Add($"{path} contains an invalid delay or freshness override.");
-                }
-            }
+    private static void ValidateTimingOverrides(RuleTimingOverrides? timing, string path, SettingsValidationResult result)
+    {
+        if (timing is null)
+        {
+            return;
+        }
+        if (timing.ConnectionDelaySeconds is < 0 or > 60 || timing.FreshnessSeconds is <= 0 or > 900 ||
+            timing.ConnectionDelaySeconds is { } delay && timing.FreshnessSeconds is { } freshness && delay >= freshness)
+        {
+            result.Errors.Add($"{path} contains an invalid delay or freshness override.");
+        }
+    }
 
-            private static void ValidateActionParameters(
-                RuleActionDefinition action, ActionTypeDefinition definition, string path, SettingsValidationResult result)
+    private static void ValidateActionParameters(
+        RuleActionDefinition action, ActionTypeDefinition definition, string path, SettingsValidationResult result)
+    {
+        if (action.TemplateParameters is null ||
+            action.TemplateParameters.Distinct(StringComparer.Ordinal).Count() != action.TemplateParameters.Count ||
+            action.TemplateParameters.Any(name => !definition.Parameters.Any(parameter =>
+                parameter.Name == name && parameter.SupportsTemplates) || !action.Parameters.ContainsKey(name)))
+        {
+            result.Errors.Add($"{path}.templateParameters must name unique, present, template-capable text parameters.");
+            return;
+        }
+        var schema = definition.Parameters.Select(parameter =>
+            action.TemplateParameters.Contains(parameter.Name, StringComparer.Ordinal)
+                ? parameter with { MaxLength = 16384, MaxUtf8Bytes = null }
+                : parameter).ToArray();
+        ValidateParameters(action.Parameters, schema, path + ".parameters", result);
+        foreach (var name in action.TemplateParameters)
+        {
+            var value = action.Parameters[name];
+            var items = value.ValueKind == JsonValueKind.Array
+                ? value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)
+                : value.ValueKind == JsonValueKind.String ? [value.GetString()!] : Array.Empty<string>();
+            foreach (var text in items)
             {
-                if (action.TemplateParameters is null ||
-                    action.TemplateParameters.Distinct(StringComparer.Ordinal).Count() != action.TemplateParameters.Count ||
-                    action.TemplateParameters.Any(name => !definition.Parameters.Any(parameter =>
-                        parameter.Name == name && parameter.SupportsTemplates) || !action.Parameters.ContainsKey(name)))
+                foreach (var error in RuleTextRenderer.Validate(text))
                 {
-                    result.Errors.Add($"{path}.templateParameters must name unique, present, template-capable text parameters.");
-                    return;
-                }
-                var schema = definition.Parameters.Select(parameter =>
-                    action.TemplateParameters.Contains(parameter.Name, StringComparer.Ordinal)
-                        ? parameter with { MaxLength = 16384, MaxUtf8Bytes = null }
-                        : parameter).ToArray();
-                ValidateParameters(action.Parameters, schema, path + ".parameters", result);
-                foreach (var name in action.TemplateParameters)
-                {
-                    var value = action.Parameters[name];
-                    var items = value.ValueKind == JsonValueKind.Array
-                        ? value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)
-                        : value.ValueKind == JsonValueKind.String ? [value.GetString()!] : Array.Empty<string>();
-                    foreach (var text in items)
-                    {
-                        foreach (var error in RuleTextRenderer.Validate(text))
-                        {
-                            result.Errors.Add($"{path}.parameters.{name}: {error}");
-                        }
-                    }
-                }
-                if (definition.EffectClass == "communication")
-                {
-                    var hasSingle = action.Parameters.TryGetValue("message", out var message) &&
-                        message.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(message.GetString());
-                    var hasList = action.Parameters.TryGetValue("messages", out var messages) &&
-                        messages.ValueKind == JsonValueKind.Array && messages.GetArrayLength() > 0;
-                    if (!hasSingle && !hasList)
-                    {
-                        result.Errors.Add($"{path}.parameters requires message or a nonempty messages list.");
-                    }
-                    if (messages.ValueKind == JsonValueKind.Array && (messages.GetArrayLength() > 100 ||
-                        messages.EnumerateArray().Any(item => item.ValueKind != JsonValueKind.String ||
-                            string.IsNullOrWhiteSpace(item.GetString()))))
-                    {
-                        result.Errors.Add($"{path}.parameters.messages must contain 1 to 100 nonempty strings.");
-                    }
-                }
-                if (action.TypeId == RulesEngineCatalogueV1.PrivateTaggedMessageAction)
-                {
-                    ValidateConditionSemantics("player.tags",
-                        new Dictionary<string, JsonElement> { ["tags"] = action.Parameters.GetValueOrDefault("recipientTags") },
-                        string.Empty, path + ".parameters.recipientTags", result);
+                    result.Errors.Add($"{path}.parameters.{name}: {error}");
                 }
             }
+        }
+        if (definition.EffectClass == "communication")
+        {
+            var hasSingle = action.Parameters.TryGetValue("message", out var message) &&
+                message.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(message.GetString());
+            var hasList = action.Parameters.TryGetValue("messages", out var messages) &&
+                messages.ValueKind == JsonValueKind.Array && messages.GetArrayLength() > 0;
+            if (!hasSingle && !hasList)
+            {
+                result.Errors.Add($"{path}.parameters requires message or a nonempty messages list.");
+            }
+            if (messages.ValueKind == JsonValueKind.Array && (messages.GetArrayLength() > 100 ||
+                messages.EnumerateArray().Any(item => item.ValueKind != JsonValueKind.String ||
+                    string.IsNullOrWhiteSpace(item.GetString()))))
+            {
+                result.Errors.Add($"{path}.parameters.messages must contain 1 to 100 nonempty strings.");
+            }
+        }
+        if (action.TypeId == RulesEngineCatalogueV1.PrivateTaggedMessageAction)
+        {
+            ValidateConditionSemantics("player.tags",
+                new Dictionary<string, JsonElement> { ["tags"] = action.Parameters.GetValueOrDefault("recipientTags") },
+                string.Empty, path + ".parameters.recipientTags", result);
+        }
+    }
     private static void ValidateParameters(
         IReadOnlyDictionary<string, JsonElement> parameters,
         IReadOnlyList<RuleParameterDefinition> schema,

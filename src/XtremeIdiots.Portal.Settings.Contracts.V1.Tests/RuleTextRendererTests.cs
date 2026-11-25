@@ -134,4 +134,19 @@ public sealed class RuleTextRendererTests
         }
         Assert.True(RuleTextTokens.GetByKey("context.player.IpAddress")!.IsSensitive);
     }
+
+    [Fact]
+    public void Catalogue_SampleAndMissingDataPreviewsUseAuthoritativeDeclarations()
+    {
+        foreach (var token in RuleTextTokens.Definitions)
+        {
+            var sample = RuleTextRenderer.Render(token.Token, RuleTextTokens.CreateSampleValues());
+            Assert.Equal(token.SampleValue, sample.Text);
+            Assert.Empty(sample.Diagnostics);
+
+            var missing = RuleTextRenderer.Render(token.Token, new RuleTextValues());
+            Assert.Equal(token.Fallback, missing.Text);
+            Assert.Equal("FallbackUsed", Assert.Single(missing.Diagnostics).Code);
+        }
+    }
 }

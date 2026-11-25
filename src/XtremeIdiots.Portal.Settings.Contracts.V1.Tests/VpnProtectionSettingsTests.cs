@@ -233,11 +233,11 @@ public sealed class VpnProtectionSettingsTests
     }
 
     [Fact]
-    public void NativeTextValidationEnforcesUtf8ByteLimitAndRejectsControlCharacters()
+    public void MessageSourceAllowsSplittingButRejectsControlCharacters()
     {
         Assert.True(ValidatePublicMessage(new string('a', 256)).IsValid);
-        Assert.False(ValidatePublicMessage(new string('a', 257)).IsValid);
-        Assert.False(ValidatePublicMessage(new string('é', 129)).IsValid);
+        Assert.True(ValidatePublicMessage(new string('a', 257)).IsValid);
+        Assert.True(ValidatePublicMessage(new string('é', 129)).IsValid);
         Assert.False(ValidatePublicMessage("line\u000abreak").IsValid);
         Assert.False(ValidatePublicMessage("bad\u007ftext").IsValid);
     }
