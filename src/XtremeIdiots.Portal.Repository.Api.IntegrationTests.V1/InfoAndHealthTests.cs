@@ -53,6 +53,7 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
         Assert.NotNull(archive);
         Assert.NotNull(document["paths"]!["/user-profile/{userProfileId}/including-archived"]!["get"]);
         Assert.NotNull(document["paths"]!["/rule-executions/audit"]!["get"]);
+        Assert.NotNull(document["paths"]!["/rule-executions/{executionId}/flow"]!["get"]);
         var auditProperties = document["components"]!["schemas"]!["RuleExecutionAuditDto"]!["properties"]!;
         Assert.NotNull(auditProperties["diagnostics"]);
         Assert.NotNull(auditProperties["preparedActions"]);
@@ -72,6 +73,8 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
         Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
         using var invalid = await _client.GetAsync("/v1.0/rule-executions/audit?fromUtc=2026-10-01T12%3A00%3A00");
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        using var missing = await _client.GetAsync($"/v1.0/rule-executions/{Guid.NewGuid()}/flow");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
     }
 
     [Fact]

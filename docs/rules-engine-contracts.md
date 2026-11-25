@@ -310,6 +310,15 @@ and trigger IP addresses. The nullable coordination summary contains due/expiry 
 exposes a waiting reason while the execution is waiting. Portal must enforce senior-admin access
 to its audit UI independently.
 
+`IRuleExecutionsApi.GetRuleExecutionFlow(executionId)` uses service-account
+`GET v1.0/rule-executions/{executionId}/flow` and returns 404 for an unknown execution. It includes
+the same safe audit summary plus the historical ordered rule/condition/action structure. Structure
+status distinguishes available, missing and malformed snapshots; absent optional names, order,
+enablement, dependencies or after-match values are not invented. Catalogue labels are current,
+not historical. Conditions expose only allowlisted, validated and normalized enum, duration,
+boolean or numeric parameters; omitted values are explicitly indicated. No per-condition outcome
+or rule-match result is inferred from progress cursors, actions or producer-local snapshots.
+
 `RuleFeatureExecutionDto.Diagnostics` is a typed collection, empty for historical rows.
 `UpdateRuleFeatureExecutionProgressDto.Diagnostics` replaces it under the same optimistic version
 check as progress; null preserves and an empty collection clears it. Stable codes describe waits,

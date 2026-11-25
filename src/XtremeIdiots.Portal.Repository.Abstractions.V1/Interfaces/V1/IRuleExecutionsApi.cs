@@ -6,6 +6,8 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IRuleExecutionsApi
 {
+    Task<ApiResult<RuleExecutionFlowDto>> GetRuleExecutionFlow(Guid executionId, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to view a rule execution flow.");
     Task<ApiResult<CollectionModel<RuleExecutionAuditDto>>> SearchRuleExecutionAudit(RuleExecutionAuditQueryDto request, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("Upgrade the Repository API client to search the rule execution audit.");
     Task<ApiResult<CollectionModel<RuleFeatureExecutionDto>>> SearchRuleExecutions(RuleFeatureExecutionQueryDto request, CancellationToken cancellationToken = default) =>

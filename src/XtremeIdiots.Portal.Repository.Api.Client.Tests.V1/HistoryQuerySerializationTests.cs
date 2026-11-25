@@ -15,6 +15,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public sealed class HistoryQuerySerializationTests
 {
     [Fact]
+    public async Task ExecutionFlowUsesSingleExecutionRoute()
+    {
+        using var rest = new CapturingRestClientService();
+        using var cancellation = new CancellationTokenSource();
+        var api = new RuleExecutionsApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, new RepositoryApiClientOptions { BaseUrl = "https://example.test", MaxRetryCount = 1 });
+        var id = Guid.NewGuid();
+        Assert.True((await api.GetRuleExecutionFlow(id, cancellation.Token)).IsSuccess);
+        Assert.Equal($"v1/rule-executions/{id}/flow", rest.Resource);
+        Assert.Equal(Method.Get, rest.Method);
+        Assert.Equal(cancellation.Token, rest.Token);
+    }
+
+    [Fact]
     public async Task GenericExecutionAuditTransmitsOptionalFiltersAndBounds()
     {
         using var rest = new CapturingRestClientService();
