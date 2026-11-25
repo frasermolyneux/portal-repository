@@ -29,6 +29,11 @@ public partial class GameServerEvent
     [Unicode(false)]
     public string? EventData { get; set; }
 
+    public Guid? IdempotencyKey { get; set; }
+
+    [MaxLength(32)]
+    public byte[]? IdempotencyPayloadHash { get; set; }
+
     [ForeignKey("GameServerId")]
     [InverseProperty("GameServerEvents")]
     public virtual GameServer GameServer { get; set; } = null!;

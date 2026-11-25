@@ -283,7 +283,7 @@ public sealed class RuleExecutionsControllerTests
         var secondClaim = await api.ClaimAction(serverId, second.Result!.Data!.ExecutionId,
             ClaimRequest(serverId, second.Result.Data, logicalEffectId));
 
-        Assert.Equal(HttpStatusCode.OK, firstClaim.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, firstClaim.StatusCode);
         Assert.True(firstClaim.Result!.Data!.ShouldDispatch);
         Assert.Equal(HttpStatusCode.OK, secondClaim.StatusCode);
         Assert.False(secondClaim.Result!.Data!.ShouldDispatch);
@@ -307,7 +307,7 @@ public sealed class RuleExecutionsControllerTests
         var claimed = await api.ClaimAction(serverId, execution.ExecutionId,
             ClaimRequest(serverId, execution, logicalEffectId, ruleId: ruleId, actionId: actionId));
 
-        Assert.Equal(HttpStatusCode.OK, claimed.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, claimed.StatusCode);
         Assert.Equal(actionId, claimed.Result!.Data!.Action.ActionId);
         Assert.Equal(ruleId, claimed.Result.Data.Action.Correlation.RuleId);
     }
@@ -399,7 +399,7 @@ public sealed class RuleExecutionsControllerTests
 
         var firstClaim = await api.ClaimAction(serverId, execution.ExecutionId,
             ClaimRequestWithTrigger(serverId, restoredContext.Result!.Data!, firstEffectId, contextTrigger, "kick-player", 0));
-        Assert.Equal(HttpStatusCode.OK, firstClaim.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, firstClaim.StatusCode);
         Assert.True(firstClaim.Result!.Data!.ShouldDispatch);
         Assert.Equal(contextTrigger.TriggerOccurrenceId, firstClaim.Result.Data.Action.Correlation.TriggerOccurrenceId);
         Assert.Equal(originalTrigger.TriggerOccurrenceId, firstClaim.Result.Data.Execution.Trigger.TriggerOccurrenceId);
@@ -476,7 +476,7 @@ public sealed class RuleExecutionsControllerTests
             ClaimRequestWithTrigger(serverId, completedFirstAction.Result!.Data!.Execution,
                 secondEffectId, newerContextTrigger, "kick-player-2", 1));
 
-        Assert.Equal(HttpStatusCode.OK, secondClaim.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, secondClaim.StatusCode);
         Assert.True(secondClaim.Result!.Data!.ShouldDispatch);
         Assert.Equal(newerContextTrigger.TriggerOccurrenceId, secondClaim.Result.Data.Action.Correlation.TriggerOccurrenceId);
         Assert.Equal("kick-player-2", secondClaim.Result.Data.Action.Command.ActionId);
@@ -510,7 +510,7 @@ public sealed class RuleExecutionsControllerTests
 
         const string logicalEffectId = "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         var claimed = await api.ClaimAction(serverId, execution.ExecutionId, ClaimRequest(serverId, execution, logicalEffectId));
-        Assert.Equal(HttpStatusCode.OK, claimed.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, claimed.StatusCode);
         var skippedPendingOutcome = await api.UpdateProgress(serverId, execution.ExecutionId, new UpdateRuleFeatureExecutionProgressDto
         {
             ExpectedVersion = claimed.Result!.Data!.Execution.Version,
@@ -888,6 +888,36 @@ public sealed class RuleExecutionsControllerTests
         Assert.Equal(RuleActionExecutionOutcome.Applied, hostConfirmed.Result.Data.Action.NativeEvidence!.Outcome);
         Assert.Equal(RuleFeatureExecutionState.Completed, hostConfirmed.Result.Data.Execution.State);
         Assert.Equal(timedOut.Result.Data.Execution.Version, hostConfirmed.Result.Data.Execution.Version);
+    }
+
+    [Theory]
+    [InlineData(RuleExecutionMode.DryRun, "player.kick", RuleNativeEffectType.DropPlayer)]
+    [InlineData(RuleExecutionMode.DryRun, "moderation.observation", RuleNativeEffectType.Unknown)]
+    [InlineData(RuleExecutionMode.Enforce, "moderation.observation", RuleNativeEffectType.Unknown)]
+    [InlineData(RuleExecutionMode.Enforce, "player.kick", RuleNativeEffectType.DropPlayer)]
+    public async Task ClaimAction_DistinguishesNewClaimFromDuplicateWithoutReplayingDispatch(
+        RuleExecutionMode mode, string actionTypeId, RuleNativeEffectType effectType)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var started = await api.StartExecution(serverId,
+            StartRequest(serverId, Guid.NewGuid(), actionTypeId: actionTypeId));
+        var execution = started.Result!.Data!;
+        var request = ClaimRequest(serverId, execution, new string('a', 64), effectType);
+        request = request with { Command = request.Command with { Mode = mode } };
+
+        var first = await api.ClaimAction(serverId, execution.ExecutionId, request);
+        var duplicate = await api.ClaimAction(serverId, execution.ExecutionId, request);
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
+        Assert.Equal(mode == RuleExecutionMode.Enforce && effectType == RuleNativeEffectType.DropPlayer,
+            first.Result!.Data!.ShouldDispatch);
+        Assert.False(duplicate.Result!.Data!.ShouldDispatch);
+        Assert.Equal(first.Result.Data.Action.LogicalEffectId, duplicate.Result.Data.Action.LogicalEffectId);
+        Assert.Equal(first.Result.Data.Execution.Version, duplicate.Result.Data.Execution.Version);
+        Assert.Single(await context.RuleActionExecutions.ToListAsync());
     }
 
     [Fact]
