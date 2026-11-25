@@ -107,13 +107,56 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
         var dataQuery = context.RuleActionExecutions.AsNoTracking()
             .Where(action => request.GameServerIds.Contains(action.GameServerId));
         var actions = await ApplyRuleActionAuditFilters(dataQuery, request)
+            .Include(action => action.Execution)
             .OrderByDescending(action => action.ClaimedAtUtc)
             .ThenBy(action => action.ActionExecutionId)
             .Skip(request.SkipEntries)
             .Take(request.TakeEntries)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-        var data = new CollectionModel<RuleActionExecutionDto>(
-            actions.Select(action => ToActionDto(action)).ToList());
+        var guids = actions.Select(action => NormalizeGuid(action.Execution.PlayerGuid)?.ToLowerInvariant())
+            .Where(guid => guid is not null).Distinct().ToArray();
+        var gameTypes = actions.Select(action => action.Execution.GameType).Distinct().ToArray();
+        var players = await context.Players.AsNoTracking()
+            .Where(player => player.Guid != null && gameTypes.Contains(player.GameType) &&
+                guids.Contains(player.Guid.Trim().ToLower()))
+            .Select(player => new { player.PlayerId, player.GameType, player.Guid })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var snapshotIds = actions.Select(action => action.Execution.FactSnapshotId)
+            .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToArray();
+        var snapshots = await context.RuleFactSnapshots.AsNoTracking()
+            .Where(snapshot => snapshotIds.Contains(snapshot.SnapshotId))
+            .ToDictionaryAsync(snapshot => snapshot.SnapshotId, cancellationToken).ConfigureAwait(false);
+        var data = new CollectionModel<RuleActionExecutionDto>(actions.Select(action =>
+        {
+            var execution = action.Execution;
+            var dto = ToActionDto(action, execution);
+            var guid = NormalizeGuid(execution.PlayerGuid);
+            var matches = guid is null || !string.Equals(guid, NormalizeGuid(dto.PlayerGuid), StringComparison.OrdinalIgnoreCase)
+                ? []
+                : players.Where(player => player.GameType == execution.GameType &&
+                    string.Equals(NormalizeGuid(player.Guid), guid, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var trigger = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson);
+            var ip = NormalizeIp(trigger.PlayerIpAddress);
+            string? source = ip is null ? null : "Trigger";
+            DateTimeOffset? recordedAt = ip is null || trigger.OccurredAtUtc == default ? null : trigger.OccurredAtUtc;
+            if (ip is null && execution.FactSnapshotId is { } snapshotId &&
+                snapshots.TryGetValue(snapshotId, out var snapshot) &&
+                snapshot.GameServerId == execution.GameServerId && snapshot.ConnectionId == execution.ConnectionId &&
+                snapshot.GameType == execution.GameType && NormalizeIp(snapshot.PlayerIpAddress) is { } snapshotIp)
+            {
+                ip = snapshotIp;
+                source = snapshot.IpEnrichedAtUtc.HasValue ? "FactSnapshotEnrichment" : "FactSnapshot";
+                recordedAt = Utc(snapshot.IpEnrichedAtUtc ?? snapshot.CapturedAtUtc);
+            }
+            return dto with
+            {
+                GameType = (GameType)execution.GameType,
+                PlayerId = matches.Length == 1 ? matches[0].PlayerId : null,
+                ObservedIpAddress = ip,
+                ObservedIpSource = source,
+                ObservedIpRecordedAtUtc = recordedAt
+            };
+        }).ToList());
 
         return new ApiResponse<CollectionModel<RuleActionExecutionDto>>(data)
         {
