@@ -427,7 +427,7 @@ public sealed partial class RuleExecutionsController
             (item.FeatureId == RulesEngineCatalogueV1.VpnProtectionFeature || item.FeatureId == RulesEngineCatalogueV1.SiegeModeFeature))
             .ToArrayAsync(cancellationToken).ConfigureAwait(false);
         if (coordination.PredecessorExecutionIds.Any(id => !predecessors.Any(item => item.ExecutionId == id)) ||
-            predecessors.Any(item => !coordination.PredecessorExecutionIds.Contains(item.ExecutionId) ||
+            predecessors.Any(item =>
                 item.State is not (nameof(RuleFeatureExecutionState.Completed) or nameof(RuleFeatureExecutionState.Stopped))))
         {
             return false;

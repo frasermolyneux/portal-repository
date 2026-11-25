@@ -1552,7 +1552,8 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
 
     private static bool CanTransitionFromDispatched(RuleActionExecutionOutcome outcome) =>
         outcome is RuleActionExecutionOutcome.Applied or RuleActionExecutionOutcome.Failed or
-            RuleActionExecutionOutcome.Stale or RuleActionExecutionOutcome.OutcomeUnknown;
+            RuleActionExecutionOutcome.Stale or RuleActionExecutionOutcome.OutcomeUnknown or
+            RuleActionExecutionOutcome.SkippedUnsupported;
 
     private static bool ValidOutcome(RuleActionExecutionOutcome outcome) =>
         outcome is RuleActionExecutionOutcome.Dispatched or RuleActionExecutionOutcome.Applied or

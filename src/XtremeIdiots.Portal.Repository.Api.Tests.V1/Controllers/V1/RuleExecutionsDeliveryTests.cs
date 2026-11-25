@@ -145,8 +145,10 @@ public sealed partial class RuleExecutionsControllerTests
         Assert.Equal(2, loaded.Actions.Length);
     }
 
-    [Fact]
-    public async Task UnconfirmedFragmentAllowsNextFragmentWithoutReplayingOrClaimingReceipt()
+    [Theory]
+    [InlineData(RuleActionExecutionOutcome.OutcomeUnknown)]
+    [InlineData(RuleActionExecutionOutcome.SkippedUnsupported)]
+    public async Task PluginTerminalReceiptPreservesHonestOutcomeAndControlsNextFragment(RuleActionExecutionOutcome receipt)
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var serverId = await AddServer(context);
@@ -175,18 +177,75 @@ public sealed partial class RuleExecutionsControllerTests
             Commands = [first, second]
         });
         var claimed = (await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, first))).Result!.Data!;
-        var unknown = await api.UpdateActionOutcome(serverId, execution.ExecutionId, first.ActionId, new()
+        var dispatched = await api.UpdateActionOutcome(serverId, execution.ExecutionId, first.ActionId, new()
         {
             ExpectedVersion = claimed.Execution.Version,
-            Result = ChildResult(first, RuleActionExecutionOutcome.OutcomeUnknown),
+            Result = ChildResult(first, RuleActionExecutionOutcome.Dispatched),
+            NextState = RuleFeatureExecutionState.AwaitingActionOutcome
+        });
+        var unknown = await api.UpdateActionOutcome(serverId, execution.ExecutionId, first.ActionId, new()
+        {
+            ExpectedVersion = dispatched.Result!.Data!.Execution.Version,
+            Result = ChildResult(first, receipt),
             NextState = RuleFeatureExecutionState.Evaluating
         });
+        Assert.Equal(HttpStatusCode.OK, unknown.StatusCode);
         execution = unknown.Result!.Data!.Execution;
         Assert.False((await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, first))).Result!.Data!.ShouldDispatch);
-        Assert.True((await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, second))).Result!.Data!.ShouldDispatch);
+        var next = await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, second));
+        if (receipt == RuleActionExecutionOutcome.OutcomeUnknown)
+        {
+            Assert.True(next.Result!.Data!.ShouldDispatch);
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.Conflict, next.StatusCode);
+            Assert.False((await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, second) with
+            {
+                TerminalOutcome = RuleActionExecutionOutcome.SkippedDependency
+            })).Result!.Data!.ShouldDispatch);
+        }
         var plan = Assert.Single((await api.GetExecution(serverId, execution.ExecutionId)).Result!.Data!.PreparedActions);
-        Assert.Equal(RuleActionExecutionOutcome.OutcomeUnknown, plan.Outcome);
+        Assert.Equal(receipt == RuleActionExecutionOutcome.OutcomeUnknown
+            ? RuleActionExecutionOutcome.OutcomeUnknown : RuleActionExecutionOutcome.Failed, plan.Outcome);
         Assert.Equal(0, plan.CompletedFragmentCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AdditionalProtectionExecutionWaitsUntilTerminalAndClear(bool completed)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var start = StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private");
+        start = start with
+        {
+            FeatureId = "welcome-messages",
+            FrozenRulesJson = /*lang=json,strict*/ """
+                {"timing":{"connectionDelaySeconds":0,"freshnessSeconds":120},"rules":[
+                {"id":"rule-1","actions":[{"id":"kick-player","typeId":"message.private","parameters":{"message":"hello"}}]}]}
+                """,
+            Coordination = new() { DueAtUtc = start.Trigger.OccurredAtUtc, ExpiresAtUtc = start.Trigger.OccurredAtUtc.AddSeconds(120) }
+        };
+        var execution = (await api.StartExecution(serverId, start)).Result!.Data!;
+        var protection = (await api.StartExecution(serverId, StartRequest(serverId, execution.ConnectionId))).Result!.Data!;
+        if (completed)
+        {
+            await api.UpdateProgress(serverId, protection.ExecutionId, new()
+            {
+                ExpectedVersion = protection.Version,
+                State = RuleFeatureExecutionState.Completed
+            });
+        }
+        var prepared = await api.PrepareAction(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"hello"}""",
+            Commands = [DeliveryCommand(serverId, execution, 0, "hello")]
+        });
+        Assert.Equal(completed ? HttpStatusCode.Created : HttpStatusCode.Conflict, prepared.StatusCode);
     }
 
     [Theory]

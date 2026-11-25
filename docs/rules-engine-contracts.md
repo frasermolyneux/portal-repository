@@ -245,7 +245,9 @@ changing another rule's window. Trigger-addressed preparation/claims require exe
 but use the selected rule's due/expiry rather than an execution-default window. Events admits the
 relevant protection evaluations before starting welcome and persists their IDs.
 Trigger-addressed welcome claims wait for due time and terminal predecessors,
-and are blocked by claimed/dispatched/applied/uncertain enforcement. Independently addressed
+including any additional protection execution admitted after the captured predecessor set.
+Additional terminal, clear evaluations do not permanently block delivery.
+Claims remain blocked by claimed/dispatched/applied/uncertain enforcement. Independently addressed
 tagged alerts do not wait behind those trigger prerequisites.
 
 Prepared commands keep the original top-level trigger identity and correlation. Only
@@ -278,6 +280,9 @@ dispatch eligibility, so expiry, disconnect or protection after preparation cann
 remaining plan. Ordinary claims still enforce all delivery prerequisites.
 
 For single/record actions, `ClaimRuleActionDto.resolvedParametersJson` freezes rendered values.
+Upgrade the Repository API client together with its abstractions to consume the new delivery
+methods. Default interface implementations preserve older client startup and existing methods,
+but explicitly throw `NotSupportedException` when a new delivery method is unavailable.
 Only explicitly opted-in fields may differ from frozen source parameters. The claimed
 `ParametersJson` is authoritative for native reasons, moderation records and forum publication;
 templated moderation text must equal that frozen reason. Retries consume the persisted winner.
