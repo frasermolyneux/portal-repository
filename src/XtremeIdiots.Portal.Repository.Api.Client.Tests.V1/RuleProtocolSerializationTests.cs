@@ -16,13 +16,18 @@ public sealed class RuleProtocolSerializationTests
         var recipient = Guid.NewGuid();
         var delivery = new RuleDeliveryIdentity
         {
-            ParentLogicalEffectId = new string('a', 64), RecipientConnectionId = recipient, MessageIndex = 1, FragmentIndex = 2
+            ParentLogicalEffectId = new string('a', 64),
+            RecipientConnectionId = recipient,
+            MessageIndex = 1,
+            FragmentIndex = 2
         };
         var command = new RuleActionCommand
         {
-            ConnectionId = trigger, Correlation = new() { ConnectionId = trigger },
+            ConnectionId = trigger,
+            Correlation = new() { ConnectionId = trigger },
             RecipientTarget = new() { ConnectionId = recipient, ConnectionGeneration = 3, SlotId = 4, PlayerGuid = "recipient" },
-            DeliveryIdentity = delivery, LogicalEffectId = delivery.ToLogicalEffectId()
+            DeliveryIdentity = delivery,
+            LogicalEffectId = delivery.ToLogicalEffectId()
         };
         var serialized = new[]
         {

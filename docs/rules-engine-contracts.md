@@ -236,10 +236,15 @@ Additional `IRuleExecutionsApi` methods:
   `available=false` or `partial=true` is not an empty audience. Power/admin enablement is irrelevant.
 
 Executions expose frozen `preparedActions` and optional durable `coordination`
-`{ dueAtUtc, expiresAtUtc, predecessorExecutionIds, waitingReason }`. Due/expiry are derived from
-the original connection time and cannot be changed by a retry or progress update; `Waiting` is a
-persisted state. Events admits the relevant protection evaluations before starting welcome and
-persists their IDs. Trigger-addressed welcome claims wait for due time and terminal predecessors,
+`{ dueAtUtc, expiresAtUtc, predecessorExecutionIds, waitingReason }`. Once supplied, this scheduler
+envelope and its predecessors cannot be reset by a retry or progress update; it may be initialized
+after selection when unavailable at Start. `Waiting` is a persisted state. Each prepared welcome
+plan separately exposes `ruleCoordination`, derived from the frozen effective feature/rule timing
+and original connection time. This permits continuing rules with different overrides without
+changing another rule's window. Trigger-addressed preparation/claims require execution coordination,
+but use the selected rule's due/expiry rather than an execution-default window. Events admits the
+relevant protection evaluations before starting welcome and persists their IDs.
+Trigger-addressed welcome claims wait for due time and terminal predecessors,
 and are blocked by claimed/dispatched/applied/uncertain enforcement. Independently addressed
 tagged alerts do not wait behind those trigger prerequisites.
 

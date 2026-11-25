@@ -452,7 +452,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                 }
                 return await ClaimResultAsync(existing, execution, shouldDispatch: false, cancellationToken).ConfigureAwait(false);
             }
-            if (!await DeliveryPrerequisitesSatisfiedAsync(execution, request.Command, cancellationToken).ConfigureAwait(false))
+            if (!await DeliveryPrerequisitesSatisfiedAsync(execution, request.Command, request.RuleIndex, cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
             }
@@ -1228,7 +1228,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
         !string.IsNullOrWhiteSpace(request.RuleSetRevision) && request.RuleSetRevision.Length <= 128 &&
         ValidJsonObject(request.FrozenRulesJson) && ValidCoordination(request.Coordination, request.Trigger) &&
         (request.FeatureId != RulesEngineCatalogueV1.WelcomeMessagesFeature ||
-            request.Trigger.TriggerId == RulesEngineCatalogueV1.PlayerConnectedTrigger && request.Coordination is not null);
+            request.Trigger.TriggerId == RulesEngineCatalogueV1.PlayerConnectedTrigger);
 
     private static bool SameConnectionIdentity(RuleTriggerEnvelope original, RuleTriggerEnvelope incoming) =>
         original.GameServerId == incoming.GameServerId &&

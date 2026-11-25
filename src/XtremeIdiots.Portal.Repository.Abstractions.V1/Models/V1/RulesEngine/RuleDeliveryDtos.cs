@@ -54,6 +54,7 @@ public sealed record RulePreparedActionDto
     public RuleActionCommand[] Commands { get; init; } = [];
     public DateTimeOffset PreparedAtUtc { get; init; }
     public RuleTaggedAudienceDto? AudienceSnapshot { get; init; }
+    public RuleExecutionCoordination? RuleCoordination { get; init; }
     public RuleActionExecutionOutcome Outcome { get; init; }
     public string? Detail { get; init; }
     public int CompletedFragmentCount { get; init; }

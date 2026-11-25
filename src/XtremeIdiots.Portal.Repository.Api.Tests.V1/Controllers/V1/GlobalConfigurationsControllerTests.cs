@@ -13,9 +13,9 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public class GlobalConfigurationsControllerTests
 {
     [Theory]
-    [InlineData("""{"schemaVersion":1,"enabled":false,"rules":[]}""", false)]
-    [InlineData("""{"schemaVersion":1,"featureId":"welcome-messages","enabled":false,"rules":[]}""", true)]
-    [InlineData("""{"schemaVersion":1,"featureId":"welcome-messages","enabled":false,"defaults":{"countryFallback":"Unknown"},"rules":[]}""", false)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"enabled":false,"rules":[]}""", false)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"welcome-messages","enabled":false,"rules":[]}""", true)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"welcome-messages","enabled":false,"defaults":{"countryFallback":"Unknown"},"rules":[]}""", false)]
     public async Task UpsertConfiguration_WelcomeRulesDoesNotReinterpretLegacyDocuments(string json, bool valid)
     {
         using var context = DbContextHelper.CreateInMemoryContext();

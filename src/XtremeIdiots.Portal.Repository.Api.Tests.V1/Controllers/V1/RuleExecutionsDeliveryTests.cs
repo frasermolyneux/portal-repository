@@ -5,6 +5,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
+using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
@@ -12,20 +13,100 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 public sealed partial class RuleExecutionsControllerTests
 {
     [Fact]
+    public async Task PreparedWelcomeUsesFrozenRuleWindowRatherThanExecutionDefaultWindow()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var start = StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: /*lang=json,strict*/ """{"message":"hello"}""");
+        start = start with
+        {
+            FeatureId = "welcome-messages",
+            FrozenRulesJson = /*lang=json,strict*/ """
+                {"timing":{"connectionDelaySeconds":5,"freshnessSeconds":120},"rules":[
+                {"id":"rule-1","timing":{"connectionDelaySeconds":0,"freshnessSeconds":180},"actions":[
+                {"id":"kick-player","typeId":"message.private","parameters":{"message":"hello"}}]}]}
+                """,
+            Coordination = new()
+            {
+                DueAtUtc = start.Trigger.OccurredAtUtc.AddSeconds(5),
+                ExpiresAtUtc = start.Trigger.OccurredAtUtc.AddSeconds(120)
+            }
+        };
+        var execution = (await api.StartExecution(serverId, start)).Result!.Data!;
+        var command = DeliveryCommand(serverId, execution, 0, "hello") with
+        {
+            ExpiresAtUtc = start.Trigger.OccurredAtUtc.AddSeconds(170)
+        };
+        var prepared = await api.PrepareAction(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"hello"}""",
+            Commands = [command]
+        });
+        Assert.Equal(HttpStatusCode.Created, prepared.StatusCode);
+        Assert.Equal(start.Trigger.OccurredAtUtc, prepared.Result!.Data!.RuleCoordination!.DueAtUtc);
+        Assert.Equal(start.Trigger.OccurredAtUtc.AddSeconds(180), prepared.Result.Data.RuleCoordination.ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task TaggedAudienceMatchesAnyOrAllTagsOnceWithinSameServer()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var runtime = StartRequest(serverId, Guid.NewGuid()).Trigger.Runtime!;
+        var firstTag = Guid.NewGuid();
+        var secondTag = Guid.NewGuid();
+        var firstPlayer = new Player { PlayerId = Guid.NewGuid(), Guid = "FIRST", GameType = (int)GameType.CallOfDuty4 };
+        var secondPlayer = new Player { PlayerId = Guid.NewGuid(), Guid = "SECOND", GameType = (int)GameType.CallOfDuty4 };
+        context.Players.AddRange(firstPlayer, secondPlayer);
+        context.PlayerTags.AddRange(
+            new() { PlayerTagId = Guid.NewGuid(), PlayerId = firstPlayer.PlayerId, TagId = firstTag },
+            new() { PlayerTagId = Guid.NewGuid(), PlayerId = firstPlayer.PlayerId, TagId = secondTag },
+            new() { PlayerTagId = Guid.NewGuid(), PlayerId = secondPlayer.PlayerId, TagId = secondTag });
+        await context.SaveChangesAsync();
+        var bindings = (IRuleConnectionBindingsApi)new RuleConnectionBindingsController(context);
+        var observed = await bindings.ObserveSnapshot(serverId, new()
+        {
+            GameServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            SnapshotId = Guid.NewGuid(),
+            SequenceId = 1,
+            ObservedAtUtc = DateTimeOffset.UtcNow,
+            Runtime = runtime,
+            Players =
+            [
+                new() { PlayerGuid = "FIRST", SlotId = 0, ConnectionId = Guid.NewGuid(), State = RuleConnectionState.Connected },
+                new() { PlayerGuid = "SECOND", SlotId = 1, ConnectionId = Guid.NewGuid(), State = RuleConnectionState.Connected }
+            ]
+        });
+        Assert.Equal(HttpStatusCode.OK, observed.StatusCode);
+        var request = new RuleTaggedAudienceRequestDto { TagIds = [firstTag, secondTag] };
+        var any = (await api.GetTaggedAudience(serverId, request)).Result!.Data!;
+        Assert.True(any.Available);
+        Assert.False(any.Partial);
+        Assert.Equal(2, any.Recipients.Length);
+        var all = (await api.GetTaggedAudience(serverId, request with { Match = RuleRecipientTagMatch.All })).Result!.Data!;
+        Assert.Equal("FIRST", Assert.Single(all.Recipients).PlayerGuid);
+        Assert.All(any.Recipients, item => Assert.Equal(serverId, item.GameServerId));
+    }
+
+    [Fact]
     public async Task PreparedFragmentsFreezeWinnerResumeIndependentlyAndEnforceOrder()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
         var serverId = await AddServer(context);
         var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
         var execution = (await api.StartExecution(serverId,
-            StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: """{"messages":["first","second"]}""")))
+            StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: /*lang=json,strict*/ """{"messages":["first","second"]}""")))
             .Result!.Data!;
         var first = DeliveryCommand(serverId, execution, 0, "first");
         var second = DeliveryCommand(serverId, execution, 1, "second");
         var prepare = new PrepareRuleActionDto
         {
             ExpectedVersion = execution.Version,
-            ResolvedParametersJson = """{"messages":["first","second"]}""",
+            ResolvedParametersJson = /*lang=json,strict*/ """{"messages":["first","second"]}""",
             Commands = [first, second]
         };
         var prepared = await api.PrepareAction(serverId, execution.ExecutionId, prepare);
@@ -64,13 +145,13 @@ public sealed partial class RuleExecutionsControllerTests
         var serverId = await AddServer(context);
         var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
         var execution = (await api.StartExecution(serverId,
-            StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: """{"message":"literal"}""")))
+            StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: /*lang=json,strict*/ """{"message":"literal"}""")))
             .Result!.Data!;
         var command = DeliveryCommand(serverId, execution, 0, "literal");
         var invalid = await api.PrepareAction(serverId, execution.ExecutionId, new()
         {
             ExpectedVersion = execution.Version,
-            ResolvedParametersJson = """{"message":"changed"}""",
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"changed"}""",
             Commands = [command]
         });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
@@ -100,11 +181,11 @@ public sealed partial class RuleExecutionsControllerTests
         var serverId = await AddServer(context);
         var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
         var execution = (await api.StartExecution(serverId, StartRequest(serverId, Guid.NewGuid(),
-            actionTypeId: "message.private-tagged", parametersJson: """{"message":"alert"}"""))).Result!.Data!;
+            actionTypeId: "message.private-tagged", parametersJson: /*lang=json,strict*/ """{"message":"alert"}"""))).Result!.Data!;
         var request = new PrepareRuleActionDto
         {
             ExpectedVersion = execution.Version,
-            ResolvedParametersJson = """{"message":"alert"}""",
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"alert"}""",
             AudienceSnapshot = new() { GameServerId = serverId, Available = true, Partial = true }
         };
         Assert.Equal(HttpStatusCode.BadRequest, (await api.PrepareAction(serverId, execution.ExecutionId, request)).StatusCode);
@@ -133,7 +214,7 @@ public sealed partial class RuleExecutionsControllerTests
         var welcomeStart = start with
         {
             FeatureId = "welcome-messages",
-            FrozenRulesJson = """{"rules":[{"id":"rule-1","actions":[{"id":"kick-player","typeId":"message.private","parameters":{"message":"hello"}}]}]}""",
+            FrozenRulesJson = /*lang=json,strict*/ """{"rules":[{"id":"rule-1","actions":[{"id":"kick-player","typeId":"message.private","parameters":{"message":"hello"}}]}]}""",
             Coordination = new()
             {
                 DueAtUtc = start.Trigger.OccurredAtUtc,
@@ -163,12 +244,12 @@ public sealed partial class RuleExecutionsControllerTests
         var start = StartRequest(serverId, Guid.NewGuid(), actionTypeId: "moderation.observation");
         start = start with
         {
-            FrozenRulesJson = """{"rules":[{"id":"rule-1","actions":[{"id":"kick-player","typeId":"moderation.observation","parameters":{"reason":"Hello {context.player.Name}"},"templateParameters":["reason"]}]}]}"""
+            FrozenRulesJson = /*lang=json,strict*/ """{"rules":[{"id":"rule-1","actions":[{"id":"kick-player","typeId":"moderation.observation","parameters":{"reason":"Hello {context.player.Name}"},"templateParameters":["reason"]}]}]}"""
         };
         var execution = (await api.StartExecution(serverId, start)).Result!.Data!;
         var request = ClaimRequest(serverId, execution, new string('f', 64), RuleNativeEffectType.Unknown);
         Assert.Equal(HttpStatusCode.BadRequest, (await api.ClaimAction(serverId, execution.ExecutionId, request)).StatusCode);
-        request = request with { ResolvedParametersJson = """{"reason":"Hello Player"}""" };
+        request = request with { ResolvedParametersJson = /*lang=json,strict*/ """{"reason":"Hello Player"}""" };
         var claim = await api.ClaimAction(serverId, execution.ExecutionId, request);
         Assert.Equal(HttpStatusCode.Created, claim.StatusCode);
         Assert.Equal(request.ResolvedParametersJson, claim.Result!.Data!.Action.ParametersJson);

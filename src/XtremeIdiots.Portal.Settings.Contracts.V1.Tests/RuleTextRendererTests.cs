@@ -111,17 +111,29 @@ public sealed class RuleTextRendererTests
         {
             Player = new()
             {
-                Name = "P", Guid = "G", SteamId = "S", IpAddress = "I", Tags = [], FirstSeenUtc = DateTimeOffset.UnixEpoch,
-                ProfileAgeDays = 0, Geo = new() { CountryName = "C", CountryCode = "CC", CityName = "City" },
+                Name = "P",
+                Guid = "G",
+                SteamId = "S",
+                IpAddress = "I",
+                Tags = [],
+                FirstSeenUtc = DateTimeOffset.UnixEpoch,
+                ProfileAgeDays = 0,
+                Geo = new() { CountryName = "C", CountryCode = "CC", CityName = "City" },
                 Network = new()
                 {
-                    ProxyCheckRiskScore = 0, ProxyCheckIsVpn = false, ProxyCheckIsProxy = false,
-                    ProxyCheckAsNumber = "AS1", ProxyCheckAsOrganization = "Org", MaxMindIsAnonymousVpn = false,
+                    ProxyCheckRiskScore = 0,
+                    ProxyCheckIsVpn = false,
+                    ProxyCheckIsProxy = false,
+                    ProxyCheckAsNumber = "AS1",
+                    ProxyCheckAsOrganization = "Org",
+                    MaxMindIsAnonymousVpn = false,
                     MaxMindProviderName = "Provider"
                 }
             },
             Server = new() { Name = "Server", GameType = "CoD4", CurrentMap = "map", CurrentPlayerCount = 0, MaxPlayerCount = 0 },
-            TriggerOccurredAtUtc = DateTimeOffset.UnixEpoch, FeatureId = "feature", RuleId = "rule"
+            TriggerOccurredAtUtc = DateTimeOffset.UnixEpoch,
+            FeatureId = "feature",
+            RuleId = "rule"
         };
         foreach (var token in RuleTextTokens.Definitions)
         {

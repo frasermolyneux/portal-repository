@@ -90,6 +90,13 @@ public sealed partial class RuleExecutionsController
             {
                 return new ApiResult<RulePreparedActionDto>(HttpStatusCode.BadRequest);
             }
+            foreach (var command in request.Commands)
+            {
+                if (!await DeliveryPrerequisitesSatisfiedAsync(execution, command, request.RuleIndex, cancellationToken).ConfigureAwait(false))
+                {
+                    return new ApiResult<RulePreparedActionDto>(HttpStatusCode.Conflict);
+                }
+            }
             var plan = new RulePreparedActionDto
             {
                 ExecutionId = executionId,
@@ -99,6 +106,8 @@ public sealed partial class RuleExecutionsController
                 ResolvedParametersJson = request.ResolvedParametersJson,
                 Commands = request.Commands,
                 AudienceSnapshot = request.AudienceSnapshot,
+                RuleCoordination = execution.FeatureId == RulesEngineCatalogueV1.WelcomeMessagesFeature
+                    ? GetRuleCoordination(execution, request.RuleIndex) : null,
                 PreparedAtUtc = DateTimeOffset.UtcNow
             };
             context.RulePreparedActions.Add(new RulePreparedAction
@@ -218,8 +227,10 @@ public sealed partial class RuleExecutionsController
                 !positions.Add((identity.RecipientConnectionId, identity.MessageIndex, identity.FragmentIndex)) ||
                 command.ActionId != definition.Id || !CorrelationMatchesExecution(command.Correlation, execution, trigger) ||
                 command.ExpiresAtUtc <= DateTimeOffset.UtcNow ||
-                command.ExpiresAtUtc > (execution.CoordinationJson is { } coordinationJson
-                    ? Deserialize<RuleExecutionCoordination>(coordinationJson).ExpiresAtUtc : trigger.OccurredAtUtc.AddSeconds(120)) ||
+                command.ExpiresAtUtc > (execution.FeatureId == RulesEngineCatalogueV1.WelcomeMessagesFeature
+                    ? GetRuleCoordination(execution, request.RuleIndex)?.ExpiresAtUtc ?? DateTimeOffset.MinValue
+                    : execution.CoordinationJson is { } coordinationJson
+                        ? Deserialize<RuleExecutionCoordination>(coordinationJson).ExpiresAtUtc : trigger.OccurredAtUtc.AddSeconds(120)) ||
                 !CommandMatchesTrigger(command, trigger) || !NativeEffectMatchesAction(definition.TypeId, command.Effect.Type) ||
                 !ValidClaimRequest(execution.GameServerId, execution.ExecutionId, new()
                 {
@@ -375,15 +386,21 @@ public sealed partial class RuleExecutionsController
         coordination.WaitingReason is not { Length: > 1024 };
 
     private async Task<bool> DeliveryPrerequisitesSatisfiedAsync(
-        RuleFeatureExecution execution, RuleActionCommand command, CancellationToken cancellationToken)
+        RuleFeatureExecution execution, RuleActionCommand command, int ruleIndex, CancellationToken cancellationToken)
     {
-        if (execution.CoordinationJson is not { } json || command.RecipientTarget is not null ||
+        if (command.RecipientTarget is not null ||
             command.Effect.Type is not (RuleNativeEffectType.PublicMessage or RuleNativeEffectType.PrivateMessage))
         {
             return true;
         }
-        var coordination = Deserialize<RuleExecutionCoordination>(json);
-        if (DateTimeOffset.UtcNow < coordination.DueAtUtc || DateTimeOffset.UtcNow >= coordination.ExpiresAtUtc)
+        if (execution.CoordinationJson is not { } json)
+        {
+            return execution.FeatureId != RulesEngineCatalogueV1.WelcomeMessagesFeature;
+        }
+        var coordination = execution.FeatureId == RulesEngineCatalogueV1.WelcomeMessagesFeature
+            ? GetRuleCoordination(execution, ruleIndex)
+            : Deserialize<RuleExecutionCoordination>(json);
+        if (coordination is null || DateTimeOffset.UtcNow < coordination.DueAtUtc || DateTimeOffset.UtcNow >= coordination.ExpiresAtUtc)
         {
             return false;
         }
@@ -408,5 +425,36 @@ public sealed partial class RuleExecutionsController
             (item.ActionTypeId == "player.kick" || item.ActionTypeId == "moderation.kick-with-record" ||
                 item.ActionTypeId == "moderation.temporary-ban" || item.ActionTypeId == "moderation.ban"),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private static RuleExecutionCoordination? GetRuleCoordination(RuleFeatureExecution execution, int ruleIndex)
+    {
+        using var frozen = JsonDocument.Parse(execution.FrozenRulesJson);
+        try
+        {
+            var timing = frozen.RootElement.TryGetProperty("timing", out var featureTiming) && featureTiming.ValueKind != JsonValueKind.Null
+                ? Deserialize<RuleTimingSettings>(featureTiming.GetRawText()) : new RuleTimingSettings();
+            var rules = frozen.RootElement.GetProperty("rules");
+            if (rules[ruleIndex].TryGetProperty("timing", out var ruleTiming) && ruleTiming.ValueKind != JsonValueKind.Null)
+            {
+                timing = timing.Apply(Deserialize<RuleTimingOverrides>(ruleTiming.GetRawText()));
+            }
+            if (!timing.IsValid)
+            {
+                return null;
+            }
+            var trigger = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson);
+            return new()
+            {
+                DueAtUtc = trigger.OccurredAtUtc.AddSeconds(timing.ConnectionDelaySeconds),
+                ExpiresAtUtc = trigger.OccurredAtUtc.AddSeconds(timing.FreshnessSeconds),
+                PredecessorExecutionIds = execution.CoordinationJson is { } json
+                    ? Deserialize<RuleExecutionCoordination>(json).PredecessorExecutionIds : []
+            };
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }
