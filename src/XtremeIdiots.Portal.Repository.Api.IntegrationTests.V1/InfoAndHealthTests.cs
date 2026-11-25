@@ -47,6 +47,8 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
         Assert.True(response.StatusCode == HttpStatusCode.OK, content);
 
         var document = JObject.Parse(content);
+        Assert.All(((JObject)document["components"]!["schemas"]!).Properties(),
+            schema => Assert.Matches("^[a-zA-Z0-9._-]+$", schema.Name));
         var archive = document["paths"]!["/user-profile/{userProfileId}/archive"]!["post"];
         Assert.NotNull(archive);
         Assert.NotNull(document["paths"]!["/user-profile/{userProfileId}/including-archived"]!["get"]);

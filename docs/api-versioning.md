@@ -40,6 +40,10 @@ Two document transformers modify each spec:
 
 Scalar provides interactive API docs at `/scalar` on both hosts.
 
+Schema reference IDs preserve the framework's default names, replacing array suffixes `[]`
+with `Array`. This keeps generic array envelopes importable by APIM, whose component keys
+cannot contain brackets. Current-host HTTP tests check the runtime documents' schema names.
+
 ## Count-free history and resumable retention
 
 V1 `game-server-events/history` and `chat-messages/history` return
