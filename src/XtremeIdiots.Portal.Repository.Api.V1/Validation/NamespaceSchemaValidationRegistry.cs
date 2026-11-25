@@ -57,6 +57,8 @@ internal static class NamespaceSchemaValidationRegistry
                 new ChatCommandSettingsValidator().Validate(Deserialize<ChatCommandSettingsDocument>(configuration)),
             [WelcomeMessageSettingsConstants.Namespace] = configuration =>
                 new WelcomeMessageSettingsValidator().Validate(Deserialize<WelcomeMessageSettingsDocument>(configuration)),
+            [WelcomeRulesSettingsConstants.Namespace] = configuration =>
+                new WelcomeRulesSettingsValidator().Validate(Deserialize<WelcomeRulesSettingsDocument>(configuration)),
             [VpnProtectionSettingsConstants.Namespace] = configuration =>
                 new VpnProtectionSettingsValidator().Validate(Deserialize<VpnProtectionSettingsDocument>(configuration)),
             [SiegeModeSettingsConstants.Namespace] = configuration =>
@@ -75,6 +77,13 @@ internal static class NamespaceSchemaValidationRegistry
 
         try
         {
+            if (string.Equals(normalizedNamespace, WelcomeRulesSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
+            {
+                var welcomeValidator = new WelcomeRulesSettingsValidator();
+                return serverOverride
+                    ? welcomeValidator.ValidateServerOverride(Deserialize<WelcomeRulesServerSettingsDocument>(configuration)).IsValid
+                    : welcomeValidator.Validate(Deserialize<WelcomeRulesSettingsDocument>(configuration)).IsValid;
+            }
             if (string.Equals(normalizedNamespace, VpnProtectionSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
             {
                 var vpnValidator = new VpnProtectionSettingsValidator();

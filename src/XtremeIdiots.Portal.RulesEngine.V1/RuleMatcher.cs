@@ -87,7 +87,10 @@ public static class RuleMatcher
         {
             return ConditionEvaluation.Unknown("Condition leaf is malformed.");
         }
-        return evaluateLeaf(condition);
+        return condition.ConditionId == RulesEngineCatalogueV1.AlwaysCondition
+            ? condition.Parameters is { Count: 0 } ? ConditionEvaluation.True
+                : ConditionEvaluation.Unknown("Always does not accept parameters.")
+            : evaluateLeaf(condition);
     }
 
     public static RuleMatchPlan Plan(

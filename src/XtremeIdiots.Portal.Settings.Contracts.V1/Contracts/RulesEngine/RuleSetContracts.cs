@@ -37,6 +37,7 @@ public class FeatureRuleSetDocument
     public int SchemaVersion { get; set; } = RuleSetConstants.SchemaVersion;
     public string FeatureId { get; set; } = string.Empty;
     public bool? Enabled { get; set; }
+    public RuleTimingSettings? Timing { get; set; }
     public List<RuleDefinition> Rules { get; set; } = [];
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
@@ -48,6 +49,7 @@ public class FeatureRuleSetOverrideDocument
     public string FeatureId { get; set; } = string.Empty;
     public FeatureEnablementOverride EnabledOverride { get; set; }
     public bool InheritGlobalRules { get; set; } = true;
+    public RuleTimingOverrides? Timing { get; set; }
     public List<RuleDefinition> Rules { get; set; } = [];
     public List<RuleDefinitionOverride> RuleOverrides { get; set; } = [];
     [JsonExtensionData]
@@ -59,6 +61,7 @@ public sealed class RuleDefinition
     public string Id { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
     public int Order { get; set; }
+    public RuleTimingOverrides? Timing { get; set; }
     public RuleConditionNode? Condition { get; set; }
     public List<RuleActionDefinition> Actions { get; set; } = [];
     public RuleAfterMatch AfterMatch { get; set; } = RuleAfterMatch.StopProcessingRules;
@@ -70,6 +73,7 @@ public sealed class RuleDefinitionOverride
 {
     public string RuleId { get; set; } = string.Empty;
     public bool? Enabled { get; set; }
+    public RuleTimingOverrides? Timing { get; set; }
     public RuleConditionNode? Condition { get; set; }
     public List<RuleActionDefinition>? Actions { get; set; }
     public RuleAfterMatch? AfterMatch { get; set; }
@@ -93,6 +97,7 @@ public sealed class RuleActionDefinition
     public string TypeId { get; set; } = string.Empty;
     public Dictionary<string, JsonElement> Parameters { get; set; } = [];
     public List<string> DependsOnActionIds { get; set; } = [];
+    public List<string> TemplateParameters { get; set; } = [];
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
@@ -182,6 +187,7 @@ public sealed class RuleSetValidator
         }
 
         ValidateCommon(document.SchemaVersion, document.FeatureId, options.FeatureId, result);
+        ValidateTiming(document.Timing ?? new(), "timing", result);
         if (document.Enabled is null)
         {
             result.Errors.Add("enabled is required.");
@@ -203,6 +209,7 @@ public sealed class RuleSetValidator
         }
 
         ValidateCommon(document.SchemaVersion, document.FeatureId, options.FeatureId, result);
+        ValidateTimingOverrides(document.Timing, "timing", result);
         if (document.ExtensionData?.Keys.Any(key =>
                 string.Equals(key, "enabled", StringComparison.OrdinalIgnoreCase)) == true)
         {
@@ -244,6 +251,7 @@ public sealed class RuleSetValidator
             {
                 ValidateCondition(item.Condition, $"ruleOverrides['{item.RuleId}'].condition", 1, new Count(), options, result);
             }
+            ValidateTimingOverrides(item.Timing, $"ruleOverrides['{item.RuleId}'].timing", result);
         }
         return result;
     }
@@ -294,6 +302,7 @@ public sealed class RuleSetValidator
             {
                 result.Errors.Add($"{rulePath}.afterMatch must be specified.");
             }
+            ValidateTimingOverrides(rule.Timing, rulePath + ".timing", result);
             ValidateCondition(rule.Condition, rulePath + ".condition", 1, new Count(), options, result);
             ValidateActions(rule.Actions, rulePath + ".actions", options, result);
         }
@@ -567,13 +576,14 @@ public sealed class RuleSetValidator
             }
             else if (options.ActionDefinitions.TryGetValue(action.TypeId, out var definition))
             {
-                ValidateParameters(action.Parameters, definition.Parameters, actionPath + ".parameters", result);
+                ValidateActionParameters(action, definition, actionPath, result);
             }
             if (action.DependsOnActionIds is null || action.DependsOnActionIds.Any(id => !ValidId(id)))
             {
                 result.Errors.Add($"{actionPath}.dependsOnActionIds contains an invalid identifier.");
                 continue;
             }
+
             foreach (var dependency in action.DependsOnActionIds)
             {
                 if (!actionPositions.TryGetValue(dependency, out var dependencyIndex) || dependencyIndex >= index)
@@ -584,6 +594,81 @@ public sealed class RuleSetValidator
         }
     }
 
+    private static void ValidateTiming(RuleTimingSettings timing, string path, SettingsValidationResult result)
+            {
+                if (!timing.IsValid)
+                {
+                    result.Errors.Add($"{path} requires a delay from 0 to 60 seconds and a freshness window greater than the delay and at most 900 seconds.");
+                }
+            }
+
+            private static void ValidateTimingOverrides(RuleTimingOverrides? timing, string path, SettingsValidationResult result)
+            {
+                if (timing is null)
+                {
+                    return;
+                }
+                if (timing.ConnectionDelaySeconds is < 0 or > 60 || timing.FreshnessSeconds is <= 0 or > 900 ||
+                    timing.ConnectionDelaySeconds is { } delay && timing.FreshnessSeconds is { } freshness && delay >= freshness)
+                {
+                    result.Errors.Add($"{path} contains an invalid delay or freshness override.");
+                }
+            }
+
+            private static void ValidateActionParameters(
+                RuleActionDefinition action, ActionTypeDefinition definition, string path, SettingsValidationResult result)
+            {
+                if (action.TemplateParameters is null ||
+                    action.TemplateParameters.Distinct(StringComparer.Ordinal).Count() != action.TemplateParameters.Count ||
+                    action.TemplateParameters.Any(name => !definition.Parameters.Any(parameter =>
+                        parameter.Name == name && parameter.SupportsTemplates) || !action.Parameters.ContainsKey(name)))
+                {
+                    result.Errors.Add($"{path}.templateParameters must name unique, present, template-capable text parameters.");
+                    return;
+                }
+                var schema = definition.Parameters.Select(parameter =>
+                    action.TemplateParameters.Contains(parameter.Name, StringComparer.Ordinal)
+                        ? parameter with { MaxLength = 16384, MaxUtf8Bytes = null }
+                        : parameter).ToArray();
+                ValidateParameters(action.Parameters, schema, path + ".parameters", result);
+                foreach (var name in action.TemplateParameters)
+                {
+                    var value = action.Parameters[name];
+                    var items = value.ValueKind == JsonValueKind.Array
+                        ? value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)
+                        : value.ValueKind == JsonValueKind.String ? [value.GetString()!] : Array.Empty<string>();
+                    foreach (var text in items)
+                    {
+                        foreach (var error in RuleTextRenderer.Validate(text))
+                        {
+                            result.Errors.Add($"{path}.parameters.{name}: {error}");
+                        }
+                    }
+                }
+                if (definition.EffectClass == "communication")
+                {
+                    var hasSingle = action.Parameters.TryGetValue("message", out var message) &&
+                        message.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(message.GetString());
+                    var hasList = action.Parameters.TryGetValue("messages", out var messages) &&
+                        messages.ValueKind == JsonValueKind.Array && messages.GetArrayLength() > 0;
+                    if (!hasSingle && !hasList)
+                    {
+                        result.Errors.Add($"{path}.parameters requires message or a nonempty messages list.");
+                    }
+                    if (messages.ValueKind == JsonValueKind.Array && (messages.GetArrayLength() > 100 ||
+                        messages.EnumerateArray().Any(item => item.ValueKind != JsonValueKind.String ||
+                            string.IsNullOrWhiteSpace(item.GetString()))))
+                    {
+                        result.Errors.Add($"{path}.parameters.messages must contain 1 to 100 nonempty strings.");
+                    }
+                }
+                if (action.TypeId == RulesEngineCatalogueV1.PrivateTaggedMessageAction)
+                {
+                    ValidateConditionSemantics("player.tags",
+                        new Dictionary<string, JsonElement> { ["tags"] = action.Parameters.GetValueOrDefault("recipientTags") },
+                        string.Empty, path + ".parameters.recipientTags", result);
+                }
+            }
     private static void ValidateParameters(
         IReadOnlyDictionary<string, JsonElement> parameters,
         IReadOnlyList<RuleParameterDefinition> schema,
@@ -624,7 +709,9 @@ public sealed class RuleSetValidator
             "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
             "string[]" => value.ValueKind == JsonValueKind.Array &&
                 value.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String &&
-                    (schema.MaxLength is null || item.GetString()!.Length <= schema.MaxLength)),
+                    (schema.MaxLength is null || item.GetString()!.Length <= schema.MaxLength) &&
+                    (schema.MaxUtf8Bytes is null || Encoding.UTF8.GetByteCount(item.GetString()!) <= schema.MaxUtf8Bytes) &&
+                    (!schema.RejectControlCharacters || !item.GetString()!.Any(static character => character < ' ' || character == '\u007f'))),
             "date-time" => value.ValueKind == JsonValueKind.String &&
                 DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out _),
             "duration" => value.ValueKind == JsonValueKind.String && TimeSpan.TryParse(value.GetString(), CultureInfo.InvariantCulture, out _),
@@ -643,7 +730,10 @@ public sealed class RuleSetValidator
     }
 }
 
-public sealed record EffectiveFeatureRuleSet(string FeatureId, bool Enabled, IReadOnlyList<RuleDefinition> Rules);
+public sealed record EffectiveFeatureRuleSet(string FeatureId, bool Enabled, IReadOnlyList<RuleDefinition> Rules)
+{
+    public RuleTimingSettings Timing { get; init; } = new();
+}
 
 public static class FeatureRuleSetMerger
 {
@@ -668,7 +758,12 @@ public static class FeatureRuleSetMerger
             ? MergeInheritedRules(global.Rules, serverOverride)
             : serverOverride.Rules.ToArray();
         var rules = orderedRules.Select((rule, index) => WithOrder(rule, index)).ToArray();
-        return new EffectiveFeatureRuleSet(global.FeatureId, enabled, rules);
+        var timing = (global.Timing ?? new()).Apply(serverOverride?.Timing);
+        if (!timing.IsValid || rules.Any(rule => !timing.Apply(rule.Timing).IsValid))
+        {
+            throw new ArgumentException("The merged timing must leave a delivery window.", nameof(serverOverride));
+        }
+        return new EffectiveFeatureRuleSet(global.FeatureId, enabled, rules) { Timing = timing };
     }
 
     private static IReadOnlyList<RuleDefinition> MergeInheritedRules(
@@ -695,6 +790,11 @@ public static class FeatureRuleSetMerger
         Condition = item.Condition ?? rule.Condition,
         Actions = item.Actions ?? rule.Actions,
         AfterMatch = item.AfterMatch ?? rule.AfterMatch,
+        Timing = item.Timing is null ? rule.Timing : new RuleTimingOverrides
+        {
+            ConnectionDelaySeconds = item.Timing.ConnectionDelaySeconds ?? rule.Timing?.ConnectionDelaySeconds,
+            FreshnessSeconds = item.Timing.FreshnessSeconds ?? rule.Timing?.FreshnessSeconds
+        },
         ExtensionData = rule.ExtensionData
     };
 
@@ -706,6 +806,7 @@ public static class FeatureRuleSetMerger
         Condition = rule.Condition,
         Actions = rule.Actions,
         AfterMatch = rule.AfterMatch,
+        Timing = rule.Timing,
         ExtensionData = rule.ExtensionData
     };
 }

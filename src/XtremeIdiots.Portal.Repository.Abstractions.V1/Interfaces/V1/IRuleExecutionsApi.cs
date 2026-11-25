@@ -6,6 +6,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IRuleExecutionsApi
 {
+    Task<ApiResult<RuleFeatureExecutionDto[]>> GetConnectionExecutions(Guid gameServerId, Guid connectionId, CancellationToken cancellationToken = default);
+    Task<ApiResult<RulePreparedActionDto>> PrepareAction(Guid gameServerId, Guid executionId, PrepareRuleActionDto request, CancellationToken cancellationToken = default);
+    Task<ApiResult<RuleTaggedAudienceDto>> GetTaggedAudience(Guid gameServerId, RuleTaggedAudienceRequestDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> SearchRuleActions(RuleActionAuditQueryDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<RuleFeatureExecutionDto>> StartExecution(Guid gameServerId, StartRuleFeatureExecutionDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<RuleFeatureExecutionDto>> GetExecution(Guid gameServerId, Guid executionId, CancellationToken cancellationToken = default);

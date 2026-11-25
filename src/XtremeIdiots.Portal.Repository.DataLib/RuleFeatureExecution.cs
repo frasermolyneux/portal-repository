@@ -50,6 +50,8 @@ public partial class RuleFeatureExecution
 
     public string? DecisionSnapshotJson { get; set; }
 
+    public string? CoordinationJson { get; set; }
+
     public long Version { get; set; }
 
     [Precision(3)]
@@ -64,6 +66,9 @@ public partial class RuleFeatureExecution
 
     [InverseProperty("Execution")]
     public virtual ICollection<RuleActionExecution> RuleActionExecutions { get; set; } = new List<RuleActionExecution>();
+
+    [InverseProperty("Execution")]
+    public virtual ICollection<RulePreparedAction> RulePreparedActions { get; set; } = new List<RulePreparedAction>();
 
     [ForeignKey("SiegeSessionId")]
     [InverseProperty("RuleFeatureExecutions")]

@@ -37,7 +37,8 @@ public enum RuleFeatureExecutionState
     Evaluating = 0,
     AwaitingActionOutcome,
     Completed,
-    Stopped
+    Stopped,
+    Waiting
 }
 
 [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -125,6 +126,8 @@ public sealed record RuleActionCommand
     public DateTimeOffset ExpiresAtUtc { get; init; }
     public RuleExecutionMode Mode { get; init; }
     public RuleNativeEffect Effect { get; init; } = new();
+    public RuleMessageRecipientTarget? RecipientTarget { get; init; }
+    public RuleDeliveryIdentity? DeliveryIdentity { get; init; }
 }
 
 public sealed record RuleActionResult
@@ -145,6 +148,7 @@ public sealed record RuleEvaluationResponse
     public int ProtocolVersion { get; init; } = 1;
     public RuleActionCommand[] Commands { get; init; } = [];
     public Guid[] ExecutionIds { get; init; } = [];
+    public RuleRuntimeDescriptor? Runtime { get; init; }
     public bool RetryTrigger { get; init; }
 }
 
@@ -157,6 +161,7 @@ public sealed record RulePollRequest
     public string PlayerGuid { get; init; } = string.Empty;
     public int SlotId { get; init; }
     public Guid[] ExecutionIds { get; init; } = [];
+    public RuleRuntimeDescriptor? Runtime { get; init; }
 }
 
 public sealed record RuleFeatureExecutionDto
@@ -174,6 +179,8 @@ public sealed record RuleFeatureExecutionDto
     public int RuleIndex { get; init; }
     public int ActionIndex { get; init; }
     public string? DecisionSnapshotJson { get; init; }
+    public RuleExecutionCoordination? Coordination { get; init; }
+    public RulePreparedActionDto[] PreparedActions { get; init; } = [];
     public RuleActionExecutionDto[] Actions { get; init; } = [];
     public long Version { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; }
@@ -188,6 +195,7 @@ public sealed record StartRuleFeatureExecutionDto
     public string RuleSetRevision { get; init; } = string.Empty;
     public string FrozenRulesJson { get; init; } = string.Empty;
     public Guid? FactSnapshotId { get; init; }
+    public RuleExecutionCoordination? Coordination { get; init; }
 }
 
 public sealed record UpdateRuleFeatureExecutionProgressDto
@@ -198,6 +206,7 @@ public sealed record UpdateRuleFeatureExecutionProgressDto
     public RuleFeatureExecutionState State { get; init; }
     public string? DecisionSnapshotJson { get; init; }
     public Guid? FactSnapshotId { get; init; }
+    public RuleExecutionCoordination? Coordination { get; init; }
 }
 
 public sealed record ClaimRuleActionDto
@@ -207,6 +216,7 @@ public sealed record ClaimRuleActionDto
     public int ActionIndex { get; init; }
     public string LogicalEffectId { get; init; } = string.Empty;
     public RuleActionCommand Command { get; init; } = new();
+    public string? ResolvedParametersJson { get; init; }
 }
 
 public sealed record EnsureRuleActionAdminActionDto

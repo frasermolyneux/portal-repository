@@ -73,6 +73,8 @@ public sealed record RuleParameterDefinition
     public string? AllowedCharacterSet { get; init; }
     public required string UiControl { get; init; }
     public string? Description { get; init; }
+    public bool SupportsTemplates { get; init; }
+    public bool SupportsMessageList { get; init; }
 }
 
 public sealed record FeatureDefinition
@@ -101,6 +103,12 @@ public static class RulesEngineCatalogueV1
     public const string RconPrivateChatCapability = "rcon.chat.private";
     public const string VpnProtectionFeature = "vpn-protection";
     public const string SiegeModeFeature = "siege-mode";
+    public const string WelcomeMessagesFeature = "welcome-messages";
+    public const string AlwaysCondition = "always";
+    public const string PrivateTaggedMessageAction = "message.private-tagged";
+    public const string Cod4xPrivateRecipientCapability = "cod4x.chat.private.recipient";
+    public const string RconPrivateRecipientCapability = "rcon.chat.private.recipient";
+    public const string Cod4xFragmentsCapability = "cod4x.chat.fragments";
     public static IReadOnlyList<int> SupportedGameTypes { get; } = Array.AsReadOnly([1, 2, 3, 24]);
 
     private static RulesEngineCatalogue CreateCatalogue() => new()
@@ -126,6 +134,7 @@ public static class RulesEngineCatalogueV1
         ],
         Conditions =
         [
+            new() { ConditionId = AlwaysCondition, DisplayName = "Always / Everyone", ValueType = "boolean", GameTypes = SupportedGameTypes },
             new() { ConditionId = "vpn.intelligence", DisplayName = "VPN intelligence", ValueType = "typed", GameTypes = SupportedGameTypes, Operators = ["Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual", "Contains"], Parameters = [new() { Name = "signal", Type = "string", Required = true, AllowedValues = Enum.GetNames<VpnProtectionSignal>().Where(static name => name != nameof(VpnProtectionSignal.Unknown)).ToArray(), UiControl = "select" }, new() { Name = "operator", Type = "string", Required = true, AllowedValues = ["Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual", "Contains"], UiControl = "select" }, new() { Name = "expectedValue", Type = "string", Required = true, MaxLength = 256, UiControl = "text" }] },
             new() { ConditionId = "player.tags", DisplayName = "Player tags", ValueType = "string-array", GameTypes = SupportedGameTypes, Operators = ["ContainsAny", "ContainsAll", "ContainsNone"], Parameters = [new() { Name = "tags", Type = "string[]", Required = true, MaxLength = 128, UiControl = "multi-select" }, new() { Name = "operator", Type = "string", Required = true, AllowedValues = ["ContainsAny", "ContainsAll", "ContainsNone"], UiControl = "select" }] },
             new() { ConditionId = "player.first-seen-guid", DisplayName = "GUID first seen", ValueType = "date-time", GameTypes = SupportedGameTypes, Operators = ["IsNew", "IsKnown", "Before", "After", "WithinAge"], Parameters = [new() { Name = "operator", Type = "string", Required = true, AllowedValues = ["IsNew", "IsKnown", "Before", "After", "WithinAge"], UiControl = "select" }, new() { Name = "value", Type = "date-time-or-duration", UiControl = "input" }, new() { Name = "referenceScope", Type = "string", Required = true, AllowedValues = ["ObservedHistory", "SiegeBaseline"], UiControl = "select" }] },
@@ -134,13 +143,14 @@ public static class RulesEngineCatalogueV1
         ],
         Actions =
         [
-            new() { ActionTypeId = "moderation.observation", DisplayName = "Observation", ExecutorId = "server-events", EffectClass = "record", GameTypes = SupportedGameTypes, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
-            new() { ActionTypeId = "player.kick", DisplayName = "Kick", ExecutorId = "game-runtime", EffectClass = "enforcement", GameTypes = SupportedGameTypes, ExecutionProviders = DropProviders, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 256, MaxUtf8Bytes = 256, RejectControlCharacters = true, UiControl = "text" }] },
-            new() { ActionTypeId = "moderation.kick-with-record", DisplayName = "Kick with record", ExecutorId = "server-events", EffectClass = "record+enforcement", GameTypes = SupportedGameTypes, ExecutionProviders = DropProviders, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, MaxUtf8Bytes = 256, RejectControlCharacters = true, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
-            new() { ActionTypeId = "moderation.temporary-ban", DisplayName = "Temporary ban", ExecutorId = "server-events", EffectClass = "record+enforcement", GameTypes = SupportedGameTypes, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "durationMinutes", Type = "integer", Required = true, Minimum = 1, Maximum = 525600, UiControl = "number" }, new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
-            new() { ActionTypeId = "moderation.ban", DisplayName = "Ban", ExecutorId = "server-events", EffectClass = "record+enforcement", GameTypes = SupportedGameTypes, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
-            new() { ActionTypeId = "message.public", DisplayName = "Public message", ExecutorId = "game-runtime", EffectClass = "communication", GameTypes = SupportedGameTypes, ExecutionProviders = PublicMessageProviders, Parameters = [new() { Name = "message", Type = "string", Required = true, MaxLength = 256, MaxUtf8Bytes = 256, RejectControlCharacters = true, UiControl = "text" }] },
-            new() { ActionTypeId = "message.private", DisplayName = "Private message", ExecutorId = "game-runtime", EffectClass = "communication", GameTypes = SupportedGameTypes, ExecutionProviders = PrivateMessageProviders, Parameters = [new() { Name = "message", Type = "string", Required = true, MaxLength = 256, MaxUtf8Bytes = 256, RejectControlCharacters = true, UiControl = "text" }] }
+            new() { ActionTypeId = "moderation.observation", DisplayName = "Observation", ExecutorId = "server-events", EffectClass = "record", GameTypes = SupportedGameTypes, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, SupportsTemplates = true, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
+            new() { ActionTypeId = "player.kick", DisplayName = "Kick", ExecutorId = "game-runtime", EffectClass = "enforcement", GameTypes = SupportedGameTypes, ExecutionProviders = DropProviders, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 256, MaxUtf8Bytes = 256, RejectControlCharacters = true, SupportsTemplates = true, UiControl = "text" }] },
+            new() { ActionTypeId = "moderation.kick-with-record", DisplayName = "Kick with record", ExecutorId = "server-events", EffectClass = "record+enforcement", GameTypes = SupportedGameTypes, ExecutionProviders = DropProviders, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, MaxUtf8Bytes = 256, RejectControlCharacters = true, SupportsTemplates = true, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
+            new() { ActionTypeId = "moderation.temporary-ban", DisplayName = "Temporary ban", ExecutorId = "server-events", EffectClass = "record+enforcement", GameTypes = SupportedGameTypes, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "durationMinutes", Type = "integer", Required = true, Minimum = 1, Maximum = 525600, UiControl = "number" }, new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, SupportsTemplates = true, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
+            new() { ActionTypeId = "moderation.ban", DisplayName = "Ban", ExecutorId = "server-events", EffectClass = "record+enforcement", GameTypes = SupportedGameTypes, ProducesModerationRecord = true, SupportsForumPublication = true, Parameters = [new() { Name = "reason", Type = "string", Required = true, MaxLength = 512, SupportsTemplates = true, UiControl = "text" }, new() { Name = "postToForums", Type = "boolean", UiControl = "toggle" }] },
+            new() { ActionTypeId = "message.public", DisplayName = "Public message", ExecutorId = "game-runtime", EffectClass = "communication", GameTypes = SupportedGameTypes, ExecutionProviders = PublicMessageProviders, Parameters = MessageParameters },
+            new() { ActionTypeId = "message.private", DisplayName = "Private message", ExecutorId = "game-runtime", EffectClass = "communication", GameTypes = SupportedGameTypes, ExecutionProviders = PrivateMessageProviders, Parameters = MessageParameters },
+            new() { ActionTypeId = PrivateTaggedMessageAction, DisplayName = "Private message tagged players", ExecutorId = "game-runtime", EffectClass = "communication", GameTypes = SupportedGameTypes, ExecutionProviders = RecipientMessageProviders, Parameters = [.. MessageParameters, new() { Name = "recipientTags", Type = "string[]", Required = true, MaxLength = 128, UiControl = "multi-select" }, new() { Name = "recipientTagMatch", Type = "string", Required = true, AllowedValues = ["Any", "All"], UiControl = "select" }] }
         ],
         Features =
         [
@@ -150,8 +160,8 @@ public static class RulesEngineCatalogueV1
                 DisplayName = "VPN protection",
                 GameTypes = SupportedGameTypes,
                 TriggerIds = [PlayerConnectedTrigger, PlayerIpResolvedTrigger],
-                ConditionIds = ["vpn.intelligence", "player.tags", "player.first-seen-guid", "player.first-seen-ip", "player.profile-age"],
-                ActionTypeIds = ["moderation.observation", "player.kick", "moderation.kick-with-record", "moderation.temporary-ban", "moderation.ban", "message.public", "message.private"],
+                ConditionIds = [AlwaysCondition, "vpn.intelligence", "player.tags", "player.first-seen-guid", "player.first-seen-ip", "player.profile-age"],
+                ActionTypeIds = ["moderation.observation", "player.kick", "moderation.kick-with-record", "moderation.temporary-ban", "moderation.ban", "message.public", "message.private", PrivateTaggedMessageAction],
                 SupportsGlobalRules = true,
                 SupportsServerOverrides = true
             },
@@ -161,14 +171,37 @@ public static class RulesEngineCatalogueV1
                 DisplayName = "Siege mode",
                 GameTypes = SupportedGameTypes,
                 TriggerIds = [PlayerConnectedTrigger, PlayerIpResolvedTrigger],
-                ConditionIds = ["vpn.intelligence", "player.tags", "player.first-seen-guid", "player.first-seen-ip", "player.profile-age"],
-                ActionTypeIds = ["moderation.observation", "player.kick", "moderation.kick-with-record", "moderation.temporary-ban", "moderation.ban", "message.public", "message.private"],
+                ConditionIds = [AlwaysCondition, "vpn.intelligence", "player.tags", "player.first-seen-guid", "player.first-seen-ip", "player.profile-age"],
+                ActionTypeIds = ["moderation.observation", "player.kick", "moderation.kick-with-record", "moderation.temporary-ban", "moderation.ban", "message.public", "message.private", PrivateTaggedMessageAction],
                 SupportsGlobalRules = true,
                 SupportsServerOverrides = true,
                 SupportsDryRun = true
+            },
+            new()
+            {
+                FeatureId = WelcomeMessagesFeature,
+                DisplayName = "Welcome messages",
+                GameTypes = SupportedGameTypes,
+                TriggerIds = [PlayerConnectedTrigger],
+                ConditionIds = [AlwaysCondition, "player.tags", "player.first-seen-guid", "player.first-seen-ip", "player.profile-age", "vpn.intelligence"],
+                ActionTypeIds = ["message.public", "message.private", PrivateTaggedMessageAction],
+                SupportsGlobalRules = true,
+                SupportsServerOverrides = true
             }
         ]
     };
+
+    private static IReadOnlyList<RuleParameterDefinition> MessageParameters { get; } =
+    [
+        new() { Name = "message", Type = "string", MaxLength = 16384, RejectControlCharacters = true, SupportsTemplates = true, SupportsMessageList = true, UiControl = "text" },
+        new() { Name = "messages", Type = "string[]", MaxLength = 16384, RejectControlCharacters = true, SupportsTemplates = true, SupportsMessageList = true, UiControl = "message-list" }
+    ];
+
+    private static IReadOnlyList<ActionExecutionProviderDefinition> RecipientMessageProviders { get; } =
+    [
+        new() { ExecutorId = Cod4xPluginRuntime, GameTypes = [24], RequiredRuntimeCapabilities = [Cod4xPrivateChatCapability, Cod4xPrivateRecipientCapability, Cod4xFragmentsCapability] },
+        new() { ExecutorId = "rcon", GameTypes = SupportedGameTypes, RequiredIntegrationCapabilities = [RconPrivateChatCapability, RconPrivateRecipientCapability] }
+    ];
 
     private static IReadOnlyList<ActionExecutionProviderDefinition> DropProviders { get; } =
     [
