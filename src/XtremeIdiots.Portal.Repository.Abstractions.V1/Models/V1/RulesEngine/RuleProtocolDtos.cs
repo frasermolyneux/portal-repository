@@ -237,6 +237,16 @@ public sealed record RuleActionExecutionDto
     public Guid ConnectionId { get; init; }
     public ulong? ConnectionGeneration { get; init; }
     public string? PlayerGuid { get; init; }
+    /// <summary>Game type recorded with the execution, when loaded for audit.</summary>
+    public GameType? GameType { get; init; }
+    /// <summary>Current player record, only when game type and GUID identify exactly one record.</summary>
+    public Guid? PlayerId { get; init; }
+    /// <summary>IP recorded in the trigger or its linked fact snapshot, if available.</summary>
+    public string? ObservedIpAddress { get; init; }
+    /// <summary>Either Trigger, FactSnapshot, or FactSnapshotEnrichment; null when no IP is available.</summary>
+    public string? ObservedIpSource { get; init; }
+    /// <summary>Trigger occurrence time or snapshot capture/enrichment time according to ObservedIpSource.</summary>
+    public DateTimeOffset? ObservedIpRecordedAtUtc { get; init; }
     public int SlotId { get; init; }
     public string ActionTypeId { get; init; } = string.Empty;
     public string ParametersJson { get; init; } = string.Empty;
