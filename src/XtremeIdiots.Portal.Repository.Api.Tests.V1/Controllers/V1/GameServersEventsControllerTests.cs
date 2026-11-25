@@ -71,4 +71,59 @@ public class GameServersEventsControllerTests
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.Equal(2, context.GameServerEvents.Count());
     }
+
+    [Fact]
+    public async Task KeyedCreate_DeduplicatesAndRejectsChangedPayload()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IGameServersEventsApi)CreateController(context);
+        var server = Guid.NewGuid();
+        var key = Guid.NewGuid();
+        var dto = new CreateGameServerEventDto(server, "NativeAction", "payload \u2603") { IdempotencyKey = key };
+
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateGameServerEvent(dto)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await api.CreateGameServerEvent(dto)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await api.CreateGameServerEvent(new(server, "NativeAction", "different") { IdempotencyKey = key })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await api.CreateGameServerEvent(new(server, "Other", dto.EventData) { IdempotencyKey = key })).StatusCode);
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.CreateGameServerEvent(new(Guid.NewGuid(), dto.EventType, dto.EventData) { IdempotencyKey = key })).StatusCode);
+        Assert.Equal(2, context.GameServerEvents.Count());
+    }
+
+    [Fact]
+    public async Task KeyedBatch_RejectsConflictsAtomicallyAndDeduplicatesWithinBatch()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IGameServersEventsApi)CreateController(context);
+        var server = Guid.NewGuid();
+        var key = Guid.NewGuid();
+        var first = new CreateGameServerEventDto(server, "event", "one") { IdempotencyKey = key };
+        var conflict = new CreateGameServerEventDto(server, "event", "two") { IdempotencyKey = key };
+        var legacy = new CreateGameServerEventDto(server, "legacy", "data");
+
+        Assert.Equal(HttpStatusCode.Conflict, (await api.CreateGameServerEvents([first, legacy, conflict])).StatusCode);
+        Assert.Empty(context.GameServerEvents);
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateGameServerEvents([first, first])).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await api.CreateGameServerEvents([first, first])).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateGameServerEvents([first, legacy])).StatusCode);
+        Assert.Equal(2, context.GameServerEvents.Count());
+    }
+
+    [Fact]
+    public async Task EmptyKeyIsRejectedWithoutAffectingLegacyEvents()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IGameServersEventsApi)CreateController(context);
+        var server = Guid.NewGuid();
+        var legacy = new CreateGameServerEventDto(server, "event", "data");
+        var invalid = new CreateGameServerEventDto(server, "event", "data") { IdempotencyKey = Guid.Empty };
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.CreateGameServerEvents([legacy, invalid])).StatusCode);
+        Assert.Empty(context.GameServerEvents);
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateGameServerEvent(legacy)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateGameServerEvent(legacy)).StatusCode);
+        Assert.Equal(2, context.GameServerEvents.Count());
+    }
 }

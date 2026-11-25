@@ -17,6 +17,11 @@ Both hosts use identical patterns:
 - **Info endpoint**: `ApiInfoController` returns `AssemblyInformationalVersion` at `/v1.0/info` (V1 host) and `/v2.0/info` (V2 host) with anonymous access
 - **Health endpoints**: `HealthController` exposes `/v1.0/health/live` and `/v1.0/health/ready` (V1 host), and `/v2.0/health/live` and `/v2.0/health/ready` (V2 host), all with anonymous access
 
+The typed clients' `CheckHealth` method calls `v1/health/ready` or
+`v2/health/ready`, including through APIM's `repository` base path.
+There is no bare `/health` endpoint; readiness includes dependency checks,
+while `/health/live` checks only that the host is running.
+
 ## OpenAPI Spec Generation
 
 Three OpenAPI documents are served at runtime across the two hosts:
@@ -47,6 +52,21 @@ Offset pages are not a snapshot during concurrent inserts or deletions.
 Event history and cleanup use a 30-day window. Unlocked chat retains six months;
 locked messages remain accessible and are never removed by chat retention.
 Other retention periods are unchanged.
+
+V1 game-server event creation accepts an optional `idempotencyKey` GUID in both
+the single and batch endpoints. Keys are scoped to a game server; reuse the
+same key and exact `eventType` and `eventData` for retries. New events return
+201, matching duplicates return 200, and a key reused with different content
+returns 409. An empty GUID returns 400. Batches are atomic: a conflict inserts
+nothing, and a batch returns 201 if it inserts any events, otherwise 200.
+Events without a key keep the existing always-create behavior. The V1 typed
+client's single-create method sends a one-item batch.
+The typed client throws `ApiHttpRequestException` for HTTP 400 or 409; inspect
+its status and error response rather than expecting an `ApiResult` on failure.
+
+The key is retained only with the event, so pruning ends deduplication for that
+key. Idempotency does not guarantee delivery; producers must retain and retry
+their own pending work. Deploy the database and API before using keys.
 
 Every retention endpoint commits batches of at most 1,000 rows, with a shared
 20-batch/20-second invocation budget. HTTP 202 means committed progress with more

@@ -26,7 +26,7 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V2
         {
             try
             {
-                var request = await CreateRequestAsync("v2/health", Method.Get, cancellationToken);
+                var request = await CreateRequestAsync("v2/health/ready", Method.Get, cancellationToken);
                 var response = await ExecuteAsync(request, cancellationToken);
 
                 return response.ToApiResult();

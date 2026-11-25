@@ -53,6 +53,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
 
     [HttpPost("game-servers/{gameServerId:guid}/rule-executions/{executionId:guid}/actions")]
     [ProducesResponseType<ApiResponse<RuleActionClaimResultDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<RuleActionClaimResultDto>>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -382,7 +383,7 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
             var shouldDispatch = command.Mode == RuleExecutionMode.Enforce &&
                 command.ExpiresAtUtc > DateTimeOffset.UtcNow &&
                 command.Effect.Type is RuleNativeEffectType.DropPlayer or RuleNativeEffectType.PublicMessage or RuleNativeEffectType.PrivateMessage;
-            return await ClaimResultAsync(action, execution, shouldDispatch, cancellationToken).ConfigureAwait(false);
+            return await ClaimResultAsync(action, execution, shouldDispatch, cancellationToken, HttpStatusCode.Created).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -928,13 +929,14 @@ public sealed class RuleExecutionsController(PortalDbContext context) : Controll
     }
 
     private async Task<ApiResult<RuleActionClaimResultDto>> ClaimResultAsync(
-        RuleActionExecution action, RuleFeatureExecution execution, bool shouldDispatch, CancellationToken cancellationToken) =>
+        RuleActionExecution action, RuleFeatureExecution execution, bool shouldDispatch, CancellationToken cancellationToken,
+        HttpStatusCode statusCode = HttpStatusCode.OK) =>
         new ApiResponse<RuleActionClaimResultDto>(new RuleActionClaimResultDto
         {
             Action = ToActionDto(action, execution),
             Execution = await ToDtoAsync(execution, cancellationToken).ConfigureAwait(false),
             ShouldDispatch = shouldDispatch
-        }).ToApiResult();
+        }).ToApiResult(statusCode);
 
     private static RuleActionExecutionDto ToActionDto(RuleActionExecution action, RuleFeatureExecution? execution = null)
     {

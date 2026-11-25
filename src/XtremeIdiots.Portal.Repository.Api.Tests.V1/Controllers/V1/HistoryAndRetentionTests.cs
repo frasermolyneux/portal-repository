@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -44,6 +45,7 @@ public sealed class HistoryAndRetentionTests : IDisposable
                 EventType = "MapChange"
             });
         }
+
         context.GameServerEvents.Add(new GameServerEvent
         {
             GameServerEventId = Guid.NewGuid(),
@@ -69,6 +71,35 @@ public sealed class HistoryAndRetentionTests : IDisposable
         Assert.Equal(2, commands.Text.Count);
         Assert.All(commands.Text, sql => Assert.DoesNotContain("COUNT(", sql, StringComparison.OrdinalIgnoreCase));
         Assert.Null(first.Result.Pagination);
+    }
+
+    [Fact]
+    public async Task EventIdempotency_RelationalIndexAndTransactionalBatchPreserveExistingHistory()
+    {
+        connection.CreateFunction("newsequentialid", () => Guid.NewGuid().ToString().ToUpperInvariant());
+        var server = AddServer();
+        await context.SaveChangesAsync();
+        var api = (IGameServersEventsApi)new GameServersEventsController(context);
+        var key = Guid.NewGuid();
+        var dto = new CreateGameServerEventDto(server.GameServerId, "event", "payload") { IdempotencyKey = key };
+        var legacy = new CreateGameServerEventDto(server.GameServerId, "old", "data");
+
+        Assert.Equal(HttpStatusCode.Created, (await api.CreateGameServerEvents([dto, legacy])).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await api.CreateGameServerEvent(dto)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await api.CreateGameServerEvents([legacy, dto with { EventData = "changed" }])).StatusCode);
+        Assert.Equal(2, await context.GameServerEvents.CountAsync());
+
+        context.GameServerEvents.Add(new GameServerEvent
+        {
+            GameServerEventId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            IdempotencyKey = key,
+            IdempotencyPayloadHash = new byte[32],
+            Timestamp = DateTime.UtcNow,
+            EventType = "event"
+        });
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
 
     [Fact]

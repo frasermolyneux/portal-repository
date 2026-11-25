@@ -6,12 +6,30 @@ using XtremeIdiots.Portal.Repository.Api.Client.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Playtime;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 
 [Trait("Category", "Unit")]
 public class FakeRepositoryApiClientTests
 {
+    [Fact]
+    public async Task GameServerEvents_KeyedCreatesAndAtomicBatchMatchServer()
+    {
+        var client = new FakeRepositoryApiClient();
+        var api = client.GameServersEvents.V1;
+        var dto = new CreateGameServerEventDto(Guid.NewGuid(), "event", "payload") { IdempotencyKey = Guid.NewGuid() };
+        var other = new CreateGameServerEventDto(dto.GameServerId, "other", "payload") { IdempotencyKey = Guid.NewGuid() };
+        var conflict = dto with { EventData = "changed" };
+        Assert.Equal(System.Net.HttpStatusCode.Created, (await api.CreateGameServerEvent(dto)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await api.CreateGameServerEvent(dto)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, (await api.CreateGameServerEvents([other, conflict])).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Created, (await api.CreateGameServerEvent(other)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await api.CreateGameServerEvent(dto with { IdempotencyKey = Guid.Empty })).StatusCode);
+        client.GameServersEventsApi.Reset();
+        Assert.Equal(System.Net.HttpStatusCode.Created, (await api.CreateGameServerEvent(dto)).StatusCode);
+    }
+
     [Fact]
     public async Task IpObservations_DeduplicateAndRejectConflictingMessageIds()
     {
