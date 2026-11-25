@@ -18,6 +18,10 @@ public sealed class RuleExecutionsApi(
     RepositoryApiClientOptions options)
     : BaseApi<RepositoryApiClientOptions>(logger, apiTokenProvider, restClientService, options), IRuleExecutionsApi
 {
+    public Task<ApiResult<RuleExecutionFlowDto>> GetRuleExecutionFlow(
+        Guid executionId, CancellationToken cancellationToken = default) =>
+        Send<RuleExecutionFlowDto>($"v1/rule-executions/{executionId}/flow", Method.Get, null, cancellationToken);
+
     public async Task<ApiResult<CollectionModel<RuleExecutionAuditDto>>> SearchRuleExecutionAudit(
         RuleExecutionAuditQueryDto request, CancellationToken cancellationToken = default)
     {

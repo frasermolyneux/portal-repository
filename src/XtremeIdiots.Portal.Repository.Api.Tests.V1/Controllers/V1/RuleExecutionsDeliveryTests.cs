@@ -160,6 +160,12 @@ public sealed partial class RuleExecutionsControllerTests
         Assert.DoesNotContain("\"second\"", auditJson);
         Assert.DoesNotContain("RecipientTarget", auditJson);
         Assert.DoesNotContain("FrozenRulesJson", auditJson);
+        var flow = (await api.GetRuleExecutionFlow(execution.ExecutionId)).Result!.Data!;
+        var flowPlan = Assert.Single(flow.Execution.PreparedActions);
+        Assert.Equal(auditPlan.Outcome, flowPlan.Outcome);
+        Assert.Equal(auditPlan.CompletedFragmentCount, flowPlan.CompletedFragmentCount);
+        Assert.Equal(auditPlan.TotalFragmentCount, flowPlan.TotalFragmentCount);
+        Assert.Equal(new int?[] { 0, 1 }, flow.Execution.Actions.Select(action => action.FragmentIndex).Order());
     }
 
     [Theory]
