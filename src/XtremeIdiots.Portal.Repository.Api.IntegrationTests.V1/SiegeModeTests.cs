@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Newtonsoft.Json.Linq;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.SiegeMode;
@@ -11,6 +13,93 @@ namespace XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1;
 [Trait("Category", "Integration")]
 public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
+    [Fact]
+    public async Task SessionAndRuleActionAudit_ExposeGenericCountAndPlayerEvidence()
+    {
+        var serverId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var executionId = Guid.NewGuid();
+        var connectionId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var trigger = new RuleTriggerEnvelope
+        {
+            GameServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            ConnectionId = connectionId,
+            PlayerGuid = "AUDIT-PLAYER",
+            PlayerIpAddress = "192.0.2.10",
+            OccurredAtUtc = new DateTimeOffset(now, TimeSpan.Zero)
+        };
+        var correlation = new RuleActionCorrelation { FeatureId = "siege-mode", RuleId = "rule", ActionId = "action" };
+        var command = new RuleActionCommand { PlayerGuid = "AUDIT-PLAYER", ConnectionId = connectionId };
+        factory.SeedDatabase(db =>
+        {
+            db.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Audit", Hostname = "localhost", GameType = (int)GameType.CallOfDuty4 });
+            db.Players.Add(new Player { PlayerId = playerId, GameType = (int)GameType.CallOfDuty4, Guid = "AUDIT-PLAYER" });
+            db.SiegeSessions.Add(new SiegeSession
+            {
+                SessionId = sessionId,
+                GameServerId = serverId,
+                GameType = (int)GameType.CallOfDuty4,
+                StartedBy = "admin",
+                StartedAtUtc = now.AddMinutes(-1),
+                ExpiresAtUtc = now.AddHours(1),
+                SettingsJson = "{}",
+                Mode = "Enforce"
+            });
+            db.RuleFeatureExecutions.Add(new RuleFeatureExecution
+            {
+                ExecutionId = executionId,
+                GameServerId = serverId,
+                ConnectionId = connectionId,
+                GameType = (int)GameType.CallOfDuty4,
+                PlayerGuid = "AUDIT-PLAYER",
+                FeatureId = "siege-mode",
+                SiegeSessionId = sessionId,
+                RuleSetRevision = "1",
+                FrozenRulesJson = "{}",
+                TriggerJson = JsonSerializer.Serialize(trigger, json),
+                State = "Completed"
+            });
+            db.RuleActionExecutions.Add(new RuleActionExecution
+            {
+                ActionExecutionId = Guid.NewGuid(),
+                ExecutionId = executionId,
+                GameServerId = serverId,
+                SiegeSessionId = sessionId,
+                LogicalEffectId = "effect",
+                ActionId = "action",
+                ActionTypeId = "player.kick",
+                ParametersJson = "{}",
+                CorrelationJson = JsonSerializer.Serialize(correlation, json),
+                CommandJson = JsonSerializer.Serialize(command, json),
+                Mode = "Enforce",
+                Outcome = "Applied",
+                ClaimedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+            db.SaveChanges();
+        });
+        using var client = factory.CreateClient();
+        var current = await client.GetAsync($"/v1.0/game-servers/{serverId}/siege-sessions/current");
+        Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+        Assert.Equal(1, JObject.Parse(await current.Content.ReadAsStringAsync())["data"]!["actionCount"]!.Value<int>());
+
+        var search = await client.PostAsJsonAsync("/v1.0/rule-actions/search",
+            new { gameServerIds = new[] { serverId }, siegeSessionId = sessionId });
+        Assert.Equal(HttpStatusCode.OK, search.StatusCode);
+        var item = Assert.Single(JObject.Parse(await search.Content.ReadAsStringAsync())["data"]!["items"]!);
+        Assert.Equal(playerId.ToString(), item["playerId"]!.Value<string>());
+        Assert.Equal("192.0.2.10", item["observedIpAddress"]!.Value<string>());
+        Assert.Equal("Trigger", item["observedIpSource"]!.Value<string>());
+        var typed = JsonSerializer.Deserialize<RuleActionExecutionDto>(item.ToString(), json);
+        Assert.Equal(GameType.CallOfDuty4, typed!.GameType);
+        Assert.Equal(GameType.CallOfDuty4,
+            Newtonsoft.Json.JsonConvert.DeserializeObject<RuleActionExecutionDto>(item.ToString())!.GameType);
+    }
+
     [Fact]
     public async Task DryRun_UsesBaselineRevisionAndNeverDispatches()
     {
