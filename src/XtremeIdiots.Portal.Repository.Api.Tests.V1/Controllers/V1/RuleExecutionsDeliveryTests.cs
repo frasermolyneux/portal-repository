@@ -108,6 +108,13 @@ public sealed partial class RuleExecutionsControllerTests
         var execution = (await api.StartExecution(serverId,
             StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: /*lang=json,strict*/ """{"messages":["first","second"]}""")))
             .Result!.Data!;
+        execution = (await api.UpdateProgress(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            State = RuleFeatureExecutionState.Evaluating,
+            MatchStatus = RuleExecutionMatchStatus.Matched,
+            DecisionSnapshotJson = "{}"
+        })).Result!.Data!;
         var first = DeliveryCommand(serverId, execution, 0, "first");
         var second = DeliveryCommand(serverId, execution, 1, "second");
         var prepare = new PrepareRuleActionDto
@@ -136,6 +143,7 @@ public sealed partial class RuleExecutionsControllerTests
         });
         Assert.Equal(HttpStatusCode.OK, outcome.StatusCode);
         execution = outcome.Result!.Data!.Execution;
+        Assert.Equal(RuleExecutionMatchStatus.Matched, execution.MatchStatus);
         var replay = await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, first));
         Assert.False(replay.Result!.Data!.ShouldDispatch);
         var next = await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, second));

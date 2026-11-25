@@ -10,6 +10,8 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditCreated")]
 [Index("FeatureId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditFeatureCreated")]
+[Index("FeatureId", "MatchStatus", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditFeatureMatchCreated")]
+[Index("MatchStatus", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditMatchCreated")]
 [Index("GameServerId", "CreatedAtUtc", "ExecutionId", Name = "IX_RuleFeatureExecutions_AuditServerCreated")]
 [Index("GameServerId", "ConnectionId", "CreatedAtUtc", Name = "IX_RuleFeatureExecutions_Connection")]
 [Index("GameServerId", "ConnectionId", "FeatureId", "SiegeSessionId", Name = "IX_RuleFeatureExecutions_ConnectionFeatureSession", IsUnique = true)]
@@ -47,6 +49,9 @@ public partial class RuleFeatureExecution
 
     [StringLength(32)]
     public string State { get; set; } = null!;
+
+    [StringLength(16)]
+    public string? MatchStatus { get; set; }
 
     public int RuleIndex { get; set; }
 

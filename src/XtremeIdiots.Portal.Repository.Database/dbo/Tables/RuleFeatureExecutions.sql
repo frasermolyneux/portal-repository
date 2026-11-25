@@ -13,6 +13,7 @@ CREATE TABLE [dbo].[RuleFeatureExecutions]
     [TriggerJson] NVARCHAR(MAX) NOT NULL,
     [FactSnapshotId] UNIQUEIDENTIFIER NULL,
     [State] NVARCHAR(32) NOT NULL,
+    [MatchStatus] NVARCHAR(16) NULL,
     [RuleIndex] INT NOT NULL,
     [ActionIndex] INT NOT NULL,
     [DecisionSnapshotJson] NVARCHAR(MAX) NULL,
@@ -26,6 +27,7 @@ CREATE TABLE [dbo].[RuleFeatureExecutions]
     CONSTRAINT [FK_RuleFeatureExecutions_SiegeSessions] FOREIGN KEY ([SiegeSessionId]) REFERENCES [dbo].[SiegeSessions]([SessionId]) ON DELETE CASCADE,
     CONSTRAINT [CK_RuleFeatureExecutions_Progress] CHECK ([RuleIndex] >= 0 AND [ActionIndex] >= 0 AND [Version] > 0),
     CONSTRAINT [CK_RuleFeatureExecutions_State] CHECK ([State] IN (N'Evaluating', N'AwaitingActionOutcome', N'Waiting', N'Completed', N'Stopped')),
+    CONSTRAINT [CK_RuleFeatureExecutions_MatchStatus] CHECK ([MatchStatus] IS NULL OR [MatchStatus] IN (N'Matched', N'NoMatch')),
     CONSTRAINT [CK_RuleFeatureExecutions_DiagnosticsJson] CHECK ([DiagnosticsJson] IS NULL OR ISJSON([DiagnosticsJson]) = 1)
 );
 GO
@@ -51,4 +53,12 @@ CREATE INDEX [IX_RuleFeatureExecutions_AuditServerCreated]
 GO
 CREATE INDEX [IX_RuleFeatureExecutions_AuditFeatureCreated]
     ON [dbo].[RuleFeatureExecutions]([FeatureId], [CreatedAtUtc] DESC, [ExecutionId])
+    INCLUDE ([GameServerId]);
+GO
+CREATE INDEX [IX_RuleFeatureExecutions_AuditMatchCreated]
+    ON [dbo].[RuleFeatureExecutions]([MatchStatus], [CreatedAtUtc] DESC, [ExecutionId])
+    INCLUDE ([GameServerId], [FeatureId]);
+GO
+CREATE INDEX [IX_RuleFeatureExecutions_AuditFeatureMatchCreated]
+    ON [dbo].[RuleFeatureExecutions]([FeatureId], [MatchStatus], [CreatedAtUtc] DESC, [ExecutionId])
     INCLUDE ([GameServerId]);

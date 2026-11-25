@@ -23,6 +23,7 @@ public sealed partial class RuleExecutionsController
     {
         if (request is null || request.GameServerId == Guid.Empty ||
             request.FeatureId is { } feature && (string.IsNullOrWhiteSpace(feature) || feature.Length > 64) ||
+            request.MatchStatus is { } matchStatus && !Enum.IsDefined(matchStatus) ||
             request.SkipEntries < 0 || request.TakeEntries is <= 0 or > 100 ||
             request.FromUtc is { Kind: not DateTimeKind.Utc } || request.ToUtc is { Kind: not DateTimeKind.Utc } ||
             request.FromUtc is { } from && request.ToUtc is { } to && from >= to)
@@ -38,6 +39,12 @@ public sealed partial class RuleExecutionsController
         if (request.FeatureId is { } featureId)
         {
             scope = scope.Where(item => item.FeatureId == featureId);
+        }
+        if (request.MatchStatus is { } requestedMatchStatus)
+        {
+            var storedMatchStatus = requestedMatchStatus == RuleExecutionMatchStatus.Unknown
+                ? null : requestedMatchStatus.ToString();
+            scope = scope.Where(item => item.MatchStatus == storedMatchStatus);
         }
         var total = await scope.CountAsync(cancellationToken).ConfigureAwait(false);
         if (request.FromUtc is { } fromUtc)
@@ -60,6 +67,7 @@ public sealed partial class RuleExecutionsController
                 item.PlayerGuid,
                 item.TriggerJson,
                 item.State,
+                item.MatchStatus,
                 item.CreatedAtUtc,
                 item.UpdatedAtUtc,
                 item.CoordinationJson,
@@ -107,6 +115,7 @@ public sealed partial class RuleExecutionsController
                 PlayerGuid = execution.PlayerGuid,
                 Username = trigger.Username,
                 State = Enum.Parse<RuleFeatureExecutionState>(execution.State),
+                MatchStatus = ToMatchStatus(execution.MatchStatus),
                 CreatedAtUtc = Utc(execution.CreatedAtUtc),
                 UpdatedAtUtc = Utc(execution.UpdatedAtUtc),
                 Coordination = coordination is null ? null : new RuleExecutionAuditCoordinationDto
