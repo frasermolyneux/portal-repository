@@ -94,6 +94,10 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
         Assert.Equal(playerId.ToString(), item["playerId"]!.Value<string>());
         Assert.Equal("192.0.2.10", item["observedIpAddress"]!.Value<string>());
         Assert.Equal("Trigger", item["observedIpSource"]!.Value<string>());
+        var typed = JsonSerializer.Deserialize<RuleActionExecutionDto>(item.ToString(), json);
+        Assert.Equal(GameType.CallOfDuty4, typed!.GameType);
+        Assert.Equal(GameType.CallOfDuty4,
+            Newtonsoft.Json.JsonConvert.DeserializeObject<RuleActionExecutionDto>(item.ToString())!.GameType);
     }
 
     [Fact]

@@ -146,6 +146,20 @@ public sealed class SiegeModeControllerTests
             {
                 ActionExecutionId = Guid.NewGuid(),
                 GameServerId = serverId,
+                SiegeSessionId = sessionId,
+                LogicalEffectId = "effect3",
+                ActionId = "c",
+                ActionTypeId = "player.kick",
+                ParametersJson = "{}",
+                CorrelationJson = "{}",
+                CommandJson = "{}",
+                Mode = "Enforce",
+                Outcome = "Applied"
+            },
+            new RuleActionExecution
+            {
+                ActionExecutionId = Guid.NewGuid(),
+                GameServerId = serverId,
                 SiegeSessionId = Guid.NewGuid(),
                 LogicalEffectId = "effect2",
                 ActionId = "b",
@@ -158,15 +172,15 @@ public sealed class SiegeModeControllerTests
             });
         await context.SaveChangesAsync();
 
-        Assert.Equal(1, Payload<SiegeSessionDto>(await controller.GetCurrentSession(serverId)).ActionCount);
-        Assert.Equal(1, Assert.Single(Payload<CollectionModel<SiegeSessionDto>>(
+        Assert.Equal(2, Payload<SiegeSessionDto>(await controller.GetCurrentSession(serverId)).ActionCount);
+        Assert.Equal(2, Assert.Single(Payload<CollectionModel<SiegeSessionDto>>(
             await controller.GetSessions(serverId)).Items!).ActionCount);
-        Assert.Equal(1, Payload<SiegeSessionDto>(await controller.StartSession(serverId, start)).ActionCount);
+        Assert.Equal(2, Payload<SiegeSessionDto>(await controller.StartSession(serverId, start)).ActionCount);
         var extend = new ChangeSiegeSessionDto { OperationId = Guid.NewGuid(), Actor = "admin", ExtensionMinutes = 30 };
-        Assert.Equal(1, Payload<SiegeSessionDto>(await controller.ExtendSession(serverId, sessionId, extend)).ActionCount);
-        Assert.Equal(1, Payload<SiegeSessionDto>(await controller.ExtendSession(serverId, sessionId, extend)).ActionCount);
+        Assert.Equal(2, Payload<SiegeSessionDto>(await controller.ExtendSession(serverId, sessionId, extend)).ActionCount);
+        Assert.Equal(2, Payload<SiegeSessionDto>(await controller.ExtendSession(serverId, sessionId, extend)).ActionCount);
         var end = new ChangeSiegeSessionDto { OperationId = Guid.NewGuid(), Actor = "admin" };
-        Assert.Equal(1, Payload<SiegeSessionDto>(await controller.EndSession(serverId, sessionId, end)).ActionCount);
+        Assert.Equal(2, Payload<SiegeSessionDto>(await controller.EndSession(serverId, sessionId, end)).ActionCount);
     }
 
     [Fact]

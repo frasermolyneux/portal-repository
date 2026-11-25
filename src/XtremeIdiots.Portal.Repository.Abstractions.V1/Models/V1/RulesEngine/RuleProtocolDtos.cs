@@ -238,6 +238,8 @@ public sealed record RuleActionExecutionDto
     public ulong? ConnectionGeneration { get; init; }
     public string? PlayerGuid { get; init; }
     /// <summary>Game type recorded with the execution, when loaded for audit.</summary>
+    [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public GameType? GameType { get; init; }
     /// <summary>Current player record, only when game type and GUID identify exactly one record.</summary>
     public Guid? PlayerId { get; init; }
