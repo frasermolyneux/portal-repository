@@ -10,6 +10,32 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public sealed class RuleProtocolSerializationTests
 {
     [Fact]
+    public void ExecutionDiagnosticsUseRendererCompatibleStringCodesWithBothSerializers()
+    {
+        var progress = new UpdateRuleFeatureExecutionProgressDto
+        {
+            Diagnostics = [new()
+            {
+                Code = RuleExecutionDiagnosticCode.FallbackUsed, TokenKey = "context.server.Name",
+                Source = "ServerMetadata", Detail = "Display value unavailable."
+            }]
+        };
+        var serialized = new[]
+        {
+            System.Text.Json.JsonSerializer.Serialize(progress, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            JsonConvert.SerializeObject(progress, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() })
+        };
+        foreach (var json in serialized)
+        {
+            using var document = JsonDocument.Parse(json);
+            var diagnostic = document.RootElement.GetProperty("diagnostics")[0];
+            Assert.Equal("FallbackUsed", diagnostic.GetProperty("code").GetString());
+            Assert.Equal("ServerMetadata", diagnostic.GetProperty("source").GetString());
+            Assert.Equal(progress.Diagnostics[0].TokenKey, diagnostic.GetProperty("tokenKey").GetString());
+        }
+    }
+
+    [Fact]
     public void RecipientAndFragmentContractsPreserveOriginalTriggerWithBothSerializers()
     {
         var trigger = Guid.NewGuid();

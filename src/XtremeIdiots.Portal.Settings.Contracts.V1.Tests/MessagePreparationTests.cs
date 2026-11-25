@@ -61,6 +61,18 @@ public sealed class MessagePreparationTests
     }
 
     [Fact]
+    public void Prepare_PreservesSourceLiteralCaretDigitsWithoutColourCarryOrAtomicity()
+    {
+        var text = "^1" + new string('a', 116);
+        var result = MessagePreparation.Prepare(text, null, new("source", 117) { UseCodColorCodes = false });
+        Assert.True(result.IsValid);
+        Assert.Equal(["^1" + new string('a', 115), "a"], result.Fragments.Select(item => item.Text));
+        Assert.Equal(text, string.Concat(result.Fragments.Select(item => item.Text)));
+        var split = MessagePreparation.Prepare("a^1", null, new("source", 2) { UseCodColorCodes = false });
+        Assert.Equal(["a^", "1"], split.Fragments.Select(item => item.Text));
+    }
+
+    [Fact]
     public void Prepare_DoesNotAddCarryWhenNextFragmentStartsWithNewColour()
     {
         var result = MessagePreparation.Prepare("^1ab^2cd", null, new("test", 4));

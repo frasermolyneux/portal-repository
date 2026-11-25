@@ -143,6 +143,10 @@ public sealed partial class RuleExecutionsControllerTests
         var loaded = (await api.GetExecution(serverId, execution.ExecutionId)).Result!.Data!;
         Assert.Equal(1, Assert.Single(loaded.PreparedActions).CompletedFragmentCount);
         Assert.Equal(2, loaded.Actions.Length);
+        var discovered = await api.SearchRuleExecutions(new() { GameServerId = serverId, FeatureId = execution.FeatureId });
+        var discoveredPlan = Assert.Single(Assert.Single(discovered.Result!.Data!.Items!).PreparedActions);
+        Assert.Equal(1, discoveredPlan.CompletedFragmentCount);
+        Assert.Equal(2, discoveredPlan.Commands.Length);
     }
 
     [Theory]

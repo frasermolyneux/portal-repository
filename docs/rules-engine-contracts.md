@@ -280,14 +280,45 @@ dispatch eligibility, so expiry, disconnect or protection after preparation cann
 remaining plan. Ordinary claims still enforce all delivery prerequisites.
 
 For single/record actions, `ClaimRuleActionDto.resolvedParametersJson` freezes rendered values.
-Upgrade the Repository API client together with its abstractions to consume the new delivery
-methods. Default interface implementations preserve older client startup and existing methods,
-but explicitly throw `NotSupportedException` when a new delivery method is unavailable.
 Only explicitly opted-in fields may differ from frozen source parameters. The claimed
 `ParametersJson` is authoritative for native reasons, moderation records and forum publication;
 templated moderation text must equal that frozen reason. Retries consume the persisted winner.
 Prepared native strings must never be split or rendered again after claim. Direct endpoints retain
 their documented transport semantics; durable deduplication is not proof of player receipt.
+
+Upgrade the Repository API client together with its abstractions to consume the new delivery
+methods. Default interface implementations preserve older client startup and existing methods,
+but explicitly throw `NotSupportedException` when a new delivery method is unavailable.
+
+### Execution discovery and diagnostics
+
+`IRuleExecutionsApi.SearchRuleExecutions(RuleFeatureExecutionQueryDto)` uses
+`GET v1.0/game-servers/{gameServerId}/rule-executions`. Server and feature are required;
+`fromUtc` is inclusive and `toUtc` exclusive over execution creation time. `skipEntries` defaults
+to zero and `takeEntries` to 20 (maximum 100). Results are newest first with execution ID as the
+tie-break, using the existing collection/pagination envelope. They include waiting, stopped and
+no-action executions, full coordination, prepared fragment plans and child outcomes. The server,
+feature and creation-time query has a matching database index.
+
+`RuleFeatureExecutionDto.Diagnostics` is a typed collection, empty for historical rows.
+`UpdateRuleFeatureExecutionProgressDto.Diagnostics` replaces it under the same optimistic version
+check as progress; null preserves and an empty collection clears it. Stable codes describe waits,
+no match, suppression, expiry, connection/audience availability and unsupported delivery.
+`SourceUnavailable` and `FallbackUsed` preserve the shared renderer's codes, optional token key
+and source name. Rule/action IDs identify the scope; detail is display text, not a reason to infer.
+Observed timestamps are supplied by the producer. Existing action DTOs remain authoritative for
+fragment success, failure and uncertainty.
+
+Limits are 256 diagnostics, 1024 characters of detail, 128-character rule/action IDs,
+256-character token keys and 64-character source names. Invalid input is rejected, never silently
+truncated. Producers deduplicate evidence across retries; if more than 256 distinct entries are
+needed, retain 255 and add `DiagnosticsOmitted` with an exact positive `OmittedCount` and an
+explicit warning. Other codes must not carry an omitted count.
+
+`MessageChannelBudget.UseCodColorCodes` defaults to true for existing CoD callers. Set it false
+for channels where caret-digit sequences are literal, such as Source direct chat; both atomic
+colour escapes and colour continuation are then disabled. Preview and delivery must use the same
+budget flag. This does not advertise a Source rules-native adapter.
 
 Native protocol routes owned by server-events are `POST /rules/evaluate`,
 `POST /rules/outcomes`, and `POST /rules/poll`. The evaluate request body is the trigger envelope;
