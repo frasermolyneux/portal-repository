@@ -265,7 +265,17 @@ recipient or fragment cannot replay another. `preparedActions` reports derived a
 detail and completed/total fragment counts. An available, complete empty tagged audience freezes
 an empty plan and reports `Applied` / `No recipients.` without a synthetic native command.
 Advance that parent using normal progress. Partial/uncertain delivery is never whole-message
-success; an uncertain earlier fragment blocks later fragments for that recipient.
+success. A terminal `OutcomeUnknown` permits the next ordered fragment without replaying the
+uncertain fragment or relabelling it `Applied`. A failed/stale/skipped preceding fragment permits
+only terminal no-dispatch continuation for that recipient.
+
+For an exact frozen child, `ClaimRuleActionDto.terminalOutcome` may be `Stale`,
+`SkippedDependency` or `SkippedUnsupported`, with optional `terminalDetail` (maximum 1024
+characters). This atomically records the terminal child and returns `shouldDispatch: false`,
+an incremented execution version and `Evaluating` state; no outcome update is needed.
+It preserves fragment ordering and the global one-in-flight constraint but does not require
+dispatch eligibility, so expiry, disconnect or protection after preparation cannot strand the
+remaining plan. Ordinary claims still enforce all delivery prerequisites.
 
 For single/record actions, `ClaimRuleActionDto.resolvedParametersJson` freezes rendered values.
 Only explicitly opted-in fields may differ from frozen source parameters. The claimed

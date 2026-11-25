@@ -347,7 +347,12 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     async Task<ApiResult<RuleActionClaimResultDto>> IRuleExecutionsApi.ClaimAction(
         Guid gameServerId, Guid executionId, ClaimRuleActionDto request, CancellationToken cancellationToken)
     {
-        if (!ValidClaimRequest(gameServerId, executionId, request))
+        if (!ValidClaimRequest(gameServerId, executionId, request) ||
+            request.TerminalOutcome is not (null or RuleActionExecutionOutcome.Stale or
+                RuleActionExecutionOutcome.SkippedDependency or RuleActionExecutionOutcome.SkippedUnsupported) ||
+            request.TerminalDetail is { Length: > 1024 } ||
+            request.TerminalOutcome is not null && request.Command.DeliveryIdentity is null ||
+            request.TerminalDetail is not null && request.TerminalOutcome is null)
         {
             return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.BadRequest);
         }
@@ -405,9 +410,14 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                     .Select(item => item.LogicalEffectId).ToArray();
                 var completed = await context.RuleActionExecutions.AsNoTracking()
                     .Where(item => item.ExecutionId == executionId && preceding.Contains(item.LogicalEffectId) &&
-                        (item.Outcome == nameof(RuleActionExecutionOutcome.Applied) || item.Outcome == nameof(RuleActionExecutionOutcome.WouldExecute)))
-                    .Select(item => item.LogicalEffectId).ToArrayAsync(cancellationToken).ConfigureAwait(false);
-                if (preceding.Any(id => !completed.Contains(id, StringComparer.Ordinal)))
+                        item.Outcome != nameof(RuleActionExecutionOutcome.Pending) &&
+                        item.Outcome != nameof(RuleActionExecutionOutcome.Claimed) &&
+                        item.Outcome != nameof(RuleActionExecutionOutcome.Dispatched))
+                    .Select(item => new { item.LogicalEffectId, item.Outcome }).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+                if (preceding.Any(id => !completed.Any(item => item.LogicalEffectId == id)) ||
+                    request.TerminalOutcome is null && completed.Any(item =>
+                        item.Outcome is not (nameof(RuleActionExecutionOutcome.Applied) or
+                            nameof(RuleActionExecutionOutcome.WouldExecute) or nameof(RuleActionExecutionOutcome.OutcomeUnknown))))
                 {
                     return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
                 }
@@ -453,7 +463,8 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                 }
                 return await ClaimResultAsync(existing, execution, shouldDispatch: false, cancellationToken).ConfigureAwait(false);
             }
-            if (!await DeliveryPrerequisitesSatisfiedAsync(execution, request.Command, request.RuleIndex, cancellationToken).ConfigureAwait(false))
+            if (request.TerminalOutcome is null &&
+                !await DeliveryPrerequisitesSatisfiedAsync(execution, request.Command, request.RuleIndex, cancellationToken).ConfigureAwait(false))
             {
                 return new ApiResult<RuleActionClaimResultDto>(HttpStatusCode.Conflict);
             }
@@ -483,20 +494,37 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                 CorrelationJson = JsonSerializer.Serialize(command.Correlation, JsonOptions),
                 CommandJson = JsonSerializer.Serialize(command, JsonOptions),
                 Mode = command.Mode.ToString(),
-                Outcome = RuleActionExecutionOutcome.Claimed.ToString(),
+                Outcome = (request.TerminalOutcome ?? RuleActionExecutionOutcome.Claimed).ToString(),
                 RuleIndex = request.RuleIndex,
                 ActionIndex = request.ActionIndex,
                 ClaimedAtUtc = now,
                 UpdatedAtUtc = now
             };
+            if (request.TerminalOutcome is { } terminalOutcome)
+            {
+                action.OutcomeAtUtc = now;
+                action.Detail = request.TerminalDetail;
+                action.ResultJson = JsonSerializer.Serialize(new RuleActionResult
+                {
+                    GameServerId = gameServerId,
+                    ExecutionId = executionId,
+                    ActionId = command.ActionId,
+                    LogicalEffectId = command.LogicalEffectId,
+                    Correlation = command.Correlation,
+                    Outcome = terminalOutcome,
+                    Detail = request.TerminalDetail,
+                    OccurredAtUtc = new DateTimeOffset(now, TimeSpan.Zero)
+                }, JsonOptions);
+            }
             context.RuleActionExecutions.Add(action);
             execution.RuleIndex = request.RuleIndex;
             execution.ActionIndex = request.ActionIndex;
-            execution.State = RuleFeatureExecutionState.AwaitingActionOutcome.ToString();
+            execution.State = (request.TerminalOutcome is null
+                ? RuleFeatureExecutionState.AwaitingActionOutcome : RuleFeatureExecutionState.Evaluating).ToString();
             execution.Version++;
             execution.UpdatedAtUtc = now;
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            var shouldDispatch = command.Mode == RuleExecutionMode.Enforce &&
+            var shouldDispatch = request.TerminalOutcome is null && command.Mode == RuleExecutionMode.Enforce &&
                 command.ExpiresAtUtc > DateTimeOffset.UtcNow &&
                 command.Effect.Type is RuleNativeEffectType.DropPlayer or RuleNativeEffectType.PublicMessage or RuleNativeEffectType.PrivateMessage;
             return await ClaimResultAsync(action, execution, shouldDispatch, cancellationToken, HttpStatusCode.Created).ConfigureAwait(false);

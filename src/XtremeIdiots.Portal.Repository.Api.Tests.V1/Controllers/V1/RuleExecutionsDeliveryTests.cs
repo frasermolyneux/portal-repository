@@ -146,6 +146,160 @@ public sealed partial class RuleExecutionsControllerTests
     }
 
     [Fact]
+    public async Task UnconfirmedFragmentAllowsNextFragmentWithoutReplayingOrClaimingReceipt()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var start = StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private", parametersJson: /*lang=json,strict*/ """{"message":"hello"}""");
+        start = start with
+        {
+            Trigger = start.Trigger with
+            {
+                ConnectionGeneration = 1,
+                Runtime = start.Trigger.Runtime! with
+                {
+                    Id = "cod4x-plugin",
+                    IdentityModel = RuleRuntimeIdentityModel.PluginRuntimeGeneration,
+                    Capabilities = ["cod4x.chat.fragments"]
+                }
+            }
+        };
+        var execution = (await api.StartExecution(serverId, start)).Result!.Data!;
+        var first = DeliveryCommand(serverId, execution, 0, "hel");
+        var second = DeliveryCommand(serverId, execution, 1, "lo");
+        await api.PrepareAction(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"hello"}""",
+            Commands = [first, second]
+        });
+        var claimed = (await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, first))).Result!.Data!;
+        var unknown = await api.UpdateActionOutcome(serverId, execution.ExecutionId, first.ActionId, new()
+        {
+            ExpectedVersion = claimed.Execution.Version,
+            Result = ChildResult(first, RuleActionExecutionOutcome.OutcomeUnknown),
+            NextState = RuleFeatureExecutionState.Evaluating
+        });
+        execution = unknown.Result!.Data!.Execution;
+        Assert.False((await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, first))).Result!.Data!.ShouldDispatch);
+        Assert.True((await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, second))).Result!.Data!.ShouldDispatch);
+        var plan = Assert.Single((await api.GetExecution(serverId, execution.ExecutionId)).Result!.Data!.PreparedActions);
+        Assert.Equal(RuleActionExecutionOutcome.OutcomeUnknown, plan.Outcome);
+        Assert.Equal(0, plan.CompletedFragmentCount);
+    }
+
+    [Theory]
+    [InlineData("expiry")]
+    [InlineData("protection")]
+    [InlineData("disconnect")]
+    public async Task FrozenChildrenCanBeTerminalizedWithoutDispatchAfterDeliveryBecomesIneligible(string reason)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var start = StartRequest(serverId, Guid.NewGuid(), actionTypeId: "message.private");
+        start = start with
+        {
+            FeatureId = "welcome-messages",
+            FrozenRulesJson = /*lang=json,strict*/ """
+                {"timing":{"connectionDelaySeconds":0,"freshnessSeconds":2},"rules":[
+                {"id":"rule-1","actions":[{"id":"kick-player","typeId":"message.private","parameters":{"message":"hello"}}]}]}
+                """,
+            Coordination = new() { DueAtUtc = start.Trigger.OccurredAtUtc, ExpiresAtUtc = start.Trigger.OccurredAtUtc.AddSeconds(2) }
+        };
+        var execution = (await api.StartExecution(serverId, start)).Result!.Data!;
+        var bindings = (IRuleConnectionBindingsApi)new RuleConnectionBindingsController(context);
+        var snapshot = new RuleConnectionStatusSnapshotDto
+        {
+            GameServerId = serverId,
+            GameType = GameType.CallOfDuty4,
+            SnapshotId = Guid.NewGuid(),
+            SequenceId = 1,
+            ObservedAtUtc = DateTimeOffset.UtcNow,
+            Runtime = execution.Trigger.Runtime!,
+            Players = [new()
+            {
+                PlayerGuid = execution.Trigger.PlayerGuid, SlotId = execution.Trigger.SlotId ?? 0,
+                ConnectionId = execution.ConnectionId, State = RuleConnectionState.Connected
+            }]
+        };
+        if (reason == "disconnect")
+        {
+            Assert.Equal(HttpStatusCode.OK, (await bindings.ObserveSnapshot(serverId, snapshot)).StatusCode);
+        }
+        var commands = Enumerable.Range(0, 3).Select(index => DeliveryCommand(serverId, execution, index, "part") with
+        {
+            ExpiresAtUtc = start.Trigger.OccurredAtUtc.AddSeconds(2)
+        }).ToArray();
+        Assert.Equal(HttpStatusCode.Created, (await api.PrepareAction(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            ResolvedParametersJson = /*lang=json,strict*/ """{"message":"hello"}""",
+            Commands = commands
+        })).StatusCode);
+        var invalid = ChildClaim(execution, commands[0]) with { TerminalOutcome = RuleActionExecutionOutcome.Applied };
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ClaimAction(serverId, execution.ExecutionId, invalid)).StatusCode);
+        var claimed = (await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, commands[0]))).Result!.Data!;
+        var applied = await api.UpdateActionOutcome(serverId, execution.ExecutionId, commands[0].ActionId, new()
+        {
+            ExpectedVersion = claimed.Execution.Version,
+            Result = ChildResult(commands[0], RuleActionExecutionOutcome.Applied),
+            NextState = RuleFeatureExecutionState.Evaluating
+        });
+        execution = applied.Result!.Data!.Execution;
+        if (reason == "expiry")
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2.1));
+        }
+        else if (reason == "protection")
+        {
+            await api.StartExecution(serverId, StartRequest(serverId, execution.ConnectionId));
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.OK, (await bindings.ObserveSnapshot(serverId, snapshot with
+            {
+                SnapshotId = Guid.NewGuid(),
+                SequenceId = 2,
+                ObservedAtUtc = DateTimeOffset.UtcNow,
+                Players = [snapshot.Players[0] with { State = RuleConnectionState.Disconnected }]
+            })).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound,
+                (await bindings.GetCurrentBinding(serverId, execution.Trigger.SlotId ?? 0, execution.Trigger.PlayerGuid!)).StatusCode);
+        }
+        if (reason != "disconnect")
+        {
+            Assert.Equal(HttpStatusCode.Conflict,
+                (await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, commands[1]))).StatusCode);
+        }
+        var terminal = ChildClaim(execution, commands[1]) with
+        {
+            TerminalOutcome = reason == "protection" ? RuleActionExecutionOutcome.SkippedDependency : RuleActionExecutionOutcome.Stale,
+            TerminalDetail = reason
+        };
+        var skipped = (await api.ClaimAction(serverId, execution.ExecutionId, terminal)).Result!.Data!;
+        Assert.False(skipped.ShouldDispatch);
+        Assert.Equal(terminal.TerminalOutcome, skipped.Action.Outcome);
+        Assert.Equal(RuleFeatureExecutionState.Evaluating, skipped.Execution.State);
+        Assert.NotNull(skipped.Action.ResultJson);
+        execution = skipped.Execution;
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, commands[2]))).StatusCode);
+        var remainder = await api.ClaimAction(serverId, execution.ExecutionId, ChildClaim(execution, commands[2]) with
+        {
+            TerminalOutcome = RuleActionExecutionOutcome.SkippedDependency,
+            TerminalDetail = "Earlier fragment was skipped."
+        });
+        Assert.False(remainder.Result!.Data!.ShouldDispatch);
+        var replay = await api.ClaimAction(serverId, execution.ExecutionId, terminal);
+        Assert.False(replay.Result!.Data!.ShouldDispatch);
+        var plan = Assert.Single((await api.GetExecution(serverId, execution.ExecutionId)).Result!.Data!.PreparedActions);
+        Assert.Equal(RuleActionExecutionOutcome.Failed, plan.Outcome);
+        Assert.Equal(1, plan.CompletedFragmentCount);
+    }
+
+    [Fact]
     public async Task PreparedPlanRejectsChangedUnapprovedParametersAndRecipientOnModeration()
     {
         using var context = DbContextHelper.CreateInMemoryContext();

@@ -216,6 +216,8 @@ public sealed record ClaimRuleActionDto
     public string LogicalEffectId { get; init; } = string.Empty;
     public RuleActionCommand Command { get; init; } = new();
     public string? ResolvedParametersJson { get; init; }
+    public RuleActionExecutionOutcome? TerminalOutcome { get; init; }
+    public string? TerminalDetail { get; init; }
 }
 
 public sealed record EnsureRuleActionAdminActionDto
