@@ -66,9 +66,17 @@ public sealed record RuleExecutionAuditDto
     public RuleFeatureExecutionState State { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; }
     public DateTimeOffset UpdatedAtUtc { get; init; }
+    public RuleExecutionAuditCoordinationDto? Coordination { get; init; }
     public RuleExecutionDiagnostic[] Diagnostics { get; init; } = [];
     public RuleExecutionAuditActionDto[] Actions { get; init; } = [];
     public RuleExecutionAuditPreparationDto[] PreparedActions { get; init; } = [];
+}
+
+public sealed record RuleExecutionAuditCoordinationDto
+{
+    public DateTimeOffset DueAtUtc { get; init; }
+    public DateTimeOffset ExpiresAtUtc { get; init; }
+    public string? WaitingReason { get; init; }
 }
 
 public sealed record RuleExecutionAuditActionDto

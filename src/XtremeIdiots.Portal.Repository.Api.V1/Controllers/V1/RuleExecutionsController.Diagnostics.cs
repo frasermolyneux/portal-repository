@@ -62,6 +62,7 @@ public sealed partial class RuleExecutionsController
                 item.State,
                 item.CreatedAtUtc,
                 item.UpdatedAtUtc,
+                item.CoordinationJson,
                 item.DiagnosticsJson
             }).ToArrayAsync(cancellationToken).ConfigureAwait(false);
         var ids = executions.Select(item => item.ExecutionId).ToArray();
@@ -94,6 +95,8 @@ public sealed partial class RuleExecutionsController
         var data = new CollectionModel<RuleExecutionAuditDto>(executions.Select(execution =>
         {
             var trigger = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson);
+            var coordination = execution.CoordinationJson is { } coordinationJson
+                ? Deserialize<RuleExecutionCoordination>(coordinationJson) : null;
             return new RuleExecutionAuditDto
             {
                 ExecutionId = execution.ExecutionId,
@@ -106,6 +109,12 @@ public sealed partial class RuleExecutionsController
                 State = Enum.Parse<RuleFeatureExecutionState>(execution.State),
                 CreatedAtUtc = Utc(execution.CreatedAtUtc),
                 UpdatedAtUtc = Utc(execution.UpdatedAtUtc),
+                Coordination = coordination is null ? null : new RuleExecutionAuditCoordinationDto
+                {
+                    DueAtUtc = coordination.DueAtUtc,
+                    ExpiresAtUtc = coordination.ExpiresAtUtc,
+                    WaitingReason = execution.State == nameof(RuleFeatureExecutionState.Waiting) ? coordination.WaitingReason : null
+                },
                 Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
                 Actions = actionsByExecution[execution.ExecutionId].Select(action =>
                 {

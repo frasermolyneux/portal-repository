@@ -30,6 +30,12 @@ public sealed partial class RuleExecutionsControllerTests
             {
                 ExpectedVersion = execution.Version,
                 State = RuleFeatureExecutionState.Waiting,
+                Coordination = new()
+                {
+                    DueAtUtc = start.Trigger.OccurredAtUtc,
+                    ExpiresAtUtc = start.Trigger.OccurredAtUtc.AddMinutes(2),
+                    WaitingReason = "Waiting for context."
+                },
                 Diagnostics = [new() { Code = RuleExecutionDiagnosticCode.WaitingForContext }]
             });
             Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
@@ -52,9 +58,20 @@ public sealed partial class RuleExecutionsControllerTests
         var item = Assert.Single(result.Result.Data!.Items!);
         Assert.Equal(ids[0], item.ExecutionId);
         Assert.Equal(RuleFeatureExecutionState.Waiting, item.State);
+        Assert.Equal("Waiting for context.", item.Coordination!.WaitingReason);
+        Assert.True(item.Coordination.ExpiresAtUtc > item.Coordination.DueAtUtc);
         Assert.Equal(RuleExecutionDiagnosticCode.WaitingForContext, Assert.Single(item.Diagnostics).Code);
         Assert.Empty(item.Actions);
         Assert.Empty(item.PreparedActions);
+        var current = context.RuleFeatureExecutions.Single(x => x.ExecutionId == ids[0]);
+        current.State = nameof(RuleFeatureExecutionState.Completed);
+        await context.SaveChangesAsync();
+        var completed = await api.SearchRuleExecutionAudit(new() { GameServerId = firstServer, FeatureId = "welcome-messages" });
+        Assert.Null(Assert.Single(completed.Result!.Data!.Items!).Coordination!.WaitingReason);
+        current.CoordinationJson = null;
+        await context.SaveChangesAsync();
+        var historical = await api.SearchRuleExecutionAudit(new() { GameServerId = firstServer, FeatureId = "welcome-messages" });
+        Assert.Null(Assert.Single(historical.Result!.Data!.Items!).Coordination);
 
         var serverResults = await api.SearchRuleExecutionAudit(new() { GameServerId = firstServer });
         Assert.Equal(new[] { ids[2], ids[0] }, serverResults.Result!.Data!.Items!.Select(x => x.ExecutionId));

@@ -306,7 +306,9 @@ filters are optional; optional time bounds must be explicit UTC, with an inclusi
 exclusive upper bound. Ordering, page limits and count semantics match execution discovery.
 The response contains typed execution, action, preparation and diagnostic summaries, including
 fragment counts and indices, but excludes raw rule snapshots, command payloads, recipient targets
-and trigger IP addresses. Portal must enforce senior-admin access to its audit UI independently.
+and trigger IP addresses. The nullable coordination summary contains due/expiry times and only
+exposes a waiting reason while the execution is waiting. Portal must enforce senior-admin access
+to its audit UI independently.
 
 `RuleFeatureExecutionDto.Diagnostics` is a typed collection, empty for historical rows.
 `UpdateRuleFeatureExecutionProgressDto.Diagnostics` replaces it under the same optimistic version
