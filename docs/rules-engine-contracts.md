@@ -573,15 +573,12 @@ Production inventory on 2026-11-26 found no `SiegeActions` rows; the deployed we
 route-name matches. These checks do not prove that unknown external clients never use the old
 surface: such clients must migrate, and the removed HTTP routes return 404.
 
-The SQL project retains `SiegeActions` for this first deployment while the generated model and
-legacy action APIs stop using it. Because SQL is deployed before V1, removing the table in the
-same deployment would break the old host's player-deletion and Siege-maintenance operations.
-The new host temporarily removes legacy rows during player deletion and retention pruning if the
-table exists. After the new V1 host has deployed successfully, a follow-up deployment can remove
-the table, deleting any rows then present; remove the temporary cleanup once the table has been
-dropped in all environments. Production was empty at inventory time, but the old host can create
-rows until it is retired. `SiegeChecks`, session events, rule action history and their existing
-retention remain.
+The first deployment retained `SiegeActions` while retiring the old V1 host and its action APIs.
+Following that V1 deployment, the SQL post-deployment script drops the table and deletes any rows
+then present. Production inventory after the V1 upgrade found no rows on 2026-11-26; this is a
+point-in-time observation, not a guarantee about later deployments. The interim cleanup code is
+removed in the same follow-up. `SiegeChecks`, session events, rule action history and their
+existing retention remain.
 
 The clean-slate reset removes only old VPN/Siege configuration and obsolete feature-owned
 execution data. It does not remove `AdminActions`, existing bans, or unrelated player data.

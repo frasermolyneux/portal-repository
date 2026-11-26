@@ -236,8 +236,6 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         var guid = player.Guid?.Trim();
         if (!string.IsNullOrEmpty(guid))
         {
-            await LegacySiegeActionsCleanup.RemovePlayerAsync(context, player.GameType, guid, cancellationToken)
-                .ConfigureAwait(false);
             context.SiegeChecks.RemoveRange(await context.SiegeChecks.Where(c =>
                 c.Session.GameType == player.GameType && c.PlayerGuid == guid).ToListAsync(cancellationToken).ConfigureAwait(false));
         }
