@@ -49,7 +49,8 @@ public sealed record MessagePreparationResult(
 /// <summary>
 /// Normalizes message followed by messages, without joining items. Prepare rendered text only,
 /// then freeze the complete successful result before dispatching any fragment. Indices are zero-based.
-/// Explicit empty/whitespace items are preserved; callers may impose their channel's blank-text rules.
+/// The original Prepare overload preserves empty/whitespace items; the header overload requires
+/// visible body text in the first fragment.
 /// </summary>
 public static class MessagePreparation
 {
@@ -126,7 +127,7 @@ public static class MessagePreparation
         var fragments = new List<PreparedMessageFragment>();
         for (var itemIndex = 0; itemIndex < normalized.Items.Count; itemIndex++)
         {
-            Segment(normalized.Items[itemIndex], itemIndex, budget.MaxPayloadBytes - budget.ReservedPrefixUtf8Bytes, budget.UseCodColorCodes, fragments, errors);
+            Segment(normalized.Items[itemIndex], itemIndex, budget, budget, null, fragments, errors);
         }
 
         // Even a later segmentation failure must expose no partially dispatchable batch.
@@ -136,47 +137,88 @@ public static class MessagePreparation
             errors.AsReadOnly());
     }
 
+    /// <summary>
+    /// Prepares each logical item with an atomic header in its first fragment. The header is
+    /// included in the fragment text and byte count; transport reservations remain separate.
+    /// A continuation budget defaults to the first budget and must use the same colour semantics.
+    /// Items remain the original bodies, and header validation errors have a null item index.
+    /// </summary>
+    public static MessagePreparationResult Prepare(
+        string? message, IEnumerable<string>? messages, MessageChannelBudget budget,
+        string firstFragmentHeader, MessageChannelBudget? continuationBudget = null)
+    {
+        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(firstFragmentHeader);
+        continuationBudget ??= budget;
+
+        var normalized = Normalize(message, messages);
+        var header = Normalize(firstFragmentHeader, null);
+        var errors = normalized.Errors.ToList();
+        errors.AddRange(header.Errors.Select(error => error with { ItemIndex = null, Message = $"Header: {error.Message}" }));
+        ValidateProviderCharacters(firstFragmentHeader, budget, null, 0, firstFragmentHeader.Length, errors);
+        if (!IsValidBudget(budget) || !IsValidBudget(continuationBudget) ||
+            budget.UseCodColorCodes != continuationBudget.UseCodColorCodes)
+        {
+            errors.Add(new("InvalidBudget", null, null,
+                "Both fragment budgets must be valid and use the same colour-code semantics."));
+        }
+        if (errors.Count > 0)
+        {
+            return new(normalized.Items, [], errors.AsReadOnly());
+        }
+
+        var fragments = new List<PreparedMessageFragment>();
+        for (var itemIndex = 0; itemIndex < normalized.Items.Count; itemIndex++)
+        {
+            Segment(normalized.Items[itemIndex], itemIndex, budget, continuationBudget, firstFragmentHeader, fragments, errors);
+        }
+
+        return new(normalized.Items, errors.Count == 0 ? fragments.AsReadOnly() : [], errors.AsReadOnly());
+    }
+
+    private static bool IsValidBudget(MessageChannelBudget budget) =>
+        !string.IsNullOrWhiteSpace(budget.Channel) && budget.MaxPayloadBytes > 0 &&
+        budget.ReservedPrefixUtf8Bytes >= 0 && budget.ReservedPrefixUtf8Bytes < budget.MaxPayloadBytes;
+
     private static void ValidateProviderCharacters(IReadOnlyList<string> items, MessageChannelBudget budget,
         List<MessagePreparationError> errors)
     {
         for (var itemIndex = 0; itemIndex < items.Count; itemIndex++)
         {
-            var item = items[itemIndex];
-            for (var position = 0; position < item.Length;)
+            ValidateProviderCharacters(items[itemIndex], budget, itemIndex, 0, items[itemIndex].Length, errors);
+        }
+    }
+
+    private static void ValidateProviderCharacters(string item, MessageChannelBudget budget, int? itemIndex,
+        int start, int end, List<MessagePreparationError> errors)
+    {
+        for (var position = start; position < end;)
+        {
+            if (Rune.DecodeFromUtf16(item.AsSpan(position, end - position), out var rune, out var consumed) != OperationStatus.Done)
             {
-                if (Rune.DecodeFromUtf16(item.AsSpan(position), out var rune, out var consumed) != OperationStatus.Done)
-                {
-                    position++;
-                    continue;
-                }
-
-                if (rune.Value == '"' && (budget.RejectDoubleQuotes || budget.RconSafePrintableAscii))
-                {
-                    errors.Add(new("UnsupportedCharacter", itemIndex, position,
-                        "The selected channel/provider does not support double quotes."));
-                }
-                else if (budget.RconSafePrintableAscii && (rune.Value > '~' || rune.Value is '\\' or ';'))
-                {
-                    errors.Add(new("UnsupportedCharacter", itemIndex, position,
-                        "The selected channel/provider requires RCON-safe printable ASCII."));
-                }
-
-                position += consumed;
+                position++;
+                continue;
             }
+
+            if (rune.Value == '"' && (budget.RejectDoubleQuotes || budget.RconSafePrintableAscii))
+            {
+                errors.Add(new("UnsupportedCharacter", itemIndex, position,
+                    "The selected channel/provider does not support double quotes."));
+            }
+            else if (budget.RconSafePrintableAscii && (rune.Value > '~' || rune.Value is '\\' or ';'))
+            {
+                errors.Add(new("UnsupportedCharacter", itemIndex, position,
+                    "The selected channel/provider requires RCON-safe printable ASCII."));
+            }
+
+            position += consumed;
         }
     }
 
     private sealed record Atom(string Text, int Bytes, bool IsWordBoundary, bool IsColour);
 
-    private static void Segment(string text, int itemIndex, int budget, bool useCodColorCodes,
-        List<PreparedMessageFragment> fragments, List<MessagePreparationError> errors)
+    private static List<Atom> Tokenize(string text, bool useCodColorCodes)
     {
-        if (Encoding.UTF8.GetByteCount(text) <= budget)
-        {
-            fragments.Add(new(itemIndex, 0, text, Encoding.UTF8.GetByteCount(text)));
-            return;
-        }
-
         var atoms = new List<Atom>();
         for (var position = 0; position < text.Length;)
         {
@@ -192,31 +234,69 @@ public static class MessagePreparation
                 position += consumed;
             }
         }
+        return atoms;
+    }
+
+    private static void Segment(string text, int itemIndex, MessageChannelBudget firstBudget,
+        MessageChannelBudget continuationBudget, string? firstFragmentHeader,
+        List<PreparedMessageFragment> fragments, List<MessagePreparationError> errors)
+    {
+        var firstPayloadBytes = firstBudget.MaxPayloadBytes - firstBudget.ReservedPrefixUtf8Bytes;
+        if (firstFragmentHeader is null && Encoding.UTF8.GetByteCount(text) <= firstPayloadBytes)
+        {
+            fragments.Add(new(itemIndex, 0, text, Encoding.UTF8.GetByteCount(text)));
+            return;
+        }
+
+        var useCodColorCodes = firstBudget.UseCodColorCodes;
+        var atoms = Tokenize(text, useCodColorCodes);
+        var crossHeaderColour = useCodColorCodes && firstFragmentHeader is { Length: > 0 } &&
+            firstFragmentHeader[^1] == '^' && text.Length > 0 && text[0] is >= '0' and <= '9';
+        bool IsUsefulBodyAtom(int index) =>
+            !atoms[index].IsWordBoundary && !atoms[index].IsColour && !(crossHeaderColour && index == 0);
+
+        if (firstFragmentHeader is not null && !Enumerable.Range(0, atoms.Count).Any(IsUsefulBodyAtom))
+        {
+            errors.Add(new("MessageBodyRequired", itemIndex, null,
+                "A message with a header must contain non-whitespace text other than colour escapes."));
+            return;
+        }
 
         var start = 0;
+        var sourcePosition = 0;
         var fragmentIndex = 0;
-        var activeColour = string.Empty;
+        var activeColour = firstFragmentHeader is null
+            ? string.Empty
+            : Tokenize(firstFragmentHeader, useCodColorCodes).LastOrDefault(atom => atom.IsColour)?.Text ?? string.Empty;
         while (start < atoms.Count)
         {
             // A colour at the start overrides the carry; omit the redundant prefix.
-            var carry = fragmentIndex > 0 && !atoms[start].IsColour ? activeColour : string.Empty;
-            var byteCount = carry.Length;
+            var carry = fragmentIndex == 0 && firstFragmentHeader is not null
+                ? firstFragmentHeader
+                : fragmentIndex > 0 && !atoms[start].IsColour ? activeColour : string.Empty;
+            var currentBudget = fragmentIndex == 0 ? firstBudget : continuationBudget;
+            var payloadBytes = currentBudget.MaxPayloadBytes - currentBudget.ReservedPrefixUtf8Bytes;
+            var byteCount = Encoding.UTF8.GetByteCount(carry);
             var end = start;
             var wordEnd = -1;
-            while (end < atoms.Count && atoms[end].Bytes <= budget - byteCount)
+            var hasUsefulBody = false;
+            while (end < atoms.Count && atoms[end].Bytes <= payloadBytes - byteCount)
             {
                 byteCount += atoms[end].Bytes;
-                if (atoms[end].IsWordBoundary)
+                hasUsefulBody |= IsUsefulBodyAtom(end);
+                if (atoms[end].IsWordBoundary && (firstFragmentHeader is null || hasUsefulBody))
                 {
                     wordEnd = end + 1;
                 }
                 end++;
             }
 
-            if (end == start)
+            if (end == start || (firstFragmentHeader is not null && fragmentIndex == 0 && !hasUsefulBody))
             {
                 errors.Add(new("BudgetTooSmall", itemIndex, null,
-                    "The payload budget cannot hold a Unicode character or colour escape together with required active-colour carry."));
+                    firstFragmentHeader is not null && fragmentIndex == 0
+                        ? "The first payload budget cannot hold the header and a non-whitespace body character."
+                        : "The payload budget cannot hold a Unicode character or colour escape together with required active-colour carry."));
                 return;
             }
 
@@ -226,17 +306,28 @@ public static class MessagePreparation
             }
 
             var fragment = new StringBuilder(carry);
+            var fragmentSourceStart = sourcePosition;
             for (var index = start; index < end; index++)
             {
                 fragment.Append(atoms[index].Text);
-                if (atoms[index].IsColour)
+                sourcePosition += atoms[index].Text.Length;
+                if (crossHeaderColour && index == 0)
+                {
+                    activeColour = "^" + atoms[index].Text;
+                }
+                else if (atoms[index].IsColour)
                 {
                     activeColour = atoms[index].Text;
                 }
             }
 
+            if (firstFragmentHeader is not null)
+            {
+                ValidateProviderCharacters(text, currentBudget, itemIndex, fragmentSourceStart, sourcePosition, errors);
+            }
             var fragmentText = fragment.ToString();
-            fragments.Add(new(itemIndex, fragmentIndex++, fragmentText, Encoding.UTF8.GetByteCount(fragmentText)));
+            fragments.Add(new(itemIndex, fragmentIndex++, fragmentText, Encoding.UTF8.GetByteCount(fragmentText),
+                currentBudget.ReservedPrefixUtf8Bytes));
             start = end;
         }
     }
