@@ -196,10 +196,6 @@
     },
     {
       "name": "[dbo].[RuleFactSnapshots]"
-    },
-    {
-      "exclude": true,
-      "name": "[dbo].[SiegeActions]"
     }
   ]
 }
