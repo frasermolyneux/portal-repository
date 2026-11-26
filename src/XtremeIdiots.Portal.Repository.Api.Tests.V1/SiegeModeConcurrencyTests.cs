@@ -19,6 +19,116 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public sealed class SiegeModeConcurrencyTests
 {
+    [Fact]
+    public Task Maintenance_PrunesLegacyActionsInBatches() =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            await CreateLegacySiegeActionsTableAsync(context);
+            var server = new GameServer { Title = "Test", Hostname = "test", BanFileRootPath = "/", GameType = 1 };
+            context.GameServers.Add(server);
+            var oldId = Guid.NewGuid();
+            var recentId = Guid.NewGuid();
+            foreach (var (id, age) in new[] { (oldId, 366), (recentId, 364) })
+            {
+                var ended = DateTime.UtcNow.AddDays(-age);
+                context.SiegeSessions.Add(new SiegeSession
+                {
+                    SessionId = id,
+                    GameServer = server,
+                    GameType = 1,
+                    StartedBy = "admin",
+                    StartedAtUtc = ended.AddHours(-1),
+                    ExpiresAtUtc = ended,
+                    EndedAtUtc = ended,
+                    Mode = "Enforce",
+                    SettingsJson = "{}"
+                });
+            }
+            await context.SaveChangesAsync();
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO [dbo].[SiegeActions] ([ActionId], [SessionId], [PlayerGuid])
+                SELECT TOP (1001) NEWID(), {oldId}, N'old'
+                FROM sys.all_objects AS a CROSS JOIN sys.all_objects AS b;
+                INSERT INTO [dbo].[SiegeActions] ([ActionId], [SessionId], [PlayerGuid])
+                VALUES ({Guid.NewGuid()}, {recentId}, N'recent');
+                """);
+
+            var result = await new SiegeModeController(context).PruneSiegeMode();
+
+            Assert.Equal(200, Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode);
+            Assert.Equal(recentId, (await context.SiegeSessions.SingleAsync()).SessionId);
+            var remaining = await context.Database.SqlQuery<Guid>($"""
+                SELECT [SessionId] AS [Value] FROM [dbo].[SiegeActions]
+                """).ToListAsync();
+            Assert.Equal(recentId, Assert.Single(remaining));
+        });
+
+    [Fact]
+    public Task DeletePlayer_LegacyCleanupIsScopedAndRollsBackOnFailure() =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            await CreateLegacySiegeActionsTableAsync(context);
+            const string playerGuid = "deleted'--";
+            var player = new Player { PlayerId = Guid.NewGuid(), GameType = 1, Guid = playerGuid, FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
+            var first = new GameServer { Title = "First", Hostname = "first", BanFileRootPath = "/", GameType = 1 };
+            var second = new GameServer { Title = "Second", Hostname = "second", BanFileRootPath = "/", GameType = 2 };
+            var firstSession = Guid.NewGuid();
+            var secondSession = Guid.NewGuid();
+            context.Players.Add(player);
+            context.GameServers.AddRange(first, second);
+            foreach (var (id, server) in new[] { (firstSession, first), (secondSession, second) })
+            {
+                context.SiegeSessions.Add(new SiegeSession
+                {
+                    SessionId = id,
+                    GameServer = server,
+                    GameType = server.GameType,
+                    StartedBy = "admin",
+                    StartedAtUtc = DateTime.UtcNow,
+                    ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                    Mode = "Enforce",
+                    SettingsJson = "{}"
+                });
+            }
+            await context.SaveChangesAsync();
+            var removedAction = Guid.NewGuid();
+            var retainedAction = Guid.NewGuid();
+            var otherGameAction = Guid.NewGuid();
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO [dbo].[SiegeActions] ([ActionId], [SessionId], [PlayerGuid]) VALUES
+                    ({removedAction}, {firstSession}, {playerGuid}),
+                    ({retainedAction}, {firstSession}, {"retained"}),
+                    ({otherGameAction}, {secondSession}, {playerGuid});
+                CREATE TABLE [dbo].[DeletePlayerBlocker]
+                    ([PlayerId] uniqueidentifier NOT NULL REFERENCES [dbo].[Players] ([PlayerId]));
+                INSERT INTO [dbo].[DeletePlayerBlocker] ([PlayerId]) VALUES ({player.PlayerId});
+                """);
+            var api = (IDataMaintenanceApi)new DataMaintenanceController(context, new ConfigurationBuilder().Build());
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => api.DeletePlayer(player.PlayerId));
+            context.ChangeTracker.Clear();
+            var beforeRetry = await context.Database.SqlQuery<Guid>($"""
+                SELECT [ActionId] AS [Value] FROM [dbo].[SiegeActions]
+                """).ToListAsync();
+            Assert.Contains(removedAction, beforeRetry);
+            Assert.True(await context.Players.AnyAsync(p => p.PlayerId == player.PlayerId));
+
+            await context.Database.ExecuteSqlRawAsync("DROP TABLE [dbo].[DeletePlayerBlocker]");
+            var result = await api.DeletePlayer(player.PlayerId);
+            var remaining = await context.Database.SqlQuery<Guid>($"""
+                SELECT [ActionId] AS [Value] FROM [dbo].[SiegeActions]
+                """).ToListAsync();
+            Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(2, remaining.Count);
+            Assert.Contains(retainedAction, remaining);
+            Assert.Contains(otherGameAction, remaining);
+            Assert.DoesNotContain(removedAction, remaining);
+        });
+
     [Theory]
     [InlineData(SiegeSessionMode.Enforce)]
     [InlineData(SiegeSessionMode.DryRun)]
@@ -371,6 +481,16 @@ public sealed class SiegeModeConcurrencyTests
             Assert.Contains(results[1], new int?[] { 200, 409 });
             Assert.Equal(409, await Check(check with { CheckId = Guid.NewGuid(), ConnectionId = Guid.NewGuid() }));
         });
+
+    private static Task CreateLegacySiegeActionsTableAsync(PortalDbContext context) =>
+        context.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE [dbo].[SiegeActions]
+            (
+                [ActionId] uniqueidentifier NOT NULL PRIMARY KEY,
+                [SessionId] uniqueidentifier NOT NULL REFERENCES [dbo].[SiegeSessions] ([SessionId]) ON DELETE CASCADE,
+                [PlayerGuid] nvarchar(50) NOT NULL
+            );
+            """);
 
     private static GlobalConfiguration CreateEnabledSiegeConfiguration() => new()
     {

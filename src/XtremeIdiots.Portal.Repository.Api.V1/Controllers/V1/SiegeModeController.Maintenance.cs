@@ -27,6 +27,7 @@ public partial class SiegeModeController
                 .Where(i => i.Session.EndedAtUtc != null || i.Session.ExpiresAtUtc <= now)
                 .OrderBy(i => i.SessionId).ThenBy(i => i.Address)
                 .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token),
+            token => PruneHistoryBatchAsync(t => LegacySiegeActionsCleanup.PruneBatchAsync(context, cutoff, t), token),
             token => PruneHistoryBatchAsync(t => context.SiegeChecks.Where(c => c.Session.EndedAtUtc < cutoff)
                 .OrderBy(c => c.CheckId).Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token),
             token => PruneHistoryBatchAsync(t => context.SiegeSessionEvents.Where(e => e.Session.EndedAtUtc < cutoff)
