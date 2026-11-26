@@ -9,6 +9,7 @@ using RestSharp;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
@@ -107,6 +108,28 @@ public class AnalyticsQuerySerializationTests
         Assert.Equal("true", rest.Query["normalize"]);
     }
 
+    [Fact]
+    public async Task PlayerAnalyticsV2_GetPlayerActivity_PostsExplicitServerScope()
+    {
+        var rest = new CapturingRestClientService();
+        var api = new PlayerAnalyticsV2Api(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, CreateOptions());
+        var playerId = Guid.NewGuid();
+        var serverId = Guid.NewGuid();
+        var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var to = from.AddDays(7);
+
+        await api.GetPlayerActivity(playerId, from, to, [serverId], includeChat: true);
+
+        Assert.Equal($"v1/analytics/players/{playerId}/activity", rest.LastResource);
+        Assert.Equal(Method.Post, rest.LastMethod);
+        var body = Assert.IsType<PlayerActivityQueryDto>(rest.LastBody);
+        Assert.Equal(from, body.FromUtc);
+        Assert.Equal(to, body.ToUtc);
+        Assert.Equal(serverId, Assert.Single(body.ServerIds));
+        Assert.True(body.IncludeChat);
+    }
+
     private static RepositoryApiClientOptions CreateOptions()
     {
         return new RepositoryApiClientOptions
@@ -119,12 +142,16 @@ public class AnalyticsQuerySerializationTests
     private sealed class CapturingRestClientService : IRestClientService
     {
         public string LastResource { get; private set; } = string.Empty;
+        public Method LastMethod { get; private set; }
+        public object? LastBody { get; private set; }
 
         public Dictionary<string, string> Query { get; private set; } = [];
 
         public Task<RestResponse> ExecuteAsync(string baseUrl, RestRequest request, CancellationToken cancellationToken = default)
         {
             LastResource = request.Resource;
+            LastMethod = request.Method;
+            LastBody = request.Parameters.FirstOrDefault(p => p.Type == ParameterType.RequestBody)?.Value;
             Query = request.Parameters
                 .Where(p => p.Type == ParameterType.QueryString)
                 .ToDictionary(p => p.Name ?? string.Empty, p => p.Value?.ToString() ?? string.Empty);

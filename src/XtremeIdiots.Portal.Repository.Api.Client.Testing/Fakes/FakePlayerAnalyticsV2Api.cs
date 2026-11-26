@@ -16,6 +16,7 @@ public class FakePlayerAnalyticsV2Api : IPlayerAnalyticsV2Api
     private PlayersByGameDto _byGame = new();
     private PlayersByServerDto _byServer = new();
     private PlayerDetailDto _playerDetail = new();
+    private PlayerActivityDto _playerActivity = new();
     private PlayerTrendsDto _playerTimeseries = new();
 
     public FakePlayerAnalyticsV2Api SetOverview(PlayersOverviewDto overview) { _overview = overview; return this; }
@@ -24,6 +25,7 @@ public class FakePlayerAnalyticsV2Api : IPlayerAnalyticsV2Api
     public FakePlayerAnalyticsV2Api SetByGame(PlayersByGameDto byGame) { _byGame = byGame; return this; }
     public FakePlayerAnalyticsV2Api SetByServer(PlayersByServerDto byServer) { _byServer = byServer; return this; }
     public FakePlayerAnalyticsV2Api SetPlayerDetail(PlayerDetailDto playerDetail) { _playerDetail = playerDetail; return this; }
+    public FakePlayerAnalyticsV2Api SetPlayerActivity(PlayerActivityDto playerActivity) { _playerActivity = playerActivity; return this; }
     public FakePlayerAnalyticsV2Api SetPlayerTimeseries(PlayerTrendsDto playerTimeseries) { _playerTimeseries = playerTimeseries; return this; }
 
     public FakePlayerAnalyticsV2Api Reset()
@@ -34,6 +36,7 @@ public class FakePlayerAnalyticsV2Api : IPlayerAnalyticsV2Api
         _byGame = new();
         _byServer = new();
         _playerDetail = new();
+        _playerActivity = new();
         _playerTimeseries = new();
         return this;
     }
@@ -80,6 +83,12 @@ public class FakePlayerAnalyticsV2Api : IPlayerAnalyticsV2Api
     public Task<ApiResult<PlayerDetailDto>> GetPlayerDetail(Guid playerId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<PlayerDetailDto>(HttpStatusCode.OK, new ApiResponse<PlayerDetailDto>(_playerDetail)));
+    }
+
+    public Task<ApiResult<PlayerActivityDto>> GetPlayerActivity(Guid playerId, DateTime fromUtc, DateTime toUtc,
+        IReadOnlyCollection<Guid> serverIds, bool includeChat = false, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new ApiResult<PlayerActivityDto>(HttpStatusCode.OK, new ApiResponse<PlayerActivityDto>(_playerActivity)));
     }
 
     public Task<ApiResult<PlayerTrendsDto>> GetPlayerTimeseries(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)

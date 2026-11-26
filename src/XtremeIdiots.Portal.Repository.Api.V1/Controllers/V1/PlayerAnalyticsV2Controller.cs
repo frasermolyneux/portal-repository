@@ -370,6 +370,39 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
         return new ApiResponse<PlayersByServerDto>(dto).ToApiResult();
     }
 
+    [HttpPost("{playerId:guid}/activity")]
+    [ProducesResponseType<ApiResponse<PlayerActivityDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPlayerActivity(Guid playerId, [FromBody] PlayerActivityQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await ((IPlayerAnalyticsV2Api)this).GetPlayerActivity(
+            playerId, query.FromUtc, query.ToUtc, query.ServerIds, query.IncludeChat, cancellationToken).ConfigureAwait(false);
+        return response.ToHttpResult();
+    }
+
+    async Task<ApiResult<PlayerActivityDto>> IPlayerAnalyticsV2Api.GetPlayerActivity(Guid playerId, DateTime fromUtc,
+        DateTime toUtc, IReadOnlyCollection<Guid> serverIds, bool includeChat, CancellationToken cancellationToken)
+    {
+        if (fromUtc.Kind != DateTimeKind.Utc || toUtc.Kind != DateTimeKind.Utc || fromUtc >= toUtc
+            || toUtc - fromUtc > TimeSpan.FromDays(90) || toUtc.Date == DateTime.MaxValue.Date)
+        {
+            return new ApiResult<PlayerActivityDto>(HttpStatusCode.BadRequest);
+        }
+
+        var playerGame = await context.Players.Where(p => p.PlayerId == playerId)
+            .Select(p => (int?)p.GameType).SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (playerGame is null)
+        {
+            return new ApiResult<PlayerActivityDto>(HttpStatusCode.NotFound);
+        }
+
+        var activity = await PlayerActivityQuery.ReadAsync(context, playerId, playerGame.Value, fromUtc, toUtc,
+            serverIds, includeChat, cancellationToken).ConfigureAwait(false);
+        return new ApiResponse<PlayerActivityDto>(activity).ToApiResult();
+    }
+
     [HttpGet("{playerId:guid}")]
     [ProducesResponseType<PlayerDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
