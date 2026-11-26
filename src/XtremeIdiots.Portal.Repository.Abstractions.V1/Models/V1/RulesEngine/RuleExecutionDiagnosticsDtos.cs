@@ -48,6 +48,7 @@ public sealed record RuleExecutionAuditQueryDto
 {
     public Guid? GameServerId { get; init; }
     public string? FeatureId { get; init; }
+    public RuleExecutionMatchStatus? MatchStatus { get; init; }
     public DateTime? FromUtc { get; init; }
     public DateTime? ToUtc { get; init; }
     public int SkipEntries { get; init; }
@@ -64,6 +65,7 @@ public sealed record RuleExecutionAuditDto
     public string? PlayerGuid { get; init; }
     public string? Username { get; init; }
     public RuleFeatureExecutionState State { get; init; }
+    public RuleExecutionMatchStatus MatchStatus { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; }
     public DateTimeOffset UpdatedAtUtc { get; init; }
     public RuleExecutionAuditCoordinationDto? Coordination { get; init; }
