@@ -30,6 +30,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurationsApi
 {
     private const string LegacyServerListNamespace = "serverList";
+    private const string LegacyWelcomeMessagesNamespace = "welcomeMessages";
     private static readonly string CanonicalServerListNamespaceLower = ServerListContractConstants.Namespace.ToLowerInvariant();
     private static readonly string LegacyServerListNamespaceLower = LegacyServerListNamespace.ToLowerInvariant();
 
@@ -127,7 +128,8 @@ public class GlobalConfigurationsController : ControllerBase, IGlobalConfigurati
             return new ApiResult(HttpStatusCode.BadRequest);
         }
 
-        if (!NamespaceSchemaValidationRegistry.IsKnownNamespace(ns))
+        if (!NamespaceSchemaValidationRegistry.IsKnownNamespace(ns)
+            && !string.Equals(ns, LegacyWelcomeMessagesNamespace, StringComparison.OrdinalIgnoreCase))
         {
             return new ApiResult(HttpStatusCode.BadRequest);
         }

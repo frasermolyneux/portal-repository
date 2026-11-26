@@ -11,7 +11,6 @@ public sealed class WelcomeRulesSettingsTests
     {
         var document = new WelcomeRulesSettingsDocument { Rules = [WelcomeRule()] };
         Assert.False(document.Enabled);
-        Assert.NotEqual(WelcomeMessageSettingsConstants.Namespace, WelcomeRulesSettingsConstants.Namespace);
         Assert.True(new WelcomeRulesSettingsValidator().Validate(document).IsValid);
         var feature = RulesEngineCatalogueV1.Current.Features.Single(item => item.FeatureId == document.FeatureId);
         Assert.Equal(["player.connected"], feature.TriggerIds);

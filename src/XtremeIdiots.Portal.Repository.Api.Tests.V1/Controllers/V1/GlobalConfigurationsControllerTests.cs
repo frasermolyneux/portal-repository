@@ -12,6 +12,28 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public class GlobalConfigurationsControllerTests
 {
+    [Fact]
+    public async Task UpsertConfiguration_LegacyWelcomeNamespace_UpdatesWithoutRetiredValidation()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.GlobalConfigurations.Add(new GlobalConfiguration
+        {
+            Namespace = "welcomeMessages",
+            Configuration = /*lang=json,strict*/ """{"enabled":true}""",
+            LastModifiedUtc = DateTime.UtcNow.AddDays(-1)
+        });
+        await context.SaveChangesAsync();
+        var api = (IGlobalConfigurationsApi)CreateController(context);
+        const string configuration = /*lang=json,strict*/ """{"enabled":false,"schemaVersion":999}""";
+
+        var result = await api.UpsertConfiguration("welcomeMessages", new UpsertConfigurationDto { Configuration = configuration });
+        var invalidJson = await api.UpsertConfiguration("welcomeMessages", new UpsertConfigurationDto { Configuration = "not-json" });
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidJson.StatusCode);
+        Assert.Equal(configuration, context.GlobalConfigurations.Single().Configuration);
+    }
+
     [Theory]
     [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"enabled":false,"rules":[]}""", false)]
     [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"welcome-messages","enabled":false,"rules":[]}""", true)]
