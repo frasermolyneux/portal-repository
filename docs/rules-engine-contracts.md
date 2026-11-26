@@ -225,6 +225,16 @@ logical item is completed before starting the next. Results expose zero-based it
 indices, text, UTF-8 bytes and total payload bytes. No production budget is assumed by the helper.
 Reasons are never split into multiple moderation operations.
 
+The opt-in `Prepare(message, messages, budget, firstFragmentHeader, continuationBudget)` overload
+adds the complete header only to the first fragment of each item. `Items` still contains the original
+bodies; header bytes and any colour carry are included in each fragment's text and byte count, while
+the applicable budget's reserved transport prefix remains separate. The continuation budget defaults
+to the first budget; both must use the same `UseCodColorCodes` value. The first fragment must contain
+a non-whitespace body character other than a colour escape. A blank/colour-only body reports
+`MessageBodyRequired`, and a header plus first body character that cannot fit reports `BudgetTooSmall`.
+Header validation errors have a null item index. Any error returns no fragments. Existing three-argument
+preparation and already-frozen plans remain unchanged.
+
 Additional `IRuleExecutionsApi` methods:
 
 - `PrepareAction(server, execution, PrepareRuleActionDto)` posts to
