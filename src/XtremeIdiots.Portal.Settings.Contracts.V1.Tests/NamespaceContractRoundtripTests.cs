@@ -385,54 +385,41 @@ public sealed class NamespaceContractRoundtripTests
     }
 
     [Fact]
-    public void WelcomeMessages_RoundtripAndValidate_Succeeds()
+    public void WelcomeRules_RoundtripAndValidate_Succeeds()
     {
         var input = """
             {
                 "schemaVersion": 1,
+                "featureId": "welcome-messages",
                 "enabled": true,
-                "inheritGlobalRules": true,
-                "defaults": {
-                "countryFallback": "Unknown",
-                "connectionDelaySeconds": 2,
-                "staleThresholdSeconds": 120
-                },
                 "rules": [
                 {
                     "id": "default",
                     "enabled": true,
-                    "priority": 10,
-                    "visibility": "Public",
-                    "messageTemplate": "Welcome {playerName}",
-                    "requiredTags": ["member"],
-                    "connectionDelaySeconds": 1
-                }
-                ],
-                "ruleOverrides": [
-                {
-                    "id": "default",
-                    "enabled": true,
-                    "priority": 11,
-                    "visibility": "Public",
-                    "messageTemplate": "Welcome back {playerName}",
-                    "requiredTags": ["member"],
-                    "connectionDelaySeconds": 2
+                    "condition": { "conditionId": "always", "parameters": {} },
+                    "actions": [
+                        {
+                            "id": "hello",
+                            "typeId": "message.public",
+                            "parameters": { "message": "Welcome" }
+                        }
+                    ]
                 }
                 ]
             }
             """;
 
-        var document = JsonSerializer.Deserialize<WelcomeMessageSettingsDocument>(input, JsonOptions);
+        var document = JsonSerializer.Deserialize<WelcomeRulesSettingsDocument>(input, JsonOptions);
         Assert.NotNull(document);
 
-        var validation = new WelcomeMessageSettingsValidator().Validate(document);
+        var validation = new WelcomeRulesSettingsValidator().Validate(document);
         Assert.True(validation.IsValid);
 
         var output = JsonSerializer.Serialize(document, JsonOptions);
-        var roundtripped = JsonSerializer.Deserialize<WelcomeMessageSettingsDocument>(output, JsonOptions);
+        var roundtripped = JsonSerializer.Deserialize<WelcomeRulesSettingsDocument>(output, JsonOptions);
         Assert.NotNull(roundtripped);
         Assert.Single(roundtripped.Rules);
-        Assert.Single(roundtripped.RuleOverrides);
+        Assert.Equal("message.public", Assert.Single(Assert.Single(roundtripped.Rules).Actions).TypeId);
     }
 
     [Fact]
@@ -604,7 +591,7 @@ public sealed class NamespaceContractRoundtripTests
         Assert.False(new EventSettingsValidator().Validate(new EventSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new BroadcastSettingsValidator().Validate(new BroadcastSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new ChatCommandSettingsValidator().Validate(new ChatCommandSettingsDocument { SchemaVersion = 99 }).IsValid);
-        Assert.False(new WelcomeMessageSettingsValidator().Validate(new WelcomeMessageSettingsDocument { SchemaVersion = 99 }).IsValid);
+        Assert.False(new WelcomeRulesSettingsValidator().Validate(new WelcomeRulesSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new VpnProtectionSettingsValidator().Validate(new VpnProtectionSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new Cod4xPluginSettingsValidator().Validate(new Cod4xPluginSettingsDocument { SchemaVersion = 99 }).IsValid);
         Assert.False(new Cod4xPowerSettingsValidator().Validate(new Cod4xPowerSettingsDocument { SchemaVersion = 99 }).IsValid);
@@ -622,10 +609,9 @@ public sealed class NamespaceContractRoundtripTests
         {
             Commands = null!
         };
-        var malformedWelcomeMessages = new WelcomeMessageSettingsDocument
+        var malformedWelcomeRules = new WelcomeRulesSettingsDocument
         {
-            Rules = [null!],
-            RuleOverrides = [null!]
+            Rules = [null!]
         };
         var malformedVpnProtection = new VpnProtectionSettingsDocument
         {
@@ -639,7 +625,7 @@ public sealed class NamespaceContractRoundtripTests
 
         var broadcastException = Record.Exception(() => new BroadcastSettingsValidator().Validate(malformedBroadcasts));
         var chatException = Record.Exception(() => new ChatCommandSettingsValidator().Validate(malformedChatCommands));
-        var welcomeException = Record.Exception(() => new WelcomeMessageSettingsValidator().Validate(malformedWelcomeMessages));
+        var welcomeException = Record.Exception(() => new WelcomeRulesSettingsValidator().Validate(malformedWelcomeRules));
         var vpnProtectionException = Record.Exception(() => new VpnProtectionSettingsValidator().Validate(malformedVpnProtection));
         var vpnProtectionOverrideException = Record.Exception(() =>
             new VpnProtectionSettingsValidator().ValidateServerOverride(malformedVpnProtectionOverride));
@@ -677,18 +663,9 @@ public sealed class NamespaceContractRoundtripTests
                 [" kick "] = new() { MinPower = 0 }
             }
         });
-        var welcomeValidation = new WelcomeMessageSettingsValidator().Validate(new WelcomeMessageSettingsDocument
+        var welcomeValidation = new WelcomeRulesSettingsValidator().Validate(new WelcomeRulesSettingsDocument
         {
-            Rules =
-            [
-            new WelcomeMessageRule
-            {
-                Id = "r1",
-                MessageTemplate = "ok",
-                RequiredTags = [string.Empty],
-                ConnectionDelaySeconds = 999
-            }
-            ]
+            Timing = new() { ConnectionDelaySeconds = 999 }
         });
 
         Assert.False(ftpValidation.IsValid);

@@ -185,6 +185,8 @@ They use the normal feature envelope, are disabled by default, and accept only m
 Legacy documents are not migrated or reinterpreted. The new namespace requires an explicit
 `featureId: "welcome-messages"` on the wire. The Events cutover owns disabling/removing old
 configuration and retiring old delayed work before enabling recreated rules.
+The old welcome settings DTOs, validator and flat token catalogue are removed in package
+version 5. Dynamic configuration storage does not delete or convert legacy documents.
 
 The explicit `always` leaf has empty parameters and matches everyone; a missing condition or
 empty group still means Unknown. Welcome first-match planning defers at an indeterminate stopping
@@ -222,6 +224,16 @@ active colour is carried within the next fragment's budget, whitespace is preser
 logical item is completed before starting the next. Results expose zero-based item/fragment
 indices, text, UTF-8 bytes and total payload bytes. No production budget is assumed by the helper.
 Reasons are never split into multiple moderation operations.
+
+The opt-in `Prepare(message, messages, budget, firstFragmentHeader, continuationBudget)` overload
+adds the complete header only to the first fragment of each item. `Items` still contains the original
+bodies; header bytes and any colour carry are included in each fragment's text and byte count, while
+the applicable budget's reserved transport prefix remains separate. The continuation budget defaults
+to the first budget; both must use the same `UseCodColorCodes` value. The first fragment must contain
+a non-whitespace body character other than a colour escape. A blank/colour-only body reports
+`MessageBodyRequired`, and a header plus first body character that cannot fit reports `BudgetTooSmall`.
+Header validation errors have a null item index. Any error returns no fragments. Existing three-argument
+preparation and already-frozen plans remain unchanged.
 
 Additional `IRuleExecutionsApi` methods:
 
@@ -551,13 +563,32 @@ activation time when older records lack a source timestamp. New baseline records
 earliest observation timestamp available at activation. Ended or expired session baselines are removed by Siege maintenance pruning; they are not
 guaranteed to remain for the full lifetime of retained session history.
 
-Siege's generic repository API signatures are in `ISiegeModeApi`: `GetBaseline(gameServerId,
-sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; `ClaimAction` and
-`UpdateActionOutcome` durably track Siege action lifecycle; `RecordCheck` stores an aggregate check
-outcome. `IRuleExecutionsApi.CreateFactSnapshot` provides the timestamped GUID/IP baseline and
-observed-history facts used by the shared matcher.
+Siege session and baseline API signatures are in `ISiegeModeApi`: `GetBaseline(gameServerId,
+sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; `RecordCheck`
+stores an aggregate check outcome. `IRuleExecutionsApi.ClaimAction` and `UpdateActionOutcome`
+durably track rule actions, including Siege actions. `IRuleExecutionsApi.CreateFactSnapshot`
+provides the timestamped GUID/IP baseline and observed-history facts used by the shared matcher.
 Session `actionCount` counts generic rule action claims associated with the session, across all
-outcomes; legacy Siege action endpoints continue to report only legacy action records.
+outcomes.
+
+### Legacy Siege action retirement
+
+The separate Siege action claim, outcome, list, search and summary endpoints and their V1 SDK
+methods/DTOs are removed in package version 5. Use the generic rule execution APIs and
+`SearchRuleActions` with `featureId: "siege-mode"` and optional `siegeSessionId`.
+The session, baseline, check and session-event APIs remain available.
+
+Production inventory on 2026-11-26 found no `SiegeActions` rows; the deployed web audit uses
+`RuleActionExecutions`, and the preceding 30 days of request telemetry had no legacy action
+route-name matches. These checks do not prove that unknown external clients never use the old
+surface: such clients must migrate, and the removed HTTP routes return 404.
+
+The first deployment retained `SiegeActions` while retiring the old V1 host and its action APIs.
+Following that V1 deployment, the SQL post-deployment script drops the table and deletes any rows
+then present. Production inventory after the V1 upgrade found no rows on 2026-11-26; this is a
+point-in-time observation, not a guarantee about later deployments. The interim cleanup code is
+removed in the same follow-up. `SiegeChecks`, session events, rule action history and their
+existing retention remain.
 
 The clean-slate reset removes only old VPN/Siege configuration and obsolete feature-owned
 execution data. It does not remove `AdminActions`, existing bans, or unrelated player data.

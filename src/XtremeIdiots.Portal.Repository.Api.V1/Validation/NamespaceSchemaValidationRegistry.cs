@@ -55,8 +55,6 @@ internal static class NamespaceSchemaValidationRegistry
                 new BroadcastSettingsValidator().Validate(Deserialize<BroadcastSettingsDocument>(configuration)),
             [ChatCommandSettingsConstants.Namespace] = configuration =>
                 new ChatCommandSettingsValidator().Validate(Deserialize<ChatCommandSettingsDocument>(configuration)),
-            [WelcomeMessageSettingsConstants.Namespace] = configuration =>
-                new WelcomeMessageSettingsValidator().Validate(Deserialize<WelcomeMessageSettingsDocument>(configuration)),
             [WelcomeRulesSettingsConstants.Namespace] = configuration =>
                 new WelcomeRulesSettingsValidator().Validate(Deserialize<WelcomeRulesSettingsDocument>(configuration)),
             [VpnProtectionSettingsConstants.Namespace] = configuration =>
