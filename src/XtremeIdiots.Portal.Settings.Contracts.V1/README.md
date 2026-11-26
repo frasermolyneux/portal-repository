@@ -15,7 +15,7 @@ This package is the canonical owner of typed settings contracts for platform set
 - `events`
 - `broadcasts`
 - `chatCommands`
-- `welcomeMessages`
+- `welcomeRules`
 - `vpnProtection`
 - `siegeMode` (global and per-server override)
 - `cod4xPlugin`
@@ -87,22 +87,23 @@ authorized; activation freezes the effective rules and duration into the session
 would-execute outcomes without external effects. Baseline GUID/IP membership and first-seen
 timestamps are captured consistently at activation.
 
-## Siege Mode
+## Welcome Rules
 
-The global `siegeMode` document defaults to a four-hour duration and two independent
-kick rules: a new game GUID, or a VPN connection on a new IP without the `vpn-exempt`
-tag. Conditions can combine VPN Protection signals and operators with `NewGuid`,
-`NewIp`, and `PlayerTag` using the shared nested `And` and `Or` tree. Existing Siege JSON field
-names (`signal`, `playerSignal`, `operator`, and `expectedValue`) are unchanged. Siege sessions
-continue to persist the activation-time settings snapshot; do not evaluate active sessions using
-later edits to global settings.
+`welcomeRules` uses the common global/server envelopes with the `welcome-messages` feature ID,
+ordinary conditions and messaging actions. It defaults disabled. Templates use the canonical
+`RuleTextTokens` catalogue and explicit `templateParameters`; the old welcome settings DTOs,
+validator and flat token catalogue have been retired.
+
+The former `welcomeMessages` namespace is not migrated, interpreted as rules, or deleted.
+Repository configuration storage remains dynamic, so retained documents remain readable and
+writable without the removed namespace-specific validator.
 
 ## Compatibility Shim Transition (Chat Package Path)
 
 The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1`) remains a compatibility shim during migration. Transition guidance:
 
 1. New development should reference `XtremeIdiots.Portal.Settings.Contracts.V1`.
-2. Existing consumers on the legacy package should migrate by namespace (`chatCommands` and `welcomeMessages`) to the new package types and validators.
+2. Existing chat consumers on the legacy package should migrate `chatCommands` to the new package types and validators. Welcome consumers use `welcomeRules`, not the retired `welcomeMessages` contracts.
 3. The legacy package should expose compatibility-only guidance and avoid introducing new canonical contract features.
 4. Shim removal is allowed only after all section 6.2 consumers are migrated to published `XtremeIdiots.Portal.Settings.Contracts.V1` versions.
 
@@ -113,3 +114,6 @@ The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1
 - Readme is packed for NuGet visibility.
 - The companion `XtremeIdiots.Portal.RulesEngine.V1` package supplies the portable matcher and
   references this contracts package. Both packages build from the same tagged repository commit.
+- Version 5 removes legacy welcome public types and the V1 repository client's separate Siege
+  action operations. Consumers using those members must migrate before upgrading from version 4;
+  the API version names and current universal rules contracts are unchanged.

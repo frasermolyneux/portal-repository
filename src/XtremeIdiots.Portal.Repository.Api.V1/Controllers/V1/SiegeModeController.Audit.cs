@@ -49,51 +49,6 @@ public partial class SiegeModeController
         }.ToApiResult().ToHttpResult();
     }
 
-    [HttpPost("siege-actions/search")]
-    [ProducesResponseType<ApiResponse<CollectionModel<SiegeActionDto>>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> SearchActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default)
-    {
-        if (!ValidAuditQuery(request))
-        {
-            return new ApiResult<CollectionModel<SiegeActionDto>>(HttpStatusCode.BadRequest).ToHttpResult();
-        }
-        var query = ActionAuditQuery(request);
-        var count = await query.CountAsync(cancellationToken).ConfigureAwait(false);
-        var items = await query.Include(a => a.Session)
-            .OrderByDescending(a => a.ClaimedAtUtc).ThenBy(a => a.ActionId)
-            .Skip(request.SkipEntries).Take(request.TakeEntries).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var data = new CollectionModel<SiegeActionDto>(items.Select(a => ActionDto(a, a.Session)).ToList());
-        return new ApiResponse<CollectionModel<SiegeActionDto>>(data)
-        {
-            Pagination = new ApiPagination(count, count, request.SkipEntries, request.TakeEntries)
-        }.ToApiResult().ToHttpResult();
-    }
-
-    [HttpPost("siege-actions/summary")]
-    [ProducesResponseType<ApiResponse<SiegeActionSummaryDto>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> SummarizeActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default)
-    {
-        if (!ValidAuditQuery(request))
-        {
-            return new ApiResult<SiegeActionSummaryDto>(HttpStatusCode.BadRequest).ToHttpResult();
-        }
-        var counts = await ActionAuditQuery(request)
-            .GroupBy(a => new { a.Session.Mode, a.Outcome })
-            .Select(g => new { g.Key.Mode, g.Key.Outcome, Count = g.Count() })
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-        var summary = new SiegeActionSummaryDto
-        {
-            Counts = counts.Select(c => new SiegeActionOutcomeCountDto
-            {
-                Mode = Enum.Parse<SiegeSessionMode>(c.Mode),
-                Outcome = c.Outcome,
-                Count = c.Count
-            }).ToArray()
-        };
-        return new ApiResponse<SiegeActionSummaryDto>(summary).ToApiResult().ToHttpResult();
-    }
-
     [HttpPost("siege-checks/search")]
     [ProducesResponseType<ApiResponse<CollectionModel<SiegeCheckDto>>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchChecks(SiegeAuditQueryDto request, CancellationToken cancellationToken = default)
@@ -118,31 +73,6 @@ public partial class SiegeModeController
         return new ApiResponse<CollectionModel<SiegeCheckDto>>(data)
         {
             Pagination = new ApiPagination(count, count, request.SkipEntries, request.TakeEntries)
-        }.ToApiResult().ToHttpResult();
-    }
-
-    [HttpGet("game-servers/{gameServerId:guid}/siege-sessions/{sessionId:guid}/actions")]
-    [ProducesResponseType<ApiResponse<CollectionModel<SiegeActionDto>>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetActions(Guid gameServerId, Guid sessionId, int skipEntries = 0, int takeEntries = 20, CancellationToken cancellationToken = default)
-    {
-        if (!ValidPage(skipEntries, takeEntries))
-        {
-            return new ApiResult<CollectionModel<SiegeActionDto>>(HttpStatusCode.BadRequest).ToHttpResult();
-        }
-        var session = await context.SiegeSessions.AsNoTracking().SingleOrDefaultAsync(
-            s => s.GameServerId == gameServerId && s.SessionId == sessionId, cancellationToken).ConfigureAwait(false);
-        if (session is null)
-        {
-            return new ApiResult<CollectionModel<SiegeActionDto>>(HttpStatusCode.NotFound).ToHttpResult();
-        }
-        var query = context.SiegeActions.AsNoTracking().Where(a => a.SessionId == sessionId);
-        var count = await query.CountAsync(cancellationToken).ConfigureAwait(false);
-        var items = await query.OrderByDescending(a => a.ClaimedAtUtc).ThenBy(a => a.ActionId)
-            .Skip(skipEntries).Take(takeEntries).ToListAsync(cancellationToken).ConfigureAwait(false);
-        var data = new CollectionModel<SiegeActionDto>(items.Select(a => ActionDto(a, session)).ToList());
-        return new ApiResponse<CollectionModel<SiegeActionDto>>(data)
-        {
-            Pagination = new ApiPagination(count, count, skipEntries, takeEntries)
         }.ToApiResult().ToHttpResult();
     }
 
@@ -207,20 +137,6 @@ public partial class SiegeModeController
     }
 
     private static bool ValidPage(int skip, int take) => skip >= 0 && take is > 0 and <= 100;
-
-    private IQueryable<SiegeAction> ActionAuditQuery(SiegeAuditQueryDto request)
-    {
-        var query = context.SiegeActions.AsNoTracking().Where(a => request.GameServerIds.Contains(a.Session.GameServerId));
-        if (request.FromUtc is { } from)
-        {
-            query = query.Where(a => a.ClaimedAtUtc >= from);
-        }
-        if (request.ToUtc is { } to)
-        {
-            query = query.Where(a => a.ClaimedAtUtc < to);
-        }
-        return query;
-    }
 
     private static bool ValidAuditQuery(SiegeAuditQueryDto? request) =>
         request is not null && request.GameServerIds is { Length: > 0 and <= 1000 } &&

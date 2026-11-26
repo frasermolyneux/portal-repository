@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.SiegeMode;
 
 [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -9,17 +7,6 @@ public enum SiegeSessionMode
     Unknown = 0,
     Enforce,
     DryRun
-}
-
-public static class SiegeActionOutcomes
-{
-    public const string Pending = "Pending";
-    public const string Queued = "Queued";
-    public const string Dispatched = "Dispatched";
-    public const string Applied = "Applied";
-    public const string Failed = "Failed";
-    public const string Stale = "Stale";
-    public const string WouldKick = "WouldKick";
 }
 
 public sealed record SiegeSessionDto
@@ -63,60 +50,6 @@ public sealed record SiegeBaselineDto
     public bool? NewGuid { get; init; }
     public bool? NewIp { get; init; }
     public int BaselineRevision { get; init; }
-}
-
-public sealed record ClaimSiegeActionDto
-{
-    public Guid ActionId { get; init; }
-    public Guid ConnectionId { get; init; }
-    public string PlayerGuid { get; init; } = string.Empty;
-    [Required]
-    public int? SlotId { get; init; }
-    public string RuleId { get; init; } = string.Empty;
-    [Required]
-    public int? BaselineRevision { get; init; }
-}
-
-public sealed record SiegeActionDto
-{
-    public Guid ActionId { get; init; }
-    public Guid SessionId { get; init; }
-    public Guid GameServerId { get; init; }
-    public int GameType { get; init; }
-    public SiegeSessionMode Mode { get; init; }
-    public Guid ConnectionId { get; init; }
-    public string PlayerGuid { get; init; } = string.Empty;
-    public int SlotId { get; init; }
-    public string RuleId { get; init; } = string.Empty;
-    public DateTime ClaimedAtUtc { get; init; }
-    public string Outcome { get; init; } = string.Empty;
-    public DateTime? OutcomeAtUtc { get; init; }
-    public string? Detail { get; init; }
-}
-
-public sealed record SiegeActionClaimDto
-{
-    public SiegeActionDto Action { get; init; } = new();
-    public bool ShouldDispatch { get; init; }
-}
-
-public sealed record SiegeActionSummaryDto
-{
-    public SiegeActionOutcomeCountDto[] Counts { get; init; } = [];
-}
-
-public sealed record SiegeActionOutcomeCountDto
-{
-    public SiegeSessionMode Mode { get; init; }
-    public string Outcome { get; init; } = string.Empty;
-    public int Count { get; init; }
-}
-
-public sealed record UpdateSiegeActionOutcomeDto
-{
-    public Guid ConnectionId { get; init; }
-    public string Outcome { get; init; } = string.Empty;
-    public string? Detail { get; init; }
 }
 
 public sealed record RecordSiegeCheckDto

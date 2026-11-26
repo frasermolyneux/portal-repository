@@ -25,6 +25,9 @@ Post-Deployment Script Template
 -- Backfill timestamped Siege baseline facts for existing sessions
 :r .\Script.PostDeploymentSiegeBaselineTimestamps.sql
 
+-- Retire the legacy action table after the V1 API has been upgraded.
+DROP TABLE IF EXISTS [dbo].[SiegeActions];
+
 -- Idempotent Full Text setup (catalog + indexes) - safe if objects already exist
 IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'PortalFTCatalog')
 BEGIN

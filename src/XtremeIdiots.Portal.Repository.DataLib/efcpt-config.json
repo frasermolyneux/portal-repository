@@ -60,9 +60,6 @@
       "name": "[dbo].[SiegeBaselineIpOwners]"
     },
     {
-      "name": "[dbo].[SiegeActions]"
-    },
-    {
       "name": "[dbo].[SiegeChecks]"
     },
     {
