@@ -1,5 +1,9 @@
+using System.Data;
+using System.Data.Common;
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using MX.Observability.ApplicationInsights.Auditing;
@@ -96,6 +100,85 @@ public class PlayersControllerTests
         var result = await api.GetPlayers(null, null, null, 0, 20, null, PlayerEntityOptions.None);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetPlayers_WithFullTextFilter_UsesOnlyMatchingIdsInCountAndPageSql()
+    {
+        var commands = new FullTextSearchCommands();
+        await using var context = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+            .UseSqlServer("Server=localhost;Database=Synthetic;Integrated Security=true")
+            .AddInterceptors(new SuppressConnection(), commands)
+            .Options);
+        var api = (IPlayersApi)CreateController(context);
+
+        var result = await api.GetPlayers(GameType.CallOfDuty4, PlayersFilter.UsernameAndGuid, "  alpha  ",
+            1, 2, PlayersOrder.UsernameAsc, PlayerEntityOptions.None);
+
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Collection(commands.SearchSql,
+            count => Assert.Contains("COUNT(*)", count),
+            page =>
+            {
+                Assert.Contains("ORDER BY [p].[Username]", page);
+                Assert.Contains("OFFSET", page);
+                Assert.Contains("FETCH NEXT", page);
+            });
+        Assert.All(commands.SearchSql, sql =>
+        {
+            Assert.Contains("[p].[GameType] =", sql);
+            Assert.Contains("[p].[PlayerId] IN (", sql);
+            Assert.Contains("SELECT ft.[Key] AS [Value]", sql);
+            Assert.Contains("CONTAINSTABLE(Players, (Username, Guid),", sql);
+            Assert.Contains("UNION", sql);
+            Assert.Contains("SELECT a.PlayerId", sql);
+            Assert.Contains("CONTAINSTABLE(PlayerAlias, (Name),", sql);
+            Assert.Contains("JOIN PlayerAlias a ON a.PlayerAliasId = fta.[Key]", sql);
+            Assert.DoesNotContain("JOIN Players", sql);
+            Assert.DoesNotContain("DISTINCT", sql);
+            Assert.DoesNotContain("\"alpha*\"", sql);
+        });
+        Assert.All(commands.SearchTerms, values => Assert.Equal(2, values.Count(v => Equals(v, "\"alpha*\""))));
+    }
+
+    private sealed class SuppressConnection : DbConnectionInterceptor
+    {
+        public override ValueTask<InterceptionResult> ConnectionOpeningAsync(DbConnection connection,
+            ConnectionEventData eventData, InterceptionResult result, CancellationToken cancellationToken = default)
+            => ValueTask.FromResult(InterceptionResult.Suppress());
+    }
+
+    private sealed class FullTextSearchCommands : DbCommandInterceptor
+    {
+        public List<string> SearchSql { get; } = [];
+        public List<object?[]> SearchTerms { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("CONTAINSTABLE", StringComparison.Ordinal))
+            {
+                SearchSql.Add(command.CommandText);
+                SearchTerms.Add(command.Parameters.Cast<DbParameter>().Select(parameter => parameter.Value).ToArray());
+            }
+
+            var table = new DataTable();
+            if (command.CommandText.Contains("COUNT(*)", StringComparison.Ordinal))
+            {
+                table.Columns.Add("Count", typeof(int));
+                table.Rows.Add(0);
+            }
+            else
+            {
+                var player = eventData.Context!.Model.FindEntityType(typeof(Player))!;
+                foreach (var property in player.GetProperties())
+                {
+                    table.Columns.Add(property.GetColumnName());
+                }
+            }
+
+            return ValueTask.FromResult(InterceptionResult<DbDataReader>.SuppressWithResult(table.CreateDataReader()));
+        }
     }
 
     [Fact]
