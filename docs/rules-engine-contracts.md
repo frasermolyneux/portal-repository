@@ -303,12 +303,28 @@ feature and creation-time query has a matching database index.
 `IRuleExecutionsApi.SearchRuleExecutionAudit(RuleExecutionAuditQueryDto)` uses service-account
 `GET v1.0/rule-executions/audit` for a generic cross-server, cross-feature feed. Server and feature
 filters are optional; optional time bounds must be explicit UTC, with an inclusive lower and
-exclusive upper bound. Ordering, page limits and count semantics match execution discovery.
+exclusive upper bound. The optional `matchStatus` filter combines with server and feature
+filters before counts and pagination. Ordering, page limits and count semantics otherwise match
+execution discovery.
 The response contains typed execution, action, preparation and diagnostic summaries, including
 fragment counts and indices, but excludes raw rule snapshots, command payloads, recipient targets
 and trigger IP addresses. The nullable coordination summary contains due/expiry times and only
 exposes a waiting reason while the execution is waiting. Portal must enforce senior-admin access
 to its audit UI independently.
+
+`RuleExecutionAuditDto.MatchStatus`, also returned in the flow's execution summary, is
+`Unknown`, `Matched` or `NoMatch`. `Matched` requires a producer-observed aggregate true
+condition. `NoMatch` requires a completed evaluation of at least one enabled rule with an
+explicit false result for every enabled rule. Expired, unknown or unevaluated rules prevent a
+`NoMatch` result. Historical records and executions without sufficient typed evidence remain
+`Unknown`; action outcomes, diagnostic absence and producer-local snapshots are not inferred.
+The status describes evaluation, not action delivery.
+
+Producers record non-unknown `MatchStatus` on `UpdateRuleFeatureExecutionProgressDto` together
+with their decision snapshot under the same optimistic version check. `NoMatch` may only be
+recorded when completing the execution. Omitted, null or `Unknown` status preserves existing
+evidence; `Matched` cannot be replaced with `NoMatch`. Action receipt updates preserve the
+status and do not themselves establish a match.
 
 `IRuleExecutionsApi.GetRuleExecutionFlow(executionId)` uses service-account
 `GET v1.0/rule-executions/{executionId}/flow` and returns 404 for an unknown execution. It includes

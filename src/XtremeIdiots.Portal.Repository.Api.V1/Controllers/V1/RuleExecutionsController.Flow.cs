@@ -49,6 +49,7 @@ public sealed partial class RuleExecutionsController
         PlayerGuid = execution.Trigger.PlayerGuid,
         Username = execution.Trigger.Username,
         State = execution.State,
+        MatchStatus = execution.MatchStatus,
         CreatedAtUtc = execution.CreatedAtUtc,
         UpdatedAtUtc = execution.UpdatedAtUtc,
         Coordination = execution.Coordination is { } coordination ? new RuleExecutionAuditCoordinationDto

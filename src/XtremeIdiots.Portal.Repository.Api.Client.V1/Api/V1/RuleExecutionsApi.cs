@@ -34,6 +34,10 @@ public sealed class RuleExecutionsApi(
         {
             httpRequest.AddQueryParameter("featureId", featureId);
         }
+        if (request.MatchStatus is { } matchStatus)
+        {
+            httpRequest.AddQueryParameter("matchStatus", matchStatus.ToString());
+        }
         httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
         httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
         if (request.FromUtc is { } from)

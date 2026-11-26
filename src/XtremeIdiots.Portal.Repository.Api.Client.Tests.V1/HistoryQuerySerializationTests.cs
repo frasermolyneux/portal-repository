@@ -40,6 +40,7 @@ public sealed class HistoryQuerySerializationTests
         {
             GameServerId = Guid.NewGuid(),
             FeatureId = "welcome-messages",
+            MatchStatus = RuleExecutionMatchStatus.Matched,
             FromUtc = from,
             ToUtc = from.AddDays(1),
             SkipEntries = 20,
@@ -50,14 +51,18 @@ public sealed class HistoryQuerySerializationTests
         Assert.Equal(Method.Get, rest.Method);
         Assert.Equal(query.GameServerId.ToString(), rest.Query["gameServerId"]);
         Assert.Equal(query.FeatureId, rest.Query["featureId"]);
+        Assert.Equal("Matched", rest.Query["matchStatus"]);
         Assert.Equal(from.ToString("O", CultureInfo.InvariantCulture), rest.Query["fromUtc"]);
         Assert.Equal(query.ToUtc.Value.ToString("O", CultureInfo.InvariantCulture), rest.Query["toUtc"]);
         Assert.Equal("20", rest.Query["skipEntries"]);
         Assert.Equal("10", rest.Query["takeEntries"]);
         Assert.Equal(cancellation.Token, rest.Token);
+        Assert.True((await api.SearchRuleExecutionAudit(query with { MatchStatus = RuleExecutionMatchStatus.Unknown })).IsSuccess);
+        Assert.Equal("Unknown", rest.Query["matchStatus"]);
         Assert.True((await api.SearchRuleExecutionAudit(new())).IsSuccess);
         Assert.DoesNotContain("gameServerId", rest.Query.Keys);
         Assert.DoesNotContain("featureId", rest.Query.Keys);
+        Assert.DoesNotContain("matchStatus", rest.Query.Keys);
         Assert.DoesNotContain("fromUtc", rest.Query.Keys);
         Assert.DoesNotContain("toUtc", rest.Query.Keys);
     }

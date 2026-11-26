@@ -261,7 +261,10 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
         Guid gameServerId, Guid executionId, UpdateRuleFeatureExecutionProgressDto request, CancellationToken cancellationToken)
     {
         if (request is null || request.ExpectedVersion <= 0 || request.RuleIndex < 0 || request.ActionIndex < 0 ||
-            !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson) || !ValidDiagnostics(request.Diagnostics))
+            !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson) || !ValidDiagnostics(request.Diagnostics) ||
+            request.MatchStatus is { } matchStatus && (!Enum.IsDefined(matchStatus) ||
+                matchStatus != RuleExecutionMatchStatus.Unknown && request.DecisionSnapshotJson is null ||
+                matchStatus == RuleExecutionMatchStatus.NoMatch && request.State != RuleFeatureExecutionState.Completed))
         {
             return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
         }
@@ -290,6 +293,11 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
             }
             if (execution.State is nameof(RuleFeatureExecutionState.Completed) or nameof(RuleFeatureExecutionState.Stopped))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            if (request.MatchStatus == RuleExecutionMatchStatus.NoMatch &&
+                execution.MatchStatus == nameof(RuleExecutionMatchStatus.Matched))
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
             }
@@ -332,6 +340,10 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             execution.ActionIndex = request.ActionIndex;
             execution.State = request.State.ToString();
             execution.DecisionSnapshotJson = request.DecisionSnapshotJson ?? execution.DecisionSnapshotJson;
+            if (request.MatchStatus is RuleExecutionMatchStatus.Matched or RuleExecutionMatchStatus.NoMatch)
+            {
+                execution.MatchStatus = request.MatchStatus.ToString();
+            }
             if (request.Diagnostics is not null)
             {
                 execution.DiagnosticsJson = JsonSerializer.Serialize(request.Diagnostics, JsonOptions);
@@ -1087,6 +1099,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             Trigger = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson),
             FactSnapshotId = execution.FactSnapshotId,
             State = Enum.Parse<RuleFeatureExecutionState>(execution.State),
+            MatchStatus = ToMatchStatus(execution.MatchStatus),
             RuleIndex = execution.RuleIndex,
             ActionIndex = execution.ActionIndex,
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
@@ -1098,6 +1111,9 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             CreatedAtUtc = Utc(execution.CreatedAtUtc),
             UpdatedAtUtc = Utc(execution.UpdatedAtUtc)
         };
+
+    private static RuleExecutionMatchStatus ToMatchStatus(string? value) =>
+        value is null ? RuleExecutionMatchStatus.Unknown : Enum.Parse<RuleExecutionMatchStatus>(value);
 
     private async Task<ApiResult<RuleActionClaimResultDto>> ClaimResultAsync(
         RuleActionExecution action, RuleFeatureExecution execution, bool shouldDispatch, CancellationToken cancellationToken,

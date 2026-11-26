@@ -1,14 +1,148 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
+using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers.V1;
 
 public sealed partial class RuleExecutionsControllerTests
 {
+    [Fact]
+    public async Task GenericAuditFiltersMatchStatusBeforeCountsAndPaginationWithoutInferringLegacyEvidence()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        await AssertMatchStatusFiltering(context);
+    }
+
+    internal static async Task AssertMatchStatusFiltering(PortalDbContext context)
+    {
+        var firstServer = await AddServer(context);
+        var secondServer = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var baseline = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds()).UtcDateTime.AddHours(-1);
+        var cases = new (Guid Server, string Feature, RuleExecutionMatchStatus? Status)[]
+        {
+            (firstServer, "welcome-messages", null),
+            (firstServer, "welcome-messages", RuleExecutionMatchStatus.Matched),
+            (secondServer, "welcome-messages", RuleExecutionMatchStatus.Matched),
+            (firstServer, "vpn-protection", RuleExecutionMatchStatus.Matched),
+            (firstServer, "welcome-messages", RuleExecutionMatchStatus.NoMatch),
+            (secondServer, "welcome-messages", null),
+            (firstServer, "welcome-messages", RuleExecutionMatchStatus.Matched)
+        };
+        var ids = new List<Guid>();
+        foreach (var (server, feature, status) in cases)
+        {
+            var execution = (await api.StartExecution(server,
+                StartRequest(server, Guid.NewGuid()) with { FeatureId = feature })).Result!.Data!;
+            var updated = await api.UpdateProgress(server, execution.ExecutionId, new()
+            {
+                ExpectedVersion = execution.Version,
+                State = status == RuleExecutionMatchStatus.NoMatch
+                    ? RuleFeatureExecutionState.Completed : RuleFeatureExecutionState.Evaluating,
+                MatchStatus = status,
+                DecisionSnapshotJson = /*lang=json,strict*/ """{"matchedRuleIds":["legacy"]}""",
+                Diagnostics = [new() { Code = RuleExecutionDiagnosticCode.NoMatch, RuleId = "legacy-rule" }]
+            });
+            Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+            Assert.Equal(status ?? RuleExecutionMatchStatus.Unknown, updated.Result!.Data!.MatchStatus);
+            context.RuleFeatureExecutions.Single(item => item.ExecutionId == execution.ExecutionId).CreatedAtUtc =
+                baseline.AddMinutes(ids.Count);
+            await context.SaveChangesAsync();
+            ids.Add(execution.ExecutionId);
+        }
+
+        var matched = await api.SearchRuleExecutionAudit(new()
+        {
+            FeatureId = "welcome-messages",
+            MatchStatus = RuleExecutionMatchStatus.Matched,
+            FromUtc = baseline.AddMinutes(2),
+            ToUtc = baseline.AddMinutes(7),
+            SkipEntries = 1,
+            TakeEntries = 1
+        });
+        Assert.Equal(3, matched.Result!.Pagination!.TotalCount);
+        Assert.Equal(2, matched.Result.Pagination.FilteredCount);
+        var match = Assert.Single(matched.Result.Data!.Items!);
+        Assert.Equal(ids[2], match.ExecutionId);
+        Assert.Equal(RuleExecutionMatchStatus.Matched, match.MatchStatus);
+
+        var noMatch = await api.SearchRuleExecutionAudit(new()
+        {
+            FeatureId = "welcome-messages",
+            MatchStatus = RuleExecutionMatchStatus.NoMatch
+        });
+        Assert.Equal(ids[4], Assert.Single(noMatch.Result!.Data!.Items!).ExecutionId);
+        var unknown = await api.SearchRuleExecutionAudit(new()
+        {
+            FeatureId = "welcome-messages",
+            MatchStatus = RuleExecutionMatchStatus.Unknown
+        });
+        Assert.Equal(new[] { ids[5], ids[0] }, unknown.Result!.Data!.Items!.Select(item => item.ExecutionId));
+        Assert.All(unknown.Result.Data.Items!, item => Assert.Equal(RuleExecutionMatchStatus.Unknown, item.MatchStatus));
+        var serverMatches = await api.SearchRuleExecutionAudit(new()
+        {
+            GameServerId = firstServer,
+            FeatureId = "welcome-messages",
+            MatchStatus = RuleExecutionMatchStatus.Matched
+        });
+        Assert.Equal(new[] { ids[6], ids[1] }, serverMatches.Result!.Data!.Items!.Select(item => item.ExecutionId));
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.SearchRuleExecutionAudit(new()
+        {
+            MatchStatus = (RuleExecutionMatchStatus)99
+        })).StatusCode);
+    }
+
+    [Fact]
+    public async Task MatchEvidenceIsCheckpointedAndCannotBeDowngraded()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var execution = (await api.StartExecution(serverId, StartRequest(serverId, Guid.NewGuid()))).Result!.Data!;
+        Assert.Equal(RuleExecutionMatchStatus.Unknown, execution.MatchStatus);
+        var request = new UpdateRuleFeatureExecutionProgressDto
+        {
+            ExpectedVersion = execution.Version,
+            State = RuleFeatureExecutionState.Evaluating,
+            MatchStatus = RuleExecutionMatchStatus.Matched,
+            DecisionSnapshotJson = "{}"
+        };
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateProgress(serverId, execution.ExecutionId,
+            request with { DecisionSnapshotJson = null })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateProgress(serverId, execution.ExecutionId,
+            request with { MatchStatus = (RuleExecutionMatchStatus)99 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateProgress(serverId, execution.ExecutionId,
+            request with { MatchStatus = RuleExecutionMatchStatus.NoMatch })).StatusCode);
+
+        var matched = (await api.UpdateProgress(serverId, execution.ExecutionId, request)).Result!.Data!;
+        Assert.Equal(RuleExecutionMatchStatus.Matched, matched.MatchStatus);
+        Assert.Equal("{}", matched.DecisionSnapshotJson);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.UpdateProgress(serverId, execution.ExecutionId, request)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.UpdateProgress(serverId, execution.ExecutionId,
+            request with
+            {
+                ExpectedVersion = matched.Version,
+                State = RuleFeatureExecutionState.Completed,
+                MatchStatus = RuleExecutionMatchStatus.NoMatch
+            })).StatusCode);
+        var preserved = (await api.UpdateProgress(serverId, execution.ExecutionId,
+            request with { ExpectedVersion = matched.Version, MatchStatus = null })).Result!.Data!;
+        var stillMatched = (await api.UpdateProgress(serverId, execution.ExecutionId,
+            request with { ExpectedVersion = preserved.Version, MatchStatus = RuleExecutionMatchStatus.Unknown })).Result!.Data!;
+        Assert.Equal(RuleExecutionMatchStatus.Matched, stillMatched.MatchStatus);
+        Assert.Equal(RuleExecutionMatchStatus.Matched,
+            (await api.GetExecution(serverId, execution.ExecutionId)).Result!.Data!.MatchStatus);
+        Assert.Equal(RuleExecutionMatchStatus.Matched,
+            Assert.Single((await api.SearchRuleExecutionAudit(new() { GameServerId = serverId })).Result!.Data!.Items!).MatchStatus);
+        Assert.Equal(RuleExecutionMatchStatus.Matched,
+            (await api.GetRuleExecutionFlow(execution.ExecutionId)).Result!.Data!.Execution.MatchStatus);
+    }
+
     [Fact]
     public async Task GenericAuditFiltersAndPaginatesAcrossServersAndFeatures()
     {
@@ -137,6 +271,7 @@ public sealed partial class RuleExecutionsControllerTests
                 waitingId = execution.ExecutionId;
             }
         }
+
         await api.StartExecution(serverId, StartRequest(serverId, Guid.NewGuid()));
         await api.StartExecution(otherServer, StartRequest(otherServer, Guid.NewGuid()) with { FeatureId = "welcome-messages" });
         await context.SaveChangesAsync();
@@ -216,4 +351,17 @@ public sealed partial class RuleExecutionsControllerTests
         Assert.Equal(37, accepted.Result!.Data!.Diagnostics[^1].OmittedCount);
         Assert.Equal(bounded, (await api.GetExecution(serverId, execution.ExecutionId)).Result!.Data!.Diagnostics);
     }
+}
+
+[Collection("SqlServer")]
+public sealed class RuleExecutionAuditSqlTests
+{
+    [Fact]
+    public Task MatchStatusFiltersTranslateAndPaginateOnSqlServer() =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            await using var context = new PortalDbContext(
+                new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options);
+            await RuleExecutionsControllerTests.AssertMatchStatusFiltering(context);
+        });
 }
