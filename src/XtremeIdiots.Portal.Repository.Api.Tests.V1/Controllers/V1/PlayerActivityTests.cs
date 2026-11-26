@@ -113,14 +113,36 @@ public class PlayerActivityTests
         new() { GameServerId = Guid.NewGuid(), Title = name, GameType = 1, Hostname = name, BanFileRootPath = "" };
 
     private static PlayerSession Session(GameServer server, Player player, DateTime start, DateTime lastConfirmed, bool open = false) =>
-        new() { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = player.PlayerId, StartUtc = start,
-            LastConfirmedUtc = lastConfirmed, EndUtc = open ? null : lastConfirmed };
+        new()
+        {
+            SessionId = Guid.NewGuid(),
+            ServerId = server.GameServerId,
+            PlayerId = player.PlayerId,
+            StartUtc = start,
+            LastConfirmedUtc = lastConfirmed,
+            EndUtc = open ? null : lastConfirmed
+        };
 
     private static PlayerSessionMapSegment Segment(PlayerSession session, DateTime start, DateTime end, Guid? mapRunId = null) =>
-        new() { SegmentId = Guid.NewGuid(), SessionId = session.SessionId, StartUtc = start, EndUtc = end,
-            UnknownMap = !mapRunId.HasValue, MapRunId = mapRunId };
+        new()
+        {
+            SegmentId = Guid.NewGuid(),
+            SessionId = session.SessionId,
+            StartUtc = start,
+            EndUtc = end,
+            UnknownMap = !mapRunId.HasValue,
+            MapRunId = mapRunId
+        };
 
     private static ChatMessage Chat(GameServer server, Player player, DateTime at, bool locked) =>
-        new() { ChatMessageId = Guid.NewGuid(), GameServerId = server.GameServerId, PlayerId = player.PlayerId,
-            Username = "Player", Message = "!command", Timestamp = at, Locked = locked };
+        new()
+        {
+            ChatMessageId = Guid.NewGuid(),
+            GameServerId = server.GameServerId,
+            PlayerId = player.PlayerId,
+            Username = "Player",
+            Message = "!command",
+            Timestamp = at,
+            Locked = locked
+        };
 }
