@@ -22,7 +22,7 @@ public sealed class SiegeModeConcurrencyTests
     [Theory]
     [InlineData(SiegeSessionMode.Enforce)]
     [InlineData(SiegeSessionMode.DryRun)]
-    public Task ConcurrentStartsAndClaims_AreSerialized(SiegeSessionMode mode) =>
+    public Task ConcurrentStarts_AreSerialized(SiegeSessionMode mode) =>
         SqlServerTestDatabase.RunAsync(async connectionString =>
         {
             var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
@@ -47,33 +47,7 @@ public sealed class SiegeModeConcurrencyTests
             }
             var starts = await Task.WhenAll(Start(firstId), Start(secondId));
             Assert.Equal(new[] { 201, 409 }, starts.Select(r => Assert.IsAssignableFrom<IStatusCodeActionResult>(r).StatusCode!.Value).Order());
-            var session = await setup.SiegeSessions.SingleAsync();
-            var claim = new ClaimSiegeActionDto
-            {
-                ActionId = Guid.NewGuid(),
-                ConnectionId = Guid.NewGuid(),
-                PlayerGuid = "guid",
-                SlotId = 1,
-                RuleId = "new-guid",
-                BaselineRevision = 0
-            };
-            async Task<SiegeActionClaimDto> Claim()
-            {
-                await using var context = new PortalDbContext(options);
-                var result = Assert.IsAssignableFrom<ObjectResult>(await new SiegeModeController(context)
-                    .ClaimAction(server.GameServerId, session.SessionId, claim));
-                return Assert.IsType<ApiResponse<SiegeActionClaimDto>>(result.Value).Data!;
-            }
-            var claims = await Task.WhenAll(Claim(), Claim());
-            Assert.Equal(mode == SiegeSessionMode.Enforce ? 1 : 0, claims.Count(c => c.ShouldDispatch));
-            Assert.Single(await setup.SiegeActions.ToListAsync());
-            var summaryResult = Assert.IsAssignableFrom<ObjectResult>(await new SiegeModeController(setup).SummarizeActions(
-                new SiegeAuditQueryDto { GameServerIds = [server.GameServerId], SkipEntries = 1, TakeEntries = 1 }));
-            var summary = Assert.IsType<ApiResponse<SiegeActionSummaryDto>>(summaryResult.Value).Data!;
-            var count = Assert.Single(summary.Counts);
-            Assert.Equal(mode, count.Mode);
-            Assert.Equal(mode == SiegeSessionMode.DryRun ? SiegeActionOutcomes.WouldKick : SiegeActionOutcomes.Pending, count.Outcome);
-            Assert.Equal(1, count.Count);
+            Assert.Single(await setup.SiegeSessions.ToListAsync());
             Assert.Empty(await setup.AdminActions.ToListAsync());
         });
 
@@ -137,17 +111,6 @@ public sealed class SiegeModeConcurrencyTests
                     Mode = "Enforce",
                     SettingsJson = "{}"
                 });
-                context.SiegeActions.Add(new SiegeAction
-                {
-                    ActionId = Guid.NewGuid(),
-                    SessionId = id,
-                    ConnectionId = Guid.NewGuid(),
-                    PlayerGuid = "guid",
-                    SlotId = 1,
-                    RuleId = "new-guid",
-                    ClaimedAtUtc = ended.AddMinutes(-1),
-                    Outcome = "Failed"
-                });
                 context.SiegeChecks.Add(new SiegeCheck
                 {
                     CheckId = Guid.NewGuid(),
@@ -171,13 +134,12 @@ public sealed class SiegeModeConcurrencyTests
             var result = await new SiegeModeController(context).PruneSiegeMode();
             Assert.Equal(200, Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode);
             Assert.Equal(recentId, (await context.SiegeSessions.SingleAsync()).SessionId);
-            Assert.Equal(recentId, (await context.SiegeActions.SingleAsync()).SessionId);
             Assert.Equal(recentId, (await context.SiegeChecks.SingleAsync()).SessionId);
             Assert.Equal(recentId, (await context.SiegeSessionEvents.SingleAsync()).SessionId);
         });
 
     [Fact]
-    public Task DeletePlayer_RemovesOnlyOwnedSnapshotValuesAndRejectsStaleClaims() =>
+    public Task DeletePlayer_RemovesOnlyOwnedSnapshotValues() =>
         SqlServerTestDatabase.RunAsync(async connectionString =>
         {
             var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
@@ -203,23 +165,11 @@ public sealed class SiegeModeConcurrencyTests
                 ExpectedDurationMinutes = 240,
                 Mode = SiegeSessionMode.Enforce
             });
-            var request = new ClaimSiegeActionDto
-            {
-                ActionId = Guid.NewGuid(),
-                ConnectionId = Guid.NewGuid(),
-                PlayerGuid = "deleted",
-                SlotId = 1,
-                RuleId = "new-guid",
-                BaselineRevision = 0
-            };
-            await controller.ClaimAction(server.GameServerId, sessionId, request);
-            var beforeDeletion = Assert.IsAssignableFrom<ObjectResult>(await controller.SummarizeActions(
-                new SiegeAuditQueryDto { GameServerIds = [server.GameServerId] }));
-            Assert.Equal(1, Assert.IsType<ApiResponse<SiegeActionSummaryDto>>(beforeDeletion.Value).Data!.Counts.Sum(c => c.Count));
+            var connectionId = Guid.NewGuid();
             await controller.RecordCheck(server.GameServerId, sessionId, new RecordSiegeCheckDto
             {
                 CheckId = Guid.NewGuid(),
-                ConnectionId = request.ConnectionId,
+                ConnectionId = connectionId,
                 PlayerGuid = "deleted",
                 Outcome = "Unknown",
                 Detail = "test"
@@ -231,11 +181,7 @@ public sealed class SiegeModeConcurrencyTests
                 .DeletePlayer(deleted.PlayerId);
             Assert.Equal(System.Net.HttpStatusCode.OK, deletion.StatusCode);
             context.ChangeTracker.Clear();
-            Assert.Empty(await context.SiegeActions.ToListAsync());
             Assert.Empty(await context.SiegeChecks.ToListAsync());
-            var afterDeletion = Assert.IsAssignableFrom<ObjectResult>(await controller.SummarizeActions(
-                new SiegeAuditQueryDto { GameServerIds = [server.GameServerId] }));
-            Assert.Empty(Assert.IsType<ApiResponse<SiegeActionSummaryDto>>(afterDeletion.Value).Data!.Counts);
             Assert.Empty(await context.SiegeBaselineGuidOwners.Where(o => o.PlayerId == deleted.PlayerId).ToListAsync());
             Assert.Empty(await context.SiegeBaselineIpOwners.Where(o => o.PlayerId == deleted.PlayerId).ToListAsync());
 
@@ -250,8 +196,6 @@ public sealed class SiegeModeConcurrencyTests
             var sharedBaseline = Assert.IsType<ApiResponse<SiegeBaselineDto>>(shared.Value).Data!;
             Assert.False(sharedBaseline.NewGuid);
             Assert.False(sharedBaseline.NewIp);
-            var stale = await controller.ClaimAction(server.GameServerId, sessionId, request with { ActionId = Guid.NewGuid() });
-            Assert.Equal(409, Assert.IsAssignableFrom<IStatusCodeActionResult>(stale).StatusCode);
         });
 
     [Fact]
@@ -384,7 +328,7 @@ public sealed class SiegeModeConcurrencyTests
         });
 
     [Fact]
-    public Task EndAndClaim_AreSerializedAndLaterClaimsFail() =>
+    public Task EndAndCheck_AreSerializedAndLaterChecksFail() =>
         SqlServerTestDatabase.RunAsync(async connectionString =>
         {
             var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
@@ -401,14 +345,13 @@ public sealed class SiegeModeConcurrencyTests
                 ExpectedDurationMinutes = 240,
                 Mode = SiegeSessionMode.Enforce
             });
-            var claim = new ClaimSiegeActionDto
+            var check = new RecordSiegeCheckDto
             {
-                ActionId = Guid.NewGuid(),
+                CheckId = Guid.NewGuid(),
                 ConnectionId = Guid.NewGuid(),
                 PlayerGuid = "guid",
-                SlotId = 1,
-                RuleId = "new-guid",
-                BaselineRevision = 0
+                Outcome = "Unknown",
+                Detail = "test"
             };
             async Task<int?> End()
             {
@@ -417,16 +360,16 @@ public sealed class SiegeModeConcurrencyTests
                     new ChangeSiegeSessionDto { OperationId = Guid.NewGuid(), Actor = "admin" });
                 return Assert.IsAssignableFrom<IStatusCodeActionResult>(result).StatusCode;
             }
-            async Task<int?> Claim(ClaimSiegeActionDto request)
+            async Task<int?> Check(RecordSiegeCheckDto request)
             {
                 await using var context = new PortalDbContext(options);
                 return Assert.IsAssignableFrom<IStatusCodeActionResult>(await new SiegeModeController(context)
-                    .ClaimAction(server.GameServerId, sessionId, request)).StatusCode;
+                    .RecordCheck(server.GameServerId, sessionId, request)).StatusCode;
             }
-            var results = await Task.WhenAll(End(), Claim(claim));
+            var results = await Task.WhenAll(End(), Check(check));
             Assert.Equal(200, results[0]);
             Assert.Contains(results[1], new int?[] { 200, 409 });
-            Assert.Equal(409, await Claim(claim with { ActionId = Guid.NewGuid(), ConnectionId = Guid.NewGuid() }));
+            Assert.Equal(409, await Check(check with { CheckId = Guid.NewGuid(), ConnectionId = Guid.NewGuid() }));
         });
 
     private static GlobalConfiguration CreateEnabledSiegeConfiguration() => new()

@@ -34,15 +34,6 @@ public sealed class SiegeModeApi(
     public Task<ApiResult<SiegeBaselineDto>> GetBaseline(Guid gameServerId, Guid sessionId, SiegeBaselineRequestDto request, CancellationToken cancellationToken = default) =>
         Send<SiegeBaselineDto>($"v1/game-servers/{gameServerId}/siege-sessions/{sessionId}/baseline", Method.Post, request, cancellationToken);
 
-    public Task<ApiResult<SiegeActionClaimDto>> ClaimAction(Guid gameServerId, Guid sessionId, ClaimSiegeActionDto request, CancellationToken cancellationToken = default) =>
-        Send<SiegeActionClaimDto>($"v1/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions", Method.Post, request, cancellationToken);
-
-    public Task<ApiResult<SiegeActionDto>> UpdateActionOutcome(Guid gameServerId, Guid sessionId, Guid actionId, UpdateSiegeActionOutcomeDto request, CancellationToken cancellationToken = default) =>
-        Send<SiegeActionDto>($"v1/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions/{actionId}/outcome", Method.Put, request, cancellationToken);
-
-    public Task<ApiResult<CollectionModel<SiegeActionDto>>> GetActions(Guid gameServerId, Guid sessionId, int skipEntries, int takeEntries, CancellationToken cancellationToken = default) =>
-        SendPage<SiegeActionDto>($"v1/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions", skipEntries, takeEntries, cancellationToken);
-
     public Task<ApiResult<SiegeCheckDto>> RecordCheck(Guid gameServerId, Guid sessionId, RecordSiegeCheckDto request, CancellationToken cancellationToken = default) =>
         Send<SiegeCheckDto>($"v1/game-servers/{gameServerId}/siege-sessions/{sessionId}/checks", Method.Post, request, cancellationToken);
 
@@ -54,12 +45,6 @@ public sealed class SiegeModeApi(
 
     public Task<ApiResult<CollectionModel<SiegeSessionDto>>> SearchSessions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
         Send<CollectionModel<SiegeSessionDto>>("v1/siege-sessions/search", Method.Post, request, cancellationToken);
-
-    public Task<ApiResult<CollectionModel<SiegeActionDto>>> SearchActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
-        Send<CollectionModel<SiegeActionDto>>("v1/siege-actions/search", Method.Post, request, cancellationToken);
-
-    public Task<ApiResult<SiegeActionSummaryDto>> SummarizeActions(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
-        Send<SiegeActionSummaryDto>("v1/siege-actions/summary", Method.Post, request, cancellationToken);
 
     public Task<ApiResult<CollectionModel<SiegeCheckDto>>> SearchChecks(SiegeAuditQueryDto request, CancellationToken cancellationToken = default) =>
         Send<CollectionModel<SiegeCheckDto>>("v1/siege-checks/search", Method.Post, request, cancellationToken);

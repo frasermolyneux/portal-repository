@@ -97,8 +97,6 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<ServerMapRun> ServerMapRuns { get; set; }
 
-    public virtual DbSet<SiegeAction> SiegeActions { get; set; }
-
     public virtual DbSet<SiegeBaselineGuid> SiegeBaselineGuids { get; set; }
 
     public virtual DbSet<SiegeBaselineGuidOwner> SiegeBaselineGuidOwners { get; set; }
@@ -654,13 +652,6 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.Server).WithMany(p => p.ServerMapRuns)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ServerMapRun_GameServers");
-        });
-
-        modelBuilder.Entity<SiegeAction>(entity =>
-        {
-            entity.Property(e => e.ActionId).ValueGeneratedNever();
-
-            entity.HasOne(d => d.Session).WithMany(p => p.SiegeActions).HasConstraintName("FK_SiegeActions_SiegeSessions");
         });
 
         modelBuilder.Entity<SiegeBaselineGuid>(entity =>

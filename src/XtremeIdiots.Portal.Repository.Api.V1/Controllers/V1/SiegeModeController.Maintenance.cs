@@ -27,15 +27,13 @@ public partial class SiegeModeController
                 .Where(i => i.Session.EndedAtUtc != null || i.Session.ExpiresAtUtc <= now)
                 .OrderBy(i => i.SessionId).ThenBy(i => i.Address)
                 .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token),
-            token => PruneHistoryBatchAsync(t => context.SiegeActions.Where(a => a.Session.EndedAtUtc < cutoff)
-                .OrderBy(a => a.ActionId).Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token),
             token => PruneHistoryBatchAsync(t => context.SiegeChecks.Where(c => c.Session.EndedAtUtc < cutoff)
                 .OrderBy(c => c.CheckId).Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token),
             token => PruneHistoryBatchAsync(t => context.SiegeSessionEvents.Where(e => e.Session.EndedAtUtc < cutoff)
                 .OrderBy(e => e.OperationId).Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token),
             token => PruneHistoryBatchAsync(t => context.SiegeSessions.Where(s => s.EndedAtUtc < cutoff &&
                 !s.SiegeBaselineGuids.Any() && !s.SiegeBaselineIps.Any() &&
-                !s.SiegeActions.Any() && !s.SiegeChecks.Any() && !s.SiegeSessionEvents.Any())
+                !s.SiegeChecks.Any() && !s.SiegeSessionEvents.Any())
                 .OrderBy(s => s.SessionId).Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(t), token)
         ], cancellationToken).ConfigureAwait(false);
         return new ApiResponse().ToApiResult(completed ? HttpStatusCode.OK : HttpStatusCode.Accepted).ToHttpResult();

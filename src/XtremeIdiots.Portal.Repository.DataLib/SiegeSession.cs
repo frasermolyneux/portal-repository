@@ -42,9 +42,6 @@ public partial class SiegeSession
     public virtual ICollection<RuleFeatureExecution> RuleFeatureExecutions { get; set; } = new List<RuleFeatureExecution>();
 
     [InverseProperty("Session")]
-    public virtual ICollection<SiegeAction> SiegeActions { get; set; } = new List<SiegeAction>();
-
-    [InverseProperty("Session")]
     public virtual ICollection<SiegeBaselineGuid> SiegeBaselineGuids { get; set; } = new List<SiegeBaselineGuid>();
 
     [InverseProperty("Session")]
