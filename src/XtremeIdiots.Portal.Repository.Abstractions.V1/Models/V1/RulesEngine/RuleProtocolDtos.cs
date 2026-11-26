@@ -43,6 +43,15 @@ public enum RuleFeatureExecutionState
 
 [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum RuleExecutionMatchStatus
+{
+    Unknown = 0,
+    Matched,
+    NoMatch
+}
+
+[Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum RuleNativeEffectType
 {
     Unknown = 0,
@@ -175,6 +184,7 @@ public sealed record RuleFeatureExecutionDto
     public RuleTriggerEnvelope Trigger { get; init; } = new();
     public Guid? FactSnapshotId { get; init; }
     public RuleFeatureExecutionState State { get; init; }
+    public RuleExecutionMatchStatus MatchStatus { get; init; }
     public int RuleIndex { get; init; }
     public int ActionIndex { get; init; }
     public string? DecisionSnapshotJson { get; init; }
@@ -204,6 +214,7 @@ public sealed record UpdateRuleFeatureExecutionProgressDto
     public int RuleIndex { get; init; }
     public int ActionIndex { get; init; }
     public RuleFeatureExecutionState State { get; init; }
+    public RuleExecutionMatchStatus? MatchStatus { get; init; }
     public string? DecisionSnapshotJson { get; init; }
     public Guid? FactSnapshotId { get; init; }
     public RuleExecutionCoordination? Coordination { get; init; }

@@ -57,6 +57,7 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
         var auditProperties = document["components"]!["schemas"]!["RuleExecutionAuditDto"]!["properties"]!;
         Assert.NotNull(auditProperties["diagnostics"]);
         Assert.NotNull(auditProperties["preparedActions"]);
+        Assert.NotNull(auditProperties["matchStatus"]);
         Assert.Null(auditProperties["frozenRulesJson"]);
         Assert.Null(auditProperties["trigger"]);
         var reference = archive["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.Value<string>()!;
@@ -71,6 +72,12 @@ public class InfoAndHealthTests : IClassFixture<CustomWebApplicationFactory>, IA
     {
         using var valid = await _client.GetAsync("/v1.0/rule-executions/audit?fromUtc=2026-10-01T12%3A00%3A00Z&toUtc=2026-10-02T12%3A00%3A00Z");
         Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        using var matched = await _client.GetAsync("/v1.0/rule-executions/audit?featureId=welcome-messages&matchStatus=Matched");
+        Assert.Equal(HttpStatusCode.OK, matched.StatusCode);
+        using var unknown = await _client.GetAsync("/v1.0/rule-executions/audit?matchStatus=Unknown");
+        Assert.Equal(HttpStatusCode.OK, unknown.StatusCode);
+        using var invalidMatch = await _client.GetAsync("/v1.0/rule-executions/audit?matchStatus=99");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidMatch.StatusCode);
         using var invalid = await _client.GetAsync("/v1.0/rule-executions/audit?fromUtc=2026-10-01T12%3A00%3A00");
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         using var missing = await _client.GetAsync($"/v1.0/rule-executions/{Guid.NewGuid()}/flow");
