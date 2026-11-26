@@ -41,8 +41,8 @@ Do not remove the legacy shim path until all consumers listed in the implementat
 
 This chat shim is separate from the retired welcome settings types. Version 5 removes those
 public types; old packages still contain them, but consumers must stop referencing them before
-upgrading. Existing `welcomeMessages` documents remain in dynamic repository storage if present,
-with no namespace-specific validation or automatic conversion. Production inventory on
+upgrading. Existing `welcomeMessages` documents remain readable and writable in dynamic repository
+storage if present, with no namespace-specific validation or automatic conversion. Production inventory on
 2026-11-26 found no global or per-server documents in that namespace.
 
 ## Troubleshooting Runbook

@@ -89,7 +89,7 @@ persisted may therefore be classified as new. Snapshots are temporary and do not
 extend the retention of the underlying IP history.
 
 Explicit player deletion removes that player's snapshot provenance and
-player-linked Siege audit records. Snapshot values shared with another retained
+player-linked Siege check records. Snapshot values shared with another retained
 owner remain known; exclusively owned values are removed. A baseline response
 includes a revision that changes when an affected active session's snapshot is
 updated by deletion.
@@ -98,8 +98,8 @@ Siege rule actions use the generic rule execution APIs and audit, not a separate
 Siege action lifecycle. Session action counts include all associated generic
 rule action claims. The legacy Siege action claim, outcome, list, search and
 summary routes and SDK types are retired in package version 5; those routes
-return 404. The `SiegeActions` table is retired; session, baseline, check,
-session-event and rule action history remain available. See [the rules engine contract guidance](rules-engine-contracts.md#legacy-siege-action-retirement)
+return 404. The `SiegeActions` table remains until a later deployment; session,
+baseline, check, session-event and rule action history remain available. See [the rules engine contract guidance](rules-engine-contracts.md#legacy-siege-action-retirement)
 for the compatibility impact and migration path.
 
 The V1 player IP observation endpoint accepts a globally unique, case-sensitive

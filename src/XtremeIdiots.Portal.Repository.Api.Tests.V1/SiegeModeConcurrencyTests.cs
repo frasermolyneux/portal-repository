@@ -19,54 +19,6 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1;
 [Collection("SqlServer")]
 public sealed class SiegeModeConcurrencyTests
 {
-    [Fact]
-    public Task RetireSiegeActions_DropsOnlyLegacyActionsAndIsIdempotent() =>
-        SqlServerTestDatabase.RunAsync(async connectionString =>
-        {
-            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
-            await using var context = new PortalDbContext(options);
-            var server = new GameServer { Title = "Test", Hostname = "test", BanFileRootPath = "/", GameType = 1 };
-            var sessionId = Guid.NewGuid();
-            var checkId = Guid.NewGuid();
-            context.GameServers.Add(server);
-            context.SiegeSessions.Add(new SiegeSession
-            {
-                SessionId = sessionId,
-                GameServer = server,
-                GameType = 1,
-                StartedBy = "admin",
-                StartedAtUtc = DateTime.UtcNow,
-                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
-                Mode = "Enforce",
-                SettingsJson = "{}"
-            });
-            context.SiegeChecks.Add(new SiegeCheck
-            {
-                CheckId = checkId,
-                SessionId = sessionId,
-                OccurredAtUtc = DateTime.UtcNow,
-                Outcome = "Unknown",
-                Detail = "test"
-            });
-            await context.SaveChangesAsync();
-            await context.Database.ExecuteSqlRawAsync("""
-                CREATE TABLE [dbo].[SiegeActions]
-                (
-                    [ActionId] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
-                    [SessionId] UNIQUEIDENTIFIER NOT NULL REFERENCES [dbo].[SiegeSessions] ([SessionId]) ON DELETE CASCADE
-                );
-                """);
-            await context.Database.ExecuteSqlInterpolatedAsync(
-                $"INSERT INTO [dbo].[SiegeActions] ([ActionId], [SessionId]) VALUES ({Guid.NewGuid()}, {sessionId})");
-            var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Script.PostDeploymentRetireSiegeActions.sql"));
-            await context.Database.ExecuteSqlRawAsync(script);
-            await context.Database.ExecuteSqlRawAsync(script);
-
-            Assert.Null(await context.Database.SqlQueryRaw<int?>("SELECT OBJECT_ID(N'dbo.SiegeActions', N'U') AS [Value]").SingleAsync());
-            Assert.Equal(sessionId, (await context.SiegeSessions.SingleAsync()).SessionId);
-            Assert.Equal(checkId, (await context.SiegeChecks.SingleAsync()).CheckId);
-        });
-
     [Theory]
     [InlineData(SiegeSessionMode.Enforce)]
     [InlineData(SiegeSessionMode.DryRun)]

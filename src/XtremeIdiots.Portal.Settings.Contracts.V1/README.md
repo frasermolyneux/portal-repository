@@ -95,8 +95,8 @@ ordinary conditions and messaging actions. It defaults disabled. Templates use t
 validator and flat token catalogue have been retired.
 
 The former `welcomeMessages` namespace is not migrated, interpreted as rules, or deleted.
-Repository configuration storage remains dynamic, so retained documents remain accessible
-without the removed namespace-specific validator.
+Repository configuration storage remains dynamic, so retained documents remain readable and
+writable without the removed namespace-specific validator.
 
 ## Compatibility Shim Transition (Chat Package Path)
 

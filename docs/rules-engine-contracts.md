@@ -573,13 +573,14 @@ Production inventory on 2026-11-26 found no `SiegeActions` rows; the deployed we
 route-name matches. These checks do not prove that unknown external clients never use the old
 surface: such clients must migrate, and the removed HTTP routes return 404.
 
-The SQL project and generated model no longer include `SiegeActions`. The post-deployment script
-explicitly drops that table because the normal DACPAC publish leaves objects absent from the source
-in place. This drop deletes any rows present at deployment and is not blocked by DacFx's
-`BlockOnPossibleDataLoss` setting; use the existing `allow-data-loss` workflow option for a
-pre-deployment database export. Production was empty at inventory time, but the currently deployed
-legacy API can still create rows until it is retired. `SiegeChecks`, session events, rule action
-history and their existing retention remain in place.
+The SQL project retains `SiegeActions` for this first deployment while the generated model and
+V1 host stop using it. Because SQL is deployed before V1, removing the table in the same deployment
+would break the old host's player-deletion and Siege-maintenance operations. After the new V1 host
+has deployed successfully, a follow-up deployment can remove the table; doing so deletes any rows
+then present. Production was empty at inventory time, but the old host can create rows until it is
+retired. `SiegeChecks`, session events, rule action history and their existing retention remain.
+Until the follow-up, the new host does not prune legacy action rows or remove them directly on
+player deletion; the existing session foreign key still cascades when a session is removed.
 
 The clean-slate reset removes only old VPN/Siege configuration and obsolete feature-owned
 execution data. It does not remove `AdminActions`, existing bans, or unrelated player data.

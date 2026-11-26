@@ -25,9 +25,6 @@ Post-Deployment Script Template
 -- Backfill timestamped Siege baseline facts for existing sessions
 :r .\Script.PostDeploymentSiegeBaselineTimestamps.sql
 
--- Retire the legacy Siege action table; rule actions use RuleActionExecutions.
-:r .\Script.PostDeploymentRetireSiegeActions.sql
-
 -- Idempotent Full Text setup (catalog + indexes) - safe if objects already exist
 IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'PortalFTCatalog')
 BEGIN
