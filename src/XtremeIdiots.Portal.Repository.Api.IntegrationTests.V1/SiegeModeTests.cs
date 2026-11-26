@@ -101,7 +101,7 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task DryRun_UsesBaselineRevisionAndNeverDispatches()
+    public async Task DryRun_UsesCapturedBaselineAndKeepsChecksAvailable()
     {
         var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
@@ -167,46 +167,59 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.OK, baselineResponse.StatusCode);
         var baseline = JObject.Parse(await baselineResponse.Content.ReadAsStringAsync())["data"]!;
         Assert.True(baseline["newGuid"]!.Value<bool>());
-        var missingRevision = await client.PostAsJsonAsync($"{root}/{sessionId}/actions", new
+        var checkResponse = await client.PostAsJsonAsync($"{root}/{sessionId}/checks", new
         {
-            actionId = Guid.NewGuid(),
+            checkId = Guid.NewGuid(),
             connectionId = Guid.NewGuid(),
             playerGuid = "new-player",
-            slotId = 1,
-            ruleId = "new-guid"
+            outcome = "Unknown",
+            detail = "test"
         });
-        Assert.Equal(HttpStatusCode.BadRequest, missingRevision.StatusCode);
-        var missingSlot = await client.PostAsJsonAsync($"{root}/{sessionId}/actions", new
+        Assert.Equal(HttpStatusCode.OK, checkResponse.StatusCode);
+        Assert.Equal("DryRun", JObject.Parse(await checkResponse.Content.ReadAsStringAsync())["data"]!["mode"]!.Value<string>());
+        var checksResponse = await client.GetAsync($"{root}/{sessionId}/checks");
+        Assert.Equal(HttpStatusCode.OK, checksResponse.StatusCode);
+        Assert.Single(JObject.Parse(await checksResponse.Content.ReadAsStringAsync())["data"]!["items"]!);
+    }
+
+    [Fact]
+    public async Task LegacySiegeActionRoutes_ReturnNotFound()
+    {
+        var serverId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        factory.SeedDatabase(db =>
         {
-            actionId = Guid.NewGuid(),
-            connectionId = Guid.NewGuid(),
-            playerGuid = "new-player",
-            ruleId = "new-guid",
-            baselineRevision = baseline["baselineRevision"]!.Value<int>()
+            db.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Server", Hostname = "localhost" });
+            db.SiegeSessions.Add(new SiegeSession
+            {
+                SessionId = sessionId,
+                GameServerId = serverId,
+                StartedBy = "admin",
+                StartedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+                SettingsJson = "{}",
+                Mode = "Enforce"
+            });
+            db.SaveChanges();
         });
-        Assert.Equal(HttpStatusCode.BadRequest, missingSlot.StatusCode);
-        var claim = await client.PostAsJsonAsync($"{root}/{sessionId}/actions", new
+        using var client = factory.CreateClient();
+        var root = $"/v1.0/game-servers/{serverId}/siege-sessions/{sessionId}/actions";
+        foreach (var (method, path) in new[]
         {
-            actionId = Guid.NewGuid(),
-            connectionId = Guid.NewGuid(),
-            playerGuid = "new-player",
-            slotId = 0,
-            ruleId = "new-guid",
-            baselineRevision = baseline["baselineRevision"]!.Value<int>()
-        });
-        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
-        var action = JObject.Parse(await claim.Content.ReadAsStringAsync())["data"]!;
-        Assert.False(action["shouldDispatch"]!.Value<bool>());
-        Assert.Equal("WouldKick", action["action"]!["outcome"]!.Value<string>());
-        Assert.Equal("DryRun", action["action"]!["mode"]!.Value<string>());
-        var summaryResponse = await client.PostAsJsonAsync("/v1.0/siege-actions/summary",
-            new { gameServerIds = new[] { serverId }, skipEntries = 1, takeEntries = 1 });
-        Assert.Equal(HttpStatusCode.OK, summaryResponse.StatusCode);
-        var counts = JObject.Parse(await summaryResponse.Content.ReadAsStringAsync())["data"]!["counts"]!;
-        var count = Assert.Single(counts);
-        Assert.Equal("DryRun", count["mode"]!.Value<string>());
-        Assert.Equal("WouldKick", count["outcome"]!.Value<string>());
-        Assert.Equal(1, count["count"]!.Value<int>());
+            (HttpMethod.Post, root),
+            (HttpMethod.Get, root),
+            (HttpMethod.Put, $"{root}/{Guid.NewGuid()}/outcome"),
+            (HttpMethod.Post, "/v1.0/siege-actions/search"),
+            (HttpMethod.Post, "/v1.0/siege-actions/summary")
+        })
+        {
+            using var request = new HttpRequestMessage(method, path)
+            {
+                Content = JsonContent.Create(new { })
+            };
+            using var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
     }
 
     [Fact]
@@ -217,19 +230,19 @@ public class SiegeModeTests(CustomWebApplicationFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var document = JObject.Parse(await response.Content.ReadAsStringAsync());
         var paths = document["paths"]!;
-        Assert.NotNull(paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]!["post"]);
+        Assert.Null(paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]);
+        Assert.Null(paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions/{actionId}/outcome"]);
+        Assert.Null(paths["/siege-actions/search"]);
+        Assert.Null(paths["/siege-actions/summary"]);
         Assert.NotNull(paths["/players/{playerId}/ip-address/observations"]!["put"]);
-        Assert.NotNull(paths["/siege-actions/summary"]!["post"]);
         Assert.NotNull(paths["/data-maintenance/prune-siege-mode"]!["delete"]);
-        var schema = paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]!["post"]!
+        var checkOperation = paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/checks"]!["post"]!;
+        Assert.NotNull(paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/checks"]!["get"]);
+        Assert.NotNull(paths["/siege-checks/search"]!["post"]);
+        var schema = checkOperation
             ["responses"]!["200"]!["content"]!["application/json"]!["schema"]!;
         var reference = schema["$ref"]!.Value<string>()!;
         Assert.NotNull(document["components"]!["schemas"]![reference.Split('/').Last()]!["properties"]!["data"]);
-        Assert.NotNull(paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]!["post"]!["responses"]!["409"]);
-        var claimReference = paths["/game-servers/{gameServerId}/siege-sessions/{sessionId}/actions"]!["post"]!
-            ["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.Value<string>()!;
-        var claimSchema = document["components"]!["schemas"]![claimReference.Split('/').Last()]!;
-        Assert.Contains("baselineRevision", claimSchema["required"]!.Values<string>());
-        Assert.Contains("slotId", claimSchema["required"]!.Values<string>());
+        Assert.NotNull(checkOperation["responses"]!["409"]);
     }
 }

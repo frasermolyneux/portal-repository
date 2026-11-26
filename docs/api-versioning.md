@@ -91,16 +91,16 @@ extend the retention of the underlying IP history.
 Explicit player deletion removes that player's snapshot provenance and
 player-linked Siege audit records. Snapshot values shared with another retained
 owner remain known; exclusively owned values are removed. A baseline response
-includes a revision that must accompany an action claim. Deletion changes the
-revision of affected active sessions, and a claim using an older revision
-returns 409; re-evaluate against a fresh baseline or fail open.
+includes a revision that changes when an affected active session's snapshot is
+updated by deletion.
 
-Siege actions are recorded separately from administrative actions and do not
-create forum posts. The action summary groups all retained matching actions by
-session mode and recorded outcome, independently of audit pagination. `Pending`,
-`Queued` and `Dispatched` do not establish that a kick was applied, and
-`WouldKick` represents dry-run decisions. Player deletion removes linked audit
-records, so the corresponding summary counts decrease.
+Siege rule actions use the generic rule execution APIs and audit, not a separate
+Siege action lifecycle. Session action counts include all associated generic
+rule action claims. The legacy Siege action claim, outcome, list, search and
+summary routes and SDK types are retired in package version 5; those routes
+return 404. The `SiegeActions` table is retired; session, baseline, check,
+session-event and rule action history remain available. See [the rules engine contract guidance](rules-engine-contracts.md#legacy-siege-action-retirement)
+for the compatibility impact and migration path.
 
 The V1 player IP observation endpoint accepts a globally unique, case-sensitive
 `messageId` (1–128 characters, not blank) and an `ipAddress`. Reuse the original

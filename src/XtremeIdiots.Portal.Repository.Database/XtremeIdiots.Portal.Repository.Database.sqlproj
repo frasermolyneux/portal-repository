@@ -38,7 +38,6 @@
     <Build Include="dbo\Tables\SiegeBaselineIps.sql" />
     <Build Include="dbo\Tables\SiegeBaselineGuidOwners.sql" />
     <Build Include="dbo\Tables\SiegeBaselineIpOwners.sql" />
-    <Build Include="dbo\Tables\SiegeActions.sql" />
     <Build Include="dbo\Tables\SiegeChecks.sql" />
     <Build Include="dbo\Tables\BanFileMonitors.sql">
       <AnsiNulls>On</AnsiNulls>
@@ -121,6 +120,7 @@
     <None Include="Scripts\Script.PostDeploymentNotificationTypes.sql" />
     <None Include="Scripts\Script.PostDeploymentBanFileMonitors.sql" />
     <None Include="Scripts\Script.PostDeploymentSiegeBaselineTimestamps.sql" />
+    <None Include="Scripts\Script.PostDeploymentRetireSiegeActions.sql" />
     <None Include="Scripts\AlterReportsTableAnsiNulls.sql" />
   </ItemGroup>
   <ItemGroup>

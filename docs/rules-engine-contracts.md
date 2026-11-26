@@ -185,6 +185,8 @@ They use the normal feature envelope, are disabled by default, and accept only m
 Legacy documents are not migrated or reinterpreted. The new namespace requires an explicit
 `featureId: "welcome-messages"` on the wire. The Events cutover owns disabling/removing old
 configuration and retiring old delayed work before enabling recreated rules.
+The old welcome settings DTOs, validator and flat token catalogue are removed in package
+version 5. Dynamic configuration storage does not delete or convert legacy documents.
 
 The explicit `always` leaf has empty parameters and matches everyone; a missing condition or
 empty group still means Unknown. Welcome first-match planning defers at an indeterminate stopping
@@ -551,13 +553,33 @@ activation time when older records lack a source timestamp. New baseline records
 earliest observation timestamp available at activation. Ended or expired session baselines are removed by Siege maintenance pruning; they are not
 guaranteed to remain for the full lifetime of retained session history.
 
-Siege's generic repository API signatures are in `ISiegeModeApi`: `GetBaseline(gameServerId,
-sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; `ClaimAction` and
-`UpdateActionOutcome` durably track Siege action lifecycle; `RecordCheck` stores an aggregate check
-outcome. `IRuleExecutionsApi.CreateFactSnapshot` provides the timestamped GUID/IP baseline and
-observed-history facts used by the shared matcher.
+Siege session and baseline API signatures are in `ISiegeModeApi`: `GetBaseline(gameServerId,
+sessionId, SiegeBaselineRequestDto)` reads the captured baseline for a GUID/IP; `RecordCheck`
+stores an aggregate check outcome. `IRuleExecutionsApi.ClaimAction` and `UpdateActionOutcome`
+durably track rule actions, including Siege actions. `IRuleExecutionsApi.CreateFactSnapshot`
+provides the timestamped GUID/IP baseline and observed-history facts used by the shared matcher.
 Session `actionCount` counts generic rule action claims associated with the session, across all
-outcomes; legacy Siege action endpoints continue to report only legacy action records.
+outcomes.
+
+### Legacy Siege action retirement
+
+The separate Siege action claim, outcome, list, search and summary endpoints and their V1 SDK
+methods/DTOs are removed in package version 5. Use the generic rule execution APIs and
+`SearchRuleActions` with `featureId: "siege-mode"` and optional `siegeSessionId`.
+The session, baseline, check and session-event APIs remain available.
+
+Production inventory on 2026-11-26 found no `SiegeActions` rows; the deployed web audit uses
+`RuleActionExecutions`, and the preceding 30 days of request telemetry had no legacy action
+route-name matches. These checks do not prove that unknown external clients never use the old
+surface: such clients must migrate, and the removed HTTP routes return 404.
+
+The SQL project and generated model no longer include `SiegeActions`. The post-deployment script
+explicitly drops that table because the normal DACPAC publish leaves objects absent from the source
+in place. This drop deletes any rows present at deployment and is not blocked by DacFx's
+`BlockOnPossibleDataLoss` setting; use the existing `allow-data-loss` workflow option for a
+pre-deployment database export. Production was empty at inventory time, but the currently deployed
+legacy API can still create rows until it is retired. `SiegeChecks`, session events, rule action
+history and their existing retention remain in place.
 
 The clean-slate reset removes only old VPN/Siege configuration and obsolete feature-owned
 execution data. It does not remove `AdminActions`, existing bans, or unrelated player data.

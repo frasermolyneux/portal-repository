@@ -1,6 +1,6 @@
 # Settings Contracts Compatibility Shim Guidance
 
-This document defines the compatibility transition from legacy chat/welcome settings contracts to the platform settings contracts model.
+This document defines the chat settings compatibility transition and the retirement of legacy welcome settings in favor of the rules engine.
 
 ## Canonical Contract Ownership
 
@@ -8,7 +8,7 @@ This document defines the compatibility transition from legacy chat/welcome sett
 - Owner repository: `portal-repository`
 - Canonical namespaces in this package include:
   - `chatCommands`
-  - `welcomeMessages`
+  - `welcomeRules`
 
 ## Existing Chat Package Path
 
@@ -25,19 +25,25 @@ During migration this path remains compatibility-only. It should not be used for
 ## Migration Summary
 
 - Old approach: chat/welcome settings contract ownership lived on the legacy chat package path.
-- New approach: chat/welcome are first-class platform settings contracts in `XtremeIdiots.Portal.Settings.Contracts.V1`.
+- New approach: chat settings and `welcomeRules` are first-class platform settings contracts in `XtremeIdiots.Portal.Settings.Contracts.V1`. The former `welcomeMessages` DTOs, validator and token catalogue are retired.
 - Consumer repositories migrate by adopting the new package and removing direct legacy-package dependency after verification.
 
 ## Consumer Transition Steps
 
 1. Add `XtremeIdiots.Portal.Settings.Contracts.V1` to the consumer.
-2. Switch `chatCommands` and `welcomeMessages` deserialization and validation to the new package types.
-3. Keep runtime behavior unchanged while validating equivalent outputs.
+2. Switch `chatCommands` deserialization and validation to the new package types. Welcome consumers use the separate `welcomeRules` namespace and ordinary rules contracts.
+3. Keep chat runtime behavior unchanged while validating equivalent outputs. Recreate welcome rules explicitly; do not reinterpret legacy welcome documents.
 4. Remove dependency on `XtremeIdiots.Portal.ChatCommands.Abstractions.V1` only after consumer verification.
 
 ## Shim Removal Gate
 
 Do not remove the legacy shim path until all consumers listed in the implementation plan are migrated to a published settings contracts package version and cross-repo validation passes.
+
+This chat shim is separate from the retired welcome settings types. Version 5 removes those
+public types; old packages still contain them, but consumers must stop referencing them before
+upgrading. Existing `welcomeMessages` documents remain in dynamic repository storage if present,
+with no namespace-specific validation or automatic conversion. Production inventory on
+2026-11-26 found no global or per-server documents in that namespace.
 
 ## Troubleshooting Runbook
 
