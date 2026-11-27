@@ -40,6 +40,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     [HttpGet("game-servers/{gameServerId:guid}/rule-executions/{executionId:guid}")]
     [ProducesResponseType<ApiResponse<RuleFeatureExecutionDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> GetExecution(Guid gameServerId, Guid executionId, CancellationToken cancellationToken = default) =>
         (await ((IRuleExecutionsApi)this).GetExecution(gameServerId, executionId, cancellationToken).ConfigureAwait(false)).ToHttpResult();
 
@@ -250,11 +251,52 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     async Task<ApiResult<RuleFeatureExecutionDto>> IRuleExecutionsApi.GetExecution(
         Guid gameServerId, Guid executionId, CancellationToken cancellationToken)
     {
-        var execution = await context.RuleFeatureExecutions.AsNoTracking().SingleOrDefaultAsync(
-            e => e.GameServerId == gameServerId && e.ExecutionId == executionId, cancellationToken).ConfigureAwait(false);
-        return execution is null
-            ? new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound)
-            : new ApiResponse<RuleFeatureExecutionDto>(await ToDtoAsync(execution, cancellationToken).ConfigureAwait(false)).ToApiResult();
+        var scope = await context.RuleFeatureExecutions.AsNoTracking()
+            .Where(e => e.GameServerId == gameServerId && e.ExecutionId == executionId)
+            .Select(e => new { e.GameType, e.SiegeSessionId })
+            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (scope is null)
+        {
+            return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound);
+        }
+
+        async Task<ApiResult<RuleFeatureExecutionDto>> ReadAsync()
+        {
+            if (scope.SiegeSessionId is not null)
+            {
+                await SiegeHistoryLock.AcquireAsync(context, cancellationToken, exclusive: false).ConfigureAwait(false);
+            }
+            await AcquireGameHistoryReadLockAsync(scope.GameType, cancellationToken).ConfigureAwait(false);
+            if (!await AcquireTransactionLockAsync($"rules-execution-id:{executionId:N}", cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            var execution = await context.RuleFeatureExecutions.AsNoTracking().SingleOrDefaultAsync(
+                e => e.GameServerId == gameServerId && e.ExecutionId == executionId, cancellationToken).ConfigureAwait(false);
+            if (execution is null)
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound);
+            }
+            if (execution.GameType != scope.GameType || execution.SiegeSessionId != scope.SiegeSessionId)
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            return new ApiResponse<RuleFeatureExecutionDto>(
+                await ToDtoAsync(execution, cancellationToken).ConfigureAwait(false)).ToApiResult();
+        }
+
+        if (!context.Database.IsRelational())
+        {
+            return await ReadAsync().ConfigureAwait(false);
+        }
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await context.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+            var result = await ReadAsync().ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return result;
+        }).ConfigureAwait(false);
     }
 
     async Task<ApiResult<RuleFeatureExecutionDto>> IRuleExecutionsApi.UpdateProgress(
@@ -262,6 +304,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     {
         if (request is null || request.ExpectedVersion <= 0 || request.RuleIndex < 0 || request.ActionIndex < 0 ||
             !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson) || !ValidDiagnostics(request.Diagnostics) ||
+            !ValidEvaluationEvidence(request.EvaluationEvidence) ||
             request.MatchStatus is { } matchStatus && (!Enum.IsDefined(matchStatus) ||
                 matchStatus != RuleExecutionMatchStatus.Unknown && request.DecisionSnapshotJson is null ||
                 matchStatus == RuleExecutionMatchStatus.NoMatch && request.State != RuleFeatureExecutionState.Completed))
@@ -295,6 +338,22 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             if (execution.State is nameof(RuleFeatureExecutionState.Completed) or nameof(RuleFeatureExecutionState.Stopped))
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            if (request.EvaluationEvidence is { } evidence)
+            {
+                if (!EvidenceMatchesFrozenRules(evidence, execution.FrozenRulesJson))
+                {
+                    return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
+                }
+                var existingActionCoordinates = await context.RuleActionExecutions.AsNoTracking()
+                    .Where(action => action.ExecutionId == executionId)
+                    .Select(action => new { action.RuleIndex, action.ActionIndex })
+                    .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+                if (evidence.ActionDecisions.Any(decision => existingActionCoordinates.Any(action =>
+                    action.RuleIndex == decision.RuleIndex && action.ActionIndex == decision.ActionIndex)))
+                {
+                    return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+                }
             }
             if (request.MatchStatus == RuleExecutionMatchStatus.NoMatch &&
                 execution.MatchStatus == nameof(RuleExecutionMatchStatus.Matched))
@@ -347,6 +406,10 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             if (request.Diagnostics is not null)
             {
                 execution.DiagnosticsJson = JsonSerializer.Serialize(request.Diagnostics, JsonOptions);
+            }
+            if (request.EvaluationEvidence is not null)
+            {
+                execution.EvaluationEvidenceJson = JsonSerializer.Serialize(request.EvaluationEvidence, JsonOptions);
             }
             execution.FactSnapshotId = request.FactSnapshotId ?? execution.FactSnapshotId;
             if (request.Coordination is not null)
@@ -533,6 +596,8 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                 }, JsonOptions);
             }
             context.RuleActionExecutions.Add(action);
+            execution.EvaluationEvidenceJson = RemoveClaimedActionDecision(
+                execution.EvaluationEvidenceJson, request.RuleIndex, request.ActionIndex);
             execution.RuleIndex = request.RuleIndex;
             execution.ActionIndex = request.ActionIndex;
             execution.State = (request.TerminalOutcome is null
@@ -1105,6 +1170,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
             Coordination = execution.CoordinationJson is { } coordination ? Deserialize<RuleExecutionCoordination>(coordination) : null,
             Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
+            EvaluationEvidence = ProjectEvidence(execution.EvaluationEvidenceJson, actions),
             PreparedActions = preparations.Select(item => WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson), actions)).ToArray(),
             Actions = actions.Select(action => ToActionDto(action, execution)).ToArray(),
             Version = execution.Version,

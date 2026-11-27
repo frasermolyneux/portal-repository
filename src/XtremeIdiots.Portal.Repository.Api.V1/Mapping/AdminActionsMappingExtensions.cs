@@ -2,6 +2,7 @@ using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
+using XtremeIdiots.Portal.Repository.Api.V1.Constants;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 
 namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
@@ -32,7 +33,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 Created = entity.Created,
                 Expires = entity.Expires,
                 Source = (ActionSource)entity.Source,
-                AutomationFeature = entity.AutomationFeature is null ? null : (AutomationFeature)entity.AutomationFeature.Value,
+                AutomationFeature = entity.AutomationFeature is null or AutomationFeatureStorage.ChatModeration
+                    ? null : (AutomationFeature)entity.AutomationFeature.Value,
                 AutomationRuleId = entity.AutomationRuleId,
                 Player = expand && entity.Player is not null ? entity.Player.ToDto(false) : null!,
                 UserProfile = expand && entity.UserProfile is not null ? entity.UserProfile.ToDto(false) : null

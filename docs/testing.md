@@ -1,5 +1,17 @@
 # Testing with the Repository API Client
 
+## Rule execution read concurrency
+
+`RuleExecutionReadConcurrencyTests` uses isolated SQL Server to verify consistent execution reads
+against progress updates, player deletion, and Siege pruning. The SQL concurrency check runs these
+cases. `EvidenceReadConcurrencyTests` verifies that an action claimed during a flow or search read
+supersedes any stale not-run decision in that response.
+
+```pwsh
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleExecutionReadConcurrencyTests"
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~EvidenceReadConcurrencyTests"
+```
+
 ## Profile archival coverage
 
 `FakeUserProfileApi` supports `ArchiveUserProfile` and
@@ -23,6 +35,18 @@ collection with the post-deployment tag test to limit concurrent containers.
 ```pwsh
 dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~UserProfileArchival"
 dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter "FullyQualifiedName~UserProfileArchival"
+```
+
+## Chat occurrence effect coverage
+
+`RuleOccurrenceEffectsTests` exercises the V1 claim and moderation-record routes over HTTP.
+`RuleOccurrenceConcurrencyTests` uses isolated SQL Server to verify duplicate claims, atomic
+cooldown reservation, and record linkage under concurrency. PR Verify includes the HTTP test,
+and the SQL concurrency check includes the database tests.
+
+```pwsh
+dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter "FullyQualifiedName~RuleOccurrenceEffectsTests"
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleOccurrenceConcurrencyTests"
 ```
 
 The `XtremeIdiots.Portal.Repository.Api.Client.Testing` NuGet package provides in-memory fakes and factory helpers so consumer apps can test against `IRepositoryApiClient` without Moq or any mocking framework.
