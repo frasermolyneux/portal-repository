@@ -1420,28 +1420,15 @@ public class PlayersController : ControllerBase, IPlayersApi
         var sanitized = trimmedFilter.Replace("\"", "\"\"");
         var ftSearch = $"\"{sanitized}*\""; // prefix match for term
 
-        // NOTE: Using FromSqlInterpolated with CONTAINSTABLE to retrieve PlayerIds by rank then join Players once.
-        // Using PK (PlayerId) so key index is valid for full-text index.
-
-        var playersFt = context.Players
-            .FromSqlInterpolated($@"SELECT p.*
-FROM CONTAINSTABLE(Players, (Username, Guid), {ftSearch}) ft
-JOIN Players p ON p.PlayerId = ft.[Key]")
-            .AsNoTracking();
-
-        var aliasFt = context.Players
-            .FromSqlInterpolated($@"SELECT DISTINCT p.*
-FROM CONTAINSTABLE(PlayerAlias, (Name), {ftSearch}) fta
-JOIN PlayerAlias a ON a.PlayerAliasId = fta.[Key]
-JOIN Players p ON p.PlayerId = a.PlayerId")
-            .AsNoTracking();
-
-        // Preserve upstream constraints (for example gameType) by intersecting the
-        // full-text matches with the already-filtered query shape.
-        var fullTextMatchedPlayerIds = playersFt
-            .Union(aliasFt)
-            .Select(p => p.PlayerId)
-            .Distinct();
+        // The full-text keys are PlayerId and PlayerAliasId respectively.
+        var fullTextMatchedPlayerIds = context.Database.SqlQuery<Guid>($"""
+            SELECT ft.[Key] AS [Value]
+            FROM CONTAINSTABLE(Players, (Username, Guid), {ftSearch}) ft
+            UNION
+            SELECT a.PlayerId
+            FROM CONTAINSTABLE(PlayerAlias, (Name), {ftSearch}) fta
+            JOIN PlayerAlias a ON a.PlayerAliasId = fta.[Key]
+            """);
 
         return query.Where(p => fullTextMatchedPlayerIds.Contains(p.PlayerId));
     }
