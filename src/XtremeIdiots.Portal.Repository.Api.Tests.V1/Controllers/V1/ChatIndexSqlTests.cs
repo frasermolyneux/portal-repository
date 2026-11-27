@@ -44,6 +44,7 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
             context.AddRange(players);
             await context.SaveChangesAsync();
             await context.Database.OpenConnectionAsync();
+            context.Database.SetCommandTimeout(60);
             var connection = (SqlConnection)context.Database.GetDbConnection();
             using var rows = BuildRows(100_000, end, servers, players);
 
@@ -58,6 +59,7 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
             }
 
             await Insert(connection, rows);
+            await context.Database.ExecuteSqlRawAsync("ALTER INDEX ALL ON dbo.ChatMessages REBUILD;");
 
             var queries = new Dictionary<string, string>
             {
@@ -68,45 +70,57 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
             };
             queries["minority-server-count"] = queries["server-count"];
             queries["minority-server-projection"] = queries["server-projection"];
-            var baseline = new Dictionary<(string Name, int Days), QueryEvidence>();
-            foreach (var days in new[] { 1, 7, 30 })
+            var orders = new[] { new[] { 1, 7, 30 }, new[] { 30, 7, 1 } };
+            var baseline = new Dictionary<(string Name, int Days, int FirstWindow), QueryEvidence>();
+            foreach (var order in orders)
             {
-                foreach (var (name, sql) in queries)
+                await context.Database.ExecuteSqlRawAsync("ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE;");
+                foreach (var days in order)
                 {
-                    var server = servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId;
-                    baseline[(name, days)] = await Measure(connection, sql, end.AddDays(-days), end,
-                        server);
-                    EmitPlans("baseline", name, days, server, end, baseline[(name, days)]);
+                    foreach (var (name, sql) in queries)
+                    {
+                        var server = servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId;
+                        baseline[(name, days, order[0])] = await Measure(connection, sql, end.AddDays(-days), end,
+                            server);
+                        EmitPlans($"baseline-first{order[0]}d", name, days, server, end, baseline[(name, days, order[0])]);
+                    }
                 }
             }
 
             var originalSize = await IndexSize(connection);
-            var originalWrite = await MeasureInsert(connection, rows);
-
             await ReplaceIndex(connection, candidate);
             var coveredSize = await IndexSize(connection);
-            var coveredWrite = await MeasureInsert(connection, rows);
-            output.WriteLine($"Synthetic rows={rows.Rows.Count}; index KiB before={originalSize}, after={coveredSize}; 1000-row insert log bytes/ms before={originalWrite}, after={coveredWrite}");
-            foreach (var days in new[] { 1, 7, 30 })
+            foreach (var order in orders)
             {
-                foreach (var (name, sql) in queries)
+                await context.Database.ExecuteSqlRawAsync("ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE;");
+                foreach (var days in order)
                 {
-                    var before = baseline[(name, days)];
-                    var server = servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId;
-                    var after = await Measure(connection, sql, end.AddDays(-days), end,
-                        server);
-                    output.WriteLine($"{name} {days}d total logical reads before={before.ReadsByTable.Values.Sum()}, after={after.ReadsByTable.Values.Sum()}; per-table data+LOB pages before={string.Join(",", before.ReadsByTable)}, after={string.Join(",", after.ReadsByTable)}; retrieval ms before={before.ElapsedMs}, after={after.ElapsedMs}; chat accesses before={string.Join(",", before.Accesses)}, after={string.Join(",", after.Accesses)}");
-                    EmitPlans("candidate", name, days, server, end, after);
-                    Assert.Equal(before.Rows, after.Rows);
-                    if (name == "global" && days == 1)
+                    foreach (var (name, sql) in queries)
                     {
-                        Assert.True(after.ReadsByTable["ChatMessages"] < before.ReadsByTable["ChatMessages"],
-                            $"One-day global ChatMessages logical reads: {before.ReadsByTable["ChatMessages"]} -> {after.ReadsByTable["ChatMessages"]}");
-                        Assert.Contains(after.Accesses, access => access.Contains(IndexName, StringComparison.Ordinal));
-                        Assert.DoesNotContain(after.Accesses, access => access.Contains("Key Lookup", StringComparison.Ordinal));
+                        var before = baseline[(name, days, order[0])];
+                        var server = servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId;
+                        var after = await Measure(connection, sql, end.AddDays(-days), end, server);
+                        output.WriteLine($"{name} {days}d first-window={order[0]}d total logical reads before={before.ReadsByTable.Values.Sum()}, after={after.ReadsByTable.Values.Sum()}; per-table data+LOB pages before={string.Join(",", before.ReadsByTable)}, after={string.Join(",", after.ReadsByTable)}; retrieval ms before={before.ElapsedMs}, after={after.ElapsedMs}; chat accesses before={string.Join(",", before.Accesses)}, after={string.Join(",", after.Accesses)}");
+                        EmitPlans($"candidate-first{order[0]}d", name, days, server, end, after);
+                        Assert.Equal(before.Rows, after.Rows);
+                        if (name == "global" && days == 1)
+                        {
+                            Assert.True(after.ReadsByTable["ChatMessages"] < before.ReadsByTable["ChatMessages"],
+                                $"One-day global ChatMessages logical reads: {before.ReadsByTable["ChatMessages"]} -> {after.ReadsByTable["ChatMessages"]}");
+                            Assert.Contains(after.Accesses, access => access.Contains(IndexName, StringComparison.Ordinal));
+                            Assert.DoesNotContain(after.Accesses, access => access.Contains("Key Lookup", StringComparison.Ordinal));
+                        }
                     }
                 }
             }
+
+            await ReplaceIndex(connection, candidate.Replace(", [PlayerId], [GameServerId]", "", StringComparison.Ordinal));
+            await context.Database.ExecuteSqlRawAsync("ALTER INDEX ALL ON dbo.ChatMessages REBUILD;");
+            var originalWrite = await MeasureInsert(connection, rows, end);
+            await ReplaceIndex(connection, candidate);
+            await context.Database.ExecuteSqlRawAsync("ALTER INDEX ALL ON dbo.ChatMessages REBUILD;");
+            var coveredWrite = await MeasureInsert(connection, rows, end);
+            output.WriteLine($"Synthetic rows={rows.Rows.Count}; rebuilt index KiB before={originalSize}, after={coveredSize}; 1000-row append insert log bytes/ms before={originalWrite}, after={coveredWrite}");
         });
 
     private void EmitPlans(string phase, string query, int days, Guid server, DateTime end, QueryEvidence evidence)
@@ -175,12 +189,13 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
         return Convert.ToInt64(await command.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
     }
 
-    private static async Task<(long LogBytes, long ElapsedMs)> MeasureInsert(SqlConnection connection, DataTable rows)
+    private static async Task<(long LogBytes, long ElapsedMs)> MeasureInsert(SqlConnection connection, DataTable rows, DateTime end)
     {
         using var batch = rows.Clone();
         foreach (DataRow row in rows.Rows.Cast<DataRow>().Take(1000))
         {
             batch.ImportRow(row);
+            batch.Rows[^1]["Timestamp"] = end.AddSeconds(batch.Rows.Count);
         }
 
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();

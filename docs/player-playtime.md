@@ -80,7 +80,11 @@ counts for the existing in-memory server summary. The test records total and
 per-table logical reads (including LOB pages), index storage and rolled-back insert
 log bytes. Full baseline/candidate XML plans are emitted into test output with
 query, UTC window and server labels, retaining predicates, row counts, grants and
-spill details for review in CI test artifacts. Retrieval timings include plan
+spill details for review in CI test artifacts. The isolated test exercises both
+one-day-first and 30-day-first cached plans, using only its private database's
+procedure cache. Read comparisons precede write probes; all chat indexes are
+rebuilt to comparable layouts before each rolled-back append-insert probe.
+Retrieval timings include plan
 instrumentation, exclude result comparison/plan parsing, and are not production
 latency evidence; the earlier production ranking measurements below predate this
 index change.
