@@ -14,6 +14,20 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 public class FakeRepositoryApiClientTests
 {
     [Fact]
+    public async Task DashboardHome_CompositionOptOutDoesNotAlterSeededResponse()
+    {
+        var fake = new FakeDashboardAnalyticsApi();
+        var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var home = Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Analytics.Dashboard.DashboardHomeDto>(
+            /*lang=json,strict*/
+                                 """{"composition":{"topGames":[]}}""")!;
+        fake.SetHome(home);
+
+        Assert.Null((await fake.GetHome(from, from.AddDays(1), AnalyticsBucket.OneDay, 10, false)).Result!.Data!.Composition);
+        Assert.NotNull((await fake.GetHome(from, from.AddDays(1), AnalyticsBucket.OneDay, 10)).Result!.Data!.Composition);
+    }
+
+    [Fact]
     public async Task GameServerEvents_KeyedCreatesAndAtomicBatchMatchServer()
     {
         var client = new FakeRepositoryApiClient();

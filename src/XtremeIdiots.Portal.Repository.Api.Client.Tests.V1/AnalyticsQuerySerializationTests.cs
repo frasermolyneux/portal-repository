@@ -17,6 +17,22 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public class AnalyticsQuerySerializationTests
 {
     [Fact]
+    public async Task DashboardAnalytics_GetHome_OnlySendsCompositionOptOutWhenRequested()
+    {
+        var rest = new CapturingRestClientService();
+        var api = new DashboardAnalyticsApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, CreateOptions());
+        var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var to = from.AddDays(1);
+
+        await api.GetHome(from, to, AnalyticsBucket.OneDay, 10);
+        Assert.False(rest.Query.ContainsKey("includeComposition"));
+
+        await api.GetHome(from, to, AnalyticsBucket.OneDay, 10, includeComposition: false);
+        Assert.Equal("false", rest.Query["includeComposition"]);
+    }
+
+    [Fact]
     public async Task GameAnalytics_GetTimeseries_UsesExpectedCompareQueryValues()
     {
         var rest = new CapturingRestClientService();
