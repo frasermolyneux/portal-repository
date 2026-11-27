@@ -48,6 +48,10 @@ public partial class MapRotationServerAssignment
 
     public DateTime? UnassignedAt { get; set; }
 
+    public int Source { get; set; }
+
+    public DateTime? ObservedAt { get; set; }
+
     [ForeignKey("GameServerId")]
     [InverseProperty("MapRotationServerAssignments")]
     public virtual GameServer GameServer { get; set; } = null!;

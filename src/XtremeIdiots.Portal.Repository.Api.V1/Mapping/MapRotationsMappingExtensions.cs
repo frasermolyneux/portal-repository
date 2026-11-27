@@ -33,6 +33,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                     : []
             )
             {
+                Source = (RotationSource)entity.Source,
                 Status = (MapRotationStatus)entity.Status,
                 Category = entity.Category,
                 SequenceOrder = entity.SequenceOrder,
@@ -114,7 +115,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             {
                 MapRotationMapId = entity.MapRotationMapId,
                 MapId = entity.MapId,
-                SortOrder = entity.SortOrder
+                SortOrder = entity.SortOrder,
+                GameMode = entity.GameMode
             };
         }
 
@@ -139,6 +141,8 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 entity.UnassignedAt
             )
             {
+                Source = (RotationSource)entity.Source,
+                ObservedAt = entity.ObservedAt,
                 PlayerCountMin = entity.PlayerCountMin,
                 PlayerCountMax = entity.PlayerCountMax
             };
@@ -269,6 +273,17 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
             var input = string.Join(",", orderedMapIds);
             var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
             return Convert.ToHexStringLower(hashBytes);
+        }
+
+        public static string ComputeContentHash(IReadOnlyList<MapRotationEntryDto> entries)
+        {
+            if (entries.All(e => e.GameMode == null))
+            {
+                return ComputeContentHash(entries.Select(e => e.MapId));
+            }
+
+            var input = System.Text.Json.JsonSerializer.Serialize(entries.Select(e => new { e.MapId, e.GameMode }));
+            return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
         }
     }
 }

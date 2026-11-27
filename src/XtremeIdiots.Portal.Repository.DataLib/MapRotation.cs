@@ -45,6 +45,8 @@ public partial class MapRotation
 
     public DateTime UpdatedAt { get; set; }
 
+    public int Source { get; set; }
+
     [ForeignKey("CreatedByUserId")]
     [InverseProperty("MapRotationCreatedByUsers")]
     public virtual UserProfile? CreatedByUser { get; set; }

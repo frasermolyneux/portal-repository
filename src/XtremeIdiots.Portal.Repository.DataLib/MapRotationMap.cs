@@ -10,7 +10,6 @@ namespace XtremeIdiots.Portal.Repository.DataLib;
 
 [Index("MapId", Name = "IX_MapRotationMaps_MapId")]
 [Index("MapRotationId", Name = "IX_MapRotationMaps_MapRotationId")]
-[Index("MapRotationId", "MapId", Name = "UQ_MapRotationMaps_Rotation_Map", IsUnique = true)]
 [Index("MapRotationId", "SortOrder", Name = "UQ_MapRotationMaps_Rotation_SortOrder", IsUnique = true)]
 public partial class MapRotationMap
 {
@@ -22,6 +21,9 @@ public partial class MapRotationMap
     public Guid MapId { get; set; }
 
     public int SortOrder { get; set; }
+
+    [StringLength(50)]
+    public string? GameMode { get; set; }
 
     [ForeignKey("MapId")]
     [InverseProperty("MapRotationMaps")]

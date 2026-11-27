@@ -21,7 +21,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
     [Authorize(Roles = "ServiceAccount")]
     [ApiVersion(ApiVersions.V1)]
     [Route("v{version:apiVersion}")]
-    public class MapRotationsController : ControllerBase, IMapRotationsApi
+    public partial class MapRotationsController : ControllerBase, IMapRotationsApi
     {
         private readonly PortalDbContext context;
 
@@ -40,126 +40,15 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         async Task<ApiResult<PublicServerRotationsDto>> IMapRotationsApi.GetPublicServerRotations(CancellationToken cancellationToken)
         {
-            var publicServers = context.GameServers.AsNoTracking().Where(s => s.ServerListEnabled && !s.Deleted);
-            var servers = await publicServers.OrderBy(s => s.ServerListPosition).ThenBy(s => s.GameServerId)
-                .Select(s => new { s.GameServerId, s.Title, s.GameType }).ToListAsync(cancellationToken).ConfigureAwait(false);
-            var assignments = await context.MapRotationServerAssignments.AsNoTracking()
-                .Where(a => publicServers.Any(s => s.GameServerId == a.GameServerId)
-                    && a.UnassignedAt == null && a.ActivationState == (int)ActivationState.Active
-                    && a.ConfigVariableName != null && a.ConfigVariableName.ToLower() == "sv_maprotation")
-                .Select(a => new
-                {
-                    a.GameServerId,
-                    a.ActivatedVersion,
-                    a.DeploymentState,
-                    a.MapRotation.Version,
-                    a.MapRotation.Title,
-                    Maps = a.MapRotation.MapRotationMaps.Where(m => m.Map.MapName != null && m.Map.MapName != "")
-                        .OrderBy(m => m.SortOrder).Select(m => new PublicRotationMapDto
-                        {
-                            MapId = m.MapId,
-                            MapName = m.Map.MapName!,
-                            MapImageUri = m.Map.MapImageUri,
-                            Likes = m.Map.TotalLikes,
-                            Dislikes = m.Map.TotalDislikes
-                        }).ToList()
-                })
-                .AsSplitQuery().ToListAsync(cancellationToken).ConfigureAwait(false);
-            var cutoff = DateTime.UtcNow.AddDays(-2);
-            var recent = await context.GameServerStats.AsNoTracking()
-                .Where(s => s.Timestamp >= cutoff && s.MapName != null && s.MapName != ""
-                    && publicServers.Any(server => server.GameServerId == s.GameServerId))
-                .GroupBy(s => new { s.GameServerId, s.MapName })
-                .Select(g => new { g.Key.GameServerId, MapName = g.Key.MapName!, LastSeen = g.Max(s => s.Timestamp) })
+            var servers = await context.GameServers.AsNoTracking().Where(s => s.ServerListEnabled && !s.Deleted)
+                .OrderBy(s => s.ServerListPosition).ThenBy(s => s.GameServerId)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
-            var names = recent.Select(s => s.MapName).Concat(assignments.SelectMany(a => a.Maps.Select(m => m.MapName))).Distinct().ToArray();
-            var metadata = await MapReadService.CatalogueQuery(context).Where(m => m.MapName != null && names.Contains(m.MapName))
-                .Select(m => new Map
-                {
-                    MapId = m.MapId,
-                    GameType = m.GameType,
-                    MapName = m.MapName,
-                    MapImageUri = m.MapImageUri,
-                    TotalLikes = m.TotalLikes,
-                    TotalDislikes = m.TotalDislikes
-                }).ToListAsync(cancellationToken).ConfigureAwait(false);
-            var lookup = metadata.GroupBy(m => ((int)((GameType)m.GameType).GetMapGameType(), Name: m.MapName!.ToUpperInvariant()))
-                .ToDictionary(g => g.Key, g => g.OrderBy(m => m.GameType == (int)GameType.CallOfDuty4x).ThenBy(m => m.MapId).First());
-            var serverIds = servers.Select(s => s.GameServerId).ToArray();
-            var serverVotes = await context.MapVotes.AsNoTracking()
-                .Where(v => v.GameServerId != null && serverIds.Contains(v.GameServerId.Value))
-                .GroupBy(v => new
-                {
-                    GameServerId = v.GameServerId!.Value,
-                    MapId = v.Map.GameType == (int)GameType.CallOfDuty4 || v.Map.GameType == (int)GameType.CallOfDuty4x
-                        ? Guid.Empty : v.MapId,
-                    GameType = v.Map.GameType == (int)GameType.CallOfDuty4x ? (int)GameType.CallOfDuty4 : v.Map.GameType,
-                    MapName = v.Map.MapName!.ToUpper()
-                })
-                .Select(g => new
-                {
-                    g.Key.GameServerId,
-                    g.Key.MapId,
-                    g.Key.GameType,
-                    g.Key.MapName,
-                    Likes = g.Count(v => v.Like),
-                    Dislikes = g.Count(v => !v.Like)
-                })
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-            var serverVoteLookup = serverVotes.ToDictionary(
-                v => (v.GameServerId, v.MapId, v.GameType, v.MapName),
-                v => (v.Likes, v.Dislikes));
-            var result = new PublicServerRotationsDto();
-            foreach (var server in servers)
+            var result = new PublicServerRotationsDto
             {
-                var candidates = assignments.Where(a => a.GameServerId == server.GameServerId).ToList();
-                // Ambiguous or unapplied assignments are not evidence of the current rotation.
-                var assignment = candidates.Count == 1
-                    && candidates[0].ActivatedVersion == candidates[0].Version
-                    && candidates[0].DeploymentState != (int)DeploymentState.Removed
-                    ? candidates[0] : null;
-                var serverFamily = (int)((GameType)server.GameType).GetMapGameType();
-                var maps = assignment?.Maps.Select(map =>
-                    lookup.TryGetValue((serverFamily, map.MapName.ToUpperInvariant()), out var canonical)
-                        ? PublicMap(map.MapName, canonical) : map).ToList();
-                if (maps is null || maps.Count == 0)
-                {
-                    maps = recent.Where(s => s.GameServerId == server.GameServerId).OrderByDescending(s => s.LastSeen)
-                        .ThenBy(s => s.MapName).DistinctBy(s => s.MapName, StringComparer.OrdinalIgnoreCase)
-                        .Select(s => PublicMap(s.MapName, lookup.GetValueOrDefault((serverFamily, s.MapName.ToUpperInvariant()))))
-                        .ToList();
-                    assignment = null;
-                }
-                for (var index = 0; index < maps.Count; index++)
-                {
-                    var map = maps[index];
-                    var sharedFamily = serverFamily == (int)GameType.CallOfDuty4;
-                    var key = (server.GameServerId, sharedFamily ? Guid.Empty : map.MapId ?? Guid.Empty,
-                        serverFamily, map.MapName.ToUpperInvariant());
-                    var counts = serverVoteLookup.GetValueOrDefault(key);
-                    maps[index] = map with { ServerLikes = counts.Likes, ServerDislikes = counts.Dislikes };
-                }
-                result.Servers.Add(new()
-                {
-                    GameServerId = server.GameServerId,
-                    Title = server.Title,
-                    GameType = (GameType)server.GameType,
-                    RotationTitle = assignment?.Title,
-                    IsObservedHistory = assignment is null,
-                    Maps = maps
-                });
-            }
+                Servers = await EffectiveRotationResolver.ResolveAsync(context, servers, cancellationToken).ConfigureAwait(false)
+            };
             return new ApiResponse<PublicServerRotationsDto>(result).ToApiResult();
         }
-
-        private static PublicRotationMapDto PublicMap(string name, Map? map) => new()
-        {
-            MapId = map?.MapId,
-            MapName = name,
-            MapImageUri = map?.MapImageUri,
-            Likes = map?.TotalLikes ?? 0,
-            Dislikes = map?.TotalDislikes ?? 0
-        };
 
         /// <summary>
         /// Retrieves a specific map rotation by its unique identifier.
@@ -353,9 +242,21 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <returns>An API result containing the created map rotation.</returns>
         async Task<ApiResult<MapRotationDto>> IMapRotationsApi.CreateMapRotation(CreateMapRotationDto createMapRotationDto, CancellationToken cancellationToken)
         {
+            if (createMapRotationDto.Entries != null && createMapRotationDto.MapIds?.Count > 0)
+            {
+                return new(HttpStatusCode.BadRequest, new ApiResponse<MapRotationDto>(
+                    new ApiError("AMBIGUOUS_ROTATION_ENTRIES", "Supply either Entries or MapIds, not both.")));
+            }
+            var entries = createMapRotationDto.Entries
+                ?? (createMapRotationDto.MapIds ?? []).Select(id => new MapRotationEntryDto { MapId = id }).ToList();
+            if (entries.Any(e => e == null || (e.GameMode != null && !ValidToken(e.GameMode, 50))))
+            {
+                return new(HttpStatusCode.BadRequest, new ApiResponse<MapRotationDto>(
+                    new ApiError("INVALID_ROTATION_ENTRIES", "Entry game modes must be console-safe tokens or null to inherit the rotation game mode.")));
+            }
             var entity = createMapRotationDto.ToEntity();
 
-            var mapIds = createMapRotationDto.MapIds ?? [];
+            var mapIds = entries.Select(e => e.MapId).ToList();
             if (mapIds.Count > 0)
             {
                 var distinctMapIds = mapIds.Distinct().ToList();
@@ -377,10 +278,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         new ApiResponse<MapRotationDto>(new ApiError("MAP_GAME_TYPE_MISMATCH", "One or more maps do not match the rotation's game type.")));
                 }
 
-                entity.ContentHash = MapRotationsMappingExtensions.ComputeContentHash(distinctMapIds);
-                entity.MapRotationMaps = distinctMapIds.Select((mapId, index) => new MapRotationMap
+                entity.ContentHash = MapRotationsMappingExtensions.ComputeContentHash(entries);
+                entity.MapRotationMaps = entries.Select((entry, index) => new MapRotationMap
                 {
-                    MapId = mapId,
+                    MapId = entry.MapId,
+                    GameMode = entry.GameMode,
                     SortOrder = index
                 }).ToList();
             }
@@ -450,6 +352,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            if (entity.Source != (int)RotationSource.PortalManaged)
+            {
+                return InvalidAssignment("OBSERVED_ROTATION_READ_ONLY", "Observed rotations can only be replaced by the observation endpoint.");
+            }
             var replayResult = VerifyUpdateReplay(entity.UpdatedAt, attempt);
             if (replayResult != null)
             {
@@ -459,11 +365,19 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
             var contentChanged = updateMapRotationDto.GameMode is not null
                 && updateMapRotationDto.GameMode != entity.GameMode;
-            updateMapRotationDto.ApplyTo(entity);
-
-            if (updateMapRotationDto.MapIds != null)
+            if (updateMapRotationDto.Entries != null && updateMapRotationDto.MapIds != null)
             {
-                var distinctMapIds = updateMapRotationDto.MapIds.Distinct().ToList();
+                return InvalidAssignment("AMBIGUOUS_ROTATION_ENTRIES", "Supply either Entries or MapIds, not both.");
+            }
+            var entries = updateMapRotationDto.Entries
+                ?? updateMapRotationDto.MapIds?.Select(id => new MapRotationEntryDto { MapId = id }).ToList();
+            if (entries != null)
+            {
+                if (entries.Any(e => e == null || (e.GameMode != null && !ValidToken(e.GameMode, 50))))
+                {
+                    return InvalidAssignment("INVALID_ROTATION_ENTRIES", "Entry game modes must be console-safe tokens or null to inherit the rotation game mode.");
+                }
+                var distinctMapIds = entries.Select(e => e.MapId).Distinct().ToList();
                 var maps = await context.Maps
                     .AsNoTracking()
                     .Where(m => distinctMapIds.Contains(m.MapId))
@@ -482,15 +396,16 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                         new ApiResponse(new ApiError("MAP_GAME_TYPE_MISMATCH", "One or more maps do not match the rotation's game type.")));
                 }
 
-                var newHash = MapRotationsMappingExtensions.ComputeContentHash(distinctMapIds);
+                var newHash = MapRotationsMappingExtensions.ComputeContentHash(entries);
                 if (newHash != entity.ContentHash)
                 {
                     context.MapRotationMaps.RemoveRange(entity.MapRotationMaps);
 
-                    entity.MapRotationMaps = distinctMapIds.Select((mapId, index) => new MapRotationMap
+                    entity.MapRotationMaps = entries.Select((entry, index) => new MapRotationMap
                     {
                         MapRotationId = entity.MapRotationId,
-                        MapId = mapId,
+                        MapId = entry.MapId,
+                        GameMode = entry.GameMode,
                         SortOrder = index
                     }).ToList();
 
@@ -499,6 +414,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 }
             }
 
+            updateMapRotationDto.ApplyTo(entity);
             if (contentChanged)
             {
                 entity.Version++;
@@ -555,6 +471,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return alreadyDeleted ? new ApiResponse().ToApiResult() : new ApiResult(HttpStatusCode.NotFound);
             }
 
+            if (entity.Source != (int)RotationSource.PortalManaged)
+            {
+                return InvalidAssignment("OBSERVED_ROTATION_READ_ONLY", "Use source-scoped cleanup for unassigned observed rotations.");
+            }
             if (entity.MapRotationServerAssignments.Any(a =>
                 a.DeploymentState != (int)DeploymentState.Removed || !CanRemove(a)
                 || RetainUntil(a) > DateTime.UtcNow))
@@ -633,9 +553,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             [FromQuery] DeploymentState? deploymentState = null,
             [FromQuery] int skipEntries = 0,
             [FromQuery] int takeEntries = 20,
+            [FromQuery] RotationSource source = RotationSource.PortalManaged,
             CancellationToken cancellationToken = default)
         {
-            var response = await ((IMapRotationsApi)this).GetServerAssignments(mapRotationId, gameServerId, deploymentState, skipEntries, takeEntries, cancellationToken).ConfigureAwait(false);
+            var response = await ((IMapRotationsApi)this).GetServerAssignments(mapRotationId, gameServerId, deploymentState, source, skipEntries, takeEntries, cancellationToken).ConfigureAwait(false);
             return response.ToHttpResult();
         }
 
@@ -649,15 +570,26 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         /// <param name="takeEntries">Number of entries to take for pagination.</param>
         /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
         /// <returns>An API result containing a paginated collection of server assignments.</returns>
-        async Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> IMapRotationsApi.GetServerAssignments(
+        Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> IMapRotationsApi.GetServerAssignments(
             Guid? mapRotationId,
             Guid? gameServerId,
             DeploymentState? deploymentState,
             int skipEntries,
             int takeEntries,
             CancellationToken cancellationToken)
+            => ((IMapRotationsApi)this).GetServerAssignments(mapRotationId, gameServerId, deploymentState,
+                RotationSource.PortalManaged, skipEntries, takeEntries, cancellationToken);
+
+        async Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> IMapRotationsApi.GetServerAssignments(
+            Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState,
+            RotationSource source, int skipEntries, int takeEntries, CancellationToken cancellationToken)
         {
-            var query = context.MapRotationServerAssignments.AsNoTracking();
+            if (!Enum.IsDefined(source))
+            {
+                return new(HttpStatusCode.BadRequest, new ApiResponse<CollectionModel<MapRotationServerAssignmentDto>>(
+                    new ApiError("INVALID_ROTATION_SOURCE", "Unknown rotation source.")));
+            }
+            var query = context.MapRotationServerAssignments.AsNoTracking().Where(a => a.Source == (int)source);
 
             var totalCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
@@ -746,6 +678,11 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("MAP_ROTATION_NOT_FOUND", "The specified map rotation does not exist.")));
             }
 
+            if (mapRotation.Source != (int)RotationSource.PortalManaged)
+            {
+                return new(HttpStatusCode.BadRequest, new ApiResponse<MapRotationServerAssignmentDto>(
+                    new ApiError("OBSERVED_ROTATION_READ_ONLY", "Observed rotations cannot be manually assigned or deployed.")));
+            }
             var gameServer = await context.GameServers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(gs => gs.GameServerId == createDto.GameServerId, cancellationToken).ConfigureAwait(false);
@@ -883,6 +820,10 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                 return new ApiResult(HttpStatusCode.NotFound);
             }
 
+            if (entity.Source != (int)RotationSource.PortalManaged)
+            {
+                return InvalidAssignment("OBSERVED_ASSIGNMENT_READ_ONLY", "Observed assignments have no deployment or activation lifecycle.");
+            }
             var replayResult = VerifyUpdateReplay(entity.UpdatedAt, attempt);
             if (replayResult != null)
             {
@@ -1280,7 +1221,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
                     new ApiResponse<MapRotationAssignmentOperationDto>(new ApiError("ASSIGNMENT_NOT_FOUND", "The specified server assignment does not exist.")));
             }
 
-            if (!Enum.IsDefined(createDto.OperationType)
+            if (assignment.Source != (int)RotationSource.PortalManaged || !Enum.IsDefined(createDto.OperationType)
                 || (assignment.DeploymentState == (int)DeploymentState.Removed
                     && (createDto.OperationType != AssignmentOperationType.Deactivate || assignment.ActivationState == (int)ActivationState.Inactive))
                 || (createDto.OperationType == AssignmentOperationType.Remove && assignment.ActivationState != (int)ActivationState.Inactive))
@@ -1406,7 +1347,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private static ApiResult? ValidateStateValues(UpdateMapRotationServerAssignmentDto update)
         {
-            if ((update.DeploymentState.HasValue && !Enum.IsDefined(update.DeploymentState.Value))
+            if ((update.DeploymentState.HasValue && (!Enum.IsDefined(update.DeploymentState.Value)
+                    || update.DeploymentState == DeploymentState.NotApplicable))
                 || (update.ActivationState.HasValue && !Enum.IsDefined(update.ActivationState.Value)))
             {
                 return InvalidAssignment("INVALID_ASSIGNMENT_STATE", "Unknown assignment state.");
@@ -1523,7 +1465,8 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
         }
 
         private static bool CanRemove(MapRotationServerAssignment assignment)
-            => assignment.ActivationState == (int)ActivationState.Inactive
+            => assignment.Source == (int)RotationSource.PortalManaged
+                && assignment.ActivationState == (int)ActivationState.Inactive
                 && assignment.DeploymentState != (int)DeploymentState.Syncing
                 && !assignment.MapRotationAssignmentOperations.Any(op => op.Status == (int)AssignmentOperationStatus.InProgress);
 
@@ -1568,6 +1511,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
 
         private static IQueryable<MapRotation> ApplyFilters(IQueryable<MapRotation> query, GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, Guid? createdByUserId, MapRotationsFilter? filter)
         {
+            query = query.Where(r => r.Source == (int)RotationSource.PortalManaged);
             if (gameTypes?.Length > 0)
             {
                 var gameTypeInts = gameTypes.SelectMany(gt => gt.GetCompatibleMapGameTypes()).Select(gt => (int)gt).Distinct().ToArray();

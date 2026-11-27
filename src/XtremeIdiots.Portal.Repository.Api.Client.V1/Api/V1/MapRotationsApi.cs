@@ -18,6 +18,48 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.V1
 
         // ───────────────────────── Map Rotation CRUD ─────────────────────────
 
+        public async Task<ApiResult<PublicServerRotationDto>> GetEffectiveServerRotation(Guid gameServerId, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/map-rotations/servers/{gameServerId}/effective", Method.Get, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<PublicServerRotationDto>();
+        }
+
+        public async Task<ApiResult<MapRotationServerAssignmentDto>> ReplaceObservedServerRotation(Guid gameServerId, ObserveServerRotationDto observation, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync($"v1/map-rotations/servers/{gameServerId}/observed", Method.Put, cancellationToken).ConfigureAwait(false);
+            request.AddJsonBody(observation);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<MapRotationServerAssignmentDto>();
+        }
+
+        public async Task<ApiResult> CleanupUnassignedObservedRotations(CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/map-rotations/observed/unassigned", Method.Delete, cancellationToken).ConfigureAwait(false);
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult();
+        }
+
+        public async Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> GetServerAssignments(
+            Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState,
+            RotationSource source, int skipEntries, int takeEntries, CancellationToken cancellationToken = default)
+        {
+            var request = await CreateRequestAsync("v1/map-rotations/assignments", Method.Get, cancellationToken).ConfigureAwait(false);
+            if (mapRotationId.HasValue)
+            {
+                request.AddQueryParameter("mapRotationId", mapRotationId.Value.ToString());
+            }
+            if (gameServerId.HasValue)
+            {
+                request.AddQueryParameter("gameServerId", gameServerId.Value.ToString());
+            }
+            if (deploymentState.HasValue)
+            {
+                request.AddQueryParameter("deploymentState", deploymentState.Value.ToString());
+            }
+            request.AddQueryParameter("source", source.ToString());
+            request.AddQueryParameter("skipEntries", skipEntries.ToString());
+            request.AddQueryParameter("takeEntries", takeEntries.ToString());
+            return (await ExecuteAsync(request, cancellationToken).ConfigureAwait(false)).ToApiResult<CollectionModel<MapRotationServerAssignmentDto>>();
+        }
+
         public async Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default)
         {
             var request = await CreateRequestAsync("v1/map-rotations/public-servers", Method.Get, cancellationToken).ConfigureAwait(false);

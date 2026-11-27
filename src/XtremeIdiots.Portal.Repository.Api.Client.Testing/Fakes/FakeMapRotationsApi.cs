@@ -15,8 +15,63 @@ public class FakeMapRotationsApi : IMapRotationsApi
     private readonly ConcurrentDictionary<Guid, MapRotationAssignmentOperationDto> _assignmentOperations = new();
     private readonly ConcurrentDictionary<string, (HttpStatusCode StatusCode, ApiError Error)> _errorResponses = new(StringComparer.OrdinalIgnoreCase);
     private PublicServerRotationsDto _publicRotations = new();
+    private readonly ConcurrentDictionary<Guid, PublicServerRotationDto> _effectiveRotations = new();
 
     public FakeMapRotationsApi SetPublicServerRotations(PublicServerRotationsDto rotations) { _publicRotations = rotations; return this; }
+    public FakeMapRotationsApi SetEffectiveServerRotation(PublicServerRotationDto rotation)
+    {
+        _effectiveRotations[rotation.GameServerId] = rotation;
+        return this;
+    }
+
+    public Task<ApiResult<PublicServerRotationDto>> GetEffectiveServerRotation(Guid gameServerId, CancellationToken cancellationToken = default)
+        => Task.FromResult(_effectiveRotations.TryGetValue(gameServerId, out var rotation)
+            ? new ApiResult<PublicServerRotationDto>(HttpStatusCode.OK, new ApiResponse<PublicServerRotationDto>(rotation))
+            : new ApiResult<PublicServerRotationDto>(HttpStatusCode.NotFound, new ApiResponse<PublicServerRotationDto>(
+                new ApiError("NOT_FOUND", "Set the effective rotation for this server before reading it."))));
+
+    public Task<ApiResult<MapRotationServerAssignmentDto>> ReplaceObservedServerRotation(
+        Guid gameServerId, ObserveServerRotationDto observation, CancellationToken cancellationToken = default)
+    {
+        if (_errorResponses.TryGetValue(nameof(ReplaceObservedServerRotation), out var configured))
+        {
+            return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(configured.StatusCode,
+                new ApiResponse<MapRotationServerAssignmentDto>(configured.Error)));
+        }
+        if (_serverAssignments.Values.Any(a => a.GameServerId == gameServerId && a.Source == RotationSource.PortalManaged
+            && a.UnassignedAt == null && a.DeploymentState != DeploymentState.Removed))
+        {
+            return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.Conflict,
+                new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("PORTAL_MANAGED_ASSIGNMENT_EXISTS", "A portal-managed assignment owns this server."))));
+        }
+        var current = _serverAssignments.Values.SingleOrDefault(a => a.GameServerId == gameServerId
+            && a.Source == RotationSource.ServerObserved && a.UnassignedAt == null);
+        if (current?.ObservedAt > observation.ObservedAt.UtcDateTime)
+        {
+            return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.Conflict,
+                new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("OBSERVATION_SUPERSEDED", "A newer observation has already been applied."))));
+        }
+        var dto = current ?? new MapRotationServerAssignmentDto(Guid.NewGuid(), Guid.NewGuid(), gameServerId,
+            DeploymentState.NotApplicable, ActivationState.Inactive, null, null, null, "sv_maprotation", null, null,
+            DateTime.UtcNow, DateTime.UtcNow, null) { Source = RotationSource.ServerObserved };
+        dto.ObservedAt = observation.ObservedAt.UtcDateTime;
+        _serverAssignments[dto.MapRotationServerAssignmentId] = dto;
+        return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.OK, new ApiResponse<MapRotationServerAssignmentDto>(dto)));
+    }
+
+    public Task<ApiResult> CleanupUnassignedObservedRotations(CancellationToken cancellationToken = default)
+    {
+        if (_errorResponses.TryGetValue(nameof(CleanupUnassignedObservedRotations), out var configured))
+        {
+            return Task.FromResult(new ApiResult(configured.StatusCode, new ApiResponse(configured.Error)));
+        }
+        foreach (var rotation in _mapRotations.Values.Where(r => r.Source == RotationSource.ServerObserved
+            && !_serverAssignments.Values.Any(a => a.MapRotationId == r.MapRotationId)))
+        {
+            _mapRotations.TryRemove(rotation.MapRotationId, out _);
+        }
+        return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    }
 
     public Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default)
         => Task.FromResult(new ApiResult<PublicServerRotationsDto>(HttpStatusCode.OK, new ApiResponse<PublicServerRotationsDto>(_publicRotations)));
@@ -29,7 +84,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
         return this;
     }
-    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _publicRotations = new(); return this; }
+    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _effectiveRotations.Clear(); _publicRotations = new(); return this; }
 
     // ───────────────────────── Map Rotation CRUD ─────────────────────────
 
@@ -148,8 +203,13 @@ public class FakeMapRotationsApi : IMapRotationsApi
     }
 
     public Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> GetServerAssignments(Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState, int skipEntries, int takeEntries, CancellationToken cancellationToken = default)
+        => GetServerAssignments(mapRotationId, gameServerId, deploymentState, RotationSource.PortalManaged, skipEntries, takeEntries, cancellationToken);
+
+    public Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> GetServerAssignments(
+        Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState,
+        RotationSource source, int skipEntries, int takeEntries, CancellationToken cancellationToken = default)
     {
-        var items = _serverAssignments.Values.AsEnumerable();
+        var items = _serverAssignments.Values.Where(a => a.Source == source);
         if (mapRotationId.HasValue)
         {
             items = items.Where(a => a.MapRotationId == mapRotationId.Value);
