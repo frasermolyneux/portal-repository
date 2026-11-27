@@ -96,3 +96,7 @@ existing timestamp index in separate single runs improved the one-day Global/Gam
 queries from 762/2,135 ms to 105/136 ms, but regressed the 30-day queries from
 1,862/2,360 ms to 3,599/2,800 ms. These are isolated read-only measurements, not
 reliable latency distributions; no index hint or range-based heuristic was adopted.
+An alternative `OPTION (RECOMPILE)` probe took 57/313 ms for one-day Global/Game
+queries versus 1,106/1,518 ms without it, and 1,783/5,345 ms for 30-day queries
+versus 1,757/4,133 ms without it. These single executions do not establish a safe
+general improvement, and applying the hint would require SQL Server-specific execution.
