@@ -142,7 +142,9 @@ public class DashboardAnalyticsControllerTests
         var day = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc);
         context.PlayerSessions.AddRange(
             new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = Guid.NewGuid(), StartUtc = day, LastConfirmedUtc = day.AddHours(1) },
-            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = other.GameServerId, PlayerId = Guid.NewGuid(), StartUtc = day, LastConfirmedUtc = day.AddHours(2) });
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = other.GameServerId, PlayerId = Guid.NewGuid(), StartUtc = day, LastConfirmedUtc = day.AddHours(2) },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = Guid.NewGuid(), StartUtc = day.AddHours(1), LastConfirmedUtc = day.AddHours(1) },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = Guid.NewGuid(), StartUtc = day.AddHours(2), LastConfirmedUtc = day.AddHours(2) });
         await context.SaveChangesAsync();
 
         var result = await CreateApi(context).GetServer(server.GameServerId, day, day.AddHours(2), AnalyticsBucket.OneHour);
@@ -150,7 +152,8 @@ public class DashboardAnalyticsControllerTests
 
         Assert.Equal(1, points[0].RecordedPlayers);
         Assert.Equal(1, points[0].SessionStarts);
-        Assert.Equal(0, points[1].RecordedPlayers);
+        Assert.Equal(1, points[1].RecordedPlayers);
+        Assert.Equal(1, points[1].SessionStarts);
         Assert.Equal(3600m, points[0].ObservedSeconds);
         Assert.Equal(0m, points[1].ObservedSeconds);
     }
@@ -167,10 +170,12 @@ public class DashboardAnalyticsControllerTests
             var day = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc);
             var player = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = day, LastSeen = day };
             var bot = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = day, LastSeen = day };
-            context.Players.AddRange(player, bot);
+            var instantaneous = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = day, LastSeen = day };
+            context.Players.AddRange(player, bot, instantaneous);
             context.PlayerSessions.AddRange(
                 new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = player.PlayerId, StartUtc = day.AddMinutes(-30), LastConfirmedUtc = day.AddMinutes(90), EndUtc = day.AddHours(3) },
                 new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = bot.PlayerId, StartUtc = day, LastConfirmedUtc = day.AddHours(2), IsBot = true },
+                new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = instantaneous.PlayerId, StartUtc = day.AddHours(1), LastConfirmedUtc = day.AddHours(1) },
                 new PlayerSession { SessionId = Guid.NewGuid(), ServerId = deleted.GameServerId, PlayerId = player.PlayerId, StartUtc = day, LastConfirmedUtc = day.AddHours(2) });
             context.GameServerStats.Add(new GameServerStat { GameServerStatId = Guid.NewGuid(), GameServerId = server.GameServerId, Timestamp = day, PlayerCount = 7, MapName = "mp_one" });
             await context.SaveChangesAsync();
@@ -180,7 +185,7 @@ public class DashboardAnalyticsControllerTests
             var points = home.Result!.Data!.RecordedActivity!;
             Assert.Equal("unknown", home.Result.Data.RecordedActivityCoverage);
             Assert.Equal((1, 0, 1800m), (points[0].RecordedPlayers, points[0].SessionStarts, points[0].ObservedSeconds));
-            Assert.Equal((1, 0, 1800m), (points[1].RecordedPlayers, points[1].SessionStarts, points[1].ObservedSeconds));
+            Assert.Equal((2, 1, 1800m), (points[1].RecordedPlayers, points[1].SessionStarts, points[1].ObservedSeconds));
 
             var serverResult = await api.GetServer(server.GameServerId, day, day.AddHours(2), AnalyticsBucket.OneHour);
             Assert.Equal(7, serverResult.Result!.Data!.PeakPlayers);

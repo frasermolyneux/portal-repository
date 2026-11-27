@@ -42,7 +42,7 @@ Chat counts for windows beginning within retention use the existing player/serve
 
 ## Dashboard and server activity
 
-The V1 dashboard home, dashboard server and server timeseries responses include an additive nullable `recordedActivity` list and `recordedActivityCoverage`. A null or absent list means the host does not provide this data; coverage is `unknown`. Each bucket reports distinct recorded players whose sessions overlap its clipped UTC window, recorded session starts and `observedSeconds`. Known bots are excluded; sessions of unknown bot classification are included. Starts are recorded session boundaries, which may be inferred, not a count of verified connections.
+The V1 dashboard home, dashboard server and server timeseries responses include an additive nullable `recordedActivity` list and `recordedActivityCoverage`. A null or absent list means the host does not provide this data; coverage is `unknown`. Each bucket reports distinct recorded players whose sessions overlap its clipped UTC window or start within it, recorded session starts and `observedSeconds`. Known bots are excluded; sessions of unknown bot classification are included. Starts are recorded session boundaries, which may be inferred, not a count of verified connections.
 
 Dashboard home accepts `includeComposition=false` to omit the legacy sample-based composition and its queries; the response composition is null, while recorded activity remains populated. Omitting the parameter preserves the existing composition behavior.
 

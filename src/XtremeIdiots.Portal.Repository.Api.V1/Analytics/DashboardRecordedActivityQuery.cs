@@ -53,7 +53,8 @@ internal static class DashboardRecordedActivityQuery
             ),
             counts AS
             (
-                SELECT b.[Start], COUNT(DISTINCT CASE WHEN s.StartUtc < b.[To] AND s.EndUtc > b.[From]
+                SELECT b.[Start], COUNT(DISTINCT CASE WHEN s.StartUtc < b.[To]
+                    AND (s.EndUtc > b.[From] OR s.StartUtc >= b.[From])
                     THEN s.PlayerId END) AS RecordedPlayers,
                     COUNT(CASE WHEN s.StartUtc >= b.[From] AND s.StartUtc < b.[To] THEN 1 END) AS SessionStarts,
                     SUM(CASE WHEN s.LastConfirmedUtc > s.StartUtc AND s.LastConfirmedUtc > b.[From]
@@ -97,7 +98,7 @@ internal static class DashboardRecordedActivityQuery
             {
                 BucketStartUtc = b.Start,
                 BucketEndUtc = b.End,
-                RecordedPlayers = sessions.Where(s => s.StartUtc < b.To && s.EndUtc > b.From)
+                RecordedPlayers = sessions.Where(s => s.StartUtc < b.To && (s.EndUtc > b.From || s.StartUtc >= b.From))
                     .Select(s => s.PlayerId).Distinct().Count(),
                 SessionStarts = sessions.Count(s => s.StartUtc >= b.From && s.StartUtc < b.To),
                 ObservedSeconds = observedSeconds
