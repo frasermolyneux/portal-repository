@@ -69,12 +69,9 @@ means no samples, not zero occupancy; a positive count describes available sampl
 not complete server coverage. Older APIs omit the field. Legacy comparison series have
 no per-bucket sample availability indicator.
 
-Global and Game timeseries now aggregate samples, events and chat by UTC bucket in
-the database; Player timeseries aggregates first-seen and latest-presence counts there.
-The relational regression fixture uses 1,000 stat rows across two 15-minute buckets:
-the aggregate returns two rows rather than transferring all 1,000 (one row for hourly
-and daily buckets). This is a row-volume measurement, not a production latency claim.
-In a single read-only production probe on 2026-11-27 over 24 hours, hourly SQL
+An alternative SQL-side bucketing approach was investigated but not adopted because
+its database latency did not consistently improve. In a single read-only production
+probe on 2026-11-27 over 24 hours, hourly SQL
 aggregation returned 25 rows / 571 bytes for 3,053 stat samples instead of 3,053 rows /
 39,821 bytes, 19 rows / 167 bytes for 3,197 chat messages instead of 3,197 rows /
 28,867 bytes, and 21 rows / 179 bytes for 560 session starts instead of 560 rows /
@@ -93,3 +90,9 @@ respectively, with the same sum of top-ten counts. This small, noisy sample does
 establish an improvement. Forcing the existing player/server covering index timed out
 after 15 seconds for both Global and Game simplified rankings; adding an index would
 need separate write/storage impact and SQL Server plan measurements.
+In a seven-day actual-plan probe, both rankings used a clustered ChatMessages scan;
+Global took 19.6 seconds and Game 1.8 seconds immediately afterward. Forcing the
+existing timestamp index in separate single runs improved the one-day Global/Game
+queries from 762/2,135 ms to 105/136 ms, but regressed the 30-day queries from
+1,862/2,360 ms to 3,599/2,800 ms. These are isolated read-only measurements, not
+reliable latency distributions; no index hint or range-based heuristic was adopted.

@@ -62,9 +62,8 @@ public class GameAnalyticsController : ControllerBase, IGameAnalyticsApi
         var stats = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.Timestamp >= fromUtc && s.Timestamp < toUtc && s.GameServer != null && !s.GameServer.Deleted && s.GameServer.GameType == gameTypeInt)
-            .GroupBy(_ => 1)
-            .Select(g => new { Average = g.Average(s => (double)s.PlayerCount), Peak = g.Max(s => s.PlayerCount), SampleCount = g.Count() })
-            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+            .Select(s => s.PlayerCount)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var uniquePlayers = await context.Players
             .AsNoTracking()
@@ -79,9 +78,9 @@ public class GameAnalyticsController : ControllerBase, IGameAnalyticsApi
             GameType = gameType,
             Window = CreateWindow(fromUtc, toUtc),
             ServerCount = serverCount,
-            AvgPlayers = stats == null ? 0 : Math.Round(stats.Average, 2),
-            PeakPlayers = stats?.Peak ?? 0,
-            StatsSampleCount = stats?.SampleCount ?? 0,
+            AvgPlayers = stats.Count == 0 ? 0 : Math.Round(stats.Average(), 2),
+            PeakPlayers = stats.Count == 0 ? 0 : stats.Max(),
+            StatsSampleCount = stats.Count,
             UniquePlayers = uniquePlayers,
             ModerationActions = moderationActions
         };
@@ -156,36 +155,51 @@ public class GameAnalyticsController : ControllerBase, IGameAnalyticsApi
 
         var gameTypeInt = gameType.ToGameTypeInt();
 
-        var statsByBucket = await AnalyticsBucketCounts.AggregatePlayersAsync(context.GameServerStats
+        var stats = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.Timestamp >= alignedFromUtc
                 && s.Timestamp < alignedToUtc
                 && s.GameServer != null
                 && !s.GameServer.Deleted
                 && s.GameServer.GameType == gameTypeInt)
-            .Select(s => new AnalyticsBucketCounts.PlayerSample { Timestamp = s.Timestamp, PlayerCount = s.PlayerCount }),
-            bucket, cancellationToken).ConfigureAwait(false);
+            .Select(s => new { s.Timestamp, s.PlayerCount })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var eventsByBucket = await AnalyticsBucketCounts.CountAsync(context.GameServerEvents
+        var events = await context.GameServerEvents
             .AsNoTracking()
             .Where(e => e.Timestamp >= alignedFromUtc
                 && e.Timestamp < alignedToUtc
                 && !e.GameServer.Deleted
                 && e.GameServer.GameType == gameTypeInt)
-            .Select(e => e.Timestamp), bucket, cancellationToken).ConfigureAwait(false);
+            .Select(e => e.Timestamp)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        var chatByBucket = await AnalyticsBucketCounts.CountAsync(context.ChatMessages
+        var chat = await context.ChatMessages
             .AsNoTracking()
             .Where(c => c.Timestamp >= alignedFromUtc
                 && c.Timestamp < alignedToUtc
                 && c.GameServer.GameType == gameTypeInt)
-            .Select(c => c.Timestamp), bucket, cancellationToken).ConfigureAwait(false);
+            .Select(c => c.Timestamp)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var statsByBucket = stats
+            .GroupBy(s => TruncateToBucket(s.Timestamp, bucket))
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    AvgPlayers = g.Average(x => (double)x.PlayerCount),
+                    SampleCount = g.Count()
+                });
+
+        var eventsByBucket = events.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
+        var chatByBucket = chat.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
 
         var bucketStarts = BuildBuckets(alignedFromUtc, alignedToUtc, bucket);
         var points = bucketStarts.Select(start => new GameTimeseriesPointDto
         {
             BucketStartUtc = start,
-            AvgPlayers = statsByBucket.TryGetValue(start, out var s) ? Math.Round(s.Average, 2) : 0,
+            AvgPlayers = statsByBucket.TryGetValue(start, out var s) ? Math.Round(s.AvgPlayers, 2) : 0,
             EventsCount = eventsByBucket.GetValueOrDefault(start, 0),
             ChatCount = chatByBucket.GetValueOrDefault(start, 0),
             StatsSampleCount = statsByBucket.TryGetValue(start, out var sample) ? sample.SampleCount : 0
@@ -206,18 +220,19 @@ public class GameAnalyticsController : ControllerBase, IGameAnalyticsApi
         if (comparisonWindows.Count > 0)
         {
             var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
-            var cmpStats = await AnalyticsBucketCounts.AggregatePlayersAsync(context.GameServerStats
+            var cmpStats = await context.GameServerStats
                 .AsNoTracking()
                 .Where(s => s.Timestamp >= earliestCmpFrom
                     && s.Timestamp < alignedFromUtc
                     && s.GameServer != null
                     && !s.GameServer.Deleted
                     && s.GameServer.GameType == gameTypeInt)
-                .Select(s => new AnalyticsBucketCounts.PlayerSample { Timestamp = s.Timestamp, PlayerCount = s.PlayerCount }),
-                bucket, cancellationToken).ConfigureAwait(false);
+                .Select(s => new { s.Timestamp, s.PlayerCount })
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
 
             var cmpAvgByBucket = cmpStats
-                .ToDictionary(s => s.Key, s => s.Value.Average);
+                .GroupBy(s => AnalyticsTimeBucketing.Truncate(s.Timestamp, bucket))
+                .ToDictionary(g => g.Key, g => g.Average(x => (double)x.PlayerCount));
 
             var comparisonTotals = new List<double>(comparisonWindows.Count);
             foreach (var cmpWindow in comparisonWindows)
