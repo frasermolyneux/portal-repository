@@ -89,6 +89,22 @@ instrumentation, exclude result comparison/plan parsing, and are not production
 latency evidence; the earlier production ranking measurements below predate this
 index change.
 
+In isolated SQL CI run `45975623925`, both frameworks preserved all projected
+results and 72 full plans each. With 100,000 synthetic rows, Global total logical
+reads fell from 1,508-1,509 to 10/51/206 pages for one/seven/30 days. Server
+projection reads improved for both server scopes; existing server-count reads were unchanged.
+The rebuilt index grew from 9,040 to 12,272 KiB, and 1,000-row append transaction
+logging grew about 1.4% (roughly 2.51 to 2.545 MB). These are isolated measurements,
+not production storage or throughput guarantees.
+
+The sparse GameType 2 30-day ranking increased from 203-204 to 208 logical pages.
+Reusing a one-day-first plan for 30 days caused new Global/Game sort spills with a
+1,024 KiB grant; the Game retrieval rose from 5-7 to 65-100 ms. With a 30-day-first
+plan, estimates closely matched the 13,393 scanned rows and neither query spilled. Timings
+otherwise remained mixed. This demonstrates a logical-I/O benefit with a cached-plan
+tradeoff, not a universal latency fix; other game distributions and production
+end-to-end latency have not been established by this fixture.
+
 Player overview adds nullable `observedPlayerRecords` (retained Player records with
 `FirstSeen < toUtc`), `recordedPlayers` (distinct players with a recorded session
 overlapping `[fromUtc, toUtc)`), and `sessionStarts` (recorded session starts in that
