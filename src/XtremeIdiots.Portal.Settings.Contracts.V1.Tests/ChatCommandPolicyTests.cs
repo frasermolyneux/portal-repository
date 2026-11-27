@@ -77,6 +77,28 @@ public sealed class ChatCommandPolicyTests
     }
 
     [Fact]
+    public void EffectiveSettingsPreservePolicyAndPerReplyNullAndEmptyValues()
+    {
+        var settings = new EffectiveChatCommandSettings
+        {
+            CommandName = "fu",
+            Enabled = true,
+            FreshnessSeconds = 5,
+            Policy = new ChatCommandPolicy { DefaultDecision = ChatCommandPolicyDecision.Deny, Rules = [] },
+            Replies = new() { ["usage"] = null, ["futureOptional"] = [] }
+        };
+
+        var copy = JsonSerializer.Deserialize<EffectiveChatCommandSettings>(
+            JsonSerializer.Serialize(settings, Options), Options)!;
+        Assert.Equal(ChatCommandPolicyDecision.Deny, copy.Policy!.DefaultDecision);
+        Assert.Empty(copy.Policy.Rules!);
+        Assert.Null(copy.Replies!["usage"]);
+        Assert.Empty(copy.Replies["futureOptional"]!);
+        Assert.Null(EffectiveChatCommandSettings.Disabled("fu").Policy);
+        Assert.Null(EffectiveChatCommandSettings.Disabled("fu").Replies);
+    }
+
+    [Fact]
     public void FuRepliesCannotSuppressRequiredMessagesOrUseWrongTokens()
     {
         var entry = new ChatCommandSettingsEntry

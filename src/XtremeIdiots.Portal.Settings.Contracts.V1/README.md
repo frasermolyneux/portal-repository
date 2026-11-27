@@ -135,6 +135,8 @@ and handler behavior; declaring `invalidMessage` does not itself introduce a new
 
 `ChatCommandCatalogueV1` describes confirmed command names, aliases, ownership, transport game
 types, and staged reply keys. Confirmed transport support is not a new game-type dispatch gate.
+`EffectiveChatCommandSettings` can carry the resolved policy and replies; consumers resolving
+settings must apply the per-result inheritance rules above. Null values retain legacy behavior.
 Deploy round-trip-preserving editors and compatible readers before writing these fields; the
 contract alone does not activate policies or replies.
 

@@ -114,6 +114,10 @@ public sealed record EffectiveChatCommandSettings
 
     public JsonElement? Settings { get; init; }
 
+    public ChatCommandPolicy? Policy { get; init; }
+
+    public Dictionary<string, string[]?>? Replies { get; init; }
+
     public SettingsValueSource EnabledSource { get; init; }
 
     public SettingsValueSource FreshnessSource { get; init; }
