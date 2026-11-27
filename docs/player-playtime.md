@@ -40,6 +40,14 @@ Daily buckets contain positive known-map playtime only; a missing day is not evi
 
 Chat counts for windows beginning within retention use the existing player/server covering index without reading the message row's `Locked` flag. Windows beginning before retention retain the locked-history predicate; the counting and permission rules are unchanged.
 
+## Dashboard and server activity
+
+The V1 dashboard home, dashboard server and server timeseries responses include an additive nullable `recordedActivity` list and `recordedActivityCoverage`. A null or absent list means the host does not provide this data; coverage is `unknown`. Each bucket reports distinct recorded players whose sessions overlap its clipped UTC window or start within it, recorded session starts and `observedSeconds`. Known bots are excluded; sessions of unknown bot classification are included. Starts are recorded session boundaries, which may be inferred, not a count of verified connections.
+
+Dashboard home accepts `includeComposition=false` to omit the legacy sample-based composition and its queries; the response composition is null, while recorded activity remains populated. Omitting the parameter preserves the existing composition behavior. The SDK overload that accepts `includeComposition` also requires a cancellation token; the original overload remains unchanged.
+
+Observed time is the clipped interval from session start to last confirmed presence for both closed and open sessions. It interpolates gaps between confirmations and includes unknown-map time; it is not the known-map measured playtime reported by player activity. The values are recorded evidence, not complete coverage: a zero does not establish that nobody played, and observed duration is not live occupancy. The legacy dashboard and server player trends use mutable recent-presence rows and should not be presented as historical activity. Dashboard composition and server map rotation use stat samples, not map plays or durations. The server overview's admin-action correlation is inferred from recent presence, not reliable server attribution.
+
 ## Aggregate analytics
 
 The service-account Global, Game and Player analytics retain their existing fields for

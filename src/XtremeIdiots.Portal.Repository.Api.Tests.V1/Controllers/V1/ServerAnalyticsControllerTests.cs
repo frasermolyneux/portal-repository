@@ -5,6 +5,7 @@ using Moq;
 using Xunit;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.LiveStatus;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Players;
@@ -68,6 +69,31 @@ public class ServerAnalyticsControllerTests
         var result = await CreateApi(context).GetPlayersCurrent(Guid.NewGuid());
 
         Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetTimeseries_RecordedActivity_UsesSessionHistoryInsteadOfRecentPresence()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var server = SeedServer(context);
+        var day = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        context.PlayerSessions.Add(new PlayerSession
+        {
+            SessionId = Guid.NewGuid(),
+            ServerId = server.GameServerId,
+            PlayerId = Guid.NewGuid(),
+            StartUtc = day.AddMinutes(30),
+            LastConfirmedUtc = day.AddHours(2)
+        });
+        await context.SaveChangesAsync();
+
+        var result = await CreateApi(context).GetTimeseries(server.GameServerId, day, day.AddHours(2), AnalyticsBucket.OneHour);
+        var points = result.Result!.Data!.RecordedActivity!;
+
+        Assert.Equal(1, points[0].RecordedPlayers);
+        Assert.Equal(1, points[0].SessionStarts);
+        Assert.Equal(1, points[1].RecordedPlayers);
+        Assert.Equal(0, points[1].SessionStarts);
     }
 
     [Fact]

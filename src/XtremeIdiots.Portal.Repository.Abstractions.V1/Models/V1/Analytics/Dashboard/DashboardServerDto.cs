@@ -52,6 +52,12 @@ public record DashboardServerDto : IDto
     [JsonProperty]
     public List<AnalyticsTimeseriesPointDto> TrendPoints { get; internal set; } = [];
 
+    [JsonProperty]
+    public List<DashboardRecordedActivityPointDto>? RecordedActivity { get; internal set; }
+
+    [JsonProperty]
+    public string? RecordedActivityCoverage { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }
