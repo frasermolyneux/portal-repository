@@ -24,6 +24,7 @@ public sealed partial class RuleExecutionsController
         if (request is null || request.GameServerId == Guid.Empty ||
             request.FeatureId is { } feature && (string.IsNullOrWhiteSpace(feature) || feature.Length > 64) ||
             request.MatchStatus is { } matchStatus && !Enum.IsDefined(matchStatus) ||
+            request.TriggerOccurrenceId == Guid.Empty ||
             request.SkipEntries < 0 || request.TakeEntries is <= 0 or > 100 ||
             request.FromUtc is { Kind: not DateTimeKind.Utc } || request.ToUtc is { Kind: not DateTimeKind.Utc } ||
             request.FromUtc is { } from && request.ToUtc is { } to && from >= to)
@@ -46,6 +47,10 @@ public sealed partial class RuleExecutionsController
                 ? null : requestedMatchStatus.ToString();
             scope = scope.Where(item => item.MatchStatus == storedMatchStatus);
         }
+        if (request.TriggerOccurrenceId is { } occurrenceId)
+        {
+            scope = scope.Where(item => item.TriggerOccurrenceId == occurrenceId);
+        }
         var total = await scope.CountAsync(cancellationToken).ConfigureAwait(false);
         if (request.FromUtc is { } fromUtc)
         {
@@ -63,6 +68,7 @@ public sealed partial class RuleExecutionsController
                 item.ExecutionId,
                 item.GameServerId,
                 item.ConnectionId,
+                item.TriggerOccurrenceId,
                 item.FeatureId,
                 item.PlayerGuid,
                 item.TriggerJson,
@@ -71,7 +77,8 @@ public sealed partial class RuleExecutionsController
                 item.CreatedAtUtc,
                 item.UpdatedAtUtc,
                 item.CoordinationJson,
-                item.DiagnosticsJson
+                item.DiagnosticsJson,
+                item.EvaluationEvidenceJson
             }).ToArrayAsync(cancellationToken).ConfigureAwait(false);
         var ids = executions.Select(item => item.ExecutionId).ToArray();
         var actions = await context.RuleActionExecutions.AsNoTracking().Where(item => ids.Contains(item.ExecutionId))
@@ -112,6 +119,7 @@ public sealed partial class RuleExecutionsController
                 ConnectionId = execution.ConnectionId,
                 FeatureId = execution.FeatureId,
                 TriggerId = trigger.TriggerId,
+                TriggerOccurrenceId = execution.TriggerOccurrenceId,
                 PlayerGuid = execution.PlayerGuid,
                 Username = trigger.Username,
                 State = Enum.Parse<RuleFeatureExecutionState>(execution.State),
@@ -125,6 +133,7 @@ public sealed partial class RuleExecutionsController
                     WaitingReason = execution.State == nameof(RuleFeatureExecutionState.Waiting) ? coordination.WaitingReason : null
                 },
                 Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
+                EvaluationEvidence = execution.EvaluationEvidenceJson is { } evidence ? Deserialize<RuleEvaluationEvidence>(evidence) : null,
                 Actions = actionsByExecution[execution.ExecutionId].Select(action =>
                 {
                     var identity = Deserialize<RuleActionCommand>(action.CommandJson).DeliveryIdentity;

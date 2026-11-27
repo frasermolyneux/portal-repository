@@ -108,6 +108,8 @@
     <Build Include="dbo\Tables\RuleConnectionStatusSnapshots.sql" />
     <Build Include="dbo\Tables\RuleConnectionBindings.sql" />
     <Build Include="dbo\Tables\RuleFeatureExecutions.sql" />
+    <Build Include="dbo\Tables\RuleOccurrenceEffects.sql" />
+    <Build Include="dbo\Tables\RuleOccurrenceCooldowns.sql" />
     <Build Include="dbo\Tables\RulePreparedActions.sql" />
     <Build Include="dbo\Tables\RuleActionExecutions.sql" />
     <Build Include="dbo\Tables\RuleFactSnapshots.sql" />

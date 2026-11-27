@@ -262,6 +262,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     {
         if (request is null || request.ExpectedVersion <= 0 || request.RuleIndex < 0 || request.ActionIndex < 0 ||
             !ValidExecutionState(request.State) || !ValidOptionalJson(request.DecisionSnapshotJson) || !ValidDiagnostics(request.Diagnostics) ||
+            !ValidEvaluationEvidence(request.EvaluationEvidence) ||
             request.MatchStatus is { } matchStatus && (!Enum.IsDefined(matchStatus) ||
                 matchStatus != RuleExecutionMatchStatus.Unknown && request.DecisionSnapshotJson is null ||
                 matchStatus == RuleExecutionMatchStatus.NoMatch && request.State != RuleFeatureExecutionState.Completed))
@@ -295,6 +296,22 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             if (execution.State is nameof(RuleFeatureExecutionState.Completed) or nameof(RuleFeatureExecutionState.Stopped))
             {
                 return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            if (request.EvaluationEvidence is { } evidence)
+            {
+                if (!EvidenceMatchesFrozenRules(evidence, execution.FrozenRulesJson))
+                {
+                    return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.BadRequest);
+                }
+                var existingActionCoordinates = await context.RuleActionExecutions.AsNoTracking()
+                    .Where(action => action.ExecutionId == executionId)
+                    .Select(action => new { action.RuleIndex, action.ActionIndex })
+                    .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+                if (evidence.ActionDecisions.Any(decision => existingActionCoordinates.Any(action =>
+                    action.RuleIndex == decision.RuleIndex && action.ActionIndex == decision.ActionIndex)))
+                {
+                    return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+                }
             }
             if (request.MatchStatus == RuleExecutionMatchStatus.NoMatch &&
                 execution.MatchStatus == nameof(RuleExecutionMatchStatus.Matched))
@@ -347,6 +364,10 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             if (request.Diagnostics is not null)
             {
                 execution.DiagnosticsJson = JsonSerializer.Serialize(request.Diagnostics, JsonOptions);
+            }
+            if (request.EvaluationEvidence is not null)
+            {
+                execution.EvaluationEvidenceJson = JsonSerializer.Serialize(request.EvaluationEvidence, JsonOptions);
             }
             execution.FactSnapshotId = request.FactSnapshotId ?? execution.FactSnapshotId;
             if (request.Coordination is not null)
@@ -533,6 +554,8 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
                 }, JsonOptions);
             }
             context.RuleActionExecutions.Add(action);
+            execution.EvaluationEvidenceJson = RemoveClaimedActionDecision(
+                execution.EvaluationEvidenceJson, request.RuleIndex, request.ActionIndex);
             execution.RuleIndex = request.RuleIndex;
             execution.ActionIndex = request.ActionIndex;
             execution.State = (request.TerminalOutcome is null
@@ -1105,6 +1128,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
             Coordination = execution.CoordinationJson is { } coordination ? Deserialize<RuleExecutionCoordination>(coordination) : null,
             Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
+            EvaluationEvidence = execution.EvaluationEvidenceJson is { } evidence ? Deserialize<RuleEvaluationEvidence>(evidence) : null,
             PreparedActions = preparations.Select(item => WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson), actions)).ToArray(),
             Actions = actions.Select(action => ToActionDto(action, execution)).ToArray(),
             Version = execution.Version,

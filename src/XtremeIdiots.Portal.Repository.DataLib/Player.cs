@@ -87,6 +87,12 @@ public partial class Player
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<RuleOccurrenceCooldown> RuleOccurrenceCooldowns { get; set; } = new List<RuleOccurrenceCooldown>();
+
+    [InverseProperty("Player")]
+    public virtual ICollection<RuleOccurrenceEffect> RuleOccurrenceEffects { get; set; } = new List<RuleOccurrenceEffect>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<SiegeBaselineGuidOwner> SiegeBaselineGuidOwners { get; set; } = new List<SiegeBaselineGuidOwner>();
 
     [InverseProperty("Player")]

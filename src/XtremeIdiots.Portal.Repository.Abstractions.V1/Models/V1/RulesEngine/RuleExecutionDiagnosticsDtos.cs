@@ -49,6 +49,7 @@ public sealed record RuleExecutionAuditQueryDto
     public Guid? GameServerId { get; init; }
     public string? FeatureId { get; init; }
     public RuleExecutionMatchStatus? MatchStatus { get; init; }
+    public Guid? TriggerOccurrenceId { get; init; }
     public DateTime? FromUtc { get; init; }
     public DateTime? ToUtc { get; init; }
     public int SkipEntries { get; init; }
@@ -62,6 +63,7 @@ public sealed record RuleExecutionAuditDto
     public Guid ConnectionId { get; init; }
     public string FeatureId { get; init; } = string.Empty;
     public string TriggerId { get; init; } = string.Empty;
+    public Guid? TriggerOccurrenceId { get; init; }
     public string? PlayerGuid { get; init; }
     public string? Username { get; init; }
     public RuleFeatureExecutionState State { get; init; }
@@ -70,6 +72,7 @@ public sealed record RuleExecutionAuditDto
     public DateTimeOffset UpdatedAtUtc { get; init; }
     public RuleExecutionAuditCoordinationDto? Coordination { get; init; }
     public RuleExecutionDiagnostic[] Diagnostics { get; init; } = [];
+    public RuleEvaluationEvidence? EvaluationEvidence { get; init; }
     public RuleExecutionAuditActionDto[] Actions { get; init; } = [];
     public RuleExecutionAuditPreparationDto[] PreparedActions { get; init; } = [];
 }

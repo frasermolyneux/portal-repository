@@ -114,6 +114,30 @@ values. Invalid settings or modes fail validation rather than inheriting silentl
 and full-document editors before writing `messagesMode`, and review the effective configuration
 before enabling the new resolution mode; old readers do not inherit global broadcasts.
 
+## Staged Chat Command Policies and Replies
+
+Each `chatCommands.commands` entry may contain a nullable `policy` with an explicit
+`defaultDecision` (`Allow` or `Deny`) and a `rules` array. Each rule has a stable `id`, `enabled`,
+`order`, a `RuleConditionNode`, and a `decision`. A missing or null policy inherits; a present
+policy replaces the inherited policy, including when its rules array is empty. Consumers evaluate
+enabled rules by ascending `order`, retaining array order for ties. A first-applicable Unknown
+condition blocks admission rather than falling through to an Allow or the default. Existing tag,
+identity, freshness, permission, and native-ownership gates still apply independently.
+
+An optional `replies` map holds arrays of templates keyed by command result. A missing or null map
+or result inherits; an empty array suppresses only a result declared optional. All initially
+described `!fu` replies are required and cannot be suppressed. The result descriptor fixes the
+public/private channel and allowed tokens: only `success` may use `{name}` and only
+`targetAmbiguous` may use `{suggestions}`. Tokens are case-insensitive; consumers must bound and
+escape dynamic values for the destination transport. Unknown result keys are retained but must not
+be executed until supported. Absent reply configuration preserves existing `settings.messages`
+and handler behavior; declaring `invalidMessage` does not itself introduce a new reply.
+
+`ChatCommandCatalogueV1` describes confirmed command names, aliases, ownership, transport game
+types, and staged reply keys. Confirmed transport support is not a new game-type dispatch gate.
+Deploy round-trip-preserving editors and compatible readers before writing these fields; the
+contract alone does not activate policies or replies.
+
 ## Compatibility Shim Transition (Chat Package Path)
 
 The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1`) remains a compatibility shim during migration. Transition guidance:
