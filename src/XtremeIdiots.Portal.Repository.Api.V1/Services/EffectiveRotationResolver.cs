@@ -56,8 +56,8 @@ internal static class EffectiveRotationResolver
             {
                 foreach (var entry in assignment.MapRotation.MapRotationMaps.OrderBy(m => m.SortOrder))
                 {
-                    var name = entry.Map.MapName!;
-                    var map = lookup.GetValueOrDefault((family, name.ToUpperInvariant())) ?? entry.Map;
+                    var name = entry.MapName ?? entry.Map.MapName!;
+                    var map = lookup.GetValueOrDefault((family, entry.Map.MapName!.ToUpperInvariant())) ?? entry.Map;
                     var counts = voteLookup.GetValueOrDefault((server.GameServerId,
                         family == (int)GameType.CallOfDuty4 ? Guid.Empty : map.MapId, family, name.ToUpperInvariant()));
                     maps.Add(new()

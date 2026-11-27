@@ -1,5 +1,25 @@
 # Testing with the Repository API Client
 
+## Map rotation observation
+
+[Rotation contracts and lifecycle boundaries](map-rotations.md) describe the V1
+effective resolver and observation API. `MapRotationsControllerTests` and
+`PublicMapExperienceTests` cover duplicates, per-entry modes, managed precedence,
+explicit empty snapshots and the removal of history fallback.
+`ObservedRotationConcurrencyTests` verifies ownership rechecks, concurrent
+catalogue deduplication, cleanup and lost-commit acknowledgement retries against
+isolated SQL Server. `MapRotationsTests` exercises HTTP serialization; client and
+testing-package suites cover source-filtered reads and observed lifecycle guards.
+
+`FakeMapRotationsApi.SetEffectiveServerRotation` supplies explicit effective
+responses for private-server consumers. Observation calls simulate source ownership,
+refresh identity and timestamp conflicts; real catalogue/transaction behavior is
+covered by the SQL tests rather than the fake.
+On Windows, `PORTAL_TEST_SQL_SERVER` can select a separately created LocalDB instance
+for these SQL fixtures; the default remains `(localdb)\MSSQLLocalDB`. Tests still
+create and remove only their uniquely named databases. The caller owns starting
+and removing any alternate instance.
+
 ## Rule execution read concurrency
 
 `RuleExecutionReadConcurrencyTests` uses isolated SQL Server to verify consistent execution reads

@@ -5,7 +5,7 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapRotations;
 public record ObserveServerRotationDto : IDto
 {
     public DateTimeOffset ObservedAt { get; set; }
-    public List<ObservedRotationEntryDto> Entries { get; set; } = [];
+    public List<ObservedRotationEntryDto> Entries { get; set; } = null!;
 
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];

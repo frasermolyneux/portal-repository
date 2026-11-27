@@ -16,6 +16,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
     private readonly ConcurrentDictionary<string, (HttpStatusCode StatusCode, ApiError Error)> _errorResponses = new(StringComparer.OrdinalIgnoreCase);
     private PublicServerRotationsDto _publicRotations = new();
     private readonly ConcurrentDictionary<Guid, PublicServerRotationDto> _effectiveRotations = new();
+    private readonly ConcurrentDictionary<Guid, ObserveServerRotationDto> _observations = new();
 
     public FakeMapRotationsApi SetPublicServerRotations(PublicServerRotationsDto rotations) { _publicRotations = rotations; return this; }
     public FakeMapRotationsApi SetEffectiveServerRotation(PublicServerRotationDto rotation)
@@ -38,6 +39,12 @@ public class FakeMapRotationsApi : IMapRotationsApi
             return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(configured.StatusCode,
                 new ApiResponse<MapRotationServerAssignmentDto>(configured.Error)));
         }
+        if (observation == null || observation.ObservedAt == default || observation.ObservedAt.Offset != TimeSpan.Zero
+            || observation.Entries == null || observation.Entries.Any(e => e == null || string.IsNullOrWhiteSpace(e.MapName)))
+        {
+            return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
+                new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("INVALID_OBSERVATION", "Supply a UTC observation time and explicit entries."))));
+        }
         if (_serverAssignments.Values.Any(a => a.GameServerId == gameServerId && a.Source == RotationSource.PortalManaged
             && a.UnassignedAt == null && a.DeploymentState != DeploymentState.Removed))
         {
@@ -51,10 +58,28 @@ public class FakeMapRotationsApi : IMapRotationsApi
             return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.Conflict,
                 new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("OBSERVATION_SUPERSEDED", "A newer observation has already been applied."))));
         }
+        var saved = observation with
+        {
+            Entries = observation.Entries.Select(e => e with
+            { MapName = e.MapName, GameMode = string.IsNullOrEmpty(e.GameMode) ? null : e.GameMode }).ToList()
+        };
+        var unchanged = _observations.TryGetValue(gameServerId, out var previous)
+            && previous.Entries.SequenceEqual(saved.Entries);
+        if (current?.ObservedAt == observation.ObservedAt.UtcDateTime && !unchanged)
+        {
+            return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.Conflict,
+                new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("OBSERVATION_CONFLICT", "The observation time already identifies different content."))));
+        }
         var dto = current ?? new MapRotationServerAssignmentDto(Guid.NewGuid(), Guid.NewGuid(), gameServerId,
             DeploymentState.NotApplicable, ActivationState.Inactive, null, null, null, "sv_maprotation", null, null,
-            DateTime.UtcNow, DateTime.UtcNow, null) { Source = RotationSource.ServerObserved };
+            DateTime.UtcNow, DateTime.UtcNow, null)
+        { Source = RotationSource.ServerObserved };
+        if (current != null && !unchanged)
+        {
+            dto.MapRotationId = Guid.NewGuid();
+        }
         dto.ObservedAt = observation.ObservedAt.UtcDateTime;
+        _observations[gameServerId] = saved;
         _serverAssignments[dto.MapRotationServerAssignmentId] = dto;
         return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.OK, new ApiResponse<MapRotationServerAssignmentDto>(dto)));
     }
@@ -84,7 +109,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
         return this;
     }
-    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _effectiveRotations.Clear(); _publicRotations = new(); return this; }
+    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _effectiveRotations.Clear(); _observations.Clear(); _publicRotations = new(); return this; }
 
     // ───────────────────────── Map Rotation CRUD ─────────────────────────
 
@@ -100,7 +125,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
 
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
-        var items = _mapRotations.Values.AsEnumerable();
+        var items = _mapRotations.Values.Where(r => r.Source == RotationSource.PortalManaged);
         if (gameTypes?.Length > 0)
         {
             var compatibleGameTypes = gameTypes.SelectMany(type => type.GetCompatibleMapGameTypes()).ToHashSet();
@@ -119,7 +144,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
 
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
-        var items = _mapRotations.Values.AsEnumerable();
+        var items = _mapRotations.Values.Where(r => r.Source == RotationSource.PortalManaged);
         if (gameTypes?.Length > 0)
         {
             var compatibleGameTypes = gameTypes.SelectMany(type => type.GetCompatibleMapGameTypes()).ToHashSet();
@@ -148,7 +173,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
 
     public Task<ApiResult<CollectionModel<MapRotationDto>>> GetMapRotations(GameType[]? gameTypes, string? gameMode, MapRotationStatus? status, string? filterString, Guid? createdByUserId, MapRotationsFilter? filter, int skipEntries, int takeEntries, MapRotationsOrder? order, CancellationToken cancellationToken = default)
     {
-        var items = _mapRotations.Values.AsEnumerable();
+        var items = _mapRotations.Values.Where(r => r.Source == RotationSource.PortalManaged);
         if (gameTypes?.Length > 0)
         {
             var compatibleGameTypes = gameTypes.SelectMany(type => type.GetCompatibleMapGameTypes()).ToHashSet();
@@ -182,13 +207,17 @@ public class FakeMapRotationsApi : IMapRotationsApi
 
     public Task<ApiResult<MapRotationDto>> CreateMapRotation(CreateMapRotationDto createMapRotationDto, CancellationToken cancellationToken = default)
     {
-        var dto = new MapRotationDto(Guid.NewGuid(), createMapRotationDto.GameType, createMapRotationDto.Title, createMapRotationDto.Description, createMapRotationDto.GameMode, 1, null, DateTime.UtcNow, DateTime.UtcNow, [], []);
+        var entries = createMapRotationDto.Entries ?? createMapRotationDto.MapIds.Select(id => new MapRotationEntryDto { MapId = id }).ToList();
+        var dto = new MapRotationDto(Guid.NewGuid(), createMapRotationDto.GameType, createMapRotationDto.Title, createMapRotationDto.Description, createMapRotationDto.GameMode, 1, null, DateTime.UtcNow, DateTime.UtcNow,
+            entries.Select((entry, index) => new MapRotationMapDto { MapRotationMapId = Guid.NewGuid(), MapId = entry.MapId, GameMode = entry.GameMode, SortOrder = index }).ToList(), []);
         _mapRotations[dto.MapRotationId] = dto;
         return Task.FromResult(new ApiResult<MapRotationDto>(HttpStatusCode.Created, new ApiResponse<MapRotationDto>(dto)));
     }
 
-    public Task<ApiResult> UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-    public Task<ApiResult> DeleteMapRotation(Guid mapRotationId, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    public Task<ApiResult> UpdateMapRotation(UpdateMapRotationDto updateMapRotationDto, CancellationToken cancellationToken = default)
+        => Task.FromResult(RotationIsObserved(updateMapRotationDto.MapRotationId) ? ReadOnlyObservation() : new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    public Task<ApiResult> DeleteMapRotation(Guid mapRotationId, CancellationToken cancellationToken = default)
+        => Task.FromResult(RotationIsObserved(mapRotationId) ? ReadOnlyObservation() : new ApiResult(HttpStatusCode.OK, new ApiResponse()));
 
     // ───────────────────────── Server Assignment CRUD ─────────────────────────
 
@@ -232,6 +261,11 @@ public class FakeMapRotationsApi : IMapRotationsApi
 
     public Task<ApiResult<MapRotationServerAssignmentDto>> CreateServerAssignment(CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken = default)
     {
+        if (RotationIsObserved(createDto.MapRotationId))
+        {
+            return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.BadRequest,
+                new ApiResponse<MapRotationServerAssignmentDto>(new ApiError("OBSERVED_ROTATION_READ_ONLY", "Observed rotations cannot be manually assigned."))));
+        }
         var dto = new MapRotationServerAssignmentDto(Guid.NewGuid(), createDto.MapRotationId, createDto.GameServerId, DeploymentState.Pending, ActivationState.Inactive, null, null, createDto.ConfigFilePath, createDto.ConfigVariableName, null, null, DateTime.UtcNow, DateTime.UtcNow, null);
         _serverAssignments[dto.MapRotationServerAssignmentId] = dto;
         if (createDto.AacpConfigFilePath != null)
@@ -247,8 +281,11 @@ public class FakeMapRotationsApi : IMapRotationsApi
         return Task.FromResult(new ApiResult<MapRotationServerAssignmentDto>(HttpStatusCode.Created, new ApiResponse<MapRotationServerAssignmentDto>(dto)));
     }
 
-    public Task<ApiResult> UpdateServerAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
-    public Task<ApiResult> DeleteServerAssignment(Guid assignmentId, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    public Task<ApiResult> UpdateServerAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken = default)
+        => Task.FromResult(AssignmentIsObserved(updateDto.MapRotationServerAssignmentId) || updateDto.DeploymentState == DeploymentState.NotApplicable
+            ? ReadOnlyObservation() : new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+    public Task<ApiResult> DeleteServerAssignment(Guid assignmentId, CancellationToken cancellationToken = default)
+        => Task.FromResult(AssignmentIsObserved(assignmentId) ? ReadOnlyObservation() : new ApiResult(HttpStatusCode.OK, new ApiResponse()));
 
     // ───────────────────────── Assignment Operations ─────────────────────────
 
@@ -261,10 +298,20 @@ public class FakeMapRotationsApi : IMapRotationsApi
 
     public Task<ApiResult<MapRotationAssignmentOperationDto>> CreateAssignmentOperation(CreateMapRotationAssignmentOperationDto createDto, CancellationToken cancellationToken = default)
     {
+        if (AssignmentIsObserved(createDto.MapRotationServerAssignmentId))
+        {
+            return Task.FromResult(new ApiResult<MapRotationAssignmentOperationDto>(HttpStatusCode.BadRequest,
+                new ApiResponse<MapRotationAssignmentOperationDto>(new ApiError("ASSIGNMENT_IN_USE", "Observed assignments cannot run deployment operations."))));
+        }
         var dto = new MapRotationAssignmentOperationDto(Guid.NewGuid(), createDto.MapRotationServerAssignmentId, createDto.OperationType, AssignmentOperationStatus.InProgress, createDto.DurableFunctionInstanceId, DateTime.UtcNow, null, null);
         _assignmentOperations[dto.MapRotationAssignmentOperationId] = dto;
         return Task.FromResult(new ApiResult<MapRotationAssignmentOperationDto>(HttpStatusCode.Created, new ApiResponse<MapRotationAssignmentOperationDto>(dto)));
     }
 
     public Task<ApiResult> UpdateAssignmentOperation(Guid operationId, AssignmentOperationStatus status, string? error, CancellationToken cancellationToken = default) => Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
+
+    private bool RotationIsObserved(Guid id) => _mapRotations.TryGetValue(id, out var rotation) && rotation.Source == RotationSource.ServerObserved;
+    private bool AssignmentIsObserved(Guid id) => _serverAssignments.TryGetValue(id, out var assignment) && assignment.Source == RotationSource.ServerObserved;
+    private static ApiResult ReadOnlyObservation() => new(HttpStatusCode.BadRequest,
+        new ApiResponse(new ApiError("OBSERVED_ASSIGNMENT_READ_ONLY", "Observed data has no managed lifecycle.")));
 }

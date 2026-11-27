@@ -97,8 +97,8 @@ public sealed class PublicMapExperienceTests : IDisposable
     [InlineData("sv_maprotation", true, false, false, true)]
     [InlineData("sv_maprotation", false, true, false, true)]
     [InlineData("sv_maprotation", false, false, true, true)]
-    public async Task Rotations_UseOnlyUnambiguousAppliedNormalAssignments_ElseDistinctRecentHistory(
-        string variable, bool stale, bool removed, bool ambiguous, bool expectHistory)
+    public async Task Rotations_UseOnlyUnambiguousAppliedNormalAssignments_ElseCurrentObserved(
+        string variable, bool stale, bool removed, bool ambiguous, bool expectObserved)
     {
         var server = Server(GameType.CallOfDuty4x);
         var otherServer = Server(GameType.CallOfDuty4);
@@ -133,6 +133,7 @@ public sealed class PublicMapExperienceTests : IDisposable
             MapRotation = rotation,
             GameServer = server,
             ConfigVariableName = variable,
+            DeployedVersion = 2,
             ActivatedVersion = stale ? 1 : 2,
             CreatedAt = now,
             UpdatedAt = now,
@@ -150,6 +151,37 @@ public sealed class PublicMapExperienceTests : IDisposable
                 ConfigVariableName = variable,
                 ActivatedVersion = 2,
                 ActivationState = (int)ActivationState.Active,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+        var unindexed = Map("mp_unindexed", GameType.CallOfDuty4);
+        foreach (var target in new[] { server, otherServer })
+        {
+            var observed = new MapRotation
+            {
+                MapRotationId = Guid.NewGuid(),
+                Source = (int)RotationSource.ServerObserved,
+                GameType = 2,
+                Title = "Observed",
+                GameMode = "",
+                Version = 1,
+                CreatedAt = now,
+                UpdatedAt = now,
+                MapRotationMaps = [new() { MapRotationMapId = Guid.NewGuid(), Map = map, SortOrder = 0, GameMode = "dm" }]
+            };
+            if (target == server)
+            {
+                observed.MapRotationMaps.Add(new() { MapRotationMapId = Guid.NewGuid(), Map = unindexed, SortOrder = 1, GameMode = "war" });
+            }
+            context.MapRotationServerAssignments.Add(new()
+            {
+                MapRotationServerAssignmentId = Guid.NewGuid(),
+                MapRotation = observed,
+                GameServer = target,
+                Source = (int)RotationSource.ServerObserved,
+                DeploymentState = (int)DeploymentState.NotApplicable,
+                ObservedAt = now,
                 CreatedAt = now,
                 UpdatedAt = now
             });
@@ -173,9 +205,11 @@ public sealed class PublicMapExperienceTests : IDisposable
 
         var projected = Assert.Single(result.Servers, item => item.GameServerId == server.GameServerId);
         Assert.Equal(GameType.CallOfDuty4x, projected.GameType);
-        Assert.Equal(expectHistory, projected.IsObservedHistory);
-        Assert.Equal(expectHistory ? null : "Normal", projected.RotationTitle);
-        Assert.Equal(expectHistory ? new[] { "mp_custom", "mp_unindexed" } : ["mp_custom"], projected.Maps.Select(m => m.MapName));
+        Assert.False(projected.IsObservedHistory);
+        Assert.True(projected.IsAvailable);
+        Assert.Equal(expectObserved ? RotationSource.ServerObserved : RotationSource.PortalManaged, projected.Source);
+        Assert.Equal(expectObserved ? "Observed" : "Normal", projected.RotationTitle);
+        Assert.Equal(expectObserved ? new[] { "mp_custom", "mp_unindexed" } : ["mp_custom"], projected.Maps.Select(m => m.MapName));
         Assert.Equal((map.MapId, 15, 73.3d, 1, 1, 2, 50d),
             (projected.Maps[0].MapId, projected.Maps[0].Votes, projected.Maps[0].Approval,
                 projected.Maps[0].ServerLikes, projected.Maps[0].ServerDislikes,
@@ -184,7 +218,7 @@ public sealed class PublicMapExperienceTests : IDisposable
         Assert.Equal((2, 0, 2, 100d),
             (isolated.Maps[0].ServerLikes, isolated.Maps[0].ServerDislikes,
                 isolated.Maps[0].ServerVotes, isolated.Maps[0].ServerApproval));
-        if (expectHistory)
+        if (expectObserved)
         {
             Assert.Equal((0, 0, 0, 0d),
                 (projected.Maps[1].ServerLikes, projected.Maps[1].ServerDislikes,
@@ -193,6 +227,21 @@ public sealed class PublicMapExperienceTests : IDisposable
         Assert.InRange(commands.Text.Count, 5, 8);
         Assert.Single(commands.Text, sql => sql.Contains("MapVotes", StringComparison.OrdinalIgnoreCase)
             && sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(commands.Text, sql => sql.Contains("GameServerStats", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Rotations_RecentPlayHistoryDoesNotSupplyCurrentRotation()
+    {
+        var server = Server(GameType.CallOfDuty4);
+        Stat(server, "mp_recent", -1);
+        await context.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(context);
+        var rotation = Assert.Single((await api.GetPublicServerRotations()).Result!.Data!.Servers);
+        Assert.False(rotation.IsAvailable);
+        Assert.Null(rotation.Source);
+        Assert.Empty(rotation.Maps);
+        Assert.Equal(1, await context.GameServerStats.CountAsync());
     }
 
     private GameServer Server(GameType type, bool listed = true)

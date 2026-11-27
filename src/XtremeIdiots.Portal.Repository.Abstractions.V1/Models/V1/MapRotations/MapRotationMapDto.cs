@@ -17,6 +17,9 @@ public record MapRotationMapDto : IDto
     [JsonProperty]
     public string? GameMode { get; set; }
 
+    [JsonProperty]
+    public string? MapName { get; set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

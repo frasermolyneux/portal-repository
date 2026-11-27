@@ -25,6 +25,9 @@ public partial class MapRotationMap
     [StringLength(50)]
     public string? GameMode { get; set; }
 
+    [StringLength(256)]
+    public string? MapName { get; set; }
+
     [ForeignKey("MapId")]
     [InverseProperty("MapRotationMaps")]
     public virtual Map Map { get; set; } = null!;

@@ -116,6 +116,7 @@ namespace XtremeIdiots.Portal.Repository.Api.V1.Mapping
                 MapRotationMapId = entity.MapRotationMapId,
                 MapId = entity.MapId,
                 SortOrder = entity.SortOrder,
+                MapName = entity.MapName,
                 GameMode = entity.GameMode
             };
         }

@@ -88,11 +88,11 @@ public partial class MapRotationsController
         }
         var entries = observation.Entries.Select(e => new ObservedRotationEntryDto
         {
-            MapName = e.MapName.ToLowerInvariant(),
-            GameMode = string.IsNullOrEmpty(e.GameMode) ? null : e.GameMode.ToLowerInvariant()
+            MapName = e.MapName,
+            GameMode = string.IsNullOrEmpty(e.GameMode) ? null : e.GameMode
         }).ToList();
         var unchanged = current != null && current.MapRotation.MapRotationMaps.OrderBy(m => m.SortOrder)
-            .Select(m => new ObservedRotationEntryDto { MapName = m.Map.MapName!.ToLowerInvariant(), GameMode = m.GameMode })
+            .Select(m => new ObservedRotationEntryDto { MapName = m.MapName ?? m.Map.MapName!, GameMode = m.GameMode })
             .SequenceEqual(entries);
         if (current?.ObservedAt == observedAt && !unchanged)
         {
@@ -108,12 +108,12 @@ public partial class MapRotationsController
             }
             return new ApiResponse<MapRotationServerAssignmentDto>(current!.ToDto()).ToApiResult();
         }
-        var compatible = gameType.GetCompatibleMapGameTypes().Select(t => (int)t).ToArray();
-        var names = entries.Select(e => e.MapName).Distinct().ToArray();
-        var existingMaps = await context.Maps.Where(m => compatible.Contains(m.GameType)
+        var family = (int)gameType.GetMapGameType();
+        var names = entries.Select(e => e.MapName.ToLowerInvariant()).Distinct().ToArray();
+        var existingMaps = await context.Maps.Where(m => m.GameType == family
             && m.MapName != null && names.Contains(m.MapName.ToLower()))
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-        var maps = existingMaps.GroupBy(m => m.MapName!.ToLowerInvariant())
+        var maps = existingMaps.GroupBy(m => m.MapName!.TrimEnd(' ').ToLowerInvariant())
             .ToDictionary(g => g.Key, g => g.OrderBy(m => m.GameType == (int)GameType.CallOfDuty4x).ThenBy(m => m.MapId).First());
         foreach (var name in names.Where(n => !maps.ContainsKey(n)))
         {
@@ -134,11 +134,15 @@ public partial class MapRotationsController
             UpdatedAt = now,
             MapRotationMaps = entries.Select((e, i) => new MapRotationMap
             {
-                MapRotationMapId = Guid.NewGuid(), MapId = maps[e.MapName].MapId, SortOrder = i, GameMode = e.GameMode
+                MapRotationMapId = Guid.NewGuid(),
+                MapId = maps[e.MapName.ToLowerInvariant()].MapId,
+                MapName = e.MapName,
+                SortOrder = i,
+                GameMode = e.GameMode
             }).ToList()
         };
-        rotation.ContentHash = MapRotationsMappingExtensions.ComputeContentHash(rotation.MapRotationMaps
-            .Select(m => new MapRotationEntryDto { MapId = m.MapId, GameMode = m.GameMode }).ToList());
+        rotation.ContentHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(entries))));
         context.MapRotations.Add(rotation);
         if (current == null)
         {

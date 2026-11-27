@@ -186,7 +186,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             MapRotationsOrder? order,
             CancellationToken cancellationToken)
         {
-            var baseQuery = context.MapRotations.AsNoTracking();
+            var baseQuery = context.MapRotations.AsNoTracking().Where(r => r.Source == (int)RotationSource.PortalManaged);
 
             var totalCount = await baseQuery.CountAsync(cancellationToken).ConfigureAwait(false);
 
