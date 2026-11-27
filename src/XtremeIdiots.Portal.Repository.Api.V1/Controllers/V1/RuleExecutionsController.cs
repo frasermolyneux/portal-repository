@@ -1170,7 +1170,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
             DecisionSnapshotJson = execution.DecisionSnapshotJson,
             Coordination = execution.CoordinationJson is { } coordination ? Deserialize<RuleExecutionCoordination>(coordination) : null,
             Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
-            EvaluationEvidence = execution.EvaluationEvidenceJson is { } evidence ? Deserialize<RuleEvaluationEvidence>(evidence) : null,
+            EvaluationEvidence = ProjectEvidence(execution.EvaluationEvidenceJson, actions),
             PreparedActions = preparations.Select(item => WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson), actions)).ToArray(),
             Actions = actions.Select(action => ToActionDto(action, execution)).ToArray(),
             Version = execution.Version,

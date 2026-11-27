@@ -112,6 +112,7 @@ public sealed partial class RuleExecutionsController
             var trigger = Deserialize<RuleTriggerEnvelope>(execution.TriggerJson);
             var coordination = execution.CoordinationJson is { } coordinationJson
                 ? Deserialize<RuleExecutionCoordination>(coordinationJson) : null;
+            var executionActions = actionsByExecution[execution.ExecutionId].ToArray();
             return new RuleExecutionAuditDto
             {
                 ExecutionId = execution.ExecutionId,
@@ -133,8 +134,8 @@ public sealed partial class RuleExecutionsController
                     WaitingReason = execution.State == nameof(RuleFeatureExecutionState.Waiting) ? coordination.WaitingReason : null
                 },
                 Diagnostics = execution.DiagnosticsJson is { } diagnostics ? Deserialize<RuleExecutionDiagnostic[]>(diagnostics) : [],
-                EvaluationEvidence = execution.EvaluationEvidenceJson is { } evidence ? Deserialize<RuleEvaluationEvidence>(evidence) : null,
-                Actions = actionsByExecution[execution.ExecutionId].Select(action =>
+                EvaluationEvidence = ProjectEvidence(execution.EvaluationEvidenceJson, executionActions),
+                Actions = executionActions.Select(action =>
                 {
                     var identity = Deserialize<RuleActionCommand>(action.CommandJson).DeliveryIdentity;
                     return new RuleExecutionAuditActionDto
@@ -158,7 +159,7 @@ public sealed partial class RuleExecutionsController
                 PreparedActions = preparationsByExecution[execution.ExecutionId].Select(item =>
                 {
                     var plan = WithDeliveryOutcome(Deserialize<RulePreparedActionDto>(item.PlanJson),
-                        actionsByExecution[execution.ExecutionId].ToArray());
+                        executionActions);
                     return new RuleExecutionAuditPreparationDto
                     {
                         ActionId = plan.ActionId,

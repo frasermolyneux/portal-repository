@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
@@ -145,9 +146,30 @@ public sealed class RuleEvaluationEvidenceConverter : JsonConverter<RuleEvaluati
     {
         using var document = JsonDocument.ParseValue(ref reader);
         var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object ||
-            !(root.TryGetProperty("schemaVersion", out var version) || root.TryGetProperty("SchemaVersion", out version)) ||
-            version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var schemaVersion))
+        var propertyName = options.PropertyNamingPolicy?.ConvertName(nameof(RuleEvaluationEvidencePayload.SchemaVersion))
+            ?? nameof(RuleEvaluationEvidencePayload.SchemaVersion);
+        var comparison = options.PropertyNameCaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var version = default(JsonElement);
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in root.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, comparison))
+                {
+                    version = property.Value;
+                }
+            }
+        }
+        if (version.ValueKind == JsonValueKind.Undefined)
+        {
+            return new RuleEvaluationEvidence { SchemaVersion = 0 };
+        }
+        int schemaVersion;
+        try
+        {
+            schemaVersion = version.Deserialize<int>(options);
+        }
+        catch (JsonException)
         {
             return new RuleEvaluationEvidence { SchemaVersion = 0 };
         }
@@ -174,9 +196,19 @@ public sealed class RuleEvaluationEvidenceNewtonsoftConverter : Newtonsoft.Json.
         {
             return null;
         }
-        if (token is not JObject root ||
-            root.GetValue("schemaVersion", StringComparison.OrdinalIgnoreCase) is not { Type: JTokenType.Integer } version ||
-            !int.TryParse(version.ToString(), out var schemaVersion))
+        var property = (serializer.ContractResolver.ResolveContract(typeof(RuleEvaluationEvidencePayload)) as JsonObjectContract)?
+            .Properties.FirstOrDefault(item => item.UnderlyingName == nameof(RuleEvaluationEvidencePayload.SchemaVersion));
+        if (token is not JObject root || property is not { Ignored: false, Writable: true, PropertyName: { } propertyName } ||
+            root.Properties().LastOrDefault(item => string.Equals(item.Name, propertyName, StringComparison.OrdinalIgnoreCase))?.Value is not { } version)
+        {
+            return new RuleEvaluationEvidence { SchemaVersion = 0 };
+        }
+        int schemaVersion;
+        try
+        {
+            schemaVersion = version.ToObject<int>(serializer);
+        }
+        catch (Newtonsoft.Json.JsonException)
         {
             return new RuleEvaluationEvidence { SchemaVersion = 0 };
         }

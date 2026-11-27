@@ -183,7 +183,9 @@ Connection executions may include nullable, schema-versioned `evaluationEvidence
 distinguishes matches, nonmatches, skipped/not-reached nodes, failed checks, and genuine Unknown;
 action decisions distinguish NotRun and Skipped. A missing historical value is not a nonmatch.
 Evidence is bounded, references frozen rule/condition/action coordinates, and contains reason/source
-codes rather than chat or other private text. A real action claim supersedes a prior NotRun decision.
+codes rather than chat or other private text. A real action claim supersedes a prior NotRun or Skipped decision.
+Search and flow projections omit decisions superseded by actions returned in the same response, even
+when a claim lands between their separate reads; those projections are not otherwise a full snapshot.
 Unknown evidence schemas and enum values are exposed as unsupported/unrecognized, never as success.
 The connection execution endpoint does not accept chat triggers and is not a chat-evaluation ledger.
 

@@ -109,6 +109,8 @@ public sealed class RuleProtocolSerializationTests
     [InlineData(/*lang=json,strict*/ """{"schemaVersion":2,"nodes":{"newSchema":true}}""", 2)]
     [InlineData(/*lang=json,strict*/ """{"nodes":{"newSchema":true}}""", 0)]
     [InlineData(/*lang=json,strict*/ """{"schemaVersion":"invalid","nodes":{"newSchema":true}}""", 0)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":2147483648,"nodes":{"newSchema":true}}""", 0)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":{},"nodes":{"newSchema":true}}""", 0)]
     public void UnknownEvidenceSchemasDoNotRequireUnderstandingTheirPayload(string json, int version)
     {
         var results = new[]
@@ -122,6 +124,46 @@ public sealed class RuleProtocolSerializationTests
             Assert.Equal(version, result.SchemaVersion);
             Assert.Empty(result.Nodes);
         }
+    }
+
+    [Fact]
+    public void EvidenceSchemaUsesSystemTextJsonNamingAndCaseOptions()
+    {
+        var web = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"SCHEMAVERSION":1,"nodes":[]}""", web)!.HasSupportedSchema);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schemaVersion":"1","nodes":[]}""", web)!.HasSupportedSchema);
+
+        var strict = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schema_version":1,"nodes":[]}""", strict)!.HasSupportedSchema);
+        Assert.False(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"SCHEMA_VERSION":1,"nodes":[]}""", strict)!.HasSupportedSchema);
+
+        var future = System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schemaVersion":1,"SCHEMAVERSION":2,"nodes":{"future":true}}""", web)!;
+        Assert.Equal(2, future.SchemaVersion);
+        Assert.Empty(future.Nodes);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schemaVersion":2,"SCHEMAVERSION":1,"nodes":[]}""", web)!.HasSupportedSchema);
+    }
+
+    [Fact]
+    public void EvidenceSchemaUsesNewtonsoftContractNaming()
+    {
+        var settings = new JsonSerializerSettings
+        {
+            ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() }
+        };
+        Assert.True(JsonConvert.DeserializeObject<RuleEvaluationEvidence>(
+            /*lang=json,strict*/ """{"SCHEMA_VERSION":1,"nodes":[]}""", settings)!.HasSupportedSchema);
+        var future = JsonConvert.DeserializeObject<RuleEvaluationEvidence>(
+            /*lang=json,strict*/ """{"schema_version":1,"SCHEMA_VERSION":2,"nodes":{"future":true}}""", settings)!;
+        Assert.Equal(2, future.SchemaVersion);
+        Assert.Empty(future.Nodes);
+        Assert.True(JsonConvert.DeserializeObject<RuleEvaluationEvidence>(
+            /*lang=json,strict*/ """{"schema_version":2,"SCHEMA_VERSION":1,"nodes":[]}""", settings)!.HasSupportedSchema);
     }
 
     [Fact]

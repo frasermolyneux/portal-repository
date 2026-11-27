@@ -4,10 +4,12 @@
 
 `RuleExecutionReadConcurrencyTests` uses isolated SQL Server to verify consistent execution reads
 against progress updates, player deletion, and Siege pruning. The SQL concurrency check runs these
-cases.
+cases. `EvidenceReadConcurrencyTests` verifies that an action claimed during a flow or search read
+supersedes any stale not-run decision in that response.
 
 ```pwsh
 dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleExecutionReadConcurrencyTests"
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~EvidenceReadConcurrencyTests"
 ```
 
 ## Profile archival coverage

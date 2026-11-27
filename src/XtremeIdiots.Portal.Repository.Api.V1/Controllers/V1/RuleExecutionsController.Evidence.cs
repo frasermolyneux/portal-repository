@@ -1,5 +1,6 @@
 using System.Text.Json;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
+using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -20,7 +21,7 @@ public sealed partial class RuleExecutionsController
             return false;
         }
 
-        var nodeKeys = new HashSet<(int RuleIndex, RuleEvidenceNodeKind Kind, string Coordinate)>();
+        var nodeKeys = new HashSet<(int RuleIndex, RuleEvidenceNodeKind Kind, string? ConditionPath, string? CheckId)>();
         foreach (var node in evidence.Nodes)
         {
             if (node is null || node.RuleIndex < 0 || !ValidEvidenceId(node.RuleId) ||
@@ -37,16 +38,16 @@ public sealed partial class RuleExecutionsController
                 return false;
             }
 
-            var coordinate = node.Kind switch
+            var validCoordinate = node.Kind switch
             {
-                RuleEvidenceNodeKind.Rule when node.ConditionPath is null && node.ConditionId is null && node.CheckId is null => string.Empty,
-                RuleEvidenceNodeKind.Condition when node.ConditionPath is not null && node.CheckId is null =>
-                    string.Join(',', node.ConditionPath),
+                RuleEvidenceNodeKind.Rule when node.ConditionPath is null && node.ConditionId is null && node.CheckId is null => true,
+                RuleEvidenceNodeKind.Condition when node.ConditionPath is not null && node.CheckId is null => true,
                 RuleEvidenceNodeKind.Check when ValidEvidenceMetadata(node.CheckId, RuleEvaluationEvidence.MaximumMetadataLength) &&
-                    node.CheckId is not null && (node.ConditionPath is not null || node.ConditionId is null) => node.CheckId,
-                _ => null
+                    node.CheckId is not null && (node.ConditionPath is not null || node.ConditionId is null) => true,
+                _ => false
             };
-            if (coordinate is null || !nodeKeys.Add((node.RuleIndex, node.Kind, coordinate)))
+            var conditionPath = node.ConditionPath is null ? null : string.Join(',', node.ConditionPath);
+            if (!validCoordinate || !nodeKeys.Add((node.RuleIndex, node.Kind, conditionPath, node.CheckId)))
             {
                 return false;
             }
@@ -122,6 +123,24 @@ public sealed partial class RuleExecutionsController
         return retained.Length == evidence.ActionDecisions.Length
             ? json
             : JsonSerializer.Serialize(evidence with { ActionDecisions = retained }, JsonOptions);
+    }
+
+    private static RuleEvaluationEvidence? ProjectEvidence(string? json, IEnumerable<RuleActionExecution> actions)
+    {
+        if (json is null)
+        {
+            return null;
+        }
+        var evidence = Deserialize<RuleEvaluationEvidence>(json);
+        if (!evidence.HasSupportedSchema || evidence.ActionDecisions is not { Length: > 0 })
+        {
+            return evidence;
+        }
+        var claimed = actions.Select(action => (action.RuleIndex, action.ActionIndex)).ToHashSet();
+        var retained = evidence.ActionDecisions.Where(decision =>
+            decision is null || !claimed.Contains((decision.RuleIndex, decision.ActionIndex))).ToArray();
+        return retained.Length == evidence.ActionDecisions.Length
+            ? evidence : evidence with { ActionDecisions = retained };
     }
 
     private static bool ValidEvidenceId(string? value) =>

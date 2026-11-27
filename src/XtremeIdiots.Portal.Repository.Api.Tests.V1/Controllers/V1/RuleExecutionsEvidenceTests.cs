@@ -108,6 +108,50 @@ public sealed partial class RuleExecutionsControllerTests
     }
 
     [Fact]
+    public async Task CheckEvidenceIsUniquePerRuleAndConditionPath()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var serverId = await AddServer(context);
+        var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+        var execution = (await api.StartExecution(serverId,
+            StartRequest(serverId, Guid.NewGuid()) with { FrozenRulesJson = TwoConditionEvidenceFrozenRules })).Result!.Data!;
+        var check = new RuleEvaluationNodeEvidence
+        {
+            RuleId = "rule-1",
+            Kind = RuleEvidenceNodeKind.Check,
+            CheckId = "freshness",
+            Status = RuleEvaluationNodeStatus.Matched,
+            ObservedAtUtc = DateTimeOffset.UtcNow
+        };
+        var evidence = new RuleEvaluationEvidence
+        {
+            Nodes =
+            [
+                check,
+                check with { ConditionPath = [] },
+                check with { ConditionPath = [0], ConditionId = "always" },
+                check with { ConditionPath = [1], ConditionId = "always" },
+                check with { ConditionPath = [1], ConditionId = "always", CheckId = "other" }
+            ]
+        };
+        var update = await api.UpdateProgress(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = execution.Version,
+            State = RuleFeatureExecutionState.Evaluating,
+            EvaluationEvidence = evidence
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.Equal(5, update.Result!.Data!.EvaluationEvidence!.Nodes.Length);
+        var duplicate = await api.UpdateProgress(serverId, execution.ExecutionId, new()
+        {
+            ExpectedVersion = update.Result.Data.Version,
+            State = RuleFeatureExecutionState.Evaluating,
+            EvaluationEvidence = evidence with { Nodes = [check with { ConditionPath = [0] }, check with { ConditionPath = [0] }] }
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, duplicate.StatusCode);
+    }
+
+    [Fact]
     public async Task HistoricalAndUnknownSchemaEvidenceRemainDistinctAndOccurrenceFilterIsScoped()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
@@ -142,6 +186,11 @@ public sealed partial class RuleExecutionsControllerTests
 
     private const string EvidenceFrozenRules = /*lang=json,strict*/ """
         {"rules":[{"id":"rule-1","condition":{"groupOperator":"And","conditions":[{"conditionId":"always"}]},
+          "actions":[{"id":"kick-player","typeId":"player.kick","parameters":{"reason":"test"}}]}]}
+        """;
+
+    private const string TwoConditionEvidenceFrozenRules = /*lang=json,strict*/ """
+        {"rules":[{"id":"rule-1","condition":{"groupOperator":"And","conditions":[{"conditionId":"always"},{"conditionId":"always"}]},
           "actions":[{"id":"kick-player","typeId":"player.kick","parameters":{"reason":"test"}}]}]}
         """;
 
