@@ -22,7 +22,7 @@ public static class ChatCommandCatalogueV1
     private static readonly IReadOnlyList<int> TransportGames = RulesEngineCatalogueV1.SupportedGameTypes;
 
     /// <summary>Staged authoring capabilities; deployed consumers may support a smaller subset.</summary>
-    public static IReadOnlyList<ConditionDefinition> PolicyConditions { get; } = Array.AsReadOnly<ConditionDefinition>(
+    public static IReadOnlyList<ConditionDefinition> PolicyConditions { get; } = Array.AsReadOnly(
     [
         RulesEngineCatalogueV1.Current.Conditions.Single(item => item.ConditionId == RulesEngineCatalogueV1.AlwaysCondition),
         RulesEngineCatalogueV1.Current.Conditions.Single(item => item.ConditionId == "player.tags"),

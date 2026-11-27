@@ -244,7 +244,8 @@ public sealed class HistoryAndRetentionTests : IDisposable
         await api.PruneRecentPlayers();
         await api.PrunePlayerIpAddresses();
 
-        Assert.Equal(7, capture.Text.Count);
+        Assert.Equal(8, capture.Text.Count);
+        Assert.Contains(capture.Text, sql => sql.Contains("RuleChatEvaluations", StringComparison.OrdinalIgnoreCase));
         Assert.All(capture.Text, sql =>
         {
             Assert.Contains("DELETE", sql, StringComparison.OrdinalIgnoreCase);

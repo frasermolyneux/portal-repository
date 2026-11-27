@@ -118,7 +118,10 @@ public static class ChatModerationCatalogueV1
 
     private static ConditionDefinition LiteralCondition(string id, string name) => new()
     {
-        ConditionId = id, DisplayName = name, ValueType = "boolean", GameTypes = RulesEngineCatalogueV1.SupportedGameTypes,
+        ConditionId = id,
+        DisplayName = name,
+        ValueType = "boolean",
+        GameTypes = RulesEngineCatalogueV1.SupportedGameTypes,
         Parameters = [new() { Name = "policy", Type = "object", Required = true, UiControl = "literal-policy" }]
     };
 }

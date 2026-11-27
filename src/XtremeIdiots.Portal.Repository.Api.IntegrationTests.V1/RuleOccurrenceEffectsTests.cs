@@ -166,8 +166,10 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
 
         var node = new RuleEvaluationNodeEvidence
         {
-            RuleId = "règle 東京 \uFFFD \U0001F680", Kind = RuleEvidenceNodeKind.Rule,
-            Status = RuleEvaluationNodeStatus.Matched, ObservedAtUtc = DateTimeOffset.UtcNow
+            RuleId = "règle 東京 \uFFFD \U0001F680",
+            Kind = RuleEvidenceNodeKind.Rule,
+            Status = RuleEvaluationNodeStatus.Matched,
+            ObservedAtUtc = DateTimeOffset.UtcNow
         };
         var unicodeRequest = request with { AttemptId = Guid.NewGuid(), Evidence = new RuleEvaluationEvidence { Nodes = [node] } };
         var unicodeResponse = await client.PostAsJsonAsync(route, unicodeRequest);
@@ -176,7 +178,8 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
         Assert.Equal(node.RuleId, unicodeData["evaluation"]!["evidence"]!["nodes"]![0]!["ruleId"]!.Value<string>());
         var invalidRequest = unicodeRequest with
         {
-            AttemptId = Guid.NewGuid(), Evidence = new RuleEvaluationEvidence { Nodes = [node with { RuleId = "invalid-id" }] }
+            AttemptId = Guid.NewGuid(),
+            Evidence = new RuleEvaluationEvidence { Nodes = [node with { RuleId = "invalid-id" }] }
         };
         foreach (var (surrogate, contentType) in new[] { ("\\ud800", "application/json"), ("\\udc00", "text/json") })
         {
