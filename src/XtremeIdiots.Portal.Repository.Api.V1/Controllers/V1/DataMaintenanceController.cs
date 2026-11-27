@@ -245,6 +245,11 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
         Player player,
         CancellationToken cancellationToken)
     {
+        context.RuleOccurrenceEffects.RemoveRange(await context.RuleOccurrenceEffects
+            .Where(effect => effect.PlayerId == player.PlayerId).ToListAsync(cancellationToken).ConfigureAwait(false));
+        context.RuleOccurrenceCooldowns.RemoveRange(await context.RuleOccurrenceCooldowns
+            .Where(cooldown => cooldown.PlayerId == player.PlayerId).ToListAsync(cancellationToken).ConfigureAwait(false));
+
         var playerGuid = player.Guid?.Trim().ToUpperInvariant();
         if (string.IsNullOrEmpty(playerGuid))
         {

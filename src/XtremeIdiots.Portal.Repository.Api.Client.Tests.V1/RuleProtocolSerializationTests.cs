@@ -10,6 +10,163 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 public sealed class RuleProtocolSerializationTests
 {
     [Fact]
+    public void OccurrenceEffectIdentityUsesCanonicalInputs()
+    {
+        var server = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var occurrence = Guid.Parse("ffeeddcc-bbaa-9988-7766-554433221100");
+        var id = RuleOccurrenceEffectIdentity.Create(server, occurrence, "chat-moderation", "new-player", "nudge");
+
+        Assert.Equal("0bbdea94e2b9071310903237f5b610acb90ab486861c66594aaa6f2d3c78f81a", id);
+        Assert.Equal(id, RuleOccurrenceEffectIdentity.Create(server, occurrence, "chat-moderation", "new-player", "nudge"));
+        Assert.NotEqual(id, RuleOccurrenceEffectIdentity.Create(server, occurrence, "chat-moderation", "New-player", "nudge"));
+        Assert.NotEqual(id, RuleOccurrenceEffectIdentity.Create(server, occurrence, "chat-moderation", "new-player", "other"));
+        Assert.Throws<ArgumentException>(() => RuleOccurrenceEffectIdentity.Create(Guid.Empty, occurrence, "chat-moderation", "new-player", "nudge"));
+        Assert.Throws<ArgumentException>(() => RuleOccurrenceEffectIdentity.Create(server, occurrence, "chat-moderation", "new-player ", "nudge"));
+        Assert.Throws<ArgumentException>(() => RuleOccurrenceEffectIdentity.Create(server, occurrence, "chat-moderation", "\ud800", "nudge"));
+    }
+
+    [Fact]
+    public void OccurrenceClaimUsesSafeFieldsAndForwardCompatibleDispositions()
+    {
+        var claim = new ClaimRuleOccurrenceEffectDto
+        {
+            LogicalEffectId = new string('a', 64),
+            PlayerId = Guid.NewGuid(),
+            FeatureId = "chat-moderation",
+            RuleId = "rule",
+            ActionId = "nudge",
+            ActionTypeId = "message.private",
+            RuleSetRevision = "revision-1",
+            Mode = RuleExecutionMode.Enforce,
+            Cooldown = new() { PolicyId = "nudge", DurationSeconds = 120 }
+        };
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var settings = new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
+        var serialized = new[]
+        {
+            System.Text.Json.JsonSerializer.Serialize(claim, options),
+            JsonConvert.SerializeObject(claim, settings)
+        };
+        foreach (var json in serialized)
+        {
+            using var document = JsonDocument.Parse(json);
+            Assert.Equal(claim.LogicalEffectId, document.RootElement.GetProperty("logicalEffectId").GetString());
+            Assert.Equal("Enforce", document.RootElement.GetProperty("mode").GetString());
+            Assert.Equal(120, document.RootElement.GetProperty("cooldown").GetProperty("durationSeconds").GetInt32());
+            Assert.False(document.RootElement.TryGetProperty("adminActionId", out _));
+            Assert.False(document.RootElement.TryGetProperty("message", out _));
+            Assert.False(document.RootElement.TryGetProperty("reason", out _));
+        }
+
+        const string future = "\"FutureDisposition\"";
+        Assert.Equal(RuleOccurrenceEffectDisposition.Unrecognized,
+            System.Text.Json.JsonSerializer.Deserialize<RuleOccurrenceEffectDisposition>(future, options));
+        Assert.Equal(RuleOccurrenceEffectDisposition.Unrecognized,
+            JsonConvert.DeserializeObject<RuleOccurrenceEffectDisposition>(future, settings));
+    }
+
+    [Fact]
+    public void EvaluationEvidenceUsesStringStatusesAndTreatsFutureValuesAsUnrecognized()
+    {
+        var evidence = new RuleEvaluationEvidence
+        {
+            Nodes = [new() { Kind = RuleEvidenceNodeKind.Check, Status = RuleEvaluationNodeStatus.Unknown }],
+            ActionDecisions = [new() { Status = RuleActionDecisionStatus.NotRun }]
+        };
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var settings = new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
+        var serialized = new[]
+        {
+            System.Text.Json.JsonSerializer.Serialize(evidence, options),
+            JsonConvert.SerializeObject(evidence, settings)
+        };
+        foreach (var json in serialized)
+        {
+            using var document = JsonDocument.Parse(json);
+            Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal("Check", document.RootElement.GetProperty("nodes")[0].GetProperty("kind").GetString());
+            Assert.Equal("Unknown", document.RootElement.GetProperty("nodes")[0].GetProperty("status").GetString());
+            Assert.Equal("NotRun", document.RootElement.GetProperty("actionDecisions")[0].GetProperty("status").GetString());
+            Assert.False(document.RootElement.TryGetProperty("hasSupportedSchema", out _));
+        }
+
+        const string futureStatus = """{"schemaVersion":1,"nodes":[{"kind":"Check","status":"FutureStatus"},{"kind":99,"status":99}]}""";
+        var readers = new[]
+        {
+            System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(futureStatus, options)!,
+            JsonConvert.DeserializeObject<RuleEvaluationEvidence>(futureStatus, settings)!
+        };
+        foreach (var result in readers)
+        {
+            Assert.True(result.HasSupportedSchema);
+            Assert.Equal(RuleEvaluationNodeStatus.Unrecognized, result.Nodes[0].Status);
+            Assert.Equal(RuleEvidenceNodeKind.Unrecognized, result.Nodes[1].Kind);
+            Assert.Equal(RuleEvaluationNodeStatus.Unrecognized, result.Nodes[1].Status);
+        }
+    }
+
+    [Theory]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":2,"nodes":{"newSchema":true}}""", 2)]
+    [InlineData(/*lang=json,strict*/ """{"nodes":{"newSchema":true}}""", 0)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":"invalid","nodes":{"newSchema":true}}""", 0)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":2147483648,"nodes":{"newSchema":true}}""", 0)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":{},"nodes":{"newSchema":true}}""", 0)]
+    public void UnknownEvidenceSchemasDoNotRequireUnderstandingTheirPayload(string json, int version)
+    {
+        var results = new[]
+        {
+            System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!,
+            JsonConvert.DeserializeObject<RuleEvaluationEvidence>(json)!
+        };
+        foreach (var result in results)
+        {
+            Assert.False(result.HasSupportedSchema);
+            Assert.Equal(version, result.SchemaVersion);
+            Assert.Empty(result.Nodes);
+        }
+    }
+
+    [Fact]
+    public void EvidenceSchemaUsesSystemTextJsonNamingAndCaseOptions()
+    {
+        var web = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"SCHEMAVERSION":1,"nodes":[]}""", web)!.HasSupportedSchema);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schemaVersion":"1","nodes":[]}""", web)!.HasSupportedSchema);
+
+        var strict = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schema_version":1,"nodes":[]}""", strict)!.HasSupportedSchema);
+        Assert.False(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"SCHEMA_VERSION":1,"nodes":[]}""", strict)!.HasSupportedSchema);
+
+        var future = System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schemaVersion":1,"SCHEMAVERSION":2,"nodes":{"future":true}}""", web)!;
+        Assert.Equal(2, future.SchemaVersion);
+        Assert.Empty(future.Nodes);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<RuleEvaluationEvidence>(
+            """{"schemaVersion":2,"SCHEMAVERSION":1,"nodes":[]}""", web)!.HasSupportedSchema);
+    }
+
+    [Fact]
+    public void EvidenceSchemaUsesNewtonsoftContractNaming()
+    {
+        var settings = new JsonSerializerSettings
+        {
+            ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() }
+        };
+        Assert.True(JsonConvert.DeserializeObject<RuleEvaluationEvidence>(
+            /*lang=json,strict*/ """{"SCHEMA_VERSION":1,"nodes":[]}""", settings)!.HasSupportedSchema);
+        var future = JsonConvert.DeserializeObject<RuleEvaluationEvidence>(
+            /*lang=json,strict*/ """{"schema_version":1,"SCHEMA_VERSION":2,"nodes":{"future":true}}""", settings)!;
+        Assert.Equal(2, future.SchemaVersion);
+        Assert.Empty(future.Nodes);
+        Assert.True(JsonConvert.DeserializeObject<RuleEvaluationEvidence>(
+            /*lang=json,strict*/ """{"schema_version":2,"SCHEMA_VERSION":1,"nodes":[]}""", settings)!.HasSupportedSchema);
+    }
+
+    [Fact]
     public void ExecutionDiagnosticsUseRendererCompatibleStringCodesWithBothSerializers()
     {
         var progress = new UpdateRuleFeatureExecutionProgressDto

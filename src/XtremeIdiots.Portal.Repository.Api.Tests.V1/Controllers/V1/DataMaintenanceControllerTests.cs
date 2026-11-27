@@ -204,6 +204,33 @@ public class DataMaintenanceControllerTests
             LastUpdatedUtc = DateTime.UtcNow,
         });
 
+        foreach (var ownerId in new[] { playerId, controlPlayerId })
+        {
+            context.RuleOccurrenceEffects.Add(new RuleOccurrenceEffect
+            {
+                GameServerId = gameServerId,
+                OccurrenceId = Guid.NewGuid(),
+                LogicalEffectId = new string('a', 64),
+                PlayerId = ownerId,
+                FeatureId = "chat-moderation",
+                RuleId = "test-rule",
+                ActionId = "nudge",
+                ActionTypeId = "message.private",
+                RuleSetRevision = "revision",
+                Mode = "Enforce",
+                Outcome = "Claimed",
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            });
+            context.RuleOccurrenceCooldowns.Add(new RuleOccurrenceCooldown
+            {
+                GameServerId = gameServerId,
+                PlayerId = ownerId,
+                PolicyId = "nudge",
+                NextAllowedAtUtc = DateTime.UtcNow.AddMinutes(2)
+            });
+        }
+
         context.ChatMessages.Add(new ChatMessage
         {
             ChatMessageId = Guid.NewGuid(),
@@ -471,6 +498,8 @@ public class DataMaintenanceControllerTests
         Assert.False(context.Players.Any(p => p.PlayerId == playerId));
         Assert.False(context.AdminActions.Any(a => a.PlayerId == playerId));
         Assert.False(context.AutomationActionStates.Any(s => s.PlayerId == playerId));
+        Assert.False(context.RuleOccurrenceEffects.Any(effect => effect.PlayerId == playerId));
+        Assert.False(context.RuleOccurrenceCooldowns.Any(cooldown => cooldown.PlayerId == playerId));
         Assert.False(context.ChatMessages.Any(c => c.PlayerId == playerId));
         Assert.False(context.ConnectedPlayerProfiles.Any(c => c.PlayerId == playerId));
         Assert.False(context.MapVotes.Any(v => v.PlayerId == playerId));
@@ -503,6 +532,8 @@ public class DataMaintenanceControllerTests
         Assert.Equal("control-game-id", preservedObservation.GamePlayerId);
 
         Assert.True(context.Players.Any(p => p.PlayerId == controlPlayerId));
+        Assert.Single(context.RuleOccurrenceEffects.Where(effect => effect.PlayerId == controlPlayerId));
+        Assert.Single(context.RuleOccurrenceCooldowns.Where(cooldown => cooldown.PlayerId == controlPlayerId));
         Assert.True(context.PlayerAliases.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.PlayerIpAddresses.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.Reports.Any(r => r.PlayerId == controlPlayerId));
