@@ -25,13 +25,20 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
                 .UseSqlServer(connectionString).Options);
             var servers = Enumerable.Range(0, 3).Select(i => new GameServer
             {
-                GameServerId = Guid.NewGuid(), Title = $"Server {i}", Hostname = "host", BanFileRootPath = "", GameType = 2
+                GameServerId = Guid.NewGuid(),
+                Title = $"Server {i}",
+                Hostname = "host",
+                BanFileRootPath = "",
+                GameType = 2
             }).ToArray();
             var end = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             var players = Enumerable.Range(0, 100).Select(i => new Player
             {
-                PlayerId = Guid.NewGuid(), Username = $"Player {i}", GameType = i < 25 ? 2 : 24,
-                FirstSeen = end.AddDays(-224), LastSeen = end
+                PlayerId = Guid.NewGuid(),
+                Username = $"Player {i}",
+                GameType = i < 25 ? 2 : 24,
+                FirstSeen = end.AddDays(-224),
+                LastSeen = end
             }).ToArray();
             context.AddRange(servers);
             context.AddRange(players);
@@ -54,13 +61,13 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
 
             var queries = new Dictionary<string, string>
             {
-                ["global"] = "SELECT TOP (10) c.PlayerId, COUNT(*) AS Messages, MAX(c.Timestamp) AS LastSeen FROM dbo.ChatMessages c WHERE c.Timestamp >= @from AND c.Timestamp < @to GROUP BY c.PlayerId ORDER BY COUNT(*) DESC, c.PlayerId",
-                ["game"] = "SELECT TOP (10) c.PlayerId, c.Username, COUNT(*) AS Messages, MAX(c.Timestamp) AS LastSeen FROM dbo.ChatMessages c JOIN dbo.Players p ON p.PlayerId = c.PlayerId WHERE c.Timestamp >= @from AND c.Timestamp < @to AND p.GameType = 2 GROUP BY c.PlayerId, c.Username ORDER BY COUNT(*) DESC, c.PlayerId, c.Username",
-                ["server-count"] = "SELECT COUNT(*), COUNT(DISTINCT c.PlayerId) FROM dbo.ChatMessages c WHERE c.Timestamp >= @from AND c.Timestamp < @to AND c.GameServerId = @server",
-                ["server-rank"] = "SELECT TOP (10) c.PlayerId, c.Username, COUNT(*) AS Messages FROM dbo.ChatMessages c WHERE c.Timestamp >= @from AND c.Timestamp < @to AND c.GameServerId = @server GROUP BY c.PlayerId, c.Username ORDER BY COUNT(*) DESC, c.PlayerId, c.Username"
+                ["global"] = "SELECT TOP (10) c.PlayerId, COUNT(*) AS Messages, MAX(c.Timestamp) AS LastSeen FROM dbo.ChatMessages c WHERE c.Timestamp >= @from AND c.Timestamp < @to GROUP BY c.PlayerId ORDER BY COUNT(*) DESC",
+                ["game"] = "SELECT TOP (10) c.PlayerId, c.Username, COUNT(*) AS Messages, MAX(c.Timestamp) AS LastSeen FROM dbo.ChatMessages c JOIN dbo.Players p ON p.PlayerId = c.PlayerId WHERE c.Timestamp >= @from AND c.Timestamp < @to AND p.GameType = 2 GROUP BY c.PlayerId, c.Username ORDER BY COUNT(*) DESC",
+                ["server-count"] = "SELECT COUNT(*) FROM dbo.ChatMessages c WHERE c.Timestamp >= @from AND c.Timestamp < @to AND c.GameServerId = @server",
+                ["server-projection"] = "SELECT c.PlayerId, c.Username FROM dbo.ChatMessages c WHERE c.Timestamp >= @from AND c.Timestamp < @to AND c.GameServerId = @server"
             };
             queries["minority-server-count"] = queries["server-count"];
-            queries["minority-server-rank"] = queries["server-rank"];
+            queries["minority-server-projection"] = queries["server-projection"];
             var baseline = new Dictionary<(string Name, int Days), QueryEvidence>();
             foreach (var days in new[] { 1, 7, 30 })
             {
@@ -117,7 +124,7 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
             }
 
             var server = i % 10 < 8 ? 0 : i % 10 - 7;
-            rows.Rows.Add(servers[server].GameServerId, players[player].PlayerId, $"P{player:D3}-alias{i % 3}",
+            rows.Rows.Add(servers[server].GameServerId, players[player].PlayerId, $"P{player:D3}-alias{(player == 0 ? i / 5050 % 2 : 0)}",
                 0, "recorded chat", end.AddSeconds(-1 - (long)i * 224 * 86400 / count), false);
         }
         return rows;
@@ -135,7 +142,8 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
     {
         using var copy = new SqlBulkCopy(connection, SqlBulkCopyOptions.TableLock, transaction)
         {
-            DestinationTableName = "dbo.ChatMessages", BulkCopyTimeout = 60
+            DestinationTableName = "dbo.ChatMessages",
+            BulkCopyTimeout = 60
         };
         foreach (DataColumn column in rows.Columns)
         {
@@ -190,7 +198,8 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
             command.Parameters.Add("@from", SqlDbType.DateTime).Value = from;
             command.Parameters.Add("@to", SqlDbType.DateTime).Value = to;
             command.Parameters.Add("@server", SqlDbType.UniqueIdentifier).Value = server;
-            var rows = new List<string>();
+            var rawRows = new List<object[]>();
+            var plans = new List<string>();
             var accesses = new List<string>();
             var watch = Stopwatch.StartNew();
             await using var reader = await command.ExecuteReaderAsync();
@@ -201,25 +210,32 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
                     if (reader.FieldCount == 1 && (reader.GetDataTypeName(0) == "xml"
                         || reader.GetName(0).Contains("Showplan", StringComparison.OrdinalIgnoreCase)))
                     {
-                        var plan = XDocument.Parse(reader.GetString(0));
-                        XNamespace ns = "http://schemas.microsoft.com/sqlserver/2004/07/showplan";
-                        foreach (var operation in plan.Descendants(ns + "RelOp"))
-                        {
-                            foreach (var obj in operation.Elements(ns + "IndexScan").Elements(ns + "Object")
-                                .Where(obj => (string?)obj.Attribute("Table") == "[ChatMessages]"))
-                            {
-                                accesses.Add($"{operation.Attribute("LogicalOp")?.Value}:{obj.Attribute("Index")?.Value}");
-                            }
-                        }
+                        plans.Add(reader.GetString(0));
                     }
                     else
                     {
-                        rows.Add(string.Join("|", Enumerable.Range(0, reader.FieldCount)
-                            .Select(i => Convert.ToString(reader.GetValue(i), CultureInfo.InvariantCulture))));
+                        var values = new object[reader.FieldCount];
+                        reader.GetValues(values);
+                        rawRows.Add(values);
                     }
                 }
             } while (await reader.NextResultAsync());
             watch.Stop();
+            var rows = rawRows.Select(values => string.Join("|", values
+                .Select(value => Convert.ToString(value, CultureInfo.InvariantCulture))))
+                .Order(StringComparer.Ordinal).ToList();
+            XNamespace ns = "http://schemas.microsoft.com/sqlserver/2004/07/showplan";
+            foreach (var xml in plans)
+            {
+                foreach (var operation in XDocument.Parse(xml).Descendants(ns + "RelOp"))
+                {
+                    foreach (var obj in operation.Elements(ns + "IndexScan").Elements(ns + "Object")
+                        .Where(obj => (string?)obj.Attribute("Table") == "[ChatMessages]"))
+                    {
+                        accesses.Add($"{operation.Attribute("LogicalOp")?.Value}:{obj.Attribute("Index")?.Value}");
+                    }
+                }
+            }
             var reads = messages.SelectMany(message => Regex.Matches(message, @"Table 'ChatMessages'.*?logical reads (\d+)")
                 .Cast<Match>()).Sum(match => int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture));
             return new QueryEvidence(rows, reads, watch.ElapsedMilliseconds, accesses);

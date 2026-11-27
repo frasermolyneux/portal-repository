@@ -64,9 +64,13 @@ leaf payload before page overhead/occupancy. Seven-day global/server counts were
 29,485/23,170 for one newly selected representative server, not every server.
 Widening preserves the index count but adds insert/update/retention-delete work,
 and deployment rebuilds the existing index. The isolated SQL regression test
-applies the authoritative index DDL, compares one-, seven- and 30-day aggregate
-results and plans for dominant/minority servers, and records logical reads,
-storage and rolled-back insert log bytes. Its synthetic timings are not production
+applies the authoritative index DDL and compares one-, seven- and 30-day ranking
+queries, plus the existing server `COUNT(*)` and full `PlayerId`/`Username`
+projection for dominant/minority servers. Projected rows are compared independently
+of order outside timed retrieval, without substituting SQL grouping or distinct
+counts for the existing in-memory server summary. The test records logical reads,
+plans, storage and rolled-back insert log bytes. Retrieval timings include plan
+instrumentation, exclude result comparison/plan parsing, and are not production
 latency evidence; the earlier production ranking measurements below predate this
 index change.
 
