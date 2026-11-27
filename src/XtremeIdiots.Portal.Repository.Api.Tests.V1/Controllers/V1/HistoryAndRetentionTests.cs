@@ -10,6 +10,7 @@ using Xunit;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.GameServers;
+using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.Api.V1.Services;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -72,6 +73,51 @@ public sealed class HistoryAndRetentionTests : IDisposable
         Assert.All(commands.Text, sql => Assert.DoesNotContain("COUNT(", sql, StringComparison.OrdinalIgnoreCase));
         Assert.Null(first.Result.Pagination);
     }
+
+    [Fact]
+    [Trait("Category", "SqlIntegration")]
+    public Task EventHistory_MatchesLiteralEventTypeSubstringsWithinScope()
+        => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            await using var sqlContext = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString).Options);
+            var server = new GameServer { GameType = (int)GameType.CallOfDuty4, Title = "Target", Hostname = "target" };
+            var otherServer = new GameServer { GameType = server.GameType, Title = "Other", Hostname = "other" };
+            sqlContext.GameServers.AddRange(server, otherServer);
+
+            var timestamp = DateTime.UtcNow.AddMinutes(-1);
+            sqlContext.GameServerEvents.AddRange(
+                new GameServerEvent { GameServer = server, EventType = "MapChange", Timestamp = timestamp },
+                new GameServerEvent { GameServer = server, EventType = "NextMap", Timestamp = timestamp.AddSeconds(-1) },
+                new GameServerEvent { GameServer = server, EventType = "PlayerJoined", Timestamp = timestamp.AddSeconds(-2) },
+                new GameServerEvent { GameServer = server, EventType = "OldMap", Timestamp = timestamp.AddDays(-31) },
+                new GameServerEvent { GameServer = otherServer, EventType = "MapRestart", Timestamp = timestamp });
+            await sqlContext.SaveChangesAsync();
+
+            var api = (IGameServersEventsApi)new GameServersEventsController(sqlContext);
+            async Task<string[]> GetTypes(string? eventType, GameType gameType = GameType.CallOfDuty4, DateTime? fromUtc = null)
+            {
+                var result = await api.GetGameServerEventsPage(gameType, server.GameServerId, eventType, fromUtc: fromUtc);
+                Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+                return result.Result!.Data!.Items.Select(x => x.EventType).ToArray();
+            }
+
+            Assert.Equal(["MapChange", "NextMap"], await GetTypes("Map"));
+            Assert.Equal(["MapChange", "NextMap"], await GetTypes(" mAp "));
+            Assert.Equal(["MapChange"], await GetTypes("MapChange"));
+            Assert.Empty(await GetTypes("missing"));
+            Assert.Empty(await GetTypes("Map%"));
+            Assert.Equal(["MapChange", "NextMap", "PlayerJoined"], await GetTypes(null));
+            Assert.Equal(["MapChange", "NextMap", "PlayerJoined"], await GetTypes(""));
+            Assert.Equal(["MapChange", "NextMap", "PlayerJoined"], await GetTypes(" "));
+            Assert.Empty(await GetTypes("Map", GameType.CallOfDuty2));
+            Assert.Equal(["MapChange"], await GetTypes("Map", fromUtc: timestamp.AddMilliseconds(-500)));
+
+            var legacyPartial = await api.GetGameServerEvents(GameType.CallOfDuty4, server.GameServerId, "Map");
+            var legacyFull = await api.GetGameServerEvents(GameType.CallOfDuty4, server.GameServerId, "MapChange");
+            Assert.Equal(0, legacyPartial.Result!.Pagination!.FilteredCount);
+            Assert.Equal(1, legacyFull.Result!.Pagination!.FilteredCount);
+        });
 
     [Fact]
     public async Task EventIdempotency_RelationalIndexAndTransactionalBatchPreserveExistingHistory()

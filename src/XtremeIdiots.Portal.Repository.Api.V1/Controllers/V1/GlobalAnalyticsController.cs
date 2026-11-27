@@ -190,7 +190,8 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
                 g => new
                 {
                     AvgPlayers = g.Average(x => (double)x.PlayerCount),
-                    PeakPlayers = g.Max(x => x.PlayerCount)
+                    PeakPlayers = g.Max(x => x.PlayerCount),
+                    SampleCount = g.Count()
                 });
 
         var eventsByBucket = events.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
@@ -203,7 +204,8 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
             AvgPlayers = statByBucket.TryGetValue(start, out var s) ? Math.Round(s.AvgPlayers, 2) : 0,
             PeakPlayers = statByBucket.TryGetValue(start, out var p) ? p.PeakPlayers : 0,
             EventsCount = eventsByBucket.GetValueOrDefault(start, 0),
-            ChatCount = chatByBucket.GetValueOrDefault(start, 0)
+            ChatCount = chatByBucket.GetValueOrDefault(start, 0),
+            StatsSampleCount = statByBucket.TryGetValue(start, out var sample) ? sample.SampleCount : 0
         }).ToList();
 
         var labels = points.Select(p => p.BucketStartUtc).ToList();

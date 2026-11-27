@@ -27,6 +27,9 @@ public record PlayersTimeseriesDto : IDto
     [JsonProperty]
     public AnalyticsCompareMetaDto Meta { get; internal set; } = new();
 
+    [JsonProperty]
+    public string? TrackingCoverage { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

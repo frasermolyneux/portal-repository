@@ -18,6 +18,9 @@ public record PlayersByGameItemDto : IDto
     [JsonProperty]
     public int ActivePlayers { get; internal set; }
 
+    [JsonProperty]
+    public int? ObservedPlayerRecords { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

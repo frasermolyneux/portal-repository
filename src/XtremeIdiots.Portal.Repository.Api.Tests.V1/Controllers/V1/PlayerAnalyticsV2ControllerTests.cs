@@ -1,10 +1,12 @@
 using System.Net;
 
+using Newtonsoft.Json;
 using Xunit;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
 using XtremeIdiots.Portal.Repository.DataLib;
 using XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
@@ -19,6 +21,19 @@ public class PlayerAnalyticsV2ControllerTests
     private static readonly DateTime ToUtc = Now.AddDays(1);
 
     private static IPlayerAnalyticsV2Api CreateApi(PortalDbContext context) => new PlayerAnalyticsV2Controller(context);
+
+    [Fact]
+    public void AdditiveMetrics_AreUnavailableWhenOlderApiOmitsThem()
+    {
+        var overview = JsonConvert.DeserializeObject<PlayersOverviewDto>("{}")!;
+        var point = JsonConvert.DeserializeObject<PlayersTimeseriesPointDto>("{}")!;
+
+        Assert.Null(overview.ObservedPlayerRecords);
+        Assert.Null(overview.RecordedPlayers);
+        Assert.Null(overview.SessionStarts);
+        Assert.Null(overview.TrackingCoverage);
+        Assert.Null(point.SessionStarts);
+    }
 
     private static void AddRecentPlayer(PortalDbContext context, Guid playerId, DateTime timestamp)
     {
@@ -57,6 +72,60 @@ public class PlayerAnalyticsV2ControllerTests
         var result = await CreateApi(context).GetOverview(ToUtc, FromUtc);
 
         Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetOverview_ReportsRecordedSessionsAndRetainedPlayerRecordsSeparately()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var to = from.AddDays(1);
+        var player = Guid.NewGuid();
+        var bot = Guid.NewGuid();
+        var server = new GameServer { GameServerId = Guid.NewGuid(), Title = "S", Hostname = "host", BanFileRootPath = "" };
+        var deleted = new GameServer { GameServerId = Guid.NewGuid(), Title = "Deleted", Hostname = "host", BanFileRootPath = "", Deleted = true };
+        context.GameServers.AddRange(server, deleted);
+        context.Players.AddRange(
+            new Player { PlayerId = player, FirstSeen = from.AddDays(-10), LastSeen = to.AddDays(1), GameType = 1 },
+            new Player { PlayerId = bot, FirstSeen = from, LastSeen = from, GameType = 1 },
+            new Player { PlayerId = Guid.NewGuid(), FirstSeen = to, LastSeen = to, GameType = 1 });
+        context.PlayerSessions.AddRange(
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = player, StartUtc = from.AddHours(-1), EndUtc = from.AddHours(1), LastConfirmedUtc = from.AddHours(1) },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = player, StartUtc = from, EndUtc = to, LastConfirmedUtc = to },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = player, StartUtc = to, LastConfirmedUtc = to },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, PlayerId = bot, StartUtc = from, EndUtc = to, LastConfirmedUtc = to, IsBot = true },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = deleted.GameServerId, PlayerId = bot, StartUtc = from, EndUtc = to, LastConfirmedUtc = to });
+        await context.SaveChangesAsync();
+
+        var result = (await CreateApi(context).GetOverview(from, to)).Result!.Data!;
+
+        Assert.Equal(2, result.ObservedPlayerRecords);
+        Assert.Equal(1, result.RecordedPlayers);
+        Assert.Equal(1, result.SessionStarts);
+        Assert.Equal("unknown", result.TrackingCoverage);
+    }
+
+    [Fact]
+    public async Task GetTimeseries_CountsRecordedStartsInUtcBucketsWithoutKnownBots()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var from = new DateTime(2026, 1, 1, 10, 7, 0, DateTimeKind.Utc);
+        var to = from.AddMinutes(40);
+        var server = new GameServer { GameServerId = Guid.NewGuid(), Title = "S", Hostname = "host", BanFileRootPath = "" };
+        var deleted = new GameServer { GameServerId = Guid.NewGuid(), Title = "Deleted", Hostname = "host", BanFileRootPath = "", Deleted = true };
+        context.GameServers.AddRange(server, deleted);
+        context.PlayerSessions.AddRange(
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, StartUtc = from, LastConfirmedUtc = from },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, StartUtc = from.AddMinutes(8), LastConfirmedUtc = from.AddMinutes(8) },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, StartUtc = from.AddMinutes(20), LastConfirmedUtc = from.AddMinutes(20), IsBot = true },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = server.GameServerId, StartUtc = to, LastConfirmedUtc = to },
+            new PlayerSession { SessionId = Guid.NewGuid(), ServerId = deleted.GameServerId, StartUtc = from, LastConfirmedUtc = from });
+        await context.SaveChangesAsync();
+
+        var result = (await CreateApi(context).GetTimeseries(from, to, AnalyticsBucket.FifteenMinutes)).Result!.Data!;
+
+        Assert.Equal("unknown", result.TrackingCoverage);
+        Assert.Equal(new int?[] { 1, 1, 0, 0 }, result.Points.Select(p => p.SessionStarts));
     }
 
     [Fact]
@@ -109,6 +178,23 @@ public class PlayerAnalyticsV2ControllerTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal(2, result.Result!.Data!.Items.Count);
+    }
+
+    [Fact]
+    public async Task GetByGame_ObservedRecordsIncludePlayersLastSeenOutsideWindow()
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        context.Players.AddRange(
+            new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = FromUtc, LastSeen = FromUtc },
+            new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = FromUtc.AddDays(-20), LastSeen = FromUtc.AddDays(-10) },
+            new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = ToUtc, LastSeen = ToUtc });
+        await context.SaveChangesAsync();
+
+        var result = (await CreateApi(context).GetByGame(FromUtc, ToUtc)).Result!.Data!;
+
+        var game = Assert.Single(result.Items);
+        Assert.Equal(1, game.ActivePlayers);
+        Assert.Equal(2, game.ObservedPlayerRecords);
     }
 
     [Fact]

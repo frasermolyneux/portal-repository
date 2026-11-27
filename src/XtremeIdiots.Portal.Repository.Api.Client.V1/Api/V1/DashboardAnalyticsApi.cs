@@ -20,13 +20,23 @@ public class DashboardAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IDashb
     {
     }
 
-    public async Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default)
+    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default) =>
+        GetHomeCore(fromUtc, toUtc, bucket, top, null, cancellationToken);
+
+    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken) =>
+        GetHomeCore(fromUtc, toUtc, bucket, top, includeComposition, cancellationToken);
+
+    private async Task<ApiResult<DashboardHomeDto>> GetHomeCore(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool? includeComposition, CancellationToken cancellationToken)
     {
         var request = await CreateRequestAsync("v1/analytics/dashboard/home", Method.Get).ConfigureAwait(false);
         request.AddQueryParameter("fromUtc", fromUtc.ToString("O"));
         request.AddQueryParameter("toUtc", toUtc.ToString("O"));
         request.AddQueryParameter("bucket", bucket.ToString());
         request.AddQueryParameter("top", top.ToString());
+        if (includeComposition.HasValue)
+        {
+            request.AddQueryParameter("includeComposition", includeComposition.Value ? "true" : "false");
+        }
 
         var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

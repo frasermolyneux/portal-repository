@@ -21,6 +21,9 @@ public record GameOverviewDto : IDto
     public int PeakPlayers { get; internal set; }
 
     [JsonProperty]
+    public int? StatsSampleCount { get; internal set; }
+
+    [JsonProperty]
     public int UniquePlayers { get; internal set; }
 
     [JsonProperty]

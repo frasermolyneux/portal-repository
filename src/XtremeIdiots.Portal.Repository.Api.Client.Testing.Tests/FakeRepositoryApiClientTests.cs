@@ -2,6 +2,7 @@ using XtremeIdiots.Portal.Repository.Api.Client.Testing;
 using XtremeIdiots.Portal.Repository.Api.Client.Testing.Fakes;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.ConnectedPlayers;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
@@ -13,6 +14,21 @@ namespace XtremeIdiots.Portal.Repository.Api.Client.Testing.Tests;
 [Trait("Category", "Unit")]
 public class FakeRepositoryApiClientTests
 {
+    [Fact]
+    public async Task DashboardHome_CompositionOptOutDoesNotAlterSeededResponse()
+    {
+        var fake = new FakeDashboardAnalyticsApi();
+        var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var home = Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Analytics.Dashboard.DashboardHomeDto>(
+            Newtonsoft.Json.JsonConvert.SerializeObject(new { composition = new { topGames = Array.Empty<object>() } }))!;
+        fake.SetHome(home);
+
+        Assert.Null((await fake.GetHome(from, from.AddDays(1), AnalyticsBucket.OneDay, 10, false, default)).Result!.Data!.Composition);
+        Assert.NotNull((await fake.GetHome(from, from.AddDays(1), AnalyticsBucket.OneDay, 10, default)).Result!.Data!.Composition);
+        IDashboardAnalyticsApi contract = fake;
+        Assert.NotNull((await contract.GetHome(from, from.AddDays(1), AnalyticsBucket.OneDay, 10, default)).Result!.Data!.Composition);
+    }
+
     [Fact]
     public async Task GameServerEvents_KeyedCreatesAndAtomicBatchMatchServer()
     {
