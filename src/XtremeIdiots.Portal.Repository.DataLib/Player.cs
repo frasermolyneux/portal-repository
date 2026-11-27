@@ -87,6 +87,9 @@ public partial class Player
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 
     [InverseProperty("Player")]
+    public virtual ICollection<RuleChatEvaluation> RuleChatEvaluations { get; set; } = new List<RuleChatEvaluation>();
+
+    [InverseProperty("Player")]
     public virtual ICollection<RuleOccurrenceCooldown> RuleOccurrenceCooldowns { get; set; } = new List<RuleOccurrenceCooldown>();
 
     [InverseProperty("Player")]

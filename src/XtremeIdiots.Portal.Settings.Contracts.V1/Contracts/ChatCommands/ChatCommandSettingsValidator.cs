@@ -1,3 +1,4 @@
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Moderation;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
 
@@ -6,7 +7,10 @@ namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ChatCommands;
 public sealed class ChatCommandSettingsValidator
 {
     private static readonly IReadOnlyDictionary<string, ConditionDefinition> Conditions =
-        RulesEngineCatalogueV1.Current.Conditions.ToDictionary(item => item.ConditionId, StringComparer.Ordinal);
+        RulesEngineCatalogueV1.Current.Conditions
+            .Append(ChatModerationCatalogueV1.Staged.Conditions.Single(item =>
+                item.ConditionId == ChatModerationRulesConstants.PlayerFirstSeen))
+            .ToDictionary(item => item.ConditionId, StringComparer.Ordinal);
 
     private static readonly RuleSetValidationOptions PolicyValidationOptions = new()
     {
@@ -16,7 +20,34 @@ public sealed class ChatCommandSettingsValidator
         ConditionDefinitions = Conditions
     };
 
-    public SettingsValidationResult Validate(ChatCommandSettingsDocument? document)
+    private static readonly RuleSetValidationOptions PolicyCapabilityOptions = new()
+    {
+        FeatureId = "chat-commands",
+        AllowedConditionIds = ChatCommandCatalogueV1.PolicyConditions.Select(item => item.ConditionId).ToHashSet(StringComparer.Ordinal),
+        AllowedActionTypeIds = new HashSet<string>(StringComparer.Ordinal),
+        ConditionDefinitions = Conditions,
+        AllowUnknownConditionIds = false
+    };
+
+    public SettingsValidationResult Validate(ChatCommandSettingsDocument? document) =>
+        Validate(document, PolicyValidationOptions);
+
+    /// <summary>Reports unsupported leaves for authoring; it does not replace per-leaf policy evaluation.</summary>
+    public SettingsValidationResult ValidatePolicyCapabilities(ChatCommandPolicy? policy)
+    {
+        var result = new SettingsValidationResult();
+        if (policy is null)
+        {
+            result.Errors.Add("policy is required for capability validation.");
+        }
+        else
+        {
+            ValidatePolicy(policy, "policy", PolicyCapabilityOptions, result);
+        }
+        return result;
+    }
+
+    private static SettingsValidationResult Validate(ChatCommandSettingsDocument? document, RuleSetValidationOptions options)
     {
         var result = new SettingsValidationResult();
         if (document is null)
@@ -58,7 +89,7 @@ public sealed class ChatCommandSettingsValidator
                 continue;
             }
 
-            ValidateEntry($"commands.{pair.Key}", pair.Key, pair.Value, result);
+            ValidateEntry($"commands.{pair.Key}", pair.Key, pair.Value, options, result);
         }
 
         return result;
@@ -81,15 +112,17 @@ public sealed class ChatCommandSettingsValidator
         ValidateStringArray(defaults.RequiredTags, "defaults.requiredTags", result);
     }
 
-    private static void ValidateEntry(string path, string commandName, ChatCommandSettingsEntry entry, SettingsValidationResult result)
+    private static void ValidateEntry(string path, string commandName, ChatCommandSettingsEntry entry,
+        RuleSetValidationOptions options, SettingsValidationResult result)
     {
         ValidateNonNegative(entry.FreshnessSeconds, $"{path}.freshnessSeconds", result);
         ValidateStringArray(entry.RequiredTags, $"{path}.requiredTags", result);
-        ValidatePolicy(entry.Policy, $"{path}.policy", result);
+        ValidatePolicy(entry.Policy, $"{path}.policy", options, result);
         ValidateReplies(commandName, entry.Replies, $"{path}.replies", result);
     }
 
-    private static void ValidatePolicy(ChatCommandPolicy? policy, string path, SettingsValidationResult result)
+    private static void ValidatePolicy(ChatCommandPolicy? policy, string path,
+        RuleSetValidationOptions options, SettingsValidationResult result)
     {
         if (policy is null)
         {
@@ -128,7 +161,7 @@ public sealed class ChatCommandSettingsValidator
             {
                 result.Errors.Add($"{rulePath}.decision must be Allow or Deny.");
             }
-            var condition = new RuleSetValidator().ValidateConditionTree(rule.Condition, PolicyValidationOptions);
+            var condition = new RuleSetValidator().ValidateConditionTree(rule.Condition, options);
             result.Errors.AddRange(condition.Errors.Select(error => $"{rulePath}.{error}"));
         }
     }

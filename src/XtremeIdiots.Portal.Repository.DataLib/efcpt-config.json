@@ -199,6 +199,9 @@
       "name": "[dbo].[RuleOccurrenceEffects]"
     },
     {
+      "name": "[dbo].[RuleChatEvaluations]"
+    },
+    {
       "name": "[dbo].[RuleOccurrenceCooldowns]"
     },
     {

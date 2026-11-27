@@ -16,7 +16,7 @@ internal static class SqlServerTestDatabase
         {
             var builder = new SqlConnectionStringBuilder
             {
-                DataSource = @"(localdb)\MSSQLLocalDB",
+                DataSource = Environment.GetEnvironmentVariable("PORTAL_SQL_TEST_SERVER") ?? @"(localdb)\MSSQLLocalDB",
                 IntegratedSecurity = true,
                 Encrypt = false,
                 TrustServerCertificate = true,

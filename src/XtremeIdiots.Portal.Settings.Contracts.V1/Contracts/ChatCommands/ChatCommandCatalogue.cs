@@ -1,3 +1,4 @@
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Moderation;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ChatCommands;
@@ -19,6 +20,14 @@ public sealed record ChatCommandDefinition(
 public static class ChatCommandCatalogueV1
 {
     private static readonly IReadOnlyList<int> TransportGames = RulesEngineCatalogueV1.SupportedGameTypes;
+
+    /// <summary>Staged authoring capabilities; deployed consumers may support a smaller subset.</summary>
+    public static IReadOnlyList<ConditionDefinition> PolicyConditions { get; } = Array.AsReadOnly<ConditionDefinition>(
+    [
+        RulesEngineCatalogueV1.Current.Conditions.Single(item => item.ConditionId == RulesEngineCatalogueV1.AlwaysCondition),
+        RulesEngineCatalogueV1.Current.Conditions.Single(item => item.ConditionId == "player.tags"),
+        ChatModerationCatalogueV1.Staged.Conditions.Single(item => item.ConditionId == ChatModerationRulesConstants.PlayerFirstSeen)
+    ]);
 
     public static IReadOnlyList<ChatCommandDefinition> Commands { get; } = Array.AsReadOnly<ChatCommandDefinition>(
     [

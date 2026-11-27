@@ -150,6 +150,12 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
             var adminActions = await context.AdminActions.Where(a => a.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var automationActionStates = await context.AutomationActionStates.Where(s => s.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var chatMessages = await context.ChatMessages.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
+            if (!context.Database.IsRelational())
+            {
+                var chatEvaluations = await context.RuleChatEvaluations.Where(c => c.PlayerId == playerId)
+                    .ToListAsync(operationCancellationToken).ConfigureAwait(false);
+                context.RuleChatEvaluations.RemoveRange(chatEvaluations);
+            }
             var connectedPlayerClaims = await context.ConnectedPlayerClaims.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var connectedPlayerProfiles = await context.ConnectedPlayerProfiles.Where(c => c.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
             var mapVotes = await context.MapVotes.Where(v => v.PlayerId == playerId).ToListAsync(operationCancellationToken).ConfigureAwait(false);
@@ -435,7 +441,7 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes game server events older than 30 days in bounded batches.
+    /// Prunes game server events and chat evaluations older than 30 days in bounded batches.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
     /// <returns>A success response indicating the operation completed.</returns>
@@ -449,17 +455,25 @@ public class DataMaintenanceController : ControllerBase, IDataMaintenanceApi
     }
 
     /// <summary>
-    /// Prunes game server events older than 30 days in bounded batches.
+    /// Prunes game server events and chat evaluations older than 30 days in bounded batches.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>An API result indicating the operation completed successfully.</returns>
     async Task<ApiResult> IDataMaintenanceApi.PruneGameServerEvents(CancellationToken cancellationToken)
     {
         var cutoff = DateTime.UtcNow.AddDays(-HistoryRetention.GameServerEventDays);
-        return await PruneAsync([token => context.GameServerEvents
-            .Where(x => x.Timestamp < cutoff)
-            .OrderBy(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId)
-            .Take(BoundedPruner.BatchSize).ExecuteDeleteAsync(token)], cancellationToken).ConfigureAwait(false);
+        return await PruneAsync([async token =>
+        {
+            var events = await context.GameServerEvents
+                .Where(x => x.Timestamp < cutoff)
+                .OrderBy(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId)
+                .Take(BoundedPruner.BatchSize / 2).ExecuteDeleteAsync(token).ConfigureAwait(false);
+            var evaluations = await context.RuleChatEvaluations
+                .Where(x => x.RecordedAtUtc < cutoff)
+                .OrderBy(x => x.RecordedAtUtc).ThenBy(x => x.AttemptId)
+                .Take(BoundedPruner.BatchSize / 2).ExecuteDeleteAsync(token).ConfigureAwait(false);
+            return events + evaluations;
+        }], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

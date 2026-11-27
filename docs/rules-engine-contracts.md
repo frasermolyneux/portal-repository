@@ -236,6 +236,27 @@ shared across rule paths; later delivery attempts can retry unresolved checks as
 freshness cutoff or unproven effect-retention expiry is implied by these contracts. Callers must
 handle missing occurrence IDs through the existing legacy path.
 
+### Staged literal matching
+
+`ChatLiteralPolicy` describes separate opt-in local word or nudge checks; it does not enable them
+or replace the existing Content Safety path. Each entry has a stable ID, literal phrase, `Phrase`
+or `WholeWord` mode, and its own literal exceptions. `literal-v1` normalizes input and literals
+with FormKC and compares using OrdinalIgnoreCase without collapsing whitespace. Phrase matches
+are contiguous substrings. Whole-word boundaries use Unicode scalar values, treating letters,
+digits, and combining marks as word characters. An exception suppresses only matches fully
+contained within its own contiguous phrase; another occurrence can still match.
+
+Policies allow at most 128 entries and 16 exceptions per entry. A literal is at most 512 UTF-16
+code units before normalization and 128 afterwards; the 8192-unit normalized total includes all
+entry and exception literals. Invalid Unicode or unsupported versions and modes fail validation.
+Messages exceeding 10000 UTF-16 units before or after normalization, or containing invalid Unicode,
+produce Unknown, not a clean nonmatch. Unknown version and mode strings remain round-trippable.
+A missing or null rule-override condition inherits the global condition; a supplied condition
+replaces it entirely. Its policy is required, and an empty entry list is an explicit nonmatch.
+The optional `message.private` cooldown is `{ policyId, durationSeconds }`; `durationSeconds`
+must be positive and `policyId` must be 1–128 ASCII letters, digits, or `._-:+`, matching the
+occurrence claim API.
+
 ## Welcome, templates, and prepared delivery
 
 New welcome documents use **`welcomeRules`**, not legacy `welcomeMessages`, with

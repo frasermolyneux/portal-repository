@@ -6,6 +6,7 @@ using MX.Api.Client.Auth;
 using MX.Api.Client.Extensions;
 using RestSharp;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
@@ -18,6 +19,36 @@ public sealed class RuleExecutionsApi(
     RepositoryApiClientOptions options)
     : BaseApi<RepositoryApiClientOptions>(logger, apiTokenProvider, restClientService, options), IRuleExecutionsApi
 {
+    public Task<ApiResult<RuleChatEvaluationDto>> CreateChatEvaluation(
+        Guid gameServerId, CreateRuleChatEvaluationDto request, CancellationToken cancellationToken = default) =>
+        Send<RuleChatEvaluationDto>($"v1/game-servers/{gameServerId}/chat-evaluations", Method.Post, request, cancellationToken);
+
+    public async Task<ApiResult<HistoryPageDto<RuleChatEvaluationDto>>> SearchChatEvaluations(
+        RuleChatEvaluationQueryDto request, CancellationToken cancellationToken = default)
+    {
+        var httpRequest = await CreateRequestAsync("v1/chat-evaluations", Method.Get, cancellationToken).ConfigureAwait(false);
+        if (request.GameServerId is { } serverId) { httpRequest.AddQueryParameter("gameServerId", serverId.ToString()); }
+        if (request.PlayerId is { } playerId) { httpRequest.AddQueryParameter("playerId", playerId.ToString()); }
+        if (request.OccurrenceId is { } occurrenceId) { httpRequest.AddQueryParameter("occurrenceId", occurrenceId.ToString()); }
+        if (request.FeatureId is { } featureId) { httpRequest.AddQueryParameter("featureId", featureId); }
+        if (request.FromUtc is { } from) { httpRequest.AddQueryParameter("fromUtc", from.ToString("O", CultureInfo.InvariantCulture)); }
+        if (request.ToUtc is { } to) { httpRequest.AddQueryParameter("toUtc", to.ToString("O", CultureInfo.InvariantCulture)); }
+        if (request.BeforeRecordedAtUtc is { } before) { httpRequest.AddQueryParameter("beforeRecordedAtUtc", before.ToString("O", CultureInfo.InvariantCulture)); }
+        if (request.AfterAttemptId is { } after) { httpRequest.AddQueryParameter("afterAttemptId", after.ToString()); }
+        httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
+        httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
+        return (await ExecuteAsync(httpRequest, cancellationToken).ConfigureAwait(false)).ToApiResult<HistoryPageDto<RuleChatEvaluationDto>>();
+    }
+
+    public async Task<ApiResult<HistoryPageDto<RuleOccurrenceEffectDto>>> GetOccurrenceEffects(
+        Guid gameServerId, Guid occurrenceId, int skipEntries = 0, int takeEntries = 50, CancellationToken cancellationToken = default)
+    {
+        var httpRequest = await CreateRequestAsync($"v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects", Method.Get, cancellationToken).ConfigureAwait(false);
+        httpRequest.AddQueryParameter("skipEntries", skipEntries.ToString(CultureInfo.InvariantCulture));
+        httpRequest.AddQueryParameter("takeEntries", takeEntries.ToString(CultureInfo.InvariantCulture));
+        return (await ExecuteAsync(httpRequest, cancellationToken).ConfigureAwait(false)).ToApiResult<HistoryPageDto<RuleOccurrenceEffectDto>>();
+    }
+
     public Task<ApiResult<RuleExecutionFlowDto>> GetRuleExecutionFlow(
         Guid executionId, CancellationToken cancellationToken = default) =>
         Send<RuleExecutionFlowDto>($"v1/rule-executions/{executionId}/flow", Method.Get, null, cancellationToken);
