@@ -73,8 +73,10 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
             {
                 foreach (var (name, sql) in queries)
                 {
+                    var server = servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId;
                     baseline[(name, days)] = await Measure(connection, sql, end.AddDays(-days), end,
-                        servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId);
+                        server);
+                    EmitPlans("baseline", name, days, server, end, baseline[(name, days)]);
                 }
             }
 
@@ -90,19 +92,32 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
                 foreach (var (name, sql) in queries)
                 {
                     var before = baseline[(name, days)];
+                    var server = servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId;
                     var after = await Measure(connection, sql, end.AddDays(-days), end,
-                        servers[name.StartsWith("minority", StringComparison.Ordinal) ? 1 : 0].GameServerId);
+                        server);
+                    output.WriteLine($"{name} {days}d total logical reads before={before.ReadsByTable.Values.Sum()}, after={after.ReadsByTable.Values.Sum()}; per-table data+LOB pages before={string.Join(",", before.ReadsByTable)}, after={string.Join(",", after.ReadsByTable)}; retrieval ms before={before.ElapsedMs}, after={after.ElapsedMs}; chat accesses before={string.Join(",", before.Accesses)}, after={string.Join(",", after.Accesses)}");
+                    EmitPlans("candidate", name, days, server, end, after);
                     Assert.Equal(before.Rows, after.Rows);
-                    output.WriteLine($"{name} {days}d reads/ms before={before.Reads}/{before.ElapsedMs}, after={after.Reads}/{after.ElapsedMs}; chat accesses before={string.Join(",", before.Accesses)}, after={string.Join(",", after.Accesses)}");
                     if (name == "global" && days == 1)
                     {
-                        Assert.True(after.Reads < before.Reads, $"One-day global logical reads: {before.Reads} -> {after.Reads}");
+                        Assert.True(after.ReadsByTable["ChatMessages"] < before.ReadsByTable["ChatMessages"],
+                            $"One-day global ChatMessages logical reads: {before.ReadsByTable["ChatMessages"]} -> {after.ReadsByTable["ChatMessages"]}");
                         Assert.Contains(after.Accesses, access => access.Contains(IndexName, StringComparison.Ordinal));
                         Assert.DoesNotContain(after.Accesses, access => access.Contains("Key Lookup", StringComparison.Ordinal));
                     }
                 }
             }
         });
+
+    private void EmitPlans(string phase, string query, int days, Guid server, DateTime end, QueryEvidence evidence)
+    {
+        var scope = query.Contains("server", StringComparison.Ordinal) ? server.ToString() : "all";
+        foreach (var plan in evidence.Plans)
+        {
+            output.WriteLine($"SQL PLAN {phase}: query={query}; from={end.AddDays(-days):O}; to={end:O}; server={scope}");
+            output.WriteLine(plan);
+        }
+    }
 
     private static DataTable BuildRows(int count, DateTime end, GameServer[] servers, Player[] players)
     {
@@ -236,9 +251,15 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
                     }
                 }
             }
-            var reads = messages.SelectMany(message => Regex.Matches(message, @"Table 'ChatMessages'.*?logical reads (\d+)")
-                .Cast<Match>()).Sum(match => int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture));
-            return new QueryEvidence(rows, reads, watch.ElapsedMilliseconds, accesses);
+            var readsByTable = messages.SelectMany(message => Regex.Matches(message,
+                    @"Table '([^']+)'.*?logical reads (\d+).*?lob logical reads (\d+)").Cast<Match>())
+                .GroupBy(match => match.Groups[1].Value, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Sum(match =>
+                    int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)
+                    + int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture)), StringComparer.Ordinal);
+            Assert.Contains("ChatMessages", readsByTable.Keys);
+            Assert.NotEmpty(plans);
+            return new QueryEvidence(rows, readsByTable, watch.ElapsedMilliseconds, accesses, plans);
         }
         finally
         {
@@ -246,5 +267,6 @@ public class ChatIndexSqlTests(ITestOutputHelper output)
         }
     }
 
-    private sealed record QueryEvidence(List<string> Rows, int Reads, long ElapsedMs, List<string> Accesses);
+    private sealed record QueryEvidence(List<string> Rows, Dictionary<string, int> ReadsByTable, long ElapsedMs,
+        List<string> Accesses, List<string> Plans);
 }

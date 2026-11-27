@@ -76,8 +76,11 @@ applies the authoritative index DDL and compares one-, seven- and 30-day ranking
 queries, plus the existing server `COUNT(*)` and full `PlayerId`/`Username`
 projection for dominant/minority servers. Projected rows are compared independently
 of order outside timed retrieval, without substituting SQL grouping or distinct
-counts for the existing in-memory server summary. The test records logical reads,
-plans, storage and rolled-back insert log bytes. Retrieval timings include plan
+counts for the existing in-memory server summary. The test records total and
+per-table logical reads (including LOB pages), index storage and rolled-back insert
+log bytes. Full baseline/candidate XML plans are emitted into test output with
+query, UTC window and server labels, retaining predicates, row counts, grants and
+spill details for review in CI test artifacts. Retrieval timings include plan
 instrumentation, exclude result comparison/plan parsing, and are not production
 latency evidence; the earlier production ranking measurements below predate this
 index change.
