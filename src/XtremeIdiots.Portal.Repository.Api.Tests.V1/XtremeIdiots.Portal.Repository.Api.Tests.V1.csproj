@@ -32,6 +32,7 @@
 
     <ItemGroup>
         <Content Include="..\XtremeIdiots.Portal.Repository.Database\Scripts\Script.PostDeploymentTags.sql" Link="Script.PostDeploymentTags.sql" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\XtremeIdiots.Portal.Repository.Database\dbo\Tables\ChatMessages.sql" Link="ChatMessages.sql" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>

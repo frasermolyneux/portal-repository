@@ -51,6 +51,25 @@ latest retained observations, not historical sessions or complete population cov
 Global and Game player rankings count retained chat messages, not player activity;
 the Game map breakdown counts server-stat samples, not map plays.
 
+The shared chat analytics index extends the existing timestamp/locked index with
+`PlayerId` and `GameServerId` as included columns. Existing keys and included chat
+payloads are preserved, with no additional index or query hint. This covers the
+Global/Game ranking inputs and server counts/rankings when the optimizer selects
+it; server filtering is residual within the global time range, and Game filtering
+still joins Player records. It does not make chat counts into session activity.
+
+The pre-change read-only production inventory contained 915,897 chat rows and a
+104.4 MiB timestamp/locked index. Two additional GUIDs imply about 28.0 MiB of raw
+leaf payload before page overhead/occupancy. Seven-day global/server counts were
+29,485/23,170 for one newly selected representative server, not every server.
+Widening preserves the index count but adds insert/update/retention-delete work,
+and deployment rebuilds the existing index. The isolated SQL regression test
+applies the authoritative index DDL, compares one-, seven- and 30-day aggregate
+results and plans for dominant/minority servers, and records logical reads,
+storage and rolled-back insert log bytes. Its synthetic timings are not production
+latency evidence; the earlier production ranking measurements below predate this
+index change.
+
 Player overview adds nullable `observedPlayerRecords` (retained Player records with
 `FirstSeen < toUtc`), `recordedPlayers` (distinct players with a recorded session
 overlapping `[fromUtc, toUtc)`), and `sessionStarts` (recorded session starts in that
