@@ -1,6 +1,7 @@
 using System.Net;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 using MX.Api.Abstractions;
 
@@ -53,6 +54,27 @@ public class DashboardTests : IClassFixture<CustomWebApplicationFactory>, IAsync
         Assert.Equal(fromUtc, data.Window.FromUtc);
         Assert.Equal(toUtc, data.Window.ToUtc);
         Assert.Equal(AnalyticsBucket.OneDay, data.Bucket);
+        Assert.NotNull(data.Composition);
+    }
+
+    [Fact]
+    public async Task GetAnalyticsDashboardHome_ExcludesComposition_WhenRequested()
+    {
+        var fromUtc = DateTime.UtcNow.AddDays(-1);
+        var toUtc = DateTime.UtcNow;
+        var response = await _client.GetAsync(
+            $"/v1.0/analytics/dashboard/home?fromUtc={Uri.EscapeDataString(fromUtc.ToString("O"))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O"))}&bucket=OneDay&top=10&includeComposition=false");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        var composition = JObject.Parse(content).Descendants().OfType<JProperty>()
+            .Single(p => p.Name.Equals("composition", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(JTokenType.Null, composition.Value.Type);
+        var result = JsonConvert.DeserializeObject<ApiResponse<DashboardHomeDto>>(content);
+        var data = Assert.IsType<DashboardHomeDto>(result?.Data);
+        Assert.Null(data.Composition);
+        Assert.NotEmpty(data.RecordedActivity!);
+        Assert.Equal("unknown", data.RecordedActivityCoverage);
     }
 
     /// <summary>

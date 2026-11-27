@@ -28,6 +28,12 @@ public class FakeDashboardAnalyticsApi : IDashboardAnalyticsApi
         return Task.FromResult(new ApiResult<DashboardHomeDto>(HttpStatusCode.OK, new ApiResponse<DashboardHomeDto>(_home)));
     }
 
+    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken)
+    {
+        var home = includeComposition ? _home : _home with { Composition = null };
+        return Task.FromResult(new ApiResult<DashboardHomeDto>(HttpStatusCode.OK, new ApiResponse<DashboardHomeDto>(home)));
+    }
+
     public Task<ApiResult<DashboardServerDto>> GetServer(Guid gameServerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ApiResult<DashboardServerDto>(HttpStatusCode.OK, new ApiResponse<DashboardServerDto>(_server)));

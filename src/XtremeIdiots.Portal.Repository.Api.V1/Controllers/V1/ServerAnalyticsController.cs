@@ -74,8 +74,9 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
         var stats = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.GameServerId == gameServerId && s.Timestamp >= fromUtc && s.Timestamp < toUtc)
-            .Select(s => s.PlayerCount)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .GroupBy(_ => 1)
+            .Select(g => new { Average = g.Average(s => (double)s.PlayerCount), Peak = g.Max(s => s.PlayerCount) })
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
         var eventsCount = await context.GameServerEvents
             .AsNoTracking()
@@ -116,8 +117,8 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             GameType = server.GameType.ToGameType(),
             Online = live?.IsOnline ?? false,
             CurrentPlayers = live?.CurrentPlayers ?? 0,
-            AvgPlayers = stats.Count == 0 ? 0 : Math.Round(stats.Average(), 2),
-            PeakPlayers = stats.Count == 0 ? 0 : stats.Max(),
+            AvgPlayers = stats == null ? 0 : Math.Round(stats.Average, 2),
+            PeakPlayers = stats?.Peak ?? 0,
             EventsCount = eventsCount,
             ChatCount = chatCount,
             RecentPlayersCount = recentPlayersCount,
@@ -284,6 +285,8 @@ public class ServerAnalyticsController : ControllerBase, IServerAnalyticsApi
             Window = CreateWindow(fromUtc, toUtc),
             Bucket = bucket,
             Points = points,
+            RecordedActivity = await DashboardRecordedActivityQuery.ReadAsync(context, alignedFromUtc, alignedToUtc, bucket, cancellationToken, gameServerId).ConfigureAwait(false),
+            RecordedActivityCoverage = "unknown",
             Labels = labels,
             Series = series,
             Summary = summary,

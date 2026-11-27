@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Dashboard;
 
 namespace XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Servers;
 
@@ -14,6 +15,12 @@ public record ServerTimeseriesDto : IDto
 
     [JsonProperty]
     public List<ServerTimeseriesPointDto> Points { get; internal set; } = [];
+
+    [JsonProperty]
+    public List<DashboardRecordedActivityPointDto>? RecordedActivity { get; internal set; }
+
+    [JsonProperty]
+    public string? RecordedActivityCoverage { get; internal set; }
 
     [JsonProperty]
     public List<DateTime> Labels { get; internal set; } = [];
