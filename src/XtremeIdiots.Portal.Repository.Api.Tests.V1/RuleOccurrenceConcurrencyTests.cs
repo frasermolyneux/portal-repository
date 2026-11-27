@@ -75,7 +75,11 @@ public sealed class RuleOccurrenceConcurrencyTests
             setup.AddRange(server, player);
             await setup.SaveChangesAsync();
             var occurrence = Guid.NewGuid();
-            var claim = CreateClaim(server.GameServerId, occurrence, player.PlayerId) with { ActionTypeId = "moderation.observation" };
+            var claim = CreateClaim(server.GameServerId, occurrence, player.PlayerId) with
+            {
+                ActionTypeId = "moderation.observation",
+                Cooldown = new() { PolicyId = "nudge", DurationSeconds = 120 }
+            };
             var api = (IRuleExecutionsApi)new RuleExecutionsController(setup);
             Assert.Equal(HttpStatusCode.Created, (await api.ClaimOccurrenceEffect(server.GameServerId, occurrence, claim)).StatusCode);
             var request = new EnsureRuleOccurrenceAdminActionDto { Type = AdminActionType.Observation, Text = "Occurrence record" };
@@ -91,8 +95,11 @@ public sealed class RuleOccurrenceConcurrencyTests
             Assert.Single(records, result => result.StatusCode == HttpStatusCode.Created);
             Assert.Single(records, result => result.StatusCode == HttpStatusCode.OK);
             Assert.Single(records.Select(result => result.Result!.Data!.AdminAction.AdminActionId).Distinct());
+            Assert.All(records, result => Assert.Null(result.Result!.Data!.AdminAction.AutomationFeature));
             setup.ChangeTracker.Clear();
             var action = await setup.AdminActions.SingleAsync();
+            Assert.NotNull(action.AutomationFeature);
+            Assert.Equal("new-player", action.AutomationRuleId);
             setup.AdminActions.Remove(action);
             await setup.SaveChangesAsync();
             setup.ChangeTracker.Clear();
@@ -106,6 +113,23 @@ public sealed class RuleOccurrenceConcurrencyTests
             setup.Players.Remove(await setup.Players.SingleAsync());
             await setup.SaveChangesAsync();
             Assert.Empty(await setup.RuleOccurrenceEffects.AsNoTracking().ToListAsync());
+            Assert.Empty(await setup.RuleOccurrenceCooldowns.AsNoTracking().ToListAsync());
+
+            var recreatedPlayer = new Player
+            {
+                PlayerId = Guid.NewGuid(),
+                GameType = 2,
+                FirstSeen = DateTime.UtcNow,
+                LastSeen = DateTime.UtcNow
+            };
+            setup.Players.Add(recreatedPlayer);
+            await setup.SaveChangesAsync();
+            var replay = await api.ClaimOccurrenceEffect(server.GameServerId, occurrence, claim with
+            {
+                PlayerId = recreatedPlayer.PlayerId
+            });
+            Assert.Equal(HttpStatusCode.Created, replay.StatusCode);
+            Assert.True(replay.Result!.Data!.ShouldDispatch);
         });
 
     private static ClaimRuleOccurrenceEffectDto CreateClaim(Guid serverId, Guid occurrenceId, Guid playerId) => new()

@@ -7,6 +7,7 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
+using XtremeIdiots.Portal.Repository.Api.V1.Constants;
 using XtremeIdiots.Portal.Repository.Api.V1.Extensions;
 using XtremeIdiots.Portal.Repository.Api.V1.Mapping;
 using XtremeIdiots.Portal.Repository.DataLib;
@@ -317,7 +318,7 @@ public sealed partial class RuleExecutionsController
                     Text = request.Text!,
                     Created = DateTime.UtcNow,
                     Source = (byte)ActionSource.Automation,
-                    AutomationFeature = (int)AutomationFeature.ChatModeration,
+                    AutomationFeature = AutomationFeatureStorage.ChatModeration,
                     AutomationRuleId = effect.RuleId
                 };
                 if (!string.IsNullOrWhiteSpace(request.AdminId))

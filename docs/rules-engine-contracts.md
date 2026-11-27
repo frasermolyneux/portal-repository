@@ -214,9 +214,13 @@ ban obtained through the existing ban-reuse path. A repeated record request retu
 record without granting dispatch; deleting that record leaves a marker preventing recreation.
 Record existence is not proof of game enforcement. Outcome writes accept `Dispatched`, `Failed`,
 and `OutcomeUnknown`, not `Applied` for an external effect. `Dispatched` means transport accepted
-the submission, not that a player saw it or the server applied it. New observation and kick
-records expose the `ChatModeration` automation feature in existing admin-action responses; readers
-that cannot deserialize that value must be upgraded before those records are created.
+the submission, not that a player saw it or the server applied it. For new chat-moderation observation
+and kick records, existing V1 admin-action responses retain source `Automation` and the rule ID but
+expose a null `automationFeature` rather than extending the V1 enum. The occurrence response links
+the record by `adminActionId` and identifies `claim.featureId` as `chat-moderation`. Existing
+feature filters continue to select their original features; they do not select these new records.
+Consumers that assume every automated action has a non-null feature must handle the null value.
+The database uses a reserved internal marker to satisfy its automation-metadata constraint.
 
 The endpoints require the existing service-account role; claims also require an active server and a
 player of the same game type. They do not prove that the occurrence belongs to that player or that

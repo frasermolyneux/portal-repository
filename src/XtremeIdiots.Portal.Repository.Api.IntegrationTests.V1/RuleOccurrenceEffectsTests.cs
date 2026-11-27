@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Newtonsoft.Json.Linq;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 using XtremeIdiots.Portal.Repository.DataLib;
 
@@ -16,6 +17,9 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
         var serverId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
         var occurrenceId = Guid.NewGuid();
+        var knownFeatures = Enum.GetValues<AutomationFeature>()
+            .Select(feature => (Feature: feature, AdminActionId: Guid.NewGuid()))
+            .ToArray();
         factory.SeedDatabase(context =>
         {
             context.GameServers.Add(new GameServer
@@ -26,6 +30,17 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
                 GameType = (int)GameType.CallOfDuty4
             });
             context.Players.Add(new Player { PlayerId = playerId, GameType = (int)GameType.CallOfDuty4 });
+            context.AdminActions.AddRange(knownFeatures.Select(item => new AdminAction
+            {
+                AdminActionId = item.AdminActionId,
+                PlayerId = playerId,
+                Type = (int)AdminActionType.Observation,
+                Text = "Existing automated action",
+                Created = DateTime.UtcNow,
+                Source = (byte)ActionSource.Automation,
+                AutomationFeature = (int)item.Feature,
+                AutomationRuleId = "existing-rule"
+            }));
             context.SaveChanges();
         });
 
@@ -48,6 +63,7 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
         var acquiredData = JObject.Parse(await acquired.Content.ReadAsStringAsync())["data"]!;
         Assert.Equal("Acquired", acquiredData["disposition"]!.Value<string>());
         Assert.True(acquiredData["shouldDispatch"]!.Value<bool>());
+        Assert.Equal("chat-moderation", acquiredData["effect"]!["claim"]!["featureId"]!.Value<string>());
 
         var duplicate = await client.PostAsJsonAsync(root, claim);
         Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
@@ -62,11 +78,50 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
         var recordId = record["adminAction"]!["adminActionId"]!.Value<string>();
         Assert.True(Guid.TryParse(recordId, out _));
         Assert.True(record["created"]!.Value<bool>());
+        Assert.Null(record["adminAction"]!.ToObject<AdminActionDto>()!.AutomationFeature);
 
         var repeated = await client.PutAsJsonAsync($"{root}/{effectId}/admin-action", request);
         Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
         var repeatedRecord = JObject.Parse(await repeated.Content.ReadAsStringAsync())["data"]!;
         Assert.False(repeatedRecord["created"]!.Value<bool>());
         Assert.Equal(recordId, repeatedRecord["adminAction"]!["adminActionId"]!.Value<string>());
+        Assert.Null(repeatedRecord["adminAction"]!.ToObject<AdminActionDto>()!.AutomationFeature);
+
+        var claimedAgain = await client.PostAsJsonAsync(root, claim);
+        Assert.Equal(HttpStatusCode.OK, claimedAgain.StatusCode);
+        var claimedAgainEffect = JObject.Parse(await claimedAgain.Content.ReadAsStringAsync())["data"]!["effect"]!;
+        Assert.Equal("chat-moderation", claimedAgainEffect["claim"]!["featureId"]!.Value<string>());
+        Assert.True(claimedAgainEffect["adminActionRecorded"]!.Value<bool>());
+        Assert.Equal(recordId, claimedAgainEffect["adminActionId"]!.Value<string>());
+
+        var single = await client.GetAsync($"/v1.0/admin-actions/{recordId}");
+        Assert.Equal(HttpStatusCode.OK, single.StatusCode);
+        var singleAction = JObject.Parse(await single.Content.ReadAsStringAsync())["data"]!.ToObject<AdminActionDto>()!;
+        Assert.Equal(ActionSource.Automation, singleAction.Source);
+        Assert.Null(singleAction.AutomationFeature);
+        Assert.Equal("rule", singleAction.AutomationRuleId);
+
+        var list = await client.GetAsync($"/v1.0/admin-actions?playerId={playerId}&source=Automation");
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        var items = JObject.Parse(await list.Content.ReadAsStringAsync())["data"]!["items"]!
+            .Select(item => item.ToObject<AdminActionDto>()!).ToArray();
+        Assert.Equal(knownFeatures.Length + 1, items.Length);
+        Assert.Null(items.Single(item => item.AdminActionId.ToString() == recordId).AutomationFeature);
+        foreach (var known in knownFeatures)
+        {
+            Assert.Equal(known.Feature, items.Single(item => item.AdminActionId == known.AdminActionId).AutomationFeature);
+            var filtered = await client.GetAsync(
+                $"/v1.0/admin-actions?playerId={playerId}&source=Automation&automationFeature={known.Feature}");
+            Assert.Equal(HttpStatusCode.OK, filtered.StatusCode);
+            var filteredItems = JObject.Parse(await filtered.Content.ReadAsStringAsync())["data"]!["items"]!;
+            var filteredAction = Assert.Single(filteredItems).ToObject<AdminActionDto>()!;
+            Assert.Equal(known.AdminActionId, filteredAction.AdminActionId);
+            Assert.Equal(known.Feature, filteredAction.AutomationFeature);
+        }
+
+        var ruleFiltered = await client.GetAsync($"/v1.0/admin-actions?playerId={playerId}&automationRuleId=rule");
+        Assert.Equal(HttpStatusCode.OK, ruleFiltered.StatusCode);
+        var ruleItems = JObject.Parse(await ruleFiltered.Content.ReadAsStringAsync())["data"]!["items"]!;
+        Assert.Equal(recordId, Assert.Single(ruleItems)["adminActionId"]!.Value<string>());
     }
 }

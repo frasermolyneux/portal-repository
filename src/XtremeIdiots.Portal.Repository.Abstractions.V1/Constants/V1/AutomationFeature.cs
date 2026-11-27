@@ -8,6 +8,5 @@ public enum AutomationFeature
     VpnProtection,
     ProtectedName,
     RconBanImport,
-    SiegeMode,
-    ChatModeration
+    SiegeMode
 }
