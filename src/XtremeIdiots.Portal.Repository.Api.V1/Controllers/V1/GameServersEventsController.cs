@@ -65,8 +65,14 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
             cutoff = fromUtc.Value;
         }
 
-        var query = ApplyFilter(context.GameServerEvents.Include(x => x.GameServer).AsNoTracking(),
-            gameType, gameServerId, eventType).Where(x => x.Timestamp >= cutoff);
+        var query = ApplyScope(context.GameServerEvents.Include(x => x.GameServer).AsNoTracking(),
+            gameType, gameServerId).Where(x => x.Timestamp >= cutoff);
+        if (!string.IsNullOrWhiteSpace(eventType))
+        {
+            var eventTypeFilter = eventType.Trim().ToLowerInvariant();
+            query = query.Where(x => x.EventType.ToLower().Contains(eventTypeFilter));
+        }
+
         var ordered = order == GameServerEventOrder.TimestampAsc
             ? query.OrderBy(x => x.Timestamp).ThenByDescending(x => x.GameServerEventId)
             : query.OrderByDescending(x => x.Timestamp).ThenBy(x => x.GameServerEventId);
@@ -326,6 +332,12 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
 
     private static IQueryable<GameServerEvent> ApplyFilter(IQueryable<GameServerEvent> query, GameType? gameType, Guid? gameServerId, string? eventType)
     {
+        query = ApplyScope(query, gameType, gameServerId);
+        return string.IsNullOrWhiteSpace(eventType) ? query : query.Where(gse => gse.EventType == eventType);
+    }
+
+    private static IQueryable<GameServerEvent> ApplyScope(IQueryable<GameServerEvent> query, GameType? gameType, Guid? gameServerId)
+    {
         if (gameType.HasValue)
         {
             query = query.Where(gse => gse.GameServer.GameType == gameType.Value.ToGameTypeInt());
@@ -334,11 +346,6 @@ public class GameServersEventsController : ControllerBase, IGameServersEventsApi
         if (gameServerId.HasValue)
         {
             query = query.Where(gse => gse.GameServerId == gameServerId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(eventType))
-        {
-            query = query.Where(gse => gse.EventType == eventType);
         }
 
         return query;

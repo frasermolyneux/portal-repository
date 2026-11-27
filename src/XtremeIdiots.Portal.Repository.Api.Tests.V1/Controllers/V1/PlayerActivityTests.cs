@@ -1,5 +1,7 @@
+using System.Data.Common;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
 using XtremeIdiots.Portal.Repository.Api.Tests.V1.TestHelpers;
@@ -108,6 +110,62 @@ public class PlayerActivityTests
         Assert.Null(noScope.ChatMessages);
         Assert.Equal("unavailable", noScope.PlaytimeCoverage);
     });
+
+    [Theory]
+    [InlineData(0, 2L, false)]
+    [InlineData(1, 3L, true)]
+    [InlineData(2, 1L, true)]
+    [Trait("Category", "SqlIntegration")]
+    public Task GetPlayerActivity_OnlyReadsLockedForWindowsBeforeRetention(int window, long expectedCount, bool readsLocked) =>
+        SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var capture = new ChatCommandCapture();
+            await using var context = new PortalDbContext(new DbContextOptionsBuilder<PortalDbContext>()
+                .UseSqlServer(connectionString).AddInterceptors(capture).Options);
+            IPlayerAnalyticsV2Api api = new PlayerAnalyticsV2Controller(context);
+            var today = DateTime.UtcNow.Date;
+            var cutoffDay = today.AddMonths(-6);
+            var from = window == 0 ? today.AddDays(-7) : cutoffDay.AddDays(-3);
+            var to = window == 0 ? today : window == 1 ? cutoffDay.AddDays(3) : cutoffDay.AddDays(-1);
+            var server = Server("Visible");
+            var hidden = Server("Hidden");
+            var player = new Player { PlayerId = Guid.NewGuid(), GameType = 1, FirstSeen = from, LastSeen = to };
+            context.AddRange(server, hidden, player);
+            context.AddRange(
+                Chat(server, player, cutoffDay.AddDays(-2), locked: true),
+                Chat(server, player, cutoffDay.AddDays(-2), locked: false),
+                Chat(server, player, cutoffDay.AddDays(2), locked: true),
+                Chat(server, player, cutoffDay.AddDays(2), locked: false),
+                Chat(server, player, today.AddDays(-1), locked: true),
+                Chat(server, player, today.AddDays(-1), locked: false),
+                Chat(hidden, player, from.AddHours(1), locked: true),
+                Chat(server, player, to, locked: true));
+            await context.SaveChangesAsync();
+
+            var result = await api.GetPlayerActivity(player.PlayerId, from, to, [server.GameServerId], includeChat: true);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(expectedCount, result.Result!.Data!.ChatMessages);
+            Assert.NotNull(result.Result.Data.ChatRetentionCutoffUtc);
+            var sql = Assert.Single(capture.Commands);
+            Assert.Equal(readsLocked, sql.Contains("[c].[Locked]", StringComparison.Ordinal));
+        });
+
+    private sealed class ChatCommandCapture : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("SELECT COUNT_BIG(*)", StringComparison.Ordinal)
+                && command.CommandText.Contains("[ChatMessages]", StringComparison.Ordinal))
+            {
+                Commands.Add(command.CommandText);
+            }
+            return new ValueTask<InterceptionResult<DbDataReader>>(result);
+        }
+    }
 
     private static GameServer Server(string name) =>
         new() { GameServerId = Guid.NewGuid(), Title = name, GameType = 1, Hostname = name, BanFileRootPath = "" };

@@ -19,7 +19,13 @@ public record DashboardHomeDto : IDto
     public List<AnalyticsTimeseriesPointDto> TrendPoints { get; internal set; } = [];
 
     [JsonProperty]
-    public DashboardCompositionDto Composition { get; internal set; } = new();
+    public List<DashboardRecordedActivityPointDto>? RecordedActivity { get; internal set; }
+
+    [JsonProperty]
+    public string? RecordedActivityCoverage { get; internal set; }
+
+    [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+    public DashboardCompositionDto? Composition { get; internal set; } = new();
 
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
