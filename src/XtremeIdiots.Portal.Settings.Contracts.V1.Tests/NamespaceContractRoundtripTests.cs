@@ -349,6 +349,103 @@ public sealed class NamespaceContractRoundtripTests
     }
 
     [Fact]
+    public void Broadcasts_LegacyResolutionDoesNotInheritGlobalSettings()
+    {
+        var global = new BroadcastSettingsDocument
+        {
+            Enabled = true,
+            IntervalSeconds = 90,
+            Messages = [new() { Id = "global-1", Message = "Global" }]
+        };
+
+        var absent = BroadcastSettingsResolver.Resolve(global, null);
+        Assert.False(absent.Enabled);
+        Assert.Equal(500, absent.IntervalSeconds);
+        Assert.Empty(absent.Messages);
+
+        var legacy = BroadcastSettingsResolver.Resolve(global, new());
+        Assert.False(legacy.Enabled);
+        Assert.Equal(500, legacy.IntervalSeconds);
+        Assert.Empty(legacy.Messages);
+    }
+
+    [Fact]
+    public void Broadcasts_OptInResolutionPreservesLegacyListsAndIndependentOverrides()
+    {
+        var global = new BroadcastSettingsDocument
+        {
+            Enabled = true,
+            IntervalSeconds = 90,
+            Messages = [new() { Id = "global-1", Message = "Global" }]
+        };
+        var inherited = BroadcastSettingsResolver.Resolve(global, null, BroadcastSettingsResolutionMode.GlobalInheritance);
+        Assert.True(inherited.Enabled);
+        Assert.Equal(90, inherited.IntervalSeconds);
+        Assert.Equal("global-1", Assert.Single(inherited.Messages).Id);
+
+        var legacy = BroadcastSettingsResolver.Resolve(global, new(), BroadcastSettingsResolutionMode.GlobalInheritance);
+        Assert.True(legacy.Enabled);
+        Assert.Equal(90, legacy.IntervalSeconds);
+        Assert.Empty(legacy.Messages);
+
+        var server = new BroadcastSettingsDocument
+        {
+            Enabled = false,
+            MessagesMode = BroadcastMessagesMode.Inherit,
+            Messages = [new() { Message = "Ignored local message" }]
+        };
+        var explicitInheritance = BroadcastSettingsResolver.Resolve(global, server, BroadcastSettingsResolutionMode.GlobalInheritance);
+        Assert.False(explicitInheritance.Enabled);
+        Assert.Equal(90, explicitInheritance.IntervalSeconds);
+        Assert.Equal("Global", Assert.Single(explicitInheritance.Messages).Message);
+
+        server.MessagesMode = BroadcastMessagesMode.Replace;
+        server.IntervalSeconds = 30;
+        server.Messages = [];
+        var emptyReplacement = BroadcastSettingsResolver.Resolve(global, server, BroadcastSettingsResolutionMode.GlobalInheritance);
+        Assert.False(emptyReplacement.Enabled);
+        Assert.Equal(30, emptyReplacement.IntervalSeconds);
+        Assert.Empty(emptyReplacement.Messages);
+    }
+
+    [Fact]
+    public void Broadcasts_RejectInvalidModesAndDuplicateIds()
+    {
+        var invalidMode = new BroadcastSettingsDocument { MessagesMode = (BroadcastMessagesMode)42 };
+        Assert.False(new BroadcastSettingsValidator().Validate(invalidMode).IsValid);
+        Assert.Throws<ArgumentException>(() => BroadcastSettingsResolver.Resolve(
+            new() { Enabled = true, Messages = [new() { Message = "Global" }] },
+            invalidMode, BroadcastSettingsResolutionMode.GlobalInheritance));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<BroadcastSettingsDocument>(
+            """{"messagesMode":"FutureMode"}""", JsonOptions));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<BroadcastSettingsDocument>(
+            """{"messagesMode":null}""", JsonOptions));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<BroadcastSettingsDocument>(
+            """{"messagesMode":0}""", JsonOptions));
+
+        var duplicateIds = new BroadcastSettingsDocument
+        {
+            Messages = [new() { Id = "same", Message = "One" }, new() { Id = "same", Message = "Two" }]
+        };
+        Assert.False(new BroadcastSettingsValidator().Validate(duplicateIds).IsValid);
+    }
+
+    [Fact]
+    public void Broadcasts_MessageModeAndExtensionsRoundTrip()
+    {
+        var document = JsonSerializer.Deserialize<BroadcastSettingsDocument>(
+            """{"messagesMode":"Replace","messages":[{"id":"stable","message":"Hello","customField":42}]}""", JsonOptions);
+        Assert.NotNull(document);
+        Assert.Equal(BroadcastMessagesMode.Replace, document.MessagesMode);
+        var serialized = JsonSerializer.Serialize(document, JsonOptions);
+        using var json = JsonDocument.Parse(serialized);
+        Assert.Equal("Replace", json.RootElement.GetProperty("messagesMode").GetString());
+        Assert.Equal("stable", json.RootElement.GetProperty("messages")[0].GetProperty("id").GetString());
+        Assert.Equal(42, json.RootElement.GetProperty("messages")[0].GetProperty("customField").GetInt32());
+        Assert.DoesNotContain("messagesMode", JsonSerializer.Serialize(new BroadcastSettingsDocument(), JsonOptions));
+    }
+
+    [Fact]
     public void ChatCommands_RoundtripAndValidate_Succeeds()
     {
         var input = """

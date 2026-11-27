@@ -176,6 +176,14 @@ public sealed class RuleSetValidator
         "Equal", "NotEqual", "Contains"
     };
 
+    public SettingsValidationResult ValidateConditionTree(RuleConditionNode? condition, RuleSetValidationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var result = new SettingsValidationResult();
+        ValidateCondition(condition, "condition", 1, new Count(), options, result);
+        return result;
+    }
+
     public SettingsValidationResult Validate(FeatureRuleSetDocument? document, RuleSetValidationOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

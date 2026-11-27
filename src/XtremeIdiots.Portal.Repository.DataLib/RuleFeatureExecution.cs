@@ -71,6 +71,8 @@ public partial class RuleFeatureExecution
     [StringLength(16)]
     public string? MatchStatus { get; set; }
 
+    public string? EvaluationEvidenceJson { get; set; }
+
     [ForeignKey("GameServerId")]
     [InverseProperty("RuleFeatureExecutions")]
     public virtual GameServer GameServer { get; set; } = null!;

@@ -52,6 +52,9 @@ public partial class AdminAction
     [InverseProperty("AdminAction")]
     public virtual RuleActionExecution? RuleActionExecution { get; set; }
 
+    [InverseProperty("AdminAction")]
+    public virtual ICollection<RuleOccurrenceEffect> RuleOccurrenceEffects { get; set; } = new List<RuleOccurrenceEffect>();
+
     [ForeignKey("UserProfileId")]
     [InverseProperty("AdminActions")]
     public virtual UserProfile? UserProfile { get; set; }

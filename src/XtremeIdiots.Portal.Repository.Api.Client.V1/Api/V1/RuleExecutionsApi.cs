@@ -38,6 +38,10 @@ public sealed class RuleExecutionsApi(
         {
             httpRequest.AddQueryParameter("matchStatus", matchStatus.ToString());
         }
+        if (request.TriggerOccurrenceId is { } occurrenceId)
+        {
+            httpRequest.AddQueryParameter("triggerOccurrenceId", occurrenceId.ToString());
+        }
         httpRequest.AddQueryParameter("skipEntries", request.SkipEntries.ToString(CultureInfo.InvariantCulture));
         httpRequest.AddQueryParameter("takeEntries", request.TakeEntries.ToString(CultureInfo.InvariantCulture));
         if (request.FromUtc is { } from)
@@ -82,6 +86,18 @@ public sealed class RuleExecutionsApi(
     public Task<ApiResult<RuleTaggedAudienceDto>> GetTaggedAudience(
         Guid gameServerId, RuleTaggedAudienceRequestDto request, CancellationToken cancellationToken = default) =>
         Send<RuleTaggedAudienceDto>($"v1/game-servers/{gameServerId}/rule-tagged-audience", Method.Post, request, cancellationToken);
+
+    public Task<ApiResult<ClaimRuleOccurrenceEffectResultDto>> ClaimOccurrenceEffect(
+        Guid gameServerId, Guid occurrenceId, ClaimRuleOccurrenceEffectDto request, CancellationToken cancellationToken = default) =>
+        Send<ClaimRuleOccurrenceEffectResultDto>($"v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects", Method.Post, request, cancellationToken);
+
+    public Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureOccurrenceAdminAction(
+        Guid gameServerId, Guid occurrenceId, string logicalEffectId, EnsureRuleOccurrenceAdminActionDto request, CancellationToken cancellationToken = default) =>
+        Send<EnsureAutomatedActionResultDto>($"v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects/{Uri.EscapeDataString(logicalEffectId)}/admin-action", Method.Put, request, cancellationToken);
+
+    public Task<ApiResult<RuleOccurrenceEffectDto>> UpdateOccurrenceEffectOutcome(
+        Guid gameServerId, Guid occurrenceId, string logicalEffectId, UpdateRuleOccurrenceEffectOutcomeDto request, CancellationToken cancellationToken = default) =>
+        Send<RuleOccurrenceEffectDto>($"v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects/{Uri.EscapeDataString(logicalEffectId)}/outcome", Method.Put, request, cancellationToken);
 
     public Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> SearchRuleActions(
         RuleActionAuditQueryDto request,
