@@ -22,13 +22,15 @@ CREATE TABLE [dbo].[RuleFeatureExecutions]
     [CreatedAtUtc] DATETIME2(3) NOT NULL,
     [UpdatedAtUtc] DATETIME2(3) NOT NULL,
     [MatchStatus] NVARCHAR(16) NULL,
+    [EvaluationEvidenceJson] NVARCHAR(MAX) NULL,
     CONSTRAINT [PK_RuleFeatureExecutions] PRIMARY KEY CLUSTERED ([ExecutionId]),
     CONSTRAINT [FK_RuleFeatureExecutions_GameServers] FOREIGN KEY ([GameServerId]) REFERENCES [dbo].[GameServers]([GameServerId]),
     CONSTRAINT [FK_RuleFeatureExecutions_SiegeSessions] FOREIGN KEY ([SiegeSessionId]) REFERENCES [dbo].[SiegeSessions]([SessionId]) ON DELETE CASCADE,
     CONSTRAINT [CK_RuleFeatureExecutions_Progress] CHECK ([RuleIndex] >= 0 AND [ActionIndex] >= 0 AND [Version] > 0),
     CONSTRAINT [CK_RuleFeatureExecutions_State] CHECK ([State] IN (N'Evaluating', N'AwaitingActionOutcome', N'Waiting', N'Completed', N'Stopped')),
     CONSTRAINT [CK_RuleFeatureExecutions_MatchStatus] CHECK ([MatchStatus] IS NULL OR [MatchStatus] IN (N'Matched', N'NoMatch')),
-    CONSTRAINT [CK_RuleFeatureExecutions_DiagnosticsJson] CHECK ([DiagnosticsJson] IS NULL OR ISJSON([DiagnosticsJson]) = 1)
+    CONSTRAINT [CK_RuleFeatureExecutions_DiagnosticsJson] CHECK ([DiagnosticsJson] IS NULL OR ISJSON([DiagnosticsJson]) = 1),
+    CONSTRAINT [CK_RuleFeatureExecutions_EvaluationEvidenceJson] CHECK ([EvaluationEvidenceJson] IS NULL OR ISJSON([EvaluationEvidenceJson]) = 1)
 );
 GO
 CREATE UNIQUE INDEX [IX_RuleFeatureExecutions_ConnectionFeatureSession]

@@ -91,6 +91,12 @@ public partial class GameServer
     [InverseProperty("GameServer")]
     public virtual ICollection<RuleFeatureExecution> RuleFeatureExecutions { get; set; } = new List<RuleFeatureExecution>();
 
+    [InverseProperty("GameServer")]
+    public virtual ICollection<RuleOccurrenceCooldown> RuleOccurrenceCooldowns { get; set; } = new List<RuleOccurrenceCooldown>();
+
+    [InverseProperty("GameServer")]
+    public virtual ICollection<RuleOccurrenceEffect> RuleOccurrenceEffects { get; set; } = new List<RuleOccurrenceEffect>();
+
     [InverseProperty("Server")]
     public virtual ICollection<ServerMapRun> ServerMapRuns { get; set; } = new List<ServerMapRun>();
 

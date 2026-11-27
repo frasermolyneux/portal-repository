@@ -188,6 +188,7 @@
       "name": "[dbo].[RuleConnectionBindings]"
     },
     {
+      "exclude": false,
       "excludedColumns": [],
       "name": "[dbo].[RuleFeatureExecutions]"
     },
@@ -196,6 +197,12 @@
     },
     {
       "name": "[dbo].[RuleActionExecutions]"
+    },
+    {
+      "name": "[dbo].[RuleOccurrenceEffects]"
+    },
+    {
+      "name": "[dbo].[RuleOccurrenceCooldowns]"
     },
     {
       "name": "[dbo].[RuleFactSnapshots]"

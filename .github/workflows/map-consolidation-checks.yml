@@ -8,6 +8,8 @@ on:
       - "src/XtremeIdiots.Portal.Repository.Api.V1/**"
       - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/MapCatalogueConcurrencyTests.cs"
       - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/ObservedRotationConcurrencyTests.cs"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/RuleOccurrenceConcurrencyTests.cs"
+      - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/Controllers/V1/RuleExecutionsEvidenceConcurrencyTests.cs"
       - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/UserProfileArchivalConcurrencyTests.cs"
       - "src/XtremeIdiots.Portal.Repository.Api.Tests.V1/TestHelpers/SqlServerTestDatabase.cs"
       - ".github/workflows/map-consolidation-checks.yml"
@@ -36,7 +38,7 @@ jobs:
       - name: Validate migration against isolated LocalDB fixtures
         shell: pwsh
         run: .\maintenance\Test-ConsolidateCod4Maps.ps1
-      - name: Validate concurrent API creates and transition votes on SQL Server
+      - name: Validate SQL Server concurrency scenarios
         if: success() || failure()
         shell: pwsh
-        run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests|FullyQualifiedName~ObservedRotationConcurrencyTests"
+        run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~RuleOccurrenceConcurrencyTests|FullyQualifiedName~EvidenceReadConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests|FullyQualifiedName~ObservedRotationConcurrencyTests"

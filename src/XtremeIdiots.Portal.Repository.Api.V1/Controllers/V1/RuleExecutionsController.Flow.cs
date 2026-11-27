@@ -46,6 +46,7 @@ public sealed partial class RuleExecutionsController
         ConnectionId = execution.ConnectionId,
         FeatureId = execution.FeatureId,
         TriggerId = execution.Trigger.TriggerId,
+        TriggerOccurrenceId = execution.Trigger.TriggerOccurrenceId == Guid.Empty ? null : execution.Trigger.TriggerOccurrenceId,
         PlayerGuid = execution.Trigger.PlayerGuid,
         Username = execution.Trigger.Username,
         State = execution.State,
@@ -59,6 +60,7 @@ public sealed partial class RuleExecutionsController
             WaitingReason = execution.State == RuleFeatureExecutionState.Waiting ? coordination.WaitingReason : null
         } : null,
         Diagnostics = execution.Diagnostics,
+        EvaluationEvidence = execution.EvaluationEvidence,
         Actions = execution.Actions.Select(action => new RuleExecutionAuditActionDto
         {
             RuleId = action.RuleId,

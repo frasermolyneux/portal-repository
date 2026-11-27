@@ -55,7 +55,7 @@ jobs:
           suite: Integration-V1
           project: XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1
           no-build: "false"
-          filter: FullyQualifiedName~InfoAndHealthTests|FullyQualifiedName~PlayersTests|FullyQualifiedName~CurrentPlayerSessionsTests|FullyQualifiedName~MapRotationsTests
+          filter: FullyQualifiedName~InfoAndHealthTests|FullyQualifiedName~PlayersTests|FullyQualifiedName~CurrentPlayerSessionsTests|FullyQualifiedName~MapRotationsTests|FullyQualifiedName~RuleOccurrenceEffectsTests
           artifact-name: test-results-Integration-V1
 
       - name: Run V2 API integration tests
