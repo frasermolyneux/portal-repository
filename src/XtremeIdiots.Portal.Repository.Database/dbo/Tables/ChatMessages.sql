@@ -33,7 +33,7 @@ CREATE NONCLUSTERED INDEX [IX_ChatMessages]
 GO
 CREATE NONCLUSTERED INDEX [IX_ChatMessages_Timestamp_Locked]
     ON [dbo].[ChatMessages]([Timestamp] DESC, [Locked])
-    INCLUDE ([Username], [Message], [ChatType]);
+    INCLUDE ([Username], [Message], [ChatType], [PlayerId], [GameServerId]);
 
 GO
 CREATE NONCLUSTERED INDEX [IX_ChatMessages_GameServerId_Timestamp]

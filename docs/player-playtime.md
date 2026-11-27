@@ -59,6 +59,52 @@ latest retained observations, not historical sessions or complete population cov
 Global and Game player rankings count retained chat messages, not player activity;
 the Game map breakdown counts server-stat samples, not map plays.
 
+The shared chat analytics index extends the existing timestamp/locked index with
+`PlayerId` and `GameServerId` as included columns. Existing keys and included chat
+payloads are preserved, with no additional index or query hint. This covers the
+Global/Game ranking inputs and server counts/rankings when the optimizer selects
+it; server filtering is residual within the global time range, and Game filtering
+still joins Player records. It does not make chat counts into session activity.
+
+The pre-change read-only production inventory contained 915,897 chat rows and a
+104.4 MiB timestamp/locked index. Two additional GUIDs imply about 28.0 MiB of raw
+leaf payload before page overhead/occupancy. Seven-day global/server counts were
+29,485/23,170 for one newly selected representative server, not every server.
+Widening preserves the index count but adds insert/update/retention-delete work,
+and deployment rebuilds the existing index. The isolated SQL regression test
+applies the authoritative index DDL and compares one-, seven- and 30-day ranking
+queries, plus the existing server `COUNT(*)` and full `PlayerId`/`Username`
+projection for dominant/minority servers. Projected rows are compared independently
+of order outside timed retrieval, without substituting SQL grouping or distinct
+counts for the existing in-memory server summary. The test records total and
+per-table logical reads (including LOB pages), index storage and rolled-back insert
+log bytes. Full baseline/candidate XML plans are emitted into test output with
+query, UTC window and server labels, retaining predicates, row counts, grants and
+spill details for review in CI test artifacts. The isolated test exercises both
+one-day-first and 30-day-first cached plans, using only its private database's
+procedure cache. Read comparisons precede write probes; all chat indexes are
+rebuilt to comparable layouts before each rolled-back append-insert probe.
+Retrieval timings include plan
+instrumentation, exclude result comparison/plan parsing, and are not production
+latency evidence; the earlier production ranking measurements below predate this
+index change.
+
+In isolated SQL CI run `45975623925`, both frameworks preserved all projected
+results and 72 full plans each. With 100,000 synthetic rows, Global total logical
+reads fell from 1,508-1,509 to 10/51/206 pages for one/seven/30 days. Server
+projection reads improved for both server scopes; existing server-count reads were unchanged.
+The rebuilt index grew from 9,040 to 12,272 KiB, and 1,000-row append transaction
+logging grew about 1.4% (roughly 2.51 to 2.545 MB). These are isolated measurements,
+not production storage or throughput guarantees.
+
+The sparse GameType 2 30-day ranking increased from 203-204 to 208 logical pages.
+Reusing a one-day-first plan for 30 days caused new Global/Game sort spills with a
+1,024 KiB grant; the Game retrieval rose from 5-7 to 65-100 ms. With a 30-day-first
+plan, estimates closely matched the 13,393 scanned rows and neither query spilled. Timings
+otherwise remained mixed. This demonstrates a logical-I/O benefit with a cached-plan
+tradeoff, not a universal latency fix; other game distributions and production
+end-to-end latency have not been established by this fixture.
+
 Player overview adds nullable `observedPlayerRecords` (retained Player records with
 `FirstSeen < toUtc`), `recordedPlayers` (distinct players with a recorded session
 overlapping `[fromUtc, toUtc)`), and `sessionStarts` (recorded session starts in that
