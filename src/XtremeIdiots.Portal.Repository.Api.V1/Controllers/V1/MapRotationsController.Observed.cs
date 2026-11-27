@@ -181,6 +181,7 @@ public partial class MapRotationsController
                     && !r.MapRotationServerAssignments.Any(a => a.UnassignedAt == null
                         || a.Source == (int)RotationSource.PortalManaged
                         || a.MapRotationAssignmentOperations.Any()))
+                .AsSplitQuery()
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
             context.MapRotationMaps.RemoveRange(rotations.SelectMany(r => r.MapRotationMaps));
             context.MapRotationServerAssignments.RemoveRange(rotations.SelectMany(r => r.MapRotationServerAssignments));
