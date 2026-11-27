@@ -98,6 +98,22 @@ The former `welcomeMessages` namespace is not migrated, interpreted as rules, or
 Repository configuration storage remains dynamic, so retained documents remain readable and
 writable without the removed namespace-specific validator.
 
+## Broadcast Settings
+
+`broadcasts` keeps its existing nullable `enabled` and `intervalSeconds` fields and ordered
+`messages` array. Messages may have an optional stable `id`; existing messages without IDs remain
+valid. The optional server `messagesMode` is `Inherit` or `Replace`, independent of the scalar
+overrides. `Replace` uses the server list, including an explicit empty list. A present legacy
+server document without `messagesMode` keeps its server-local list. An explicitly null, malformed,
+or unknown `messagesMode` is invalid.
+
+`BroadcastSettingsResolver.Resolve` defaults to `LegacyServerOnly`: a missing server document is
+disabled with a 500-second interval and an empty list. `GlobalInheritance` is an explicit cutover:
+an absent server document inherits global settings, and missing server scalars inherit their global
+values. Invalid settings or modes fail validation rather than inheriting silently. Upgrade readers
+and full-document editors before writing `messagesMode`, and review the effective configuration
+before enabling the new resolution mode; old readers do not inherit global broadcasts.
+
 ## Compatibility Shim Transition (Chat Package Path)
 
 The legacy chat contract path (`XtremeIdiots.Portal.ChatCommands.Abstractions.V1`) remains a compatibility shim during migration. Transition guidance:
