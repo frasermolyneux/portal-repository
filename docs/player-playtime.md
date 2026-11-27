@@ -39,3 +39,64 @@ The per-player session endpoint retains its existing `MeasuredSeconds` meaning (
 Daily buckets contain positive known-map playtime only; a missing day is not evidence of inactivity. `playtimeCoverage` is `unknown` for a valid scope or `unavailable` if no eligible servers remain. Unknown-map seconds are reported separately. Tracked sessions overlap the window through their recorded end or last confirmed time, and known bots are excluded from playtime and session metrics. Last observed evidence may precede the window. An authorized chat count is a count of retained rows, including commands or duplicate records; only locked history can contribute before `chatRetentionCutoffUtc`. No metric implies complete tracking history.
 
 Chat counts for windows beginning within retention use the existing player/server covering index without reading the message row's `Locked` flag. Windows beginning before retention retain the locked-history predicate; the counting and permission rules are unchanged.
+
+## Aggregate analytics
+
+The service-account Global, Game and Player analytics retain their existing fields for
+compatibility. `UniquePlayers`, `ActivePlayers` and `ReturningPlayers` based on
+`Players.LastSeen` describe records whose latest observation falls in the window, not
+everyone active in a historical window. Recent-player timestamps are updated in place;
+counts grouped by them, including the legacy Player session counts and geography, are
+latest retained observations, not historical sessions or complete population coverage.
+Global and Game player rankings count retained chat messages, not player activity;
+the Game map breakdown counts server-stat samples, not map plays.
+
+Player overview adds nullable `observedPlayerRecords` (retained Player records with
+`FirstSeen < toUtc`), `recordedPlayers` (distinct players with a recorded session
+overlapping `[fromUtc, toUtc)`), and `sessionStarts` (recorded session starts in that
+window). Per-game items add `observedPlayerRecords` for games already present in the
+legacy latest-seen breakdown. These are player records, not accounts; deleted records
+are absent and no bot classification exists on the Player record. Recorded session
+metrics exclude known bots, include unknown bot classifications, and use the current
+non-deleted server set; deleting a server can change historical totals. Sessions use the
+recorded end or last confirmed time for overlap. The Player
+timeseries adds per-bucket `sessionStarts`. Its and the overview's `trackingCoverage`
+are `"unknown"`: neither a zero nor a missing observation establishes inactivity.
+Additive fields are null when an older API does not provide them.
+
+Game overview and Global/Game timeseries points add nullable `statsSampleCount`. Zero
+means no samples, not zero occupancy; a positive count describes available samples,
+not complete server coverage. Older APIs omit the field. Legacy comparison series have
+no per-bucket sample availability indicator.
+
+An alternative SQL-side bucketing approach was investigated but not adopted because
+its database latency did not consistently improve. In a single read-only production
+probe on 2026-11-27 over 24 hours, hourly SQL
+aggregation returned 25 rows / 571 bytes for 3,053 stat samples instead of 3,053 rows /
+39,821 bytes, 19 rows / 167 bytes for 3,197 chat messages instead of 3,197 rows /
+28,867 bytes, and 21 rows / 179 bytes for 560 session starts instead of 560 rows /
+5,669 bytes. The paired SQL calls took 675/1,163 ms, 37/57 ms, and 61/107 ms
+(raw/grouped) respectively; these single calls do not measure API latency and do not
+establish a latency improvement. Session starts use the current non-deleted server set.
+In a seven-day probe of Global stats, the original timestamp-ordered query returned
+25,612 rows / 333,389 bytes in 861 and 1,842 ms; hourly grouping returned 169 rows /
+3,451 bytes in 1,000 and 5,023 ms. These two runs show lower transfer but slower,
+variable database latency, not an end-to-end speedup.
+
+The legacy chat-ranking queries and their previously observed 26.66/37.08 second
+latencies are unchanged. In a separate bounded 24-hour production probe, the Game
+ranking's equivalent join and player-ID subquery shapes took 80/310 ms and 42/291 ms
+respectively, with the same sum of top-ten counts. This small, noisy sample does not
+establish an improvement. Forcing the existing player/server covering index timed out
+after 15 seconds for both Global and Game simplified rankings; adding an index would
+need separate write/storage impact and SQL Server plan measurements.
+In a seven-day actual-plan probe, both rankings used a clustered ChatMessages scan;
+Global took 19.6 seconds and Game 1.8 seconds immediately afterward. Forcing the
+existing timestamp index in separate single runs improved the one-day Global/Game
+queries from 762/2,135 ms to 105/136 ms, but regressed the 30-day queries from
+1,862/2,360 ms to 3,599/2,800 ms. These are isolated read-only measurements, not
+reliable latency distributions; no index hint or range-based heuristic was adopted.
+An alternative `OPTION (RECOMPILE)` probe took 57/313 ms for one-day Global/Game
+queries versus 1,106/1,518 ms without it, and 1,783/5,345 ms for 30-day queries
+versus 1,757/4,133 ms without it. These single executions do not establish a safe
+general improvement, and applying the hint would require SQL Server-specific execution.
