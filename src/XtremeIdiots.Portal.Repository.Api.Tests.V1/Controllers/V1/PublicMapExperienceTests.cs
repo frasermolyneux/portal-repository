@@ -246,6 +246,43 @@ public sealed class PublicMapExperienceTests : IDisposable
         Assert.Equal(1, await context.GameServerStats.CountAsync());
     }
 
+    [Fact]
+    public async Task Rotations_ObservedTokenUsesCatalogueNameForServerVotes()
+    {
+        var server = Server(GameType.CallOfDuty4);
+        var map = Map("mp_map ", GameType.CallOfDuty4);
+        Vote(map, server, true);
+        var rotation = new MapRotation
+        {
+            MapRotationId = Guid.NewGuid(),
+            Source = (int)RotationSource.ServerObserved,
+            GameType = (int)GameType.CallOfDuty4,
+            Title = "Observed",
+            GameMode = "",
+            Version = 1,
+            CreatedAt = now,
+            UpdatedAt = now,
+            MapRotationMaps = [new() { MapRotationMapId = Guid.NewGuid(), Map = map, MapName = "mp_map", SortOrder = 0 }]
+        };
+        context.MapRotationServerAssignments.Add(new()
+        {
+            MapRotationServerAssignmentId = Guid.NewGuid(),
+            MapRotation = rotation,
+            GameServer = server,
+            Source = (int)RotationSource.ServerObserved,
+            DeploymentState = (int)DeploymentState.NotApplicable,
+            ObservedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        await context.SaveChangesAsync();
+
+        var result = (await ((IMapRotationsApi)new MapRotationsController(context)).GetPublicServerRotations()).Result!.Data!;
+        var entry = Assert.Single(Assert.Single(result.Servers).Maps);
+        Assert.Equal("mp_map", entry.MapName);
+        Assert.Equal(1, entry.ServerLikes);
+    }
+
     private GameServer Server(GameType type, bool listed = true)
     {
         var server = new GameServer

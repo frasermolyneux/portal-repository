@@ -59,7 +59,7 @@ internal static class EffectiveRotationResolver
                     var name = entry.MapName ?? entry.Map.MapName!;
                     var map = lookup.GetValueOrDefault((family, entry.Map.MapName!.ToUpperInvariant())) ?? entry.Map;
                     var counts = voteLookup.GetValueOrDefault((server.GameServerId,
-                        family == (int)GameType.CallOfDuty4 ? Guid.Empty : map.MapId, family, name.ToUpperInvariant()));
+                        family == (int)GameType.CallOfDuty4 ? Guid.Empty : map.MapId, family, entry.Map.MapName!.ToUpperInvariant()));
                     maps.Add(new()
                     {
                         MapId = map.MapId,

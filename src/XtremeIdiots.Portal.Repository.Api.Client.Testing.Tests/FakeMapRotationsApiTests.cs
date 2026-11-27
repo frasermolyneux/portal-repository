@@ -71,7 +71,8 @@ public class FakeMapRotationsApiTests
         { Source = RotationSource.ServerObserved };
         MapRotationServerAssignmentDto Assignment(MapRotationDto rotation, RotationSource source, DateTime? unassignedAt) =>
             new(Guid.NewGuid(), rotation.MapRotationId, Guid.NewGuid(), DeploymentState.NotApplicable,
-                ActivationState.Inactive, null, null, null, null, null, null, now, now, unassignedAt) { Source = source };
+                ActivationState.Inactive, null, null, null, null, null, null, now, now, unassignedAt)
+            { Source = source };
         var removable = Rotation();
         var managed = Rotation();
         var active = Rotation();
