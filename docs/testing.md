@@ -1,5 +1,15 @@
 # Testing with the Repository API Client
 
+## Rule execution read concurrency
+
+`RuleExecutionReadConcurrencyTests` uses isolated SQL Server to verify consistent execution reads
+against progress updates, player deletion, and Siege pruning. The SQL concurrency check runs these
+cases.
+
+```pwsh
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleExecutionReadConcurrencyTests"
+```
+
 ## Profile archival coverage
 
 `FakeUserProfileApi` supports `ArchiveUserProfile` and

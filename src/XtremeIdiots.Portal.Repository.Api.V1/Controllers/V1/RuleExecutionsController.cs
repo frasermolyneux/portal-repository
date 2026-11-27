@@ -40,6 +40,7 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     [HttpGet("game-servers/{gameServerId:guid}/rule-executions/{executionId:guid}")]
     [ProducesResponseType<ApiResponse<RuleFeatureExecutionDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> GetExecution(Guid gameServerId, Guid executionId, CancellationToken cancellationToken = default) =>
         (await ((IRuleExecutionsApi)this).GetExecution(gameServerId, executionId, cancellationToken).ConfigureAwait(false)).ToHttpResult();
 
@@ -250,11 +251,52 @@ public sealed partial class RuleExecutionsController(PortalDbContext context) : 
     async Task<ApiResult<RuleFeatureExecutionDto>> IRuleExecutionsApi.GetExecution(
         Guid gameServerId, Guid executionId, CancellationToken cancellationToken)
     {
-        var execution = await context.RuleFeatureExecutions.AsNoTracking().SingleOrDefaultAsync(
-            e => e.GameServerId == gameServerId && e.ExecutionId == executionId, cancellationToken).ConfigureAwait(false);
-        return execution is null
-            ? new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound)
-            : new ApiResponse<RuleFeatureExecutionDto>(await ToDtoAsync(execution, cancellationToken).ConfigureAwait(false)).ToApiResult();
+        var scope = await context.RuleFeatureExecutions.AsNoTracking()
+            .Where(e => e.GameServerId == gameServerId && e.ExecutionId == executionId)
+            .Select(e => new { e.GameType, e.SiegeSessionId })
+            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (scope is null)
+        {
+            return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound);
+        }
+
+        async Task<ApiResult<RuleFeatureExecutionDto>> ReadAsync()
+        {
+            if (scope.SiegeSessionId is not null)
+            {
+                await SiegeHistoryLock.AcquireAsync(context, cancellationToken, exclusive: false).ConfigureAwait(false);
+            }
+            await AcquireGameHistoryReadLockAsync(scope.GameType, cancellationToken).ConfigureAwait(false);
+            if (!await AcquireTransactionLockAsync($"rules-execution-id:{executionId:N}", cancellationToken).ConfigureAwait(false))
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            var execution = await context.RuleFeatureExecutions.AsNoTracking().SingleOrDefaultAsync(
+                e => e.GameServerId == gameServerId && e.ExecutionId == executionId, cancellationToken).ConfigureAwait(false);
+            if (execution is null)
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.NotFound);
+            }
+            if (execution.GameType != scope.GameType || execution.SiegeSessionId != scope.SiegeSessionId)
+            {
+                return new ApiResult<RuleFeatureExecutionDto>(HttpStatusCode.Conflict);
+            }
+            return new ApiResponse<RuleFeatureExecutionDto>(
+                await ToDtoAsync(execution, cancellationToken).ConfigureAwait(false)).ToApiResult();
+        }
+
+        if (!context.Database.IsRelational())
+        {
+            return await ReadAsync().ConfigureAwait(false);
+        }
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await context.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
+            var result = await ReadAsync().ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return result;
+        }).ConfigureAwait(false);
     }
 
     async Task<ApiResult<RuleFeatureExecutionDto>> IRuleExecutionsApi.UpdateProgress(
