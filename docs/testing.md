@@ -25,6 +25,18 @@ dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQuali
 dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter "FullyQualifiedName~UserProfileArchival"
 ```
 
+## Chat occurrence effect coverage
+
+`RuleOccurrenceEffectsTests` exercises the V1 claim and moderation-record routes over HTTP.
+`RuleOccurrenceConcurrencyTests` uses isolated SQL Server to verify duplicate claims, atomic
+cooldown reservation, and record linkage under concurrency. PR Verify includes the HTTP test,
+and the SQL concurrency check includes the database tests.
+
+```pwsh
+dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter "FullyQualifiedName~RuleOccurrenceEffectsTests"
+dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleOccurrenceConcurrencyTests"
+```
+
 The `XtremeIdiots.Portal.Repository.Api.Client.Testing` NuGet package provides in-memory fakes and factory helpers so consumer apps can test against `IRepositoryApiClient` without Moq or any mocking framework.
 
 ## Installation
