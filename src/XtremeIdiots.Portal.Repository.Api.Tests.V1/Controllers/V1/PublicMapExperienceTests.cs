@@ -224,7 +224,9 @@ public sealed class PublicMapExperienceTests : IDisposable
                 (projected.Maps[1].ServerLikes, projected.Maps[1].ServerDislikes,
                     projected.Maps[1].ServerVotes, projected.Maps[1].ServerApproval));
         }
-        Assert.InRange(commands.Text.Count, 5, 8);
+        Assert.InRange(commands.Text.Count, 4, 8);
+        Assert.Single(commands.Text, sql => sql.Contains("MapRotationServerAssignments", StringComparison.OrdinalIgnoreCase)
+            && sql.Contains("MapRotationMaps", StringComparison.OrdinalIgnoreCase));
         Assert.Single(commands.Text, sql => sql.Contains("MapVotes", StringComparison.OrdinalIgnoreCase)
             && sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(commands.Text, sql => sql.Contains("GameServerStats", StringComparison.OrdinalIgnoreCase));

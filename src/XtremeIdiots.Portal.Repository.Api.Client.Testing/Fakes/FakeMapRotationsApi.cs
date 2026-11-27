@@ -17,6 +17,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
     private PublicServerRotationsDto _publicRotations = new();
     private readonly ConcurrentDictionary<Guid, PublicServerRotationDto> _effectiveRotations = new();
     private readonly ConcurrentDictionary<Guid, ObserveServerRotationDto> _observations = new();
+    private readonly ConcurrentDictionary<(Guid ServerId, string MapName), Guid> _observedMapIds = new();
 
     public FakeMapRotationsApi SetPublicServerRotations(PublicServerRotationsDto rotations) { _publicRotations = rotations; return this; }
     public FakeMapRotationsApi SetEffectiveServerRotation(PublicServerRotationDto rotation)
@@ -78,6 +79,21 @@ public class FakeMapRotationsApi : IMapRotationsApi
         {
             dto.MapRotationId = Guid.NewGuid();
         }
+        if (!unchanged || current == null)
+        {
+            var now = DateTime.UtcNow;
+            var maps = saved.Entries.Select((entry, index) => new MapRotationMapDto
+            {
+                MapRotationMapId = Guid.NewGuid(),
+                MapId = _observedMapIds.GetOrAdd((gameServerId, entry.MapName.ToUpperInvariant()), _ => Guid.NewGuid()),
+                MapName = entry.MapName,
+                GameMode = entry.GameMode,
+                SortOrder = index
+            }).ToList();
+            _mapRotations[dto.MapRotationId] = new MapRotationDto(dto.MapRotationId, GameType.Unknown,
+                "Server observed rotation", null, "", 1, null, now, now, maps, [])
+            { Source = RotationSource.ServerObserved };
+        }
         dto.ObservedAt = observation.ObservedAt.UtcDateTime;
         _observations[gameServerId] = saved;
         _serverAssignments[dto.MapRotationServerAssignmentId] = dto;
@@ -90,9 +106,18 @@ public class FakeMapRotationsApi : IMapRotationsApi
         {
             return Task.FromResult(new ApiResult(configured.StatusCode, new ApiResponse(configured.Error)));
         }
-        foreach (var rotation in _mapRotations.Values.Where(r => r.Source == RotationSource.ServerObserved
-            && !_serverAssignments.Values.Any(a => a.MapRotationId == r.MapRotationId)))
+        foreach (var rotation in _mapRotations.Values.Where(r => r.Source == RotationSource.ServerObserved))
         {
+            var assignments = _serverAssignments.Values.Where(a => a.MapRotationId == rotation.MapRotationId).ToList();
+            if (assignments.Any(a => a.UnassignedAt == null || a.Source == RotationSource.PortalManaged
+                || _assignmentOperations.Values.Any(o => o.MapRotationServerAssignmentId == a.MapRotationServerAssignmentId)))
+            {
+                continue;
+            }
+            foreach (var assignment in assignments)
+            {
+                _serverAssignments.TryRemove(assignment.MapRotationServerAssignmentId, out _);
+            }
             _mapRotations.TryRemove(rotation.MapRotationId, out _);
         }
         return Task.FromResult(new ApiResult(HttpStatusCode.OK, new ApiResponse()));
@@ -109,7 +134,7 @@ public class FakeMapRotationsApi : IMapRotationsApi
         _errorResponses[operationKey] = (statusCode, new ApiError(errorCode, errorMessage));
         return this;
     }
-    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _effectiveRotations.Clear(); _observations.Clear(); _publicRotations = new(); return this; }
+    public FakeMapRotationsApi Reset() { _mapRotations.Clear(); _serverAssignments.Clear(); _assignmentOperations.Clear(); _errorResponses.Clear(); _effectiveRotations.Clear(); _observations.Clear(); _observedMapIds.Clear(); _publicRotations = new(); return this; }
 
     // ───────────────────────── Map Rotation CRUD ─────────────────────────
 

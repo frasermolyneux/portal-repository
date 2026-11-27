@@ -14,7 +14,9 @@ testing-package suites cover source-filtered reads and observed lifecycle guards
 `FakeMapRotationsApi.SetEffectiveServerRotation` supplies explicit effective
 responses for private-server consumers. Observation calls simulate source ownership,
 refresh identity and timestamp conflicts; real catalogue/transaction behavior is
-covered by the SQL tests rather than the fake.
+covered by the SQL tests rather than the fake. Observed fake snapshots use
+`GameType.Unknown` because the fake has no server catalogue; their map IDs are
+simulated and scoped to the server and case-insensitive map name.
 On Windows, `PORTAL_TEST_SQL_SERVER` can select a separately created LocalDB instance
 for these SQL fixtures; the default remains `(localdb)\MSSQLLocalDB`. Tests still
 create and remove only their uniquely named databases. The caller owns starting

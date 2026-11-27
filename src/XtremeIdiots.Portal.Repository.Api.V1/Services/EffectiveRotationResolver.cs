@@ -15,7 +15,7 @@ internal static class EffectiveRotationResolver
         var assignments = await context.MapRotationServerAssignments.AsNoTracking()
             .Include(a => a.MapRotation).ThenInclude(r => r.MapRotationMaps).ThenInclude(m => m.Map)
             .Where(a => ids.Contains(a.GameServerId) && a.UnassignedAt == null)
-            .AsSplitQuery().ToListAsync(cancellationToken).ConfigureAwait(false);
+            .AsSingleQuery().ToListAsync(cancellationToken).ConfigureAwait(false);
         var names = assignments.SelectMany(a => a.MapRotation.MapRotationMaps)
             .Select(m => m.Map.MapName).Where(n => n != null).Distinct().ToArray();
         var metadata = await MapReadService.CatalogueQuery(context)
