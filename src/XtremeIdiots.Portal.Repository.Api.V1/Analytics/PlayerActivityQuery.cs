@@ -76,9 +76,14 @@ internal static class PlayerActivityQuery
             if (chatScope.Length > 0)
             {
                 var cutoff = DateTime.UtcNow.AddMonths(-HistoryRetention.ChatMessageMonths);
-                chatMessages = await context.ChatMessages.LongCountAsync(m => m.PlayerId == playerId
-                    && chatScope.Contains(m.GameServerId) && m.Timestamp >= fromUtc && m.Timestamp < toUtc
-                    && (m.Timestamp >= cutoff || m.Locked), cancellationToken).ConfigureAwait(false);
+                var chat = context.ChatMessages.Where(m => m.PlayerId == playerId
+                    && chatScope.Contains(m.GameServerId) && m.Timestamp >= fromUtc && m.Timestamp < toUtc);
+                // Recent windows are already inside retention; avoid fetching Locked from the clustered row.
+                if (fromUtc < cutoff)
+                {
+                    chat = chat.Where(m => m.Timestamp >= cutoff || m.Locked);
+                }
+                chatMessages = await chat.LongCountAsync(cancellationToken).ConfigureAwait(false);
                 chatCutoffUtc = cutoff;
             }
         }

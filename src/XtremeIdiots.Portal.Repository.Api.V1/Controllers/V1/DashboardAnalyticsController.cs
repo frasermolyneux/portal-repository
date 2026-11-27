@@ -46,13 +46,17 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
         [FromQuery] DateTime toUtc,
         [FromQuery] AnalyticsBucket bucket,
         [FromQuery] int top = AnalyticsQueryDefaults.DefaultTop,
+        [FromQuery] bool includeComposition = true,
         CancellationToken cancellationToken = default)
     {
-        var response = await ((IDashboardAnalyticsApi)this).GetHome(fromUtc, toUtc, bucket, top, cancellationToken).ConfigureAwait(false);
+        var response = await ((IDashboardAnalyticsApi)this).GetHome(fromUtc, toUtc, bucket, top, includeComposition, cancellationToken).ConfigureAwait(false);
         return response.ToHttpResult();
     }
 
-    async Task<ApiResult<DashboardHomeDto>> IDashboardAnalyticsApi.GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, CancellationToken cancellationToken)
+    Task<ApiResult<DashboardHomeDto>> IDashboardAnalyticsApi.GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, CancellationToken cancellationToken) =>
+        ((IDashboardAnalyticsApi)this).GetHome(fromUtc, toUtc, bucket, top, true, cancellationToken);
+
+    async Task<ApiResult<DashboardHomeDto>> IDashboardAnalyticsApi.GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken)
     {
         if (!IsValidHomeQuery(fromUtc, toUtc, bucket, top))
         {
@@ -61,7 +65,10 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
 
         var summary = await GetHomeSummaryAsync(fromUtc, toUtc, cancellationToken).ConfigureAwait(false);
         var trendPoints = await GetHomeTrendPointsAsync(fromUtc, toUtc, bucket, cancellationToken).ConfigureAwait(false);
-        var composition = await GetHomeCompositionAsync(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false);
+        var composition = includeComposition
+            ? await GetHomeCompositionAsync(fromUtc, toUtc, top, cancellationToken).ConfigureAwait(false)
+            : null;
+        var recordedActivity = await DashboardRecordedActivityQuery.ReadAsync(context, fromUtc, toUtc, bucket, cancellationToken).ConfigureAwait(false);
 
         var dto = new DashboardHomeDto
         {
@@ -69,6 +76,8 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             Summary = summary,
             Bucket = bucket,
             TrendPoints = trendPoints,
+            RecordedActivity = recordedActivity,
+            RecordedActivityCoverage = "unknown",
             Composition = composition
         };
 
@@ -243,11 +252,12 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             return new ApiResult<DashboardServerDto>(HttpStatusCode.NotFound);
         }
 
-        var playerCounts = await context.GameServerStats
+        var playerStats = await context.GameServerStats
             .AsNoTracking()
             .Where(s => s.GameServerId == gameServerId && s.Timestamp >= fromUtc && s.Timestamp < toUtc)
-            .Select(s => s.PlayerCount)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .GroupBy(_ => 1)
+            .Select(g => new { Average = g.Average(s => (double)s.PlayerCount), Peak = g.Max(s => s.PlayerCount) })
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
         var eventsCount = await context.GameServerEvents
             .AsNoTracking()
@@ -290,13 +300,15 @@ public class DashboardAnalyticsController : ControllerBase, IDashboardAnalyticsA
             CurrentPlayers = live?.CurrentPlayers ?? 0,
             MaxPlayers = live?.MaxPlayers ?? 0,
             MapName = live?.Map,
-            AvgPlayers = playerCounts.Count == 0 ? 0 : Math.Round(playerCounts.Average(), 2),
-            PeakPlayers = playerCounts.Count == 0 ? 0 : playerCounts.Max(),
+            AvgPlayers = playerStats == null ? 0 : Math.Round(playerStats.Average, 2),
+            PeakPlayers = playerStats?.Peak ?? 0,
             EventsCount = eventsCount,
             ChatCount = chatCount,
             UniquePlayers = uniquePlayers,
             Bucket = bucket,
-            TrendPoints = trendPoints
+            TrendPoints = trendPoints,
+            RecordedActivity = await DashboardRecordedActivityQuery.ReadAsync(context, fromUtc, toUtc, bucket, cancellationToken, gameServerId).ConfigureAwait(false),
+            RecordedActivityCoverage = "unknown"
         };
 
         return new ApiResponse<DashboardServerDto>(dto).ToApiResult();
