@@ -19,8 +19,7 @@ public class FakeRepositoryApiClientTests
         var fake = new FakeDashboardAnalyticsApi();
         var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var home = Newtonsoft.Json.JsonConvert.DeserializeObject<Abstractions.Models.V1.Analytics.Dashboard.DashboardHomeDto>(
-            /*lang=json,strict*/
-                                 """{"composition":{"topGames":[]}}""")!;
+            Newtonsoft.Json.JsonConvert.SerializeObject(new { composition = new { topGames = Array.Empty<object>() } }))!;
         fake.SetHome(home);
 
         Assert.Null((await fake.GetHome(from, from.AddDays(1), AnalyticsBucket.OneDay, 10, false)).Result!.Data!.Composition);
