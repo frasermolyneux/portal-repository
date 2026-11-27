@@ -13,6 +13,9 @@ public record PlayersTimeseriesPointDto : IDto
     [JsonProperty]
     public int ActivePlayers { get; internal set; }
 
+    [JsonProperty]
+    public int? SessionStarts { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

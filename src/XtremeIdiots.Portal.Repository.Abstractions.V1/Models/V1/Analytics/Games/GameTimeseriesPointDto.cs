@@ -16,6 +16,9 @@ public record GameTimeseriesPointDto : IDto
     [JsonProperty]
     public int ChatCount { get; internal set; }
 
+    [JsonProperty]
+    public int? StatsSampleCount { get; internal set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }
