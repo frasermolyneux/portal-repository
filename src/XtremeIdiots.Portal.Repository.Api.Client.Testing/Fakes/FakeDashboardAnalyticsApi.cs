@@ -28,7 +28,7 @@ public class FakeDashboardAnalyticsApi : IDashboardAnalyticsApi
         return Task.FromResult(new ApiResult<DashboardHomeDto>(HttpStatusCode.OK, new ApiResponse<DashboardHomeDto>(_home)));
     }
 
-    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken = default)
+    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken)
     {
         var home = includeComposition ? _home : _home with { Composition = null };
         return Task.FromResult(new ApiResult<DashboardHomeDto>(HttpStatusCode.OK, new ApiResponse<DashboardHomeDto>(home)));

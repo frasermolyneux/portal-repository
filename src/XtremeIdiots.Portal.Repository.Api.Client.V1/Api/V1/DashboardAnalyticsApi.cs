@@ -23,7 +23,7 @@ public class DashboardAnalyticsApi : BaseApi<RepositoryApiClientOptions>, IDashb
     public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top = AnalyticsQueryDefaults.DefaultTop, CancellationToken cancellationToken = default) =>
         GetHomeCore(fromUtc, toUtc, bucket, top, null, cancellationToken);
 
-    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken = default) =>
+    public Task<ApiResult<DashboardHomeDto>> GetHome(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool includeComposition, CancellationToken cancellationToken) =>
         GetHomeCore(fromUtc, toUtc, bucket, top, includeComposition, cancellationToken);
 
     private async Task<ApiResult<DashboardHomeDto>> GetHomeCore(DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, int top, bool? includeComposition, CancellationToken cancellationToken)

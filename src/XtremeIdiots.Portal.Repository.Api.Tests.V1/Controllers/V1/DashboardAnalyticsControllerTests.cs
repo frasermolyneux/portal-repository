@@ -69,7 +69,7 @@ public class DashboardAnalyticsControllerTests
     public async Task GetHome_WithoutComposition_ReturnsRecordedActivityAndNullComposition()
     {
         using var context = DbContextHelper.CreateInMemoryContext();
-        var result = await CreateApi(context).GetHome(FromUtc, ToUtc, AnalyticsBucket.OneDay, 10, includeComposition: false);
+        var result = await CreateApi(context).GetHome(FromUtc, ToUtc, AnalyticsBucket.OneDay, 10, includeComposition: false, cancellationToken: default);
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Null(result.Result!.Data!.Composition);

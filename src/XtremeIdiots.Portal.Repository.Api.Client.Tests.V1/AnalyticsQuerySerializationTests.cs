@@ -9,6 +9,7 @@ using RestSharp;
 
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
+using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
@@ -25,10 +26,14 @@ public class AnalyticsQuerySerializationTests
         var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var to = from.AddDays(1);
 
-        await api.GetHome(from, to, AnalyticsBucket.OneDay, 10);
+        await api.GetHome(from, to, AnalyticsBucket.OneDay, 10, default);
         Assert.False(rest.Query.ContainsKey("includeComposition"));
 
-        await api.GetHome(from, to, AnalyticsBucket.OneDay, 10, includeComposition: false);
+        IDashboardAnalyticsApi contract = api;
+        await contract.GetHome(from, to, AnalyticsBucket.OneDay, 10, default);
+        Assert.False(rest.Query.ContainsKey("includeComposition"));
+
+        await api.GetHome(from, to, AnalyticsBucket.OneDay, 10, includeComposition: false, cancellationToken: default);
         Assert.Equal("false", rest.Query["includeComposition"]);
     }
 
