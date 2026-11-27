@@ -483,7 +483,10 @@ V1 Repository API signatures live in `IRuleExecutionsApi`:
   optional Siege session. Repeated starts return the existing execution without replacing its
   original frozen trigger, rule set, or cursor.
 - `GetExecution(gameServerId, executionId)` returns frozen trigger, rules, cursor, decision, and
-  action claims/outcomes for safe resume.
+  the complete action claims/outcomes and prepared plans from one coordinated read. Concurrent player
+  deletion or Siege pruning either waits for that read or makes the execution unavailable. A failed
+  read or conflict is not evidence that no actions exist. Separately requested fact snapshots are not
+  frozen by this read.
 - `UpdateProgress(gameServerId, executionId, UpdateRuleFeatureExecutionProgressDto)` persists
   non-match, Unknown, stop, decision state, and optional `contextTrigger` using an expected version.
   When an action is pending, only a decision-snapshot-only update with an unchanged cursor/state and
