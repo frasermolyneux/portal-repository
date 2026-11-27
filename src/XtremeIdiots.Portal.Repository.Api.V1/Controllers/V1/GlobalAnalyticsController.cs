@@ -165,45 +165,31 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
             return new ApiResult<GlobalTimeseriesDto>(HttpStatusCode.BadRequest);
         }
 
-        var stats = await context.GameServerStats
+        var statByBucket = await AnalyticsBucketCounts.AggregatePlayersAsync(context.GameServerStats
             .AsNoTracking()
             .Where(s => s.Timestamp >= alignedFromUtc && s.Timestamp < alignedToUtc)
-            .OrderBy(s => s.Timestamp)
-            .Select(s => new { s.Timestamp, s.PlayerCount })
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .Select(s => new AnalyticsBucketCounts.PlayerSample { Timestamp = s.Timestamp, PlayerCount = s.PlayerCount }),
+            bucket, cancellationToken).ConfigureAwait(false);
 
-        var events = await context.GameServerEvents
+        var eventsByBucket = await AnalyticsBucketCounts.CountAsync(context.GameServerEvents
             .AsNoTracking()
             .Where(e => e.Timestamp >= alignedFromUtc && e.Timestamp < alignedToUtc)
-            .Select(e => e.Timestamp)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .Select(e => e.Timestamp), bucket, cancellationToken).ConfigureAwait(false);
 
-        var chat = await context.ChatMessages
+        var chatByBucket = await AnalyticsBucketCounts.CountAsync(context.ChatMessages
             .AsNoTracking()
             .Where(c => c.Timestamp >= alignedFromUtc && c.Timestamp < alignedToUtc)
-            .Select(c => c.Timestamp)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var statByBucket = stats.GroupBy(s => TruncateToBucket(s.Timestamp, bucket))
-            .ToDictionary(
-                g => g.Key,
-                g => new
-                {
-                    AvgPlayers = g.Average(x => (double)x.PlayerCount),
-                    PeakPlayers = g.Max(x => x.PlayerCount)
-                });
-
-        var eventsByBucket = events.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
-        var chatByBucket = chat.GroupBy(t => TruncateToBucket(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
+            .Select(c => c.Timestamp), bucket, cancellationToken).ConfigureAwait(false);
 
         var bucketStarts = BuildBuckets(alignedFromUtc, alignedToUtc, bucket);
         var points = bucketStarts.Select(start => new GlobalTimeseriesPointDto
         {
             BucketStartUtc = start,
-            AvgPlayers = statByBucket.TryGetValue(start, out var s) ? Math.Round(s.AvgPlayers, 2) : 0,
-            PeakPlayers = statByBucket.TryGetValue(start, out var p) ? p.PeakPlayers : 0,
+            AvgPlayers = statByBucket.TryGetValue(start, out var s) ? Math.Round(s.Average, 2) : 0,
+            PeakPlayers = statByBucket.TryGetValue(start, out var p) ? p.Peak : 0,
             EventsCount = eventsByBucket.GetValueOrDefault(start, 0),
-            ChatCount = chatByBucket.GetValueOrDefault(start, 0)
+            ChatCount = chatByBucket.GetValueOrDefault(start, 0),
+            StatsSampleCount = statByBucket.TryGetValue(start, out var sample) ? sample.SampleCount : 0
         }).ToList();
 
         var labels = points.Select(p => p.BucketStartUtc).ToList();
@@ -222,15 +208,14 @@ public class GlobalAnalyticsController : ControllerBase, IGlobalAnalyticsApi
         if (comparisonWindows.Count > 0)
         {
             var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
-            var cmpStats = await context.GameServerStats
+            var cmpStats = await AnalyticsBucketCounts.AggregatePlayersAsync(context.GameServerStats
                 .AsNoTracking()
                 .Where(s => s.Timestamp >= earliestCmpFrom && s.Timestamp < alignedFromUtc)
-                .Select(s => new { s.Timestamp, s.PlayerCount })
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
+                .Select(s => new AnalyticsBucketCounts.PlayerSample { Timestamp = s.Timestamp, PlayerCount = s.PlayerCount }),
+                bucket, cancellationToken).ConfigureAwait(false);
 
             var cmpAvgByBucket = cmpStats
-                .GroupBy(s => AnalyticsTimeBucketing.Truncate(s.Timestamp, bucket))
-                .ToDictionary(g => g.Key, g => g.Average(x => (double)x.PlayerCount));
+                .ToDictionary(s => s.Key, s => s.Value.Average);
 
             var comparisonTotals = new List<double>(comparisonWindows.Count);
             foreach (var cmpWindow in comparisonWindows)

@@ -62,13 +62,25 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             .AsNoTracking()
             .CountAsync(p => p.LastSeen >= fromUtc && p.LastSeen < toUtc && p.FirstSeen < fromUtc, cancellationToken).ConfigureAwait(false);
 
+        var observedPlayerRecords = await context.Players.AsNoTracking()
+            .CountAsync(p => p.FirstSeen < toUtc, cancellationToken).ConfigureAwait(false);
+        var sessions = context.PlayerSessions.AsNoTracking().Where(s => s.IsBot != true && !s.Server.Deleted);
+        var recordedPlayers = await sessions
+            .Where(s => s.StartUtc < toUtc && (s.EndUtc ?? s.LastConfirmedUtc) > fromUtc)
+            .Select(s => s.PlayerId).Distinct().CountAsync(cancellationToken).ConfigureAwait(false);
+        var sessionStarts = await sessions.CountAsync(s => s.StartUtc >= fromUtc && s.StartUtc < toUtc, cancellationToken).ConfigureAwait(false);
+
         var dto = new PlayersOverviewDto
         {
             Window = CreateWindow(fromUtc, toUtc),
             TotalPlayers = activePlayers,
             NewPlayers = newPlayers,
             ActivePlayers = activePlayers,
-            ReturningPlayers = returningPlayers
+            ReturningPlayers = returningPlayers,
+            ObservedPlayerRecords = observedPlayerRecords,
+            RecordedPlayers = recordedPlayers,
+            SessionStarts = sessionStarts,
+            TrackingCoverage = "unknown"
         };
 
         return new ApiResponse<PlayersOverviewDto>(dto).ToApiResult();
@@ -118,29 +130,29 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             return new ApiResult<PlayersTimeseriesDto>(HttpStatusCode.BadRequest);
         }
 
-        var newPlayerDates = await context.Players
+        var newByBucket = await AnalyticsBucketCounts.CountAsync(context.Players
             .AsNoTracking()
             .Where(p => p.FirstSeen >= alignedFromUtc && p.FirstSeen < alignedToUtc)
-            .Select(p => p.FirstSeen)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .Select(p => p.FirstSeen), bucket, cancellationToken).ConfigureAwait(false);
 
-        var activeSamples = await context.RecentPlayers
+        var sessionStartsByBucket = await AnalyticsBucketCounts.CountAsync(context.PlayerSessions
+            .AsNoTracking()
+            .Where(s => s.IsBot != true && !s.Server.Deleted && s.StartUtc >= alignedFromUtc && s.StartUtc < alignedToUtc)
+            .Select(s => s.StartUtc), bucket, cancellationToken).ConfigureAwait(false);
+
+        var activeByBucket = await AnalyticsBucketCounts.CountDistinctPlayersAsync(context.RecentPlayers
             .AsNoTracking()
             .Where(rp => rp.PlayerId != null && rp.Timestamp >= alignedFromUtc && rp.Timestamp < alignedToUtc)
-            .Select(rp => new { rp.PlayerId, rp.Timestamp })
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var newByBucket = newPlayerDates.GroupBy(t => AnalyticsTimeBucketing.Truncate(t, bucket)).ToDictionary(g => g.Key, g => g.Count());
-        var activeByBucket = activeSamples
-            .GroupBy(x => AnalyticsTimeBucketing.Truncate(x.Timestamp, bucket))
-            .ToDictionary(g => g.Key, g => g.Select(x => x.PlayerId).Distinct().Count());
+            .Select(rp => new AnalyticsBucketCounts.PlayerObservation { PlayerId = rp.PlayerId!.Value, Timestamp = rp.Timestamp }),
+            bucket, cancellationToken).ConfigureAwait(false);
 
         var bucketStarts = AnalyticsTimeBucketing.BuildBuckets(alignedFromUtc, alignedToUtc, bucket);
         var points = bucketStarts.Select(start => new PlayersTimeseriesPointDto
         {
             BucketStartUtc = start,
             NewPlayers = newByBucket.GetValueOrDefault(start, 0),
-            ActivePlayers = activeByBucket.GetValueOrDefault(start, 0)
+            ActivePlayers = activeByBucket.GetValueOrDefault(start, 0),
+            SessionStarts = sessionStartsByBucket.GetValueOrDefault(start, 0)
         }).ToList();
 
         var labels = points.Select(p => p.BucketStartUtc).ToList();
@@ -157,15 +169,14 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
         if (comparisonWindows.Count > 0)
         {
             var earliestCmpFrom = comparisonWindows.Min(w => w.FromUtc);
-            var cmpSamples = await context.RecentPlayers
+            var cmpSamples = await AnalyticsBucketCounts.CountDistinctPlayersAsync(context.RecentPlayers
                 .AsNoTracking()
                 .Where(rp => rp.PlayerId != null && rp.Timestamp >= earliestCmpFrom && rp.Timestamp < alignedFromUtc)
-                .Select(rp => new { rp.PlayerId, rp.Timestamp })
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
+                .Select(rp => new AnalyticsBucketCounts.PlayerObservation { PlayerId = rp.PlayerId!.Value, Timestamp = rp.Timestamp }),
+                bucket, cancellationToken).ConfigureAwait(false);
 
             var cmpActiveByBucket = cmpSamples
-                .GroupBy(x => AnalyticsTimeBucketing.Truncate(x.Timestamp, bucket))
-                .ToDictionary(g => g.Key, g => (double)g.Select(x => x.PlayerId).Distinct().Count());
+                .ToDictionary(x => x.Key, x => (double)x.Value);
 
             var comparisonTotals = new List<double>(comparisonWindows.Count);
             foreach (var cmpWindow in comparisonWindows)
@@ -192,7 +203,8 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             Labels = labels,
             Series = series,
             Summary = summary,
-            Meta = BuildCompareMeta(compareMode, comparePeriods, alignMode, timezone, normalize)
+            Meta = BuildCompareMeta(compareMode, comparePeriods, alignMode, timezone, normalize),
+            TrackingCoverage = "unknown"
         };
 
         return new ApiResponse<PlayersTimeseriesDto>(dto).ToApiResult();
@@ -288,6 +300,12 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
+        var observedByGame = await context.Players.AsNoTracking()
+            .Where(p => p.FirstSeen < toUtc)
+            .GroupBy(p => p.GameType)
+            .Select(g => new { GameType = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.GameType, x => x.Count, cancellationToken).ConfigureAwait(false);
+
         var items = grouped
             .OrderByDescending(x => x.Active)
             .Select(x => new PlayersByGameItemDto
@@ -295,7 +313,8 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
                 GameType = x.GameType.ToGameType(),
                 TotalPlayers = x.Active,
                 NewPlayers = x.New,
-                ActivePlayers = x.Active
+                ActivePlayers = x.Active,
+                ObservedPlayerRecords = observedByGame.GetValueOrDefault(x.GameType)
             })
             .ToList();
 
@@ -329,18 +348,14 @@ public class PlayerAnalyticsV2Controller : ControllerBase, IPlayerAnalyticsV2Api
             return new ApiResult<PlayersByServerDto>(HttpStatusCode.BadRequest);
         }
 
-        var recent = await context.RecentPlayers
+        var byServer = await context.RecentPlayers
             .AsNoTracking()
             .Where(rp => rp.PlayerId != null && rp.GameServerId != null && rp.Timestamp >= fromUtc && rp.Timestamp < toUtc)
-            .Select(rp => new { GameServerId = rp.GameServerId!.Value, rp.PlayerId })
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var byServer = recent
-            .GroupBy(r => r.GameServerId)
+            .GroupBy(r => r.GameServerId!.Value)
             .Select(g => new { GameServerId = g.Key, Active = g.Select(x => x.PlayerId).Distinct().Count() })
             .OrderByDescending(x => x.Active)
             .Take(top)
-            .ToList();
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var serverIds = byServer.Select(x => x.GameServerId).ToList();
         var servers = await context.GameServers
