@@ -109,6 +109,15 @@ public class PlayerAnalyticsV2Api : BaseApi<RepositoryApiClientOptions>, IPlayer
         return response.ToApiResult<PlayerDetailDto>();
     }
 
+    public async Task<ApiResult<PlayerActivityDto>> GetPlayerActivity(Guid playerId, DateTime fromUtc, DateTime toUtc,
+        IReadOnlyCollection<Guid> serverIds, bool includeChat = false, CancellationToken cancellationToken = default)
+    {
+        var request = await CreateRequestAsync($"v1/analytics/players/{playerId}/activity", Method.Post, cancellationToken).ConfigureAwait(false);
+        request.AddJsonBody(new PlayerActivityQueryDto { FromUtc = fromUtc, ToUtc = toUtc, ServerIds = serverIds, IncludeChat = includeChat });
+        var response = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.ToApiResult<PlayerActivityDto>();
+    }
+
     public async Task<ApiResult<PlayerTrendsDto>> GetPlayerTimeseries(Guid playerId, DateTime fromUtc, DateTime toUtc, AnalyticsBucket bucket, CancellationToken cancellationToken = default)
     {
         return await GetPlayerTimeseries(
