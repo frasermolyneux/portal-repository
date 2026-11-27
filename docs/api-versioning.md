@@ -53,6 +53,12 @@ Use next/previous navigation, reset the offset when filters change, and pass
 `fromUtc` for polling feeds. Existing counted list endpoints remain compatible.
 Offset pages are not a snapshot during concurrent inserts or deletions.
 
+On `game-server-events/history`, `eventType` is a case-insensitive, literal
+substring filter: `Map` can match both `MapChange` and `NextMap`. Surrounding
+whitespace is ignored; omit the filter or leave it blank to return all types
+within the requested scope. The counted `game-server-events` endpoint still
+uses an exact event-type match.
+
 Event history and cleanup use a 30-day window. Unlocked chat retains six months;
 locked messages remain accessible and are never removed by chat retention.
 Other retention periods are unchanged.
