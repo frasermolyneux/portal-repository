@@ -93,6 +93,10 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<RuleFeatureExecution> RuleFeatureExecutions { get; set; }
 
+    public virtual DbSet<RuleOccurrenceCooldown> RuleOccurrenceCooldowns { get; set; }
+
+    public virtual DbSet<RuleOccurrenceEffect> RuleOccurrenceEffects { get; set; }
+
     public virtual DbSet<RulePreparedAction> RulePreparedActions { get; set; }
 
     public virtual DbSet<ServerMapRun> ServerMapRuns { get; set; }
@@ -630,6 +634,32 @@ public partial class PortalDbContext : DbContext
             entity.HasOne(d => d.SiegeSession).WithMany(p => p.RuleFeatureExecutions)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_RuleFeatureExecutions_SiegeSessions");
+        });
+
+        modelBuilder.Entity<RuleOccurrenceCooldown>(entity =>
+        {
+            entity.HasOne(d => d.GameServer).WithMany(p => p.RuleOccurrenceCooldowns)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleOccurrenceCooldowns_GameServers");
+
+            entity.HasOne(d => d.Player).WithMany(p => p.RuleOccurrenceCooldowns).HasConstraintName("FK_RuleOccurrenceCooldowns_Players");
+        });
+
+        modelBuilder.Entity<RuleOccurrenceEffect>(entity =>
+        {
+            entity.HasIndex(e => e.AdminActionId, "IX_RuleOccurrenceEffects_AdminAction").HasFilter("[AdminActionId] IS NOT NULL");
+
+            entity.Property(e => e.LogicalEffectId).IsFixedLength();
+
+            entity.HasOne(d => d.AdminAction).WithMany(p => p.RuleOccurrenceEffects)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_RuleOccurrenceEffects_AdminActions");
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.RuleOccurrenceEffects)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleOccurrenceEffects_GameServers");
+
+            entity.HasOne(d => d.Player).WithMany(p => p.RuleOccurrenceEffects).HasConstraintName("FK_RuleOccurrenceEffects_Players");
         });
 
         modelBuilder.Entity<RulePreparedAction>(entity =>

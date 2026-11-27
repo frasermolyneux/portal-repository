@@ -18,6 +18,12 @@ public interface IRuleExecutionsApi
         throw new NotSupportedException("Upgrade the Repository API client to prepare rule actions.");
     Task<ApiResult<RuleTaggedAudienceDto>> GetTaggedAudience(Guid gameServerId, RuleTaggedAudienceRequestDto request, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("Upgrade the Repository API client to resolve tagged audiences.");
+    Task<ApiResult<ClaimRuleOccurrenceEffectResultDto>> ClaimOccurrenceEffect(Guid gameServerId, Guid occurrenceId, ClaimRuleOccurrenceEffectDto request, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to claim occurrence effects.");
+    Task<ApiResult<EnsureAutomatedActionResultDto>> EnsureOccurrenceAdminAction(Guid gameServerId, Guid occurrenceId, string logicalEffectId, EnsureRuleOccurrenceAdminActionDto request, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to link occurrence moderation records.");
+    Task<ApiResult<RuleOccurrenceEffectDto>> UpdateOccurrenceEffectOutcome(Guid gameServerId, Guid occurrenceId, string logicalEffectId, UpdateRuleOccurrenceEffectOutcomeDto request, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to report occurrence effect outcomes.");
     Task<ApiResult<CollectionModel<RuleActionExecutionDto>>> SearchRuleActions(RuleActionAuditQueryDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<RuleFeatureExecutionDto>> StartExecution(Guid gameServerId, StartRuleFeatureExecutionDto request, CancellationToken cancellationToken = default);
     Task<ApiResult<RuleFeatureExecutionDto>> GetExecution(Guid gameServerId, Guid executionId, CancellationToken cancellationToken = default);

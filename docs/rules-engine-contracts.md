@@ -177,6 +177,65 @@ the submitted cursor after validating the correlation's rule and action IDs. The
 `RuleActionCommand.Effect` is stored separately and must match the catalogue action's native effect;
 it is not substituted for the logical action type or its frozen parameters.
 
+## Evaluation evidence and chat occurrence effects
+
+Connection executions may include nullable, schema-versioned `evaluationEvidence`. Node evidence
+distinguishes matches, nonmatches, skipped/not-reached nodes, failed checks, and genuine Unknown;
+action decisions distinguish NotRun and Skipped. A missing historical value is not a nonmatch.
+Evidence is bounded, references frozen rule/condition/action coordinates, and contains reason/source
+codes rather than chat or other private text. A real action claim supersedes a prior NotRun or Skipped decision.
+Search and flow projections omit decisions superseded by actions returned in the same response, even
+when a claim lands between their separate reads; those projections are not otherwise a full snapshot.
+Unknown evidence schemas and enum values are exposed as unsupported/unrecognized, never as success.
+The connection execution endpoint does not accept chat triggers and is not a chat-evaluation ledger.
+
+For new chat effects, `ClaimOccurrenceEffect` posts to
+`v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects`. Preview and dry-run do
+not call it. The claim freezes player, feature/rule/action coordinates, action type, rule-set
+revision, Enforce mode, and optional cooldown policy/duration. It stores no chat, dynamic message,
+reason, or payload hash. Only HTTP 201 `Acquired` grants one dispatch; HTTP 200 `AlreadyClaimed`
+or `CooldownSuppressed`, HTTP 409, or an unknown response never grants dispatch. A changed stored
+safe field conflicts; matching safe fields do not prove that private or dynamic payloads match.
+The cooldown reservation and effect record commit together. An uncertain dispatch retains both;
+a lost claim response or crash can prevent an action, but never authorizes a blind retry.
+
+`RuleOccurrenceEffectIdentity.Create` produces lowercase SHA-256 hex over UTF-8 bytes for the ASCII
+prefix `portal-rule-occurrence-effect-v1\n`, the lowercase server GUID in `N` format and LF, then
+the lowercase occurrence GUID in `N` format and LF. Append feature ID, rule ID, and action ID in
+that order, each as a four-byte unsigned big-endian UTF-8 byte length followed by its exact UTF-8
+bytes. Identifiers are case-sensitive and are not Unicode-normalized; they must be nonblank,
+trimmed, valid Unicode and at most 64, 128, and 128 UTF-16 code units respectively. They must not
+contain private message content. Indices, player, action payload, and revision are not identity
+inputs. For server `00112233-4455-6677-8899-aabbccddeeff`, occurrence
+`ffeeddcc-bbaa-9988-7766-554433221100`, feature `chat-moderation`, rule `new-player`, and action
+`nudge`, the ID is `0bbdea94e2b9071310903237f5b610acb90ab486861c66594aaa6f2d3c78f81a`.
+
+For a claimed record-producing action, `EnsureOccurrenceAdminAction` atomically creates and links
+one observation or kick record per occurrence. Bans instead link an existing active same-player
+ban obtained through the existing ban-reuse path. A repeated record request returns the linked
+record without granting dispatch; deleting that record leaves a marker preventing recreation.
+Record existence is not proof of game enforcement. Outcome writes accept `Dispatched`, `Failed`,
+and `OutcomeUnknown`, not `Applied` for an external effect. `Dispatched` means transport accepted
+the submission, not that a player saw it or the server applied it. For new chat-moderation observation
+and kick records, existing V1 admin-action responses retain source `Automation` and the rule ID but
+expose a null `automationFeature` rather than extending the V1 enum. The occurrence response links
+the record by `adminActionId` and identifies `claim.featureId` as `chat-moderation`. Existing
+feature filters continue to select their original features; they do not select these new records.
+Consumers that assume every automated action has a non-null feature must handle the null value.
+The database uses a reserved internal marker to satisfy its automation-metadata constraint.
+
+The endpoints require the existing service-account role; claims also require an active server and a
+player of the same game type. They do not prove that the occurrence belongs to that player or that
+the player is currently connected. Producer authorization and live-target checks remain separate.
+Deleting a player also deletes that player's claims and cooldowns, so replay after recreating the
+player is no longer protected by those records.
+
+The effect ledger is not a paid-analyzer cache. Legacy observation and provider error handling
+remain independent of its availability: at most one analyzer call per processing attempt may be
+shared across rule paths; later delivery attempts can retry unresolved checks as before. No new
+freshness cutoff or unproven effect-retention expiry is implied by these contracts. Callers must
+handle missing occurrence IDs through the existing legacy path.
+
 ## Welcome, templates, and prepared delivery
 
 New welcome documents use **`welcomeRules`**, not legacy `welcomeMessages`, with

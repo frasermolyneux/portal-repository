@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.RulesEngine;
 using XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.Shared;
 
 namespace XtremeIdiots.Portal.Settings.Contracts.V1.Contracts.ChatCommands;
@@ -12,6 +13,7 @@ public static class ChatCommandSettingsConstants
     public const int HardcodedDefaultFreshnessSeconds = 5;
     public const int HardcodedReadOnlyFreshnessSeconds = 5;
     public const int HardcodedMutatingFreshnessSeconds = 3;
+    public const int MaxReplyTemplateLength = 16384;
 }
 
 public sealed class ChatCommandSettingsDocument
@@ -54,6 +56,39 @@ public sealed class ChatCommandSettingsEntry
 
     public JsonElement? Settings { get; set; }
 
+    public ChatCommandPolicy? Policy { get; set; }
+
+    public Dictionary<string, string[]?>? Replies { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ChatCommandPolicyDecision
+{
+    Unknown = 0,
+    Allow,
+    Deny
+}
+
+public sealed class ChatCommandPolicy
+{
+    public ChatCommandPolicyDecision DefaultDecision { get; set; }
+    public List<ChatCommandPolicyRule>? Rules { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+public sealed class ChatCommandPolicyRule
+{
+    public string Id { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+    public int Order { get; set; }
+    public RuleConditionNode? Condition { get; set; }
+    public ChatCommandPolicyDecision Decision { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
@@ -78,6 +113,10 @@ public sealed record EffectiveChatCommandSettings
     public string[] RequiredTags { get; init; } = [];
 
     public JsonElement? Settings { get; init; }
+
+    public ChatCommandPolicy? Policy { get; init; }
+
+    public Dictionary<string, string[]?>? Replies { get; init; }
 
     public SettingsValueSource EnabledSource { get; init; }
 

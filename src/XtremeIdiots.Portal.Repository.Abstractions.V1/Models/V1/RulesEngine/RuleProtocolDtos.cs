@@ -191,6 +191,7 @@ public sealed record RuleFeatureExecutionDto
     public RuleExecutionCoordination? Coordination { get; init; }
     public RulePreparedActionDto[] PreparedActions { get; init; } = [];
     public RuleExecutionDiagnostic[] Diagnostics { get; init; } = [];
+    public RuleEvaluationEvidence? EvaluationEvidence { get; init; }
     public RuleActionExecutionDto[] Actions { get; init; } = [];
     public long Version { get; init; }
     public DateTimeOffset CreatedAtUtc { get; init; }
@@ -219,6 +220,7 @@ public sealed record UpdateRuleFeatureExecutionProgressDto
     public Guid? FactSnapshotId { get; init; }
     public RuleExecutionCoordination? Coordination { get; init; }
     public RuleExecutionDiagnostic[]? Diagnostics { get; init; }
+    public RuleEvaluationEvidence? EvaluationEvidence { get; init; }
 }
 
 public sealed record ClaimRuleActionDto
