@@ -34,6 +34,12 @@ public record MapRotationServerAssignmentDto : IDto
     public Guid GameServerId { get; set; }
 
     [JsonProperty]
+    public RotationSource Source { get; set; }
+
+    [JsonProperty]
+    public DateTime? ObservedAt { get; set; }
+
+    [JsonProperty]
     public DeploymentState DeploymentState { get; set; }
 
     [JsonProperty]

@@ -81,6 +81,34 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
     }
 
     [Fact]
+    public async Task Observation_RequiresExplicitEntries_AndSupportsEmptyPrivateServerRotation()
+    {
+        var serverId = Guid.NewGuid();
+        _factory.SeedDatabase(ctx =>
+        {
+            ctx.GameServers.Add(new() { GameServerId = serverId, GameType = 2, Title = "Private", Hostname = "localhost", ServerListEnabled = false });
+            ctx.SaveChanges();
+        });
+        var missingEntries = await _client.PutAsync($"/v1.0/map-rotations/servers/{serverId}/observed",
+            new StringContent(JsonConvert.SerializeObject(new { ObservedAt = DateTimeOffset.UtcNow }), Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, missingEntries.StatusCode);
+        var response = await _client.PutAsync($"/v1.0/map-rotations/servers/{serverId}/observed",
+            new StringContent(JsonConvert.SerializeObject(new ObserveServerRotationDto
+            {
+                ObservedAt = DateTimeOffset.UtcNow,
+                Entries = []
+            }), Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var effective = await _client.GetAsync($"/v1.0/map-rotations/servers/{serverId}/effective");
+        Assert.Equal(HttpStatusCode.OK, effective.StatusCode);
+        var result = JsonConvert.DeserializeObject<MX.Api.Abstractions.ApiResponse<PublicServerRotationDto>>(
+            await effective.Content.ReadAsStringAsync())!.Data!;
+        Assert.False(result.IsAvailable);
+        Assert.Empty(result.Maps);
+        Assert.Null(result.Source);
+    }
+
+    [Fact]
     public async Task GetMapRotations_ReturnsOk()
     {
         var rotationId = Guid.NewGuid();
@@ -154,6 +182,13 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
             ctx.SaveChanges();
         });
 
+        var observationResponse = await _client.PutAsync($"/v1.0/map-rotations/servers/{serverId}/observed",
+            new StringContent(JsonConvert.SerializeObject(new ObserveServerRotationDto
+            {
+                ObservedAt = DateTimeOffset.UtcNow,
+                Entries = [new() { MapName = "mp_popularity", GameMode = "dm" }]
+            }), Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.OK, observationResponse.StatusCode);
         var response = await _client.GetAsync("/v1.0/map-rotations/public-servers");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -161,7 +196,10 @@ public class MapRotationsTests : IClassFixture<CustomWebApplicationFactory>, IAs
             await response.Content.ReadAsStringAsync())!.Data!;
         var server = Assert.Single(payload.Servers, item => item.GameServerId == serverId);
         var map = Assert.Single(server.Maps);
-        Assert.True(server.IsObservedHistory);
+        Assert.False(server.IsObservedHistory);
+        Assert.True(server.IsAvailable);
+        Assert.Equal(RotationSource.ServerObserved, server.Source);
+        Assert.Equal("dm", map.GameMode);
         Assert.Equal((9, 3, 12, 75d), (map.Likes, map.Dislikes, map.Votes, map.Approval));
         Assert.Equal((1, 0, 1, 100d), (map.ServerLikes, map.ServerDislikes, map.ServerVotes, map.ServerApproval));
     }

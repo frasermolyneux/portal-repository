@@ -7,6 +7,7 @@ public record PublicRotationMapDto
 {
     public Guid? MapId { get; init; }
     public string MapName { get; init; } = "";
+    public string? GameMode { get; init; }
     public string? MapImageUri { get; init; }
     public int Likes { get; init; }
     public int Dislikes { get; init; }
@@ -26,6 +27,11 @@ public record PublicServerRotationDto
     public string Title { get; init; } = "";
     public GameType GameType { get; init; }
     public string? RotationTitle { get; init; }
+    public Guid? MapRotationId { get; init; }
+    public Guid? MapRotationServerAssignmentId { get; init; }
+    public RotationSource? Source { get; init; }
+    public DateTime? ObservedAt { get; init; }
+    public bool IsAvailable { get; init; }
     public bool IsObservedHistory { get; init; }
     public List<PublicRotationMapDto> Maps { get; init; } = [];
 }

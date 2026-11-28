@@ -133,12 +133,15 @@
       "name": "[dbo].[NotificationTypes]"
     },
     {
+      "excludedColumns": [],
       "name": "[dbo].[MapRotations]"
     },
     {
+      "excludedColumns": [],
       "name": "[dbo].[MapRotationMaps]"
     },
     {
+      "excludedColumns": [],
       "name": "[dbo].[MapRotationServerAssignments]"
     },
     {

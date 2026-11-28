@@ -18,6 +18,175 @@ namespace XtremeIdiots.Portal.Repository.Api.Tests.V1.Controllers;
 public class MapRotationsControllerTests
 {
     [Theory]
+    [InlineData(GameType.CallOfDuty2)]
+    [InlineData(GameType.CallOfDuty4)]
+    [InlineData(GameType.CallOfDuty4x)]
+    [InlineData(GameType.CallOfDuty5)]
+    public async Task Observation_PreservesOrderDuplicatesAndUnspecifiedModes_AndRefreshesIdempotently(GameType type)
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var server = new GameServer { GameServerId = Guid.NewGuid(), GameType = (int)type, Title = "Observed", Hostname = "localhost" };
+        db.GameServers.Add(server);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var observation = new ObserveServerRotationDto
+        {
+            ObservedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            Entries =
+            [
+                new() { MapName = "mp_first" },
+                new() { MapName = "mp_second", GameMode = "custom_mode" },
+                new() { MapName = "mp_first", GameMode = "dm" }
+            ]
+        };
+
+        var first = await api.ReplaceObservedServerRotation(server.GameServerId, observation);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var assignment = first.Result!.Data!;
+        Assert.Equal((RotationSource.ServerObserved, DeploymentState.NotApplicable, ActivationState.Inactive),
+            (assignment.Source, assignment.DeploymentState, assignment.ActivationState));
+        Assert.Null(assignment.DeployedVersion);
+        Assert.Null(assignment.ActivatedVersion);
+        Assert.Equal(2, await db.Maps.CountAsync());
+        Assert.All(await db.Maps.ToListAsync(), m => Assert.Equal(type == GameType.CallOfDuty4x ? 2 : (int)type, m.GameType));
+        var effective = (await api.GetEffectiveServerRotation(server.GameServerId)).Result!.Data!;
+        Assert.True(effective.IsAvailable);
+        Assert.Equal(RotationSource.ServerObserved, effective.Source);
+        Assert.Equal(new[] { "mp_first", "mp_second", "mp_first" }, effective.Maps.Select(m => m.MapName));
+        Assert.Equal(new string?[] { null, "custom_mode", "dm" }, effective.Maps.Select(m => m.GameMode));
+
+        observation.ObservedAt = observation.ObservedAt.AddSeconds(10);
+        var repeated = await api.ReplaceObservedServerRotation(server.GameServerId, observation);
+        Assert.Equal(assignment.MapRotationId, repeated.Result!.Data!.MapRotationId);
+        Assert.Equal(assignment.MapRotationServerAssignmentId, repeated.Result.Data.MapRotationServerAssignmentId);
+        Assert.Single(await db.MapRotations.ToListAsync());
+        Assert.Empty(await db.MapRotationAssignmentOperations.ToListAsync());
+        Assert.Empty((await api.GetServerAssignments(null, server.GameServerId, null, 0, 20)).Result!.Data!.Items!);
+        Assert.Single((await api.GetServerAssignments(null, server.GameServerId, null, RotationSource.ServerObserved, 0, 20)).Result!.Data!.Items!);
+
+        var cleared = await api.ReplaceObservedServerRotation(server.GameServerId,
+            new() { ObservedAt = observation.ObservedAt.AddSeconds(10), Entries = [] });
+        Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
+        Assert.False((await api.GetEffectiveServerRotation(server.GameServerId)).Result!.Data!.IsAvailable);
+        Assert.Equal(HttpStatusCode.Conflict, (await api.ReplaceObservedServerRotation(server.GameServerId, observation)).StatusCode);
+        await api.CleanupUnassignedObservedRotations();
+        Assert.Single(await db.MapRotations.ToListAsync());
+        Assert.Empty(await db.MapRotationMaps.ToListAsync());
+        Assert.Equal(2, await db.Maps.CountAsync());
+    }
+
+    [Fact]
+    public async Task Observation_RejectsManagedOwnershipAndUnsupportedGamesWithoutChangingAnything()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var managed = Seed(db);
+        var unsupported = new GameServer { GameServerId = Guid.NewGuid(), GameType = (int)GameType.Insurgency, Title = "Other", Hostname = "localhost" };
+        db.GameServers.Add(unsupported);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var observation = new ObserveServerRotationDto { ObservedAt = DateTimeOffset.UtcNow, Entries = [new() { MapName = "mp_new", GameMode = "war" }] };
+
+        var owned = await api.ReplaceObservedServerRotation(managed.GameServerId, observation);
+        Assert.Equal(HttpStatusCode.Conflict, owned.StatusCode);
+        Assert.Equal("PORTAL_MANAGED_ASSIGNMENT_EXISTS", Assert.Single(owned.Result!.Errors!).Code);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ReplaceObservedServerRotation(unsupported.GameServerId, observation)).StatusCode);
+        Assert.Empty(await db.Maps.ToListAsync());
+        Assert.Single(await db.MapRotations.ToListAsync());
+        Assert.Single(await db.MapRotationServerAssignments.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Observation_RequiresExplicitEntriesAndRejectsConflictingTimestampWithoutChangingSnapshot()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var seeded = Seed(db);
+        db.MapRotationServerAssignments.Remove(seeded);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var now = DateTimeOffset.UtcNow;
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ReplaceObservedServerRotation(seeded.GameServerId,
+            new() { ObservedAt = now })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ReplaceObservedServerRotation(seeded.GameServerId,
+            new() { ObservedAt = now, Entries = [new() { MapName = "mp_map;quit" }] })).StatusCode);
+        var observed = await api.ReplaceObservedServerRotation(seeded.GameServerId,
+            new() { ObservedAt = now, Entries = [new() { MapName = "mp_MixedCase", GameMode = "CustomMode" }] });
+        Assert.Equal(HttpStatusCode.OK, observed.StatusCode);
+        var conflict = await api.ReplaceObservedServerRotation(seeded.GameServerId,
+            new() { ObservedAt = now, Entries = [new() { MapName = "mp_different" }] });
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        Assert.Equal("OBSERVATION_CONFLICT", Assert.Single(conflict.Result!.Errors!).Code);
+        var map = Assert.Single((await api.GetEffectiveServerRotation(seeded.GameServerId)).Result!.Data!.Maps);
+        Assert.Equal("CustomMode", map.GameMode);
+        Assert.Equal("mp_MixedCase", map.MapName);
+        Assert.Equal("mp_mixedcase", (await db.Maps.SingleAsync()).MapName);
+        Assert.Single(await db.Maps.ToListAsync());
+    }
+    [Fact]
+    public async Task Observation_IsReadOnlyForManagedLifecycle_AndEffectiveResolverPrefersOnlyAppliedManaged()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var seeded = Seed(db);
+        db.MapRotationServerAssignments.Remove(seeded);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var observed = (await api.ReplaceObservedServerRotation(seeded.GameServerId, new()
+        {
+            ObservedAt = DateTimeOffset.UtcNow,
+            Entries = [new() { MapName = "mp_observed", GameMode = "dm" }]
+        })).Result!.Data!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateMapRotation(new(observed.MapRotationId) { Title = "Changed" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.DeleteMapRotation(observed.MapRotationId)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.CreateServerAssignment(new(observed.MapRotationId, seeded.GameServerId))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(new(observed.MapRotationServerAssignmentId) { ActivationState = ActivationState.Active })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.DeleteServerAssignment(observed.MapRotationServerAssignmentId)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.CreateAssignmentOperation(new(observed.MapRotationServerAssignmentId, AssignmentOperationType.Sync))).StatusCode);
+        db.Maps.Add(new Map { MapId = Guid.NewGuid(), GameType = seeded.GameServer.GameType, MapName = "mp_managed" });
+        await db.SaveChangesAsync();
+        seeded.MapRotation.MapRotationMaps.Add(new() { MapId = (await db.Maps.SingleAsync(m => m.MapName == "mp_managed")).MapId, SortOrder = 0 });
+        seeded.ConfigVariableName = "sv_maprotation";
+        seeded.ActivationState = (int)ActivationState.Active;
+        seeded.DeploymentState = (int)DeploymentState.Synced;
+        seeded.DeployedVersion = seeded.ActivatedVersion = seeded.MapRotation.Version;
+        db.MapRotationServerAssignments.Add(seeded);
+        await db.SaveChangesAsync();
+        Assert.Equal(RotationSource.PortalManaged, (await api.GetEffectiveServerRotation(seeded.GameServerId)).Result!.Data!.Source);
+        seeded.ActivatedVersion--;
+        await db.SaveChangesAsync();
+        Assert.Equal(RotationSource.ServerObserved, (await api.GetEffectiveServerRotation(seeded.GameServerId)).Result!.Data!.Source);
+        await api.CleanupUnassignedObservedRotations();
+        Assert.Equal(2, await db.MapRotations.CountAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.UpdateServerAssignment(new(seeded.MapRotationServerAssignmentId)
+        { DeploymentState = DeploymentState.NotApplicable })).StatusCode);
+    }
+
+    [Fact]
+    public async Task ManagedEntries_PreserveRepeatedMapsAndModeChanges_AndOnlyChangedContentIncrementsVersion()
+    {
+        using var db = DbContextHelper.CreateInMemoryContext();
+        var map = new Map { MapId = Guid.NewGuid(), GameType = 2, MapName = "mp_repeat" };
+        db.Maps.Add(map);
+        await db.SaveChangesAsync();
+        var api = (IMapRotationsApi)new MapRotationsController(db);
+        var entries = new List<MapRotationEntryDto>
+        {
+            new() { MapId = map.MapId },
+            new() { MapId = map.MapId, GameMode = "dm" },
+            new() { MapId = map.MapId, GameMode = "war" }
+        };
+        var created = (await api.CreateMapRotation(new(GameType.CallOfDuty4, "Mixed", "war") { Entries = entries })).Result!.Data!;
+        Assert.Equal(3, created.MapRotationMaps.Count);
+        Assert.Equal(new string?[] { null, "dm", "war" }, created.MapRotationMaps.Select(m => m.GameMode));
+        await api.UpdateMapRotation(new(created.MapRotationId) { Entries = entries });
+        Assert.Equal(1, (await api.GetMapRotation(created.MapRotationId)).Result!.Data!.Version);
+        entries[1].GameMode = "custom";
+        await api.UpdateMapRotation(new(created.MapRotationId) { Entries = entries });
+        var updated = (await api.GetMapRotation(created.MapRotationId)).Result!.Data!;
+        Assert.Equal(2, updated.Version);
+        Assert.NotEqual(created.ContentHash, updated.ContentHash);
+        Assert.Equal(3, updated.MapRotationMaps.Count);
+    }
+
+    [Theory]
     [InlineData(ActivationState.Active)]
     [InlineData(ActivationState.Failed)]
     public async Task AssignmentHttpUpdate_PreservesActionableUnsafeTargetError(ActivationState state)
@@ -493,7 +662,7 @@ public class MapRotationsControllerTests
         Assert.Equal(3, rotation.Version);
         Assert.Equal(2, assignment.ActivatedVersion);
         Assert.Equal((int)ActivationState.Inactive, assignment.ActivationState);
-        Assert.Equal(changeMaps ? new[] { second.MapId, first.MapId } : new[] { first.MapId },
+        Assert.Equal(changeMaps ? new[] { second.MapId, first.MapId, second.MapId } : new[] { first.MapId },
             rotation.MapRotationMaps.OrderBy(m => m.SortOrder).Select(m => m.MapId));
         await api.UpdateMapRotation(new UpdateMapRotationDto(rotation.MapRotationId) { Title = "Metadata", GameMode = "tdm" });
         Assert.Equal(3, rotation.Version);
