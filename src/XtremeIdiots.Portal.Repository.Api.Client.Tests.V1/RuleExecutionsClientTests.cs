@@ -44,6 +44,23 @@ public sealed class RuleExecutionsClientTests
         Assert.Equal("v1/rule-executions/audit", rest.LastResource);
         Assert.Equal(Method.Get, rest.LastMethod);
         Assert.Equal(occurrence.ToString(), rest.Query["triggerOccurrenceId"]);
+
+        var evaluation = new CreateRuleChatEvaluationDto();
+        await api.CreateChatEvaluation(server, evaluation);
+        Assert.Equal($"v1/game-servers/{server}/chat-evaluations", rest.LastResource);
+        Assert.Equal(Method.Post, rest.LastMethod);
+        Assert.Same(evaluation, rest.LastBody);
+
+        await api.SearchChatEvaluations(new RuleChatEvaluationQueryDto { PlayerId = server, OccurrenceId = occurrence });
+        Assert.Equal("v1/chat-evaluations", rest.LastResource);
+        Assert.Equal(Method.Get, rest.LastMethod);
+        Assert.Equal(server.ToString(), rest.Query["playerId"]);
+        Assert.Equal(occurrence.ToString(), rest.Query["occurrenceId"]);
+        Assert.False(rest.Query.ContainsKey("gameServerId"));
+
+        await api.GetOccurrenceEffects(server, occurrence);
+        Assert.Equal(root, rest.LastResource);
+        Assert.Equal(Method.Get, rest.LastMethod);
     }
 
     private sealed class CapturingRestClientService : IRestClientService

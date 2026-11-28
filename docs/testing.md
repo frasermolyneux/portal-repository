@@ -71,6 +71,29 @@ dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter 
 dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleOccurrenceConcurrencyTests"
 ```
 
+Chat evaluation attempts use an immutable producer-generated attempt ID. POST
+`v1/game-servers/{gameServerId}/chat-evaluations` returns 201 for a new attempt,
+200 for an identical retry and 409 for conflicting content. Evidence is redacted;
+only configured stable matcher entry IDs may be supplied, never observed chat or
+private input. The API cannot verify an entry ID's policy provenance. Evaluation
+rows are deleted with their player and pruned after 30 days by the existing game
+server event maintenance endpoint. Attempt-ID replay protection lasts only while
+the row is retained; producers must not retry an expired or deleted attempt.
+
+GET `v1/chat-evaluations` supports optional server, feature, occurrence, player and
+UTC time filters. Results are ordered by recorded time descending then attempt ID;
+continue using the last item's `recordedAtUtc` and `evaluation.attemptId` as
+`beforeRecordedAtUtc` and `afterAttemptId`. Responses use `items` and `hasMore`.
+GET `v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects`
+returns the authoritative claims and outcomes, independently of evaluations.
+A missing evaluation is unrecorded, not an inferred no-match or effect outcome.
+
+`RuleChatEvaluationTests` covers validation, replay, discovery, retention and
+deletion; `ChatEvaluationSqlTests` exercises conflicting concurrent attempts
+and cursor paging with SQL Server GUID ordering. On Windows the SQL test helper
+also accepts the optional `PORTAL_SQL_TEST_SERVER` alias for a dedicated LocalDB instance;
+`PORTAL_TEST_SQL_SERVER` takes precedence when both are set.
+
 The `XtremeIdiots.Portal.Repository.Api.Client.Testing` NuGet package provides in-memory fakes and factory helpers so consumer apps can test against `IRepositoryApiClient` without Moq or any mocking framework.
 
 ## Installation

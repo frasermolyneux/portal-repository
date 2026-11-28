@@ -49,6 +49,8 @@ internal static class NamespaceSchemaValidationRegistry
                 new ServerListSettingsValidator().Validate(Deserialize<ServerListSettingsDocument>(configuration)),
             [ModerationSettingsConstants.Namespace] = configuration =>
                 new ModerationSettingsValidator().Validate(Deserialize<ModerationSettingsDocument>(configuration)),
+            [ChatModerationRulesConstants.Namespace] = configuration =>
+                new ChatModerationRulesValidator().Validate(Deserialize<ChatModerationRulesDocument>(configuration)),
             [EventSettingsConstants.Namespace] = configuration =>
                 new EventSettingsValidator().Validate(Deserialize<EventSettingsDocument>(configuration)),
             [BroadcastSettingsConstants.Namespace] = configuration =>
@@ -75,6 +77,22 @@ internal static class NamespaceSchemaValidationRegistry
 
         try
         {
+            if (string.Equals(normalizedNamespace, ChatModerationRulesConstants.Namespace, StringComparison.OrdinalIgnoreCase))
+            {
+                using var chatJson = JsonDocument.Parse(configuration);
+                if (chatJson.RootElement.ValueKind != JsonValueKind.Object ||
+                    !chatJson.RootElement.EnumerateObject().Any(item =>
+                        item.Name.Equals("featureId", StringComparison.OrdinalIgnoreCase) &&
+                        item.Value.ValueKind == JsonValueKind.String &&
+                        item.Value.GetString() == ChatModerationRulesConstants.FeatureId))
+                {
+                    return false;
+                }
+                var chatValidator = new ChatModerationRulesValidator();
+                return serverOverride
+                    ? chatValidator.ValidateServerOverride(Deserialize<ChatModerationRulesServerDocument>(configuration)).IsValid
+                    : chatValidator.Validate(Deserialize<ChatModerationRulesDocument>(configuration)).IsValid;
+            }
             if (string.Equals(normalizedNamespace, WelcomeRulesSettingsConstants.Namespace, StringComparison.OrdinalIgnoreCase))
             {
                 using var welcomeJson = JsonDocument.Parse(configuration);

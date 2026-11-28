@@ -46,6 +46,53 @@ public class GlobalConfigurationsControllerTests
         Assert.Equal(valid ? HttpStatusCode.OK : HttpStatusCode.BadRequest, result.StatusCode);
     }
 
+    [Theory]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"chat-moderation","rules":[{"id":"rule","condition":{"conditionId":"chat.banned-words","parameters":{"policy":{"matcherVersion":"literal-v1","entries":[]}}},"actions":[{"id":"observe","typeId":"moderation.observation","parameters":{"reason":"Observed"}}]}]}""", true)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"chat-moderation","rules":[{"id":"rule","condition":{"conditionId":"chat.banned-words","parameters":{"policy":{"matcherVersion":"future","entries":[]}}},"actions":[{"id":"observe","typeId":"moderation.observation","parameters":{"reason":"Observed"}}]}]}""", false)]
+    public async Task UpsertConfiguration_ChatModerationRules_ValidatesLiteralPolicy(string json, bool valid)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IGlobalConfigurationsApi)CreateController(context);
+
+        var result = await api.UpsertConfiguration("chatModerationRules", new() { Configuration = json });
+
+        Assert.Equal(valid ? HttpStatusCode.OK : HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("future.condition", 10, true)]
+    [InlineData("chat.player-first-seen", 10, true)]
+    [InlineData("chat.player-first-seen", 36501, false)]
+    public async Task UpsertConfiguration_ChatCommandPolicy_PreservesUnknownAndValidatesKnownAge(
+        string conditionId, int withinDays, bool valid)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var api = (IGlobalConfigurationsApi)CreateController(context);
+        var json = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1,
+            commands = new
+            {
+                fu = new
+                {
+                    policy = new
+                    {
+                        defaultDecision = "Deny",
+                        rules = new[] { new { id = "rule", decision = "Allow", condition = new { conditionId, parameters = new { withinDays } } } }
+                    }
+                }
+            }
+        });
+
+        var result = await api.UpsertConfiguration("chatCommands", new() { Configuration = json });
+
+        Assert.Equal(valid ? HttpStatusCode.OK : HttpStatusCode.BadRequest, result.StatusCode);
+        if (valid)
+        {
+            Assert.Equal(json, context.GlobalConfigurations.Single().Configuration);
+        }
+    }
+
     [Fact]
     public async Task UpsertConfiguration_SiegeMode_ValidatesDocument()
     {

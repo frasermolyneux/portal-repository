@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using Newtonsoft.Json.Linq;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
@@ -64,6 +66,9 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
         Assert.Equal("Acquired", acquiredData["disposition"]!.Value<string>());
         Assert.True(acquiredData["shouldDispatch"]!.Value<bool>());
         Assert.Equal("chat-moderation", acquiredData["effect"]!["claim"]!["featureId"]!.Value<string>());
+        var effectList = await client.GetAsync(root);
+        Assert.Equal(HttpStatusCode.OK, effectList.StatusCode);
+        Assert.Equal("Claimed", Assert.Single(JObject.Parse(await effectList.Content.ReadAsStringAsync())["data"]!["items"]!)["outcome"]!.Value<string>());
 
         var duplicate = await client.PostAsJsonAsync(root, claim);
         Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
@@ -123,5 +128,79 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
         Assert.Equal(HttpStatusCode.OK, ruleFiltered.StatusCode);
         var ruleItems = JObject.Parse(await ruleFiltered.Content.ReadAsStringAsync())["data"]!["items"]!;
         Assert.Equal(recordId, Assert.Single(ruleItems)["adminActionId"]!.Value<string>());
+    }
+
+    [Fact]
+    public async Task ChatEvaluationRoutesPreserveAttemptIdentityAndAllowFleetDiscovery()
+    {
+        var serverId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        factory.SeedDatabase(context =>
+        {
+            context.GameServers.Add(new GameServer { GameServerId = serverId, Title = "Test", Hostname = "localhost", GameType = (int)GameType.CallOfDuty4 });
+            context.Players.Add(new Player { PlayerId = playerId, GameType = (int)GameType.CallOfDuty4 });
+            context.SaveChanges();
+        });
+        var request = new CreateRuleChatEvaluationDto
+        {
+            AttemptId = Guid.NewGuid(),
+            PlayerId = playerId,
+            OccurrenceId = Guid.NewGuid(),
+            FeatureId = "chat-moderation",
+            RuleSetRevision = "revision",
+            Mode = RuleExecutionMode.DryRun,
+            EvaluatedAtUtc = DateTimeOffset.UtcNow,
+            MatchStatus = RuleExecutionMatchStatus.Unknown,
+            Evidence = new RuleEvaluationEvidence()
+        };
+        using var client = factory.CreateClient();
+        var route = $"/v1.0/game-servers/{serverId}/chat-evaluations";
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync(route, request)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(route, request)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(route, request with { MatchStatus = RuleExecutionMatchStatus.Matched })).StatusCode);
+        var search = await client.GetAsync($"/v1.0/chat-evaluations?playerId={playerId}&occurrenceId={request.OccurrenceId}");
+        Assert.Equal(HttpStatusCode.OK, search.StatusCode);
+        var item = Assert.Single(JObject.Parse(await search.Content.ReadAsStringAsync())["data"]!["items"]!);
+        Assert.Equal(serverId.ToString(), item["gameServerId"]!.Value<string>());
+        Assert.Equal(request.AttemptId.ToString(), item["evaluation"]!["attemptId"]!.Value<string>());
+
+        var node = new RuleEvaluationNodeEvidence
+        {
+            RuleId = "invalid-id",
+            Kind = RuleEvidenceNodeKind.Rule,
+            Status = RuleEvaluationNodeStatus.Matched,
+            ObservedAtUtc = DateTimeOffset.UtcNow
+        };
+        var unicodeRequest = request with
+        {
+            AttemptId = Guid.NewGuid(),
+            Evidence = new RuleEvaluationEvidence { Nodes = [node] }
+        };
+        const string expectedRuleId = "règle 東京 \uFFFD \U0001F680";
+        foreach (var encoding in new[] { Encoding.UTF8, Encoding.Unicode })
+        {
+            foreach (var value in new[] { expectedRuleId, "règle 東京 \uFFFD \\ud83d\\ude80" })
+            {
+                var json = JsonSerializer.Serialize(unicodeRequest with { AttemptId = Guid.NewGuid() }, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                    .Replace("invalid-id", value, StringComparison.Ordinal);
+                var response = await client.PostAsync(route, new StringContent(json, encoding, "application/json"));
+                Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+                var data = JObject.Parse(await response.Content.ReadAsStringAsync())["data"]!;
+                Assert.Equal(expectedRuleId, data["evaluation"]!["evidence"]!["nodes"]![0]!["ruleId"]!.Value<string>());
+            }
+
+            foreach (var (surrogate, contentType) in new[] { ("\\ud800", "application/json"), ("\\udc00", "text/json") })
+            {
+                var json = JsonSerializer.Serialize(unicodeRequest, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                    .Replace("invalid-id", surrogate, StringComparison.Ordinal);
+                Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(route, new StringContent(json, encoding, contentType))).StatusCode);
+            }
+        }
+
+        var validJson = JsonSerializer.Serialize(unicodeRequest, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var malformedBytes = new ByteArrayContent([.. Encoding.Unicode.GetBytes(validJson), 0xd8]);
+        malformedBytes.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json") { CharSet = "utf-16" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(route, malformedBytes)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await client.PostAsync(route, new StringContent(validJson, Encoding.UTF32, "application/json"))).StatusCode);
     }
 }
