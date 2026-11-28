@@ -28,6 +28,9 @@ public record MapRotationDto : IDto
     public GameType GameType { get; set; }
 
     [JsonProperty]
+    public RotationSource Source { get; set; }
+
+    [JsonProperty]
     public string Title { get; set; }
 
     [JsonProperty]

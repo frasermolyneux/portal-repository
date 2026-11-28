@@ -36,6 +36,9 @@ public record UpdateMapRotationDto : IDto
     public List<Guid>? MapIds { get; set; }
 
     [JsonProperty]
+    public List<MapRotationEntryDto>? Entries { get; set; }
+
+    [JsonProperty]
     public Guid? LastModifiedByUserId { get; set; }
 
     [JsonIgnore]

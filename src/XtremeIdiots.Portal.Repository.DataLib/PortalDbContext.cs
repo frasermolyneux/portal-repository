@@ -373,6 +373,10 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.MapRotationServerAssignmentId).HasName("PK_dbo.MapRotationServerAssignments");
 
+            entity.HasIndex(e => new { e.GameServerId, e.Source }, "UX_MapRotationServerAssignments_CurrentObserved")
+                .IsUnique()
+                .HasFilter("[Source] = 1 AND [UnassignedAt] IS NULL");
+
             entity.Property(e => e.MapRotationServerAssignmentId).HasDefaultValueSql("newsequentialid()");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");

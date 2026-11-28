@@ -40,6 +40,9 @@ public record CreateMapRotationDto : IDto
     [JsonProperty]
     public List<Guid> MapIds { get; set; } = [];
 
+    [JsonProperty]
+    public List<MapRotationEntryDto>? Entries { get; set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

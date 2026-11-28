@@ -1,7 +1,9 @@
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Formatters;
 
 namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1;
 
@@ -11,6 +13,14 @@ internal sealed class ValidateChatEvaluationJsonAttribute : Attribute, IAsyncRes
     public async Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next)
     {
         var request = context.HttpContext.Request;
+        var mediaType = string.IsNullOrEmpty(request.ContentType) ? default : new MediaType(request.ContentType);
+        var encoding = mediaType.Charset.HasValue ? mediaType.Encoding : Encoding.UTF8;
+        if (encoding is null || (encoding.CodePage != Encoding.UTF8.CodePage && encoding.CodePage != Encoding.Unicode.CodePage))
+        {
+            await next().ConfigureAwait(false);
+            return;
+        }
+
         var limit = context.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>()?.MaxRequestBodySize;
         if (limit is { } maximum && request.ContentLength > maximum)
         {
@@ -28,17 +38,29 @@ internal sealed class ValidateChatEvaluationJsonAttribute : Attribute, IAsyncRes
         }
         try
         {
-            using var document = await JsonDocument.ParseAsync(request.Body,
+            using var transcoded = encoding.CodePage == Encoding.Unicode.CodePage
+                ? Encoding.CreateTranscodingStream(request.Body, new UnicodeEncoding(false, false, true),
+                    new UTF8Encoding(false, true), leaveOpen: true)
+                : null;
+            using var document = await JsonDocument.ParseAsync(transcoded ?? request.Body,
                 new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true },
                 context.HttpContext.RequestAborted).ConfigureAwait(false);
-            ValidateStrings(document.RootElement);
+            try
+            {
+                ValidateStrings(document.RootElement);
+            }
+            catch (InvalidOperationException)
+            {
+                context.Result = new BadRequestResult();
+                return;
+            }
         }
         catch (JsonException)
         {
             context.Result = new BadRequestResult();
             return;
         }
-        catch (InvalidOperationException)
+        catch (DecoderFallbackException)
         {
             context.Result = new BadRequestResult();
             return;

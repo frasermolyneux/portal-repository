@@ -166,26 +166,41 @@ public sealed class RuleOccurrenceEffectsTests(CustomWebApplicationFactory facto
 
         var node = new RuleEvaluationNodeEvidence
         {
-            RuleId = "règle 東京 \uFFFD \U0001F680",
+            RuleId = "invalid-id",
             Kind = RuleEvidenceNodeKind.Rule,
             Status = RuleEvaluationNodeStatus.Matched,
             ObservedAtUtc = DateTimeOffset.UtcNow
         };
-        var unicodeRequest = request with { AttemptId = Guid.NewGuid(), Evidence = new RuleEvaluationEvidence { Nodes = [node] } };
-        var unicodeResponse = await client.PostAsJsonAsync(route, unicodeRequest);
-        Assert.Equal(HttpStatusCode.Created, unicodeResponse.StatusCode);
-        var unicodeData = JObject.Parse(await unicodeResponse.Content.ReadAsStringAsync())["data"]!;
-        Assert.Equal(node.RuleId, unicodeData["evaluation"]!["evidence"]!["nodes"]![0]!["ruleId"]!.Value<string>());
-        var invalidRequest = unicodeRequest with
+        var unicodeRequest = request with
         {
             AttemptId = Guid.NewGuid(),
-            Evidence = new RuleEvaluationEvidence { Nodes = [node with { RuleId = "invalid-id" }] }
+            Evidence = new RuleEvaluationEvidence { Nodes = [node] }
         };
-        foreach (var (surrogate, contentType) in new[] { ("\\ud800", "application/json"), ("\\udc00", "text/json") })
+        const string expectedRuleId = "règle 東京 \uFFFD \U0001F680";
+        foreach (var encoding in new[] { Encoding.UTF8, Encoding.Unicode })
         {
-            var json = JsonSerializer.Serialize(invalidRequest, new JsonSerializerOptions(JsonSerializerDefaults.Web))
-                .Replace("invalid-id", surrogate, StringComparison.Ordinal);
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(route, new StringContent(json, Encoding.UTF8, contentType))).StatusCode);
+            foreach (var value in new[] { expectedRuleId, "règle 東京 \uFFFD \\ud83d\\ude80" })
+            {
+                var json = JsonSerializer.Serialize(unicodeRequest with { AttemptId = Guid.NewGuid() }, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                    .Replace("invalid-id", value, StringComparison.Ordinal);
+                var response = await client.PostAsync(route, new StringContent(json, encoding, "application/json"));
+                Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+                var data = JObject.Parse(await response.Content.ReadAsStringAsync())["data"]!;
+                Assert.Equal(expectedRuleId, data["evaluation"]!["evidence"]!["nodes"]![0]!["ruleId"]!.Value<string>());
+            }
+
+            foreach (var (surrogate, contentType) in new[] { ("\\ud800", "application/json"), ("\\udc00", "text/json") })
+            {
+                var json = JsonSerializer.Serialize(unicodeRequest, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                    .Replace("invalid-id", surrogate, StringComparison.Ordinal);
+                Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(route, new StringContent(json, encoding, contentType))).StatusCode);
+            }
         }
+
+        var validJson = JsonSerializer.Serialize(unicodeRequest, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var malformedBytes = new ByteArrayContent([.. Encoding.Unicode.GetBytes(validJson), 0xd8]);
+        malformedBytes.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json") { CharSet = "utf-16" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(route, malformedBytes)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await client.PostAsync(route, new StringContent(validJson, Encoding.UTF32, "application/json"))).StatusCode);
     }
 }
