@@ -468,6 +468,22 @@ public class GameServerConfigurationsControllerTests
         Assert.Single(context.GameServerConfigurations);
     }
 
+    [Theory]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"chat-moderation","ruleOverrides":[{"ruleId":"rule","condition":{"conditionId":"chat.banned-words","parameters":{"policy":{"matcherVersion":"literal-v1","entries":[]}}}}]}""", true)]
+    [InlineData(/*lang=json,strict*/ """{"schemaVersion":1,"featureId":"chat-moderation","ruleOverrides":[{"ruleId":"rule","condition":{"conditionId":"chat.banned-words","parameters":{"policy":null}}}]}""", false)]
+    public async Task UpsertConfiguration_ChatModerationRules_ValidatesReplacementCondition(string json, bool valid)
+    {
+        using var context = DbContextHelper.CreateInMemoryContext();
+        var gs = CreateTestGameServer();
+        context.GameServers.Add(gs);
+        await context.SaveChangesAsync();
+        var api = (IGameServerConfigurationsApi)CreateController(context);
+
+        var result = await api.UpsertConfiguration(gs.GameServerId, "chatModerationRules", new() { Configuration = json });
+
+        Assert.Equal(valid ? HttpStatusCode.OK : HttpStatusCode.BadRequest, result.StatusCode);
+    }
+
     [Fact]
     public async Task UpsertConfiguration_KnownNamespace_NullPayload_ReturnsBadRequest()
     {

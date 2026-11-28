@@ -7,6 +7,9 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 public interface IMapRotationsApi
 {
     Task<ApiResult<PublicServerRotationsDto>> GetPublicServerRotations(CancellationToken cancellationToken = default);
+    Task<ApiResult<PublicServerRotationDto>> GetEffectiveServerRotation(Guid gameServerId, CancellationToken cancellationToken = default);
+    Task<ApiResult<MapRotationServerAssignmentDto>> ReplaceObservedServerRotation(Guid gameServerId, ObserveServerRotationDto observation, CancellationToken cancellationToken = default);
+    Task<ApiResult> CleanupUnassignedObservedRotations(CancellationToken cancellationToken = default);
 
     // Map Rotation CRUD
     Task<ApiResult<MapRotationDto>> GetMapRotation(Guid mapRotationId, CancellationToken cancellationToken = default);
@@ -20,6 +23,7 @@ public interface IMapRotationsApi
     // Server Assignment CRUD
     Task<ApiResult<MapRotationServerAssignmentDto>> GetServerAssignment(Guid assignmentId, CancellationToken cancellationToken = default);
     Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> GetServerAssignments(Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState, int skipEntries, int takeEntries, CancellationToken cancellationToken = default);
+    Task<ApiResult<CollectionModel<MapRotationServerAssignmentDto>>> GetServerAssignments(Guid? mapRotationId, Guid? gameServerId, DeploymentState? deploymentState, RotationSource source, int skipEntries, int takeEntries, CancellationToken cancellationToken = default);
     Task<ApiResult<MapRotationServerAssignmentDto>> CreateServerAssignment(CreateMapRotationServerAssignmentDto createDto, CancellationToken cancellationToken = default);
     Task<ApiResult> UpdateServerAssignment(UpdateMapRotationServerAssignmentDto updateDto, CancellationToken cancellationToken = default);
     Task<ApiResult> DeleteServerAssignment(Guid assignmentId, CancellationToken cancellationToken = default);

@@ -16,6 +16,12 @@ CREATE TABLE [dbo].[MapRotationServerAssignments]
     [CreatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     [UpdatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     [UnassignedAt] DATETIME2 NULL,
+    [Source] INT NOT NULL DEFAULT 0,
+    [ObservedAt] DATETIME2 NULL,
+    CONSTRAINT [CK_MapRotationServerAssignments_Source] CHECK ([Source] IN (0, 1)),
+    CONSTRAINT [CK_MapRotationServerAssignments_ObservedState] CHECK
+        ([Source] = 0 OR ([DeploymentState] = 7 AND [ActivationState] = 0
+            AND [DeployedVersion] IS NULL AND [ActivatedVersion] IS NULL AND [ObservedAt] IS NOT NULL)),
     CONSTRAINT [PK_dbo.MapRotationServerAssignments] PRIMARY KEY CLUSTERED ([MapRotationServerAssignmentId] ASC),
     CONSTRAINT [FK_dbo.MapRotationServerAssignments_dbo.MapRotations_MapRotationId] FOREIGN KEY ([MapRotationId]) REFERENCES [dbo].[MapRotations] ([MapRotationId]),
     CONSTRAINT [FK_dbo.MapRotationServerAssignments_dbo.GameServers_GameServerId] FOREIGN KEY ([GameServerId]) REFERENCES [dbo].[GameServers] ([GameServerId])
@@ -32,3 +38,7 @@ CREATE NONCLUSTERED INDEX [IX_MapRotationServerAssignments_GameServerId]
 GO
 CREATE NONCLUSTERED INDEX [IX_MapRotationServerAssignments_DeploymentState]
     ON [dbo].[MapRotationServerAssignments]([DeploymentState] ASC);
+GO
+CREATE UNIQUE NONCLUSTERED INDEX [UX_MapRotationServerAssignments_CurrentObserved]
+    ON [dbo].[MapRotationServerAssignments]([GameServerId], [Source])
+    WHERE [Source] = 1 AND [UnassignedAt] IS NULL;

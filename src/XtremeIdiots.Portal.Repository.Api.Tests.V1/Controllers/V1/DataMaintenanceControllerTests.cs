@@ -206,6 +206,21 @@ public class DataMaintenanceControllerTests
 
         foreach (var ownerId in new[] { playerId, controlPlayerId })
         {
+            context.RuleChatEvaluations.Add(new RuleChatEvaluation
+            {
+                AttemptId = Guid.NewGuid(),
+                GameServerId = gameServerId,
+                PlayerId = ownerId,
+                OccurrenceId = Guid.NewGuid(),
+                FeatureId = "chat-moderation",
+                RuleSetRevision = "revision",
+                Mode = "DryRun",
+                MatchStatus = "Unknown",
+                EvaluatedAtUtc = DateTime.UtcNow,
+                RecordedAtUtc = DateTime.UtcNow,
+                EvidenceJson = "{}",
+                CheckDetailsJson = "[]"
+            });
             context.RuleOccurrenceEffects.Add(new RuleOccurrenceEffect
             {
                 GameServerId = gameServerId,
@@ -499,6 +514,7 @@ public class DataMaintenanceControllerTests
         Assert.False(context.AdminActions.Any(a => a.PlayerId == playerId));
         Assert.False(context.AutomationActionStates.Any(s => s.PlayerId == playerId));
         Assert.False(context.RuleOccurrenceEffects.Any(effect => effect.PlayerId == playerId));
+        Assert.False(context.RuleChatEvaluations.Any(item => item.PlayerId == playerId));
         Assert.False(context.RuleOccurrenceCooldowns.Any(cooldown => cooldown.PlayerId == playerId));
         Assert.False(context.ChatMessages.Any(c => c.PlayerId == playerId));
         Assert.False(context.ConnectedPlayerProfiles.Any(c => c.PlayerId == playerId));
@@ -533,6 +549,7 @@ public class DataMaintenanceControllerTests
 
         Assert.True(context.Players.Any(p => p.PlayerId == controlPlayerId));
         Assert.Single(context.RuleOccurrenceEffects.Where(effect => effect.PlayerId == controlPlayerId));
+        Assert.Single(context.RuleChatEvaluations.Where(item => item.PlayerId == controlPlayerId));
         Assert.Single(context.RuleOccurrenceCooldowns.Where(cooldown => cooldown.PlayerId == controlPlayerId));
         Assert.True(context.PlayerAliases.Any(a => a.PlayerId == controlPlayerId));
         Assert.True(context.PlayerIpAddresses.Any(a => a.PlayerId == controlPlayerId));

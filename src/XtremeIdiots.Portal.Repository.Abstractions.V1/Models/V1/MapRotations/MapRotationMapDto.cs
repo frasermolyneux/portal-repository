@@ -14,6 +14,12 @@ public record MapRotationMapDto : IDto
     [JsonProperty]
     public int SortOrder { get; set; }
 
+    [JsonProperty]
+    public string? GameMode { get; set; }
+
+    [JsonProperty]
+    public string? MapName { get; set; }
+
     [JsonIgnore]
     public Dictionary<string, string> TelemetryProperties => [];
 }

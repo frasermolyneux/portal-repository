@@ -80,6 +80,9 @@ public partial class GameServer
     public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 
     [InverseProperty("GameServer")]
+    public virtual ICollection<RuleChatEvaluation> RuleChatEvaluations { get; set; } = new List<RuleChatEvaluation>();
+
+    [InverseProperty("GameServer")]
     public virtual ICollection<RuleConnectionBinding> RuleConnectionBindings { get; set; } = new List<RuleConnectionBinding>();
 
     [InverseProperty("GameServer")]

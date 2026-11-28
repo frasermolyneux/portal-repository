@@ -152,6 +152,25 @@ public sealed class HistoryAndRetentionTests : IDisposable
     public async Task EventPruning_DeletesAcrossBatches_AndPreservesEventsWithinThirtyDays()
     {
         var server = AddServer();
+        var player = new Player { PlayerId = Guid.NewGuid(), GameType = server.GameType };
+        context.Players.Add(player);
+        var recentAttempt = Guid.NewGuid();
+        context.RuleChatEvaluations.AddRange(new[] { DateTime.UtcNow.AddDays(-31), DateTime.UtcNow.AddDays(-29) }
+            .Select((time, index) => new RuleChatEvaluation
+            {
+                AttemptId = index == 0 ? Guid.NewGuid() : recentAttempt,
+                GameServerId = server.GameServerId,
+                PlayerId = player.PlayerId,
+                OccurrenceId = Guid.NewGuid(),
+                FeatureId = "chat",
+                RuleSetRevision = "revision",
+                Mode = "DryRun",
+                MatchStatus = "Unknown",
+                EvaluatedAtUtc = time,
+                RecordedAtUtc = time,
+                EvidenceJson = "{}",
+                CheckDetailsJson = "[]"
+            }));
         context.GameServerEvents.AddRange(Enumerable.Range(0, BoundedPruner.BatchSize + 1).Select(_ => new GameServerEvent
         {
             GameServerEventId = Guid.NewGuid(),
@@ -174,6 +193,7 @@ public sealed class HistoryAndRetentionTests : IDisposable
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal(recent.GameServerEventId, (await context.GameServerEvents.AsNoTracking().SingleAsync()).GameServerEventId);
+        Assert.Equal(recentAttempt, (await context.RuleChatEvaluations.AsNoTracking().SingleAsync()).AttemptId);
     }
 
     [Fact]
@@ -224,7 +244,8 @@ public sealed class HistoryAndRetentionTests : IDisposable
         await api.PruneRecentPlayers();
         await api.PrunePlayerIpAddresses();
 
-        Assert.Equal(7, capture.Text.Count);
+        Assert.Equal(8, capture.Text.Count);
+        Assert.Contains(capture.Text, sql => sql.Contains("RuleChatEvaluations", StringComparison.OrdinalIgnoreCase));
         Assert.All(capture.Text, sql =>
         {
             Assert.Contains("DELETE", sql, StringComparison.OrdinalIgnoreCase);
