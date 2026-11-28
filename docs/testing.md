@@ -89,9 +89,9 @@ returns the authoritative claims and outcomes, independently of evaluations.
 A missing evaluation is unrecorded, not an inferred no-match or effect outcome.
 
 `RuleChatEvaluationTests` covers validation, replay, discovery, retention and
-deletion; `ChatEvaluationConcurrencyTests` exercises conflicting concurrent
-attempts on SQL Server. On Windows the SQL test helper also accepts the optional
-`PORTAL_SQL_TEST_SERVER` alias for a dedicated LocalDB instance;
+deletion; `ChatEvaluationSqlTests` exercises conflicting concurrent attempts
+and cursor paging with SQL Server GUID ordering. On Windows the SQL test helper
+also accepts the optional `PORTAL_SQL_TEST_SERVER` alias for a dedicated LocalDB instance;
 `PORTAL_TEST_SQL_SERVER` takes precedence when both are set.
 
 The `XtremeIdiots.Portal.Repository.Api.Client.Testing` NuGet package provides in-memory fakes and factory helpers so consumer apps can test against `IRepositoryApiClient` without Moq or any mocking framework.

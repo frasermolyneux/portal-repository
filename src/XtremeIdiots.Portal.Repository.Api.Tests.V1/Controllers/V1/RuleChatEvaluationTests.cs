@@ -143,7 +143,7 @@ public sealed partial class RuleExecutionsControllerTests
 
     [Collection("SqlServer")]
     [Trait("Category", "SqlIntegration")]
-    public sealed class ChatEvaluationConcurrencyTests
+    public sealed class ChatEvaluationSqlTests
     {
         [Fact]
         public Task ConcurrentSameAttemptNeverOverwritesDifferentContent() => SqlServerTestDatabase.RunAsync(async connectionString =>
@@ -162,6 +162,64 @@ public sealed partial class RuleExecutionsControllerTests
             Assert.Contains(HttpStatusCode.Created, results);
             Assert.Contains(HttpStatusCode.Conflict, results);
             Assert.Single(await setup.RuleChatEvaluations.AsNoTracking().ToListAsync());
+        });
+
+        [Fact]
+        public Task CursorPagesFollowSqlServerGuidOrderForTiedTimestamps() => SqlServerTestDatabase.RunAsync(async connectionString =>
+        {
+            var options = new DbContextOptionsBuilder<PortalDbContext>().UseSqlServer(connectionString).Options;
+            await using var context = new PortalDbContext(options);
+            var server = await AddServer(context);
+            var player = await AddOccurrencePlayer(context);
+            var api = (IRuleExecutionsApi)new RuleExecutionsController(context);
+            var request = ChatEvaluation(player);
+            var attemptIds = new[]
+            {
+                Guid.Parse("10000000-0000-0000-0000-000000000000"),
+                Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Guid.Parse("00000001-0000-0000-0000-000000000001"),
+                Guid.Parse("00000000-0000-0000-0000-000000000002")
+            };
+            foreach (var attemptId in attemptIds)
+            {
+                Assert.Equal(HttpStatusCode.Created,
+                    (await api.CreateChatEvaluation(server, request with { AttemptId = attemptId })).StatusCode);
+            }
+
+            var recordedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            foreach (var row in await context.RuleChatEvaluations.ToArrayAsync())
+            {
+                row.RecordedAtUtc = recordedAt;
+            }
+            await context.SaveChangesAsync();
+            var expected = await context.RuleChatEvaluations.AsNoTracking()
+                .OrderByDescending(item => item.RecordedAtUtc).ThenBy(item => item.AttemptId)
+                .Select(item => item.AttemptId).ToArrayAsync();
+            Assert.Equal(attemptIds.Length, expected.Length);
+            Assert.False(expected.SequenceEqual(attemptIds.Order()));
+
+            var actual = new List<Guid>();
+            DateTime? before = null;
+            Guid? after = null;
+            for (var index = 0; index < attemptIds.Length; index++)
+            {
+                var response = await api.SearchChatEvaluations(new()
+                {
+                    GameServerId = server,
+                    TakeEntries = 1,
+                    BeforeRecordedAtUtc = before,
+                    AfterAttemptId = after
+                });
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                var page = response.Result!.Data!;
+                var item = Assert.Single(page.Items);
+                Assert.Equal(index < attemptIds.Length - 1, page.HasMore);
+                actual.Add(item.Evaluation.AttemptId);
+                before = item.RecordedAtUtc.UtcDateTime;
+                after = item.Evaluation.AttemptId;
+            }
+            Assert.Equal(expected, actual);
+            Assert.Equal(attemptIds.Length, actual.Distinct().Count());
         });
     }
 }

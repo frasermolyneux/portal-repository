@@ -42,4 +42,4 @@ jobs:
       - name: Validate SQL Server concurrency scenarios
         if: success() || failure()
         shell: pwsh
-        run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~RuleOccurrenceConcurrencyTests|FullyQualifiedName~EvidenceReadConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests|FullyQualifiedName~ObservedRotationConcurrencyTests|FullyQualifiedName~ChatEvaluationConcurrencyTests"
+        run: dotnet test .\src\XtremeIdiots.Portal.Repository.Api.Tests.V1\XtremeIdiots.Portal.Repository.Api.Tests.V1.csproj --filter "FullyQualifiedName~MapCatalogueConcurrencyTests|FullyQualifiedName~RuleOccurrenceConcurrencyTests|FullyQualifiedName~EvidenceReadConcurrencyTests|FullyQualifiedName~UserProfileArchivalConcurrencyTests|FullyQualifiedName~ObservedRotationConcurrencyTests|FullyQualifiedName~ChatEvaluationSqlTests"
