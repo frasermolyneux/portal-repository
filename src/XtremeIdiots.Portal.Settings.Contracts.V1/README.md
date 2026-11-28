@@ -135,6 +135,15 @@ and handler behavior; declaring `invalidMessage` does not itself introduce a new
 
 `ChatCommandCatalogueV1` describes confirmed command names, aliases, ownership, transport game
 types, and staged reply keys. Confirmed transport support is not a new game-type dispatch gate.
+Its `PolicyConditions` lists the staged command-policy target subset: `always`, `player.tags`,
+and `chat.player-first-seen`. The latter tests the selected player's `FirstSeen` strictly after
+processing UTC now minus `withinDays` (0–36500); zero is false and missing data is Unknown.
+It is not the historical GUID-first-seen or profile-age condition. Catalogue metadata does not
+prove that a deployed consumer implements a condition; verify runtime compatibility before use.
+`ValidatePolicyCapabilities` reports unsupported leaves for authoring diagnostics. It must not
+replace three-valued, ordered evaluation: an unsupported leaf is Unknown, but an earlier match,
+a disabled rule, or a False AND Unknown can still determine the result. Ordinary document
+validation permits structurally valid unsupported conditions so their settings can be preserved.
 `EffectiveChatCommandSettings` can carry the resolved policy and replies; consumers resolving
 settings must apply the per-result inheritance rules above. Null values retain legacy behavior.
 Deploy round-trip-preserving editors and compatible readers before writing these fields; the

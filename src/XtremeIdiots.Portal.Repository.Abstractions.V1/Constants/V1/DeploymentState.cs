@@ -8,5 +8,6 @@ public enum DeploymentState
     Removing = 3,
     Removed = 4,
     Failed = 5,
-    PartiallyDeployed = 6
+    PartiallyDeployed = 6,
+    NotApplicable = 7
 }

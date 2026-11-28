@@ -85,6 +85,8 @@ public partial class PortalDbContext : DbContext
 
     public virtual DbSet<RuleActionExecution> RuleActionExecutions { get; set; }
 
+    public virtual DbSet<RuleChatEvaluation> RuleChatEvaluations { get; set; }
+
     public virtual DbSet<RuleConnectionBinding> RuleConnectionBindings { get; set; }
 
     public virtual DbSet<RuleConnectionStatusSnapshot> RuleConnectionStatusSnapshots { get; set; }
@@ -371,6 +373,10 @@ public partial class PortalDbContext : DbContext
         {
             entity.HasKey(e => e.MapRotationServerAssignmentId).HasName("PK_dbo.MapRotationServerAssignments");
 
+            entity.HasIndex(e => new { e.GameServerId, e.Source }, "UX_MapRotationServerAssignments_CurrentObserved")
+                .IsUnique()
+                .HasFilter("[Source] = 1 AND [UnassignedAt] IS NULL");
+
             entity.Property(e => e.MapRotationServerAssignmentId).HasDefaultValueSql("newsequentialid()");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
@@ -595,6 +601,17 @@ public partial class PortalDbContext : DbContext
                 .HasConstraintName("FK_RuleActionExecutions_AdminActions");
 
             entity.HasOne(d => d.Execution).WithMany(p => p.RuleActionExecutions).HasConstraintName("FK_RuleActionExecutions_Executions");
+        });
+
+        modelBuilder.Entity<RuleChatEvaluation>(entity =>
+        {
+            entity.Property(e => e.AttemptId).ValueGeneratedNever();
+
+            entity.HasOne(d => d.GameServer).WithMany(p => p.RuleChatEvaluations)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RuleChatEvaluations_GameServers");
+
+            entity.HasOne(d => d.Player).WithMany(p => p.RuleChatEvaluations).HasConstraintName("FK_RuleChatEvaluations_Players");
         });
 
         modelBuilder.Entity<RuleConnectionBinding>(entity =>

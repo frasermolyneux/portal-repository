@@ -1,5 +1,27 @@
 # Testing with the Repository API Client
 
+## Map rotation observation
+
+[Rotation contracts and lifecycle boundaries](map-rotations.md) describe the V1
+effective resolver and observation API. `MapRotationsControllerTests` and
+`PublicMapExperienceTests` cover duplicates, per-entry modes, managed precedence,
+explicit empty snapshots and the removal of history fallback.
+`ObservedRotationConcurrencyTests` verifies ownership rechecks, concurrent
+catalogue deduplication, cleanup and lost-commit acknowledgement retries against
+isolated SQL Server. `MapRotationsTests` exercises HTTP serialization; client and
+testing-package suites cover source-filtered reads and observed lifecycle guards.
+
+`FakeMapRotationsApi.SetEffectiveServerRotation` supplies explicit effective
+responses for private-server consumers. Observation calls simulate source ownership,
+refresh identity and timestamp conflicts; real catalogue/transaction behavior is
+covered by the SQL tests rather than the fake. Observed fake snapshots use
+`GameType.Unknown` because the fake has no server catalogue; their map IDs are
+simulated and scoped to the server and case-insensitive map name.
+On Windows, `PORTAL_TEST_SQL_SERVER` can select a separately created LocalDB instance
+for these SQL fixtures; the default remains `(localdb)\MSSQLLocalDB`. Tests still
+create and remove only their uniquely named databases. The caller owns starting
+and removing any alternate instance.
+
 ## Rule execution read concurrency
 
 `RuleExecutionReadConcurrencyTests` uses isolated SQL Server to verify consistent execution reads
@@ -48,6 +70,29 @@ and the SQL concurrency check includes the database tests.
 dotnet test src\XtremeIdiots.Portal.Repository.Api.IntegrationTests.V1 --filter "FullyQualifiedName~RuleOccurrenceEffectsTests"
 dotnet test src\XtremeIdiots.Portal.Repository.Api.Tests.V1 --filter "FullyQualifiedName~RuleOccurrenceConcurrencyTests"
 ```
+
+Chat evaluation attempts use an immutable producer-generated attempt ID. POST
+`v1/game-servers/{gameServerId}/chat-evaluations` returns 201 for a new attempt,
+200 for an identical retry and 409 for conflicting content. Evidence is redacted;
+only configured stable matcher entry IDs may be supplied, never observed chat or
+private input. The API cannot verify an entry ID's policy provenance. Evaluation
+rows are deleted with their player and pruned after 30 days by the existing game
+server event maintenance endpoint. Attempt-ID replay protection lasts only while
+the row is retained; producers must not retry an expired or deleted attempt.
+
+GET `v1/chat-evaluations` supports optional server, feature, occurrence, player and
+UTC time filters. Results are ordered by recorded time descending then attempt ID;
+continue using the last item's `recordedAtUtc` and `evaluation.attemptId` as
+`beforeRecordedAtUtc` and `afterAttemptId`. Responses use `items` and `hasMore`.
+GET `v1/game-servers/{gameServerId}/chat-occurrences/{occurrenceId}/effects`
+returns the authoritative claims and outcomes, independently of evaluations.
+A missing evaluation is unrecorded, not an inferred no-match or effect outcome.
+
+`RuleChatEvaluationTests` covers validation, replay, discovery, retention and
+deletion; `ChatEvaluationSqlTests` exercises conflicting concurrent attempts
+and cursor paging with SQL Server GUID ordering. On Windows the SQL test helper
+also accepts the optional `PORTAL_SQL_TEST_SERVER` alias for a dedicated LocalDB instance;
+`PORTAL_TEST_SQL_SERVER` takes precedence when both are set.
 
 The `XtremeIdiots.Portal.Repository.Api.Client.Testing` NuGet package provides in-memory fakes and factory helpers so consumer apps can test against `IRepositoryApiClient` without Moq or any mocking framework.
 

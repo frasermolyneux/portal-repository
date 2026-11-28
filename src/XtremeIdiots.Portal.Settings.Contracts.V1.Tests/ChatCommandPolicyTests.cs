@@ -134,4 +134,50 @@ public sealed class ChatCommandPolicyTests
         Assert.Equal(ChatCommandReplyChannel.Public, fu.Replies.Single(item => item.Key == "success").Channel);
         Assert.All(fu.Replies, reply => Assert.True(reply.Required));
     }
+
+    [Theory]
+    [InlineData("always", true)]
+    [InlineData("player.tags", true)]
+    [InlineData("chat.player-first-seen", true)]
+    [InlineData("vpn.intelligence", false)]
+    [InlineData("future.condition", false)]
+    public void PolicyCapabilityDiagnosticsAreSpecificWithoutBlockingDocumentPreservation(string conditionId, bool supported)
+    {
+        var parameters = conditionId switch
+        {
+            "player.tags" => new Dictionary<string, JsonElement>
+            {
+                ["operator"] = JsonSerializer.SerializeToElement("ContainsAny"),
+                ["tags"] = JsonSerializer.SerializeToElement(new[] { "6e06771f-65f7-4503-aae7-b91b33ab57dd" })
+            },
+            "chat.player-first-seen" => new Dictionary<string, JsonElement>
+            {
+                ["withinDays"] = JsonSerializer.SerializeToElement(10)
+            },
+            "vpn.intelligence" => new Dictionary<string, JsonElement>
+            {
+                ["signal"] = JsonSerializer.SerializeToElement("ProxyCheckIsProxy"),
+                ["operator"] = JsonSerializer.SerializeToElement("Equal"),
+                ["expectedValue"] = JsonSerializer.SerializeToElement("true")
+            },
+            _ => []
+        };
+        var policy = new ChatCommandPolicy
+        {
+            DefaultDecision = ChatCommandPolicyDecision.Deny,
+            Rules = [new() { Id = "rule", Decision = ChatCommandPolicyDecision.Allow,
+                Condition = new() { ConditionId = conditionId, Parameters = parameters } }]
+        };
+        var document = new ChatCommandSettingsDocument
+        {
+            Commands = { ["fu"] = new() { Policy = policy } }
+        };
+        var validator = new ChatCommandSettingsValidator();
+
+        Assert.True(validator.Validate(document).IsValid);
+        Assert.Equal(supported, validator.ValidatePolicyCapabilities(policy).IsValid);
+        var copy = JsonSerializer.Deserialize<ChatCommandSettingsDocument>(JsonSerializer.Serialize(document, Options), Options)!;
+        Assert.Equal(conditionId, Assert.Single(copy.Commands["fu"].Policy!.Rules!).Condition!.ConditionId);
+        Assert.Equal(supported, ChatCommandCatalogueV1.PolicyConditions.Any(item => item.ConditionId == conditionId));
+    }
 }

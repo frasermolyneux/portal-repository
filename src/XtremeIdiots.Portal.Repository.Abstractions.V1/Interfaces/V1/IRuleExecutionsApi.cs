@@ -1,4 +1,5 @@
 using MX.Api.Abstractions;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.AdminActions;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.RulesEngine;
 
@@ -6,6 +7,12 @@ namespace XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 
 public interface IRuleExecutionsApi
 {
+    Task<ApiResult<RuleChatEvaluationDto>> CreateChatEvaluation(Guid gameServerId, CreateRuleChatEvaluationDto request, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to record chat evaluations.");
+    Task<ApiResult<HistoryPageDto<RuleChatEvaluationDto>>> SearchChatEvaluations(RuleChatEvaluationQueryDto request, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to search chat evaluations.");
+    Task<ApiResult<HistoryPageDto<RuleOccurrenceEffectDto>>> GetOccurrenceEffects(Guid gameServerId, Guid occurrenceId, int skipEntries = 0, int takeEntries = 50, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Upgrade the Repository API client to view occurrence effects.");
     Task<ApiResult<RuleExecutionFlowDto>> GetRuleExecutionFlow(Guid executionId, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("Upgrade the Repository API client to view a rule execution flow.");
     Task<ApiResult<CollectionModel<RuleExecutionAuditDto>>> SearchRuleExecutionAudit(RuleExecutionAuditQueryDto request, CancellationToken cancellationToken = default) =>

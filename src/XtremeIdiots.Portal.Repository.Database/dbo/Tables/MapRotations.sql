@@ -14,6 +14,8 @@ CREATE TABLE [dbo].[MapRotations]
     [LastModifiedByUserId] UNIQUEIDENTIFIER NULL,
     [CreatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     [UpdatedAt] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    [Source] INT NOT NULL DEFAULT 0,
+    CONSTRAINT [CK_MapRotations_Source] CHECK ([Source] IN (0, 1)),
     CONSTRAINT [PK_dbo.MapRotations] PRIMARY KEY CLUSTERED ([MapRotationId] ASC),
     CONSTRAINT [FK_dbo.MapRotations_dbo.UserProfiles_CreatedByUserId] FOREIGN KEY ([CreatedByUserId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId]) ON DELETE SET NULL,
     CONSTRAINT [FK_dbo.MapRotations_dbo.UserProfiles_LastModifiedByUserId] FOREIGN KEY ([LastModifiedByUserId]) REFERENCES [dbo].[UserProfiles] ([UserProfileId]) ON DELETE NO ACTION

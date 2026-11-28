@@ -218,7 +218,7 @@ public sealed partial class RuleExecutionsControllerTests
 
     private static async Task<Guid> AddOccurrencePlayer(PortalDbContext context)
     {
-        var player = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4 };
+        var player = new Player { PlayerId = Guid.NewGuid(), GameType = (int)GameType.CallOfDuty4, FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow };
         context.Players.Add(player);
         await context.SaveChangesAsync();
         return player.PlayerId;
