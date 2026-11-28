@@ -32,6 +32,7 @@
       <QuotedIdentifier>On</QuotedIdentifier>
     </Build>
     <Build Include="dbo\Tables\AutomationActionStates.sql" />
+    <Build Include="dbo\Tables\RuleChatEvaluations.sql" />
     <Build Include="dbo\Tables\SiegeSessions.sql" />
     <Build Include="dbo\Tables\SiegeSessionEvents.sql" />
     <Build Include="dbo\Tables\SiegeBaselineGuids.sql" />

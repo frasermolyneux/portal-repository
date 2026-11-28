@@ -720,6 +720,7 @@ public sealed class RuleSetValidator
                 (schema.Minimum is null || number >= schema.Minimum) &&
                 (schema.Maximum is null || number <= schema.Maximum),
             "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+            "object" => value.ValueKind == JsonValueKind.Object,
             "string[]" => value.ValueKind == JsonValueKind.Array &&
                 value.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String &&
                     (schema.MaxLength is null || item.GetString()!.Length <= schema.MaxLength) &&

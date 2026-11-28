@@ -281,18 +281,7 @@ namespace XtremeIdiots.Portal.RepositoryWebApi.Controllers.V1
             {
                 context.ChangeTracker.Clear();
                 createdIds = [];
-                if (context.Database.IsSqlServer())
-                {
-                    await context.Database.ExecuteSqlRawAsync("""
-                        DECLARE @result int;
-                        EXEC @result = sys.sp_getapplock
-                            @Resource = N'Portal.MapCatalogue',
-                            @LockMode = N'Exclusive',
-                            @LockOwner = N'Transaction',
-                            @LockTimeout = 30000;
-                        IF @result < 0 THROW 51000, 'Unable to lock the map catalogue.', 1;
-                        """, token).ConfigureAwait(false);
-                }
+                await MapCatalogueWriteService.LockAsync(context, token).ConfigureAwait(false);
 
                 var namesByGame = new Dictionary<GameType, HashSet<string>>();
                 foreach (var dto in createMapDtos)

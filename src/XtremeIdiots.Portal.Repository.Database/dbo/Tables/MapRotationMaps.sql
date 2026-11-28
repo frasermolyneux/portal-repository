@@ -4,11 +4,12 @@ CREATE TABLE [dbo].[MapRotationMaps]
     [MapRotationId] UNIQUEIDENTIFIER NOT NULL,
     [MapId] UNIQUEIDENTIFIER NOT NULL,
     [SortOrder] INT NOT NULL DEFAULT 0,
+    [GameMode] NVARCHAR(50) NULL,
+    [MapName] NVARCHAR(256) NULL,
     CONSTRAINT [PK_dbo.MapRotationMaps] PRIMARY KEY CLUSTERED ([MapRotationMapId] ASC),
     CONSTRAINT [FK_dbo.MapRotationMaps_dbo.MapRotations_MapRotationId] FOREIGN KEY ([MapRotationId]) REFERENCES [dbo].[MapRotations] ([MapRotationId]),
     CONSTRAINT [FK_dbo.MapRotationMaps_dbo.Maps_MapId] FOREIGN KEY ([MapId]) REFERENCES [dbo].[Maps] ([MapId]),
-    CONSTRAINT [UQ_MapRotationMaps_Rotation_SortOrder] UNIQUE ([MapRotationId], [SortOrder]),
-    CONSTRAINT [UQ_MapRotationMaps_Rotation_Map] UNIQUE ([MapRotationId], [MapId])
+    CONSTRAINT [UQ_MapRotationMaps_Rotation_SortOrder] UNIQUE ([MapRotationId], [SortOrder])
 )
 
 GO

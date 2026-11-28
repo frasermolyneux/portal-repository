@@ -11,12 +11,42 @@ using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Constants.V1.Analytics;
 using XtremeIdiots.Portal.Repository.Abstractions.Interfaces.V1;
 using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.Analytics.Players;
+using XtremeIdiots.Portal.Repository.Abstractions.Models.V1.MapRotations;
 using XtremeIdiots.Portal.Repository.Api.Client.V1;
 
 namespace XtremeIdiots.Portal.Repository.Api.Client.Tests.V1;
 
 public class AnalyticsQuerySerializationTests
 {
+    [Fact]
+    public async Task Rotations_UseSourceScopedReadsAndExplicitObservationBody()
+    {
+        var rest = new CapturingRestClientService();
+        IMapRotationsApi api = new MapRotationsApi(NullLogger<BaseApi<RepositoryApiClientOptions>>.Instance,
+            new FakeTokenProvider(), rest, CreateOptions());
+        var serverId = Guid.NewGuid();
+        var observation = new ObserveServerRotationDto
+        {
+            ObservedAt = DateTimeOffset.UtcNow,
+            Entries = [new() { MapName = "mp_repeat" }, new() { MapName = "mp_repeat", GameMode = "custom" }]
+        };
+        await api.ReplaceObservedServerRotation(serverId, observation);
+        Assert.Equal($"v1/map-rotations/servers/{serverId}/observed", rest.LastResource);
+        Assert.Equal(Method.Put, rest.LastMethod);
+        Assert.Same(observation, rest.LastBody);
+        Assert.Equal(2, Assert.IsType<ObserveServerRotationDto>(rest.LastBody).Entries.Count);
+        await api.GetEffectiveServerRotation(serverId);
+        Assert.Equal($"v1/map-rotations/servers/{serverId}/effective", rest.LastResource);
+        Assert.Equal(Method.Get, rest.LastMethod);
+        await api.GetServerAssignments(null, serverId, null, RotationSource.ServerObserved, 0, 20);
+        Assert.Equal("ServerObserved", rest.Query["source"]);
+        await api.GetServerAssignments(null, serverId, null, 0, 20);
+        Assert.False(rest.Query.ContainsKey("source"));
+        await api.CleanupUnassignedObservedRotations();
+        Assert.Equal("v1/map-rotations/observed/unassigned", rest.LastResource);
+        Assert.Equal(Method.Delete, rest.LastMethod);
+    }
+
     [Fact]
     public async Task DashboardAnalytics_GetHome_OnlySendsCompositionOptOutWhenRequested()
     {
